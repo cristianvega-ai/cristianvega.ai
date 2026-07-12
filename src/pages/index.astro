@@ -1,0 +1,34 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import HeroMotion from "../components/HeroMotion.astro";
+---
+
+<BaseLayout active="home" bare>
+  <main>
+    <section class="hero">
+      <div class="hero__grid">
+        <HeroMotion />
+        <div class="hero__portrait-col" role="img" aria-label="Cristian Vega, drawn as a halftone portrait of dots">
+        </div>
+        <div class="hero__main">
+          <p class="eyebrow hero__eyebrow" data-motion-target="eyebrow">Head of AI R&amp;D · Patra Corporation</p>
+          <h1 class="hero__name">
+            <span data-motion-target="name">Cristian </span><span class="hl" data-motion-target="highlight">Vega</span>
+          </h1>
+          <p class="hero__sub" data-motion-target="subhead">I build the AI that reads the documents nobody wants to.</p>
+          <div class="hero__actions">
+            <a class="btn btn--signal" data-motion-target="primary-action" href="/projects/">See what I've built</a>
+            <a class="btn btn--ghost" data-motion-target="secondary-action" href="/writing/">Read the writing</a>
+          </div>
+        </div>
+      </div>
+      <div class="hero__ticker">
+        <div class="wrap">
+          <span><b>400K+</b> documents in production</span>
+          <span><b>10 yrs</b> shipping · 6 leading AI/ML</span>
+          <span><b>multi-model</b> pipelines · now agentic</span>
+        </div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>

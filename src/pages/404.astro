@@ -1,0 +1,26 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Page not found"
+  description="The page you requested does not exist on cristianvega.ai."
+  active="home"
+>
+  <main>
+    <section class="section section--tight page-head dotgrid">
+      <div class="wrap wrap--narrow">
+        <p class="marker"><span class="marker__sig">§</span> 404</p>
+        <h1 class="page-title">This page doesn't exist.</h1>
+        <p class="page-lede">
+          The link may be outdated, or the URL might be mistyped. Try one of these instead.
+        </p>
+        <div class="hero__actions page-head__actions">
+          <a class="btn btn--signal" href="/">Home</a>
+          <a class="btn btn--ghost" href="/writing/">Writing</a>
+          <a class="btn btn--ghost" href="/projects/">Projects</a>
+        </div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>

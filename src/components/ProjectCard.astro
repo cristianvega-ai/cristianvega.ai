@@ -1,0 +1,62 @@
+---
+import type { Project } from "../lib/projects";
+
+interface Props {
+  project: Project;
+}
+
+const { project } = Astro.props;
+const primaryHref = project.links[0]?.href;
+const primaryExternal = project.links[0]?.external;
+const hasFooter = project.links.length > 0 || Boolean(project.availability);
+---
+
+<article class="project">
+  {
+    primaryHref ? (
+      <a
+        class="project__preview"
+        href={primaryHref}
+        aria-label={`${project.name} — open project`}
+        {...(primaryExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      >
+        <span class="project__mark">{project.initials}</span>
+        <span class:list={["project__status", project.status === "wip" && "project__status--wip"]}>
+          {project.status.toUpperCase()}
+        </span>
+      </a>
+    ) : (
+      <div class="project__preview">
+        <span class="project__mark">{project.initials}</span>
+        <span class:list={["project__status", project.status === "wip" && "project__status--wip"]}>
+          {project.status.toUpperCase()}
+        </span>
+      </div>
+    )
+  }
+  <div class="project__body">
+    <h3 class="project__name">{project.name}</h3>
+    <p class="project__desc">{project.blurb}</p>
+    <div class="project__tags">
+      {project.tags.map((tag) => <span class="tag tag--slate">{tag}</span>)}
+    </div>
+  </div>
+  {
+    hasFooter && (
+      <div class="project__links">
+        {project.links.map((link) => (
+          <a
+            class:list={["project__link", link.kind === "read" && "project__link--read"]}
+            href={link.href}
+            {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+          >
+            {link.label}
+          </a>
+        ))}
+        {project.availability && (
+          <span class="project__availability">{project.availability}</span>
+        )}
+      </div>
+    )
+  }
+</article>

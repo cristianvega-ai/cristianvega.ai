@@ -1,0 +1,46 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { formatMachineDate, formatPostDate, getPostHref, getPublishedPosts } from "../lib/posts";
+
+const posts = getPublishedPosts(await getCollection("posts"));
+---
+
+<BaseLayout
+  title="Writing"
+  description="Cristian Vega's notes on production AI, document systems, engineering leadership, and agentic workflows."
+  active="writing"
+>
+  <main>
+    <section class="section section--tight page-head dotgrid">
+      <div class="wrap">
+        <p class="marker"><span class="marker__sig">§</span> Writing archive</p>
+        <h1 class="page-title">Production notes for AI systems that have to <span class="hl">survive contact</span> with operations.</h1>
+        <p class="page-lede">
+          Essays on document AI, platform architecture, model selection, agents, and the engineering organizations that have to ship them.
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <div class="posts posts--archive">
+          {
+            posts.map((post) => (
+              <a class="post" href={getPostHref(post)}>
+                <time class="post__date" datetime={formatMachineDate(post.data.date)}>{formatPostDate(post.data.date)}</time>
+                <span>
+                  <span class="post__title">{post.data.title}</span>
+                  <span class="post__desc">{post.data.description}</span>
+                </span>
+                <span class="post__tag">
+                  <span class:list={["tag", post.data.category === "leadership" ? "tag--muted" : "tag--slate"]}>{post.data.category}</span>
+                </span>
+              </a>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>

@@ -1,0 +1,1143 @@
+---
+// Canvas is decorative; the real hero copy and anchors remain in index.astro.
+---
+
+<div class="hero-motion" data-hero-motion aria-hidden="true">
+  <canvas class="hero__portrait-canvas"></canvas>
+  <canvas class="hero__copy-canvas"></canvas>
+</div>
+
+<script>
+  import data from "../halftone-dots.json";
+
+  const FULL_DURATION = 2450;
+  const QUICK_DURATION = 250;
+  const FAILSAFE_DURATION = 3000;
+  const FONT_DEADLINE_MS = 1200;
+  const SESSION_KEY = "cristianvega:hero-motion:v1";
+  const DPR_CAP = 2;
+  const TAU = Math.PI * 2;
+  const INK = "#171A17";
+  const SIGNAL = "#C8331F";
+
+  // Overlapping target windows (ms). Full choreography ends at 2450.
+  const WINDOWS = {
+    portrait: [0, 750],
+    transfer: [450, 1450],
+    eyebrow: [720, 1320],
+    name: [850, 1550],
+    highlight: [1000, 1650],
+    subhead: [1100, 1950],
+    primaryAction: [1250, 2250],
+    secondaryAction: [1380, 2450],
+  } as const;
+
+  const PORTRAIT_PHASE_END = WINDOWS.portrait[1];
+  const PORTRAIT_DOT_DUR = 520;
+  const TRANSFER_TRAVEL_DUR = 620;
+  const TRANSFER_EDGE_FRAC = 0.14;
+  const MAX_TRANSFER_SOURCES = 96;
+  const MAX_COPY_PARTICLES = 2800;
+  const MAX_BUTTON_PERIMETER = 48;
+  const MAX_HIGHLIGHT_PARTICLES = 80;
+
+  type Point = { x: number; y: number };
+  type Rect = { left: number; top: number; width: number; height: number };
+  type CanvasLayer = {
+    canvas: HTMLCanvasElement;
+    ctx: CanvasRenderingContext2D;
+    rect: Rect;
+    dpr: number;
+  };
+
+  type Layout = {
+    portrait: CanvasLayer;
+    copy: CanvasLayer;
+  };
+
+  type TargetKind =
+    | "eyebrow"
+    | "name"
+    | "highlight"
+    | "subhead"
+    | "primary-action"
+    | "secondary-action";
+
+  type TargetBinding = {
+    el: HTMLElement;
+    kind: TargetKind;
+    window: readonly [number, number];
+  };
+
+  type CopyParticle = {
+    x: number;
+    y: number;
+    r: number;
+    color: string;
+    kind: "text" | "highlight" | "button-label" | "button-perimeter";
+    target: TargetKind;
+  };
+
+  type TransferParticle = {
+    start: Point;
+    control1: Point;
+    control2: Point;
+    end: Point;
+    r: number;
+    color: string;
+    delay: number;
+    sourceIndex: number;
+  };
+
+  type PortraitPrep = {
+    n: number;
+    sx: Float32Array;
+    sy: Float32Array;
+    del: Float32Array;
+    fx: Float32Array;
+    fy: Float32Array;
+    fr: Float32Array;
+    isSource: Uint8Array;
+    sourceIndices: number[];
+    scale: number;
+  };
+
+  type MotionPrep = {
+    portrait: PortraitPrep;
+    copy: CopyParticle[];
+    transfers: TransferParticle[];
+  };
+
+  const TARGET_WINDOWS: Record<TargetKind, readonly [number, number]> = {
+    eyebrow: WINDOWS.eyebrow,
+    name: WINDOWS.name,
+    highlight: WINDOWS.highlight,
+    subhead: WINDOWS.subhead,
+    "primary-action": WINDOWS.primaryAction,
+    "secondary-action": WINDOWS.secondaryAction,
+  };
+
+  // Reused per frame — never allocate points inside the RAF loop
+  const _cubicOut: Point = { x: 0, y: 0 };
+
+  let dispose: (() => void) | null = null;
+  /** Bumped on every setup() entry so stale async runs abort after await. */
+  let setupGen = 0;
+
+  function hasPlayedThisSession(): boolean {
+    try {
+      return sessionStorage.getItem(SESSION_KEY) === "1";
+    } catch {
+      return false;
+    }
+  }
+
+  function markPlayedThisSession(): void {
+    try {
+      sessionStorage.setItem(SESSION_KEY, "1");
+    } catch {
+      // sessionStorage is optional; never required for rendering
+    }
+  }
+
+  /** Planned entrance duration (full vs quick settle). Used by later motion tasks. */
+  function plannedDuration(): number {
+    return hasPlayedThisSession() ? QUICK_DURATION : FULL_DURATION;
+  }
+
+  function clamp(value: number, min = 0, max = 1): number {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function smoothstep(edge0: number, edge1: number, value: number): number {
+    const t = clamp((value - edge0) / (edge1 - edge0));
+    return t * t * (3 - 2 * t);
+  }
+
+  function progress(elapsed: number, [start, end]: readonly [number, number]): number {
+    return clamp((elapsed - start) / (end - start));
+  }
+
+  function easeOutCubic(t: number): number {
+    return 1 - (1 - t) ** 3;
+  }
+
+  /** Evaluate cubic Bezier into `out` (no allocation). */
+  function cubicPoint(
+    out: Point,
+    t: number,
+    start: Point,
+    control1: Point,
+    control2: Point,
+    end: Point,
+  ): Point {
+    const u = 1 - t;
+    const tt = t * t;
+    const uu = u * u;
+    const uuu = uu * u;
+    const ttt = tt * t;
+    out.x = uuu * start.x + 3 * uu * t * control1.x + 3 * u * tt * control2.x + ttt * end.x;
+    out.y = uuu * start.y + 3 * uu * t * control1.y + 3 * u * tt * control2.y + ttt * end.y;
+    return out;
+  }
+
+  function clearTargetStyles(root: HTMLElement) {
+    root.querySelectorAll<HTMLElement>("[data-motion-target]").forEach((element) => {
+      element.style.removeProperty("opacity");
+      element.style.removeProperty("--motion-reveal");
+      element.removeAttribute("data-motion-active");
+    });
+  }
+
+  function hideCopyCanvas(root: HTMLElement) {
+    root.querySelectorAll<HTMLCanvasElement>(".hero__copy-canvas").forEach((canvas) => {
+      canvas.style.display = "none";
+    });
+  }
+
+  /** Shared visual teardown: targets restored, copy canvas hidden, state complete. */
+  function revealStaticHero(root: HTMLElement) {
+    clearTargetStyles(root);
+    hideCopyCanvas(root);
+    root.dataset.motionState = "complete";
+  }
+
+  /**
+   * End of successful motion: static portrait, clear copy layer, reveal DOM, optional session key.
+   */
+  function settleToStatic(
+    root: HTMLElement,
+    layout: Layout | null,
+    options: { markSession?: boolean } = {},
+  ) {
+    if (layout) {
+      drawStaticPortrait(layout.portrait);
+      const { ctx, rect, dpr, canvas } = layout.copy;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      canvas.style.display = "none";
+    } else {
+      hideCopyCanvas(root);
+    }
+    clearTargetStyles(root);
+    root.dataset.motionState = "complete";
+    if (options.markSession) markPlayedThisSession();
+  }
+
+  function sizeLayer(
+    canvas: HTMLCanvasElement,
+    hostRect: DOMRect,
+    gridRect: DOMRect,
+  ): CanvasLayer | null {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    if (!hostRect.width || !hostRect.height) return null;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+    const rect: Rect = {
+      left: hostRect.left - gridRect.left,
+      top: hostRect.top - gridRect.top,
+      width: hostRect.width,
+      height: hostRect.height,
+    };
+
+    canvas.style.left = `${rect.left}px`;
+    canvas.style.top = `${rect.top}px`;
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
+    // Portrait stays visible; copy canvas display is managed by reveal/animation paths
+    if (canvas.classList.contains("hero__portrait-canvas")) {
+      canvas.style.display = "block";
+    }
+
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+
+    return { canvas, ctx, rect, dpr };
+  }
+
+  function measureLayout(root: HTMLElement): Layout | null {
+    const grid = root.querySelector<HTMLElement>(".hero__grid");
+    const portraitCol = root.querySelector<HTMLElement>(".hero__portrait-col");
+    const main = root.querySelector<HTMLElement>(".hero__main");
+    const portraitCanvas = root.querySelector<HTMLCanvasElement>(".hero__portrait-canvas");
+    const copyCanvas = root.querySelector<HTMLCanvasElement>(".hero__copy-canvas");
+
+    if (!grid || !portraitCol || !main || !portraitCanvas || !copyCanvas) return null;
+
+    const gridRect = grid.getBoundingClientRect();
+    const portraitHost = portraitCol.getBoundingClientRect();
+    const mainHost = main.getBoundingClientRect();
+
+    if (!gridRect.width || !gridRect.height) return null;
+    if (!portraitHost.width || !portraitHost.height) return null;
+    if (!mainHost.width || !mainHost.height) return null;
+
+    const portrait = sizeLayer(portraitCanvas, portraitHost, gridRect);
+    // Full-grid copy canvas so transfer particles are visible from portrait sources
+    // across the seam (not clipped to the right column alone).
+    const copy = sizeLayer(copyCanvas, gridRect, gridRect);
+    if (!portrait || !copy) return null;
+
+    return { portrait, copy };
+  }
+
+  function drawStaticPortrait(layer: CanvasLayer) {
+    const VW = data.w as number;
+    const VH = data.h as number;
+    const dots = data.dots as [number, number, number][];
+    const { ctx, rect, dpr } = layer;
+    const cw = rect.width;
+    const cht = rect.height;
+
+    // Preserve HeroPortrait bottom-anchoring and max-width behavior
+    const scale = Math.min(Math.min(600, cw * 0.94) / VW, cht / VH);
+    const offX = (cw - VW * scale) / 2;
+    const offY = cht - VH * scale;
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cw, cht);
+    ctx.fillStyle = INK;
+    ctx.globalAlpha = 1;
+
+    for (let i = 0; i < dots.length; i++) {
+      const d = dots[i];
+      ctx.beginPath();
+      ctx.arc(offX + d[0] * scale, offY + d[1] * scale, d[2] * scale, 0, TAU);
+      ctx.fill();
+    }
+  }
+
+  /**
+   * Portrait fly-in offsets/delays (once). Radial scatter; phase ends at 750ms.
+   * Marks a bounded right-edge subset as transfer sources.
+   */
+  function preparePortraitParticles(layer: CanvasLayer): PortraitPrep {
+    const VW = data.w as number;
+    const VH = data.h as number;
+    const dots = data.dots as [number, number, number][];
+    const n = dots.length;
+    const cw = layer.rect.width;
+    const cht = layer.rect.height;
+
+    const scale = Math.min(Math.min(600, cw * 0.94) / VW, cht / VH);
+    const offX = (cw - VW * scale) / 2;
+    const offY = cht - VH * scale;
+
+    const sx = new Float32Array(n);
+    const sy = new Float32Array(n);
+    const del = new Float32Array(n);
+    const fx = new Float32Array(n);
+    const fy = new Float32Array(n);
+    const fr = new Float32Array(n);
+    const isSource = new Uint8Array(n);
+
+    const cx = VW / 2;
+    const cy = VH * 0.44;
+    const maxd = Math.hypot(VW / 2, VH / 2);
+    const delaySpan = Math.max(0, PORTRAIT_PHASE_END - PORTRAIT_DOT_DUR);
+
+    // Candidates in the rightmost ~14% of the drawn portrait bounds
+    const edgeStartX = offX + VW * scale * (1 - TRANSFER_EDGE_FRAC);
+    const edgeCandidates: number[] = [];
+
+    for (let i = 0; i < n; i++) {
+      const d = dots[i];
+      const ddx = d[0] - cx;
+      const ddy = d[1] - cy;
+      const dist = Math.hypot(ddx, ddy) || 1;
+      const scatter = 30 + Math.random() * 120;
+      sx[i] = (ddx / dist) * scatter + (Math.random() - 0.5) * 46;
+      sy[i] = (ddy / dist) * scatter + (Math.random() - 0.5) * 46;
+      del[i] = (dist / maxd) * delaySpan * 0.9 + Math.random() * 40;
+      fx[i] = offX + d[0] * scale;
+      fy[i] = offY + d[1] * scale;
+      fr[i] = d[2] * scale;
+      if (fx[i] >= edgeStartX) edgeCandidates.push(i);
+    }
+
+    // Bounded subset of edge dots become transfer sources (prefer vertical spread)
+    edgeCandidates.sort((a, b) => fy[a] - fy[b]);
+    const sourceIndices: number[] = [];
+    const stride = Math.max(1, Math.ceil(edgeCandidates.length / MAX_TRANSFER_SOURCES));
+    for (let i = 0; i < edgeCandidates.length && sourceIndices.length < MAX_TRANSFER_SOURCES; i += stride) {
+      const idx = edgeCandidates[i];
+      isSource[idx] = 1;
+      sourceIndices.push(idx);
+    }
+
+    return { n, sx, sy, del, fx, fy, fr, isSource, sourceIndices, scale };
+  }
+
+  function transformGlyph(ch: string, tt: string): string {
+    if (tt === "uppercase") return ch.toUpperCase();
+    if (tt === "lowercase") return ch.toLowerCase();
+    return ch;
+  }
+
+  /**
+   * Sample glyph ink from real DOM text into host-local particles (once).
+   * Skips nested motion targets so parent/child targets do not double-sample.
+   * Optional colorOverride paints highlight glyphs in signal red.
+   */
+  function sampleTextElement(
+    el: Element,
+    hostRect: DOMRect,
+    target: TargetKind,
+    out: CopyParticle[],
+    budget: { remaining: number },
+    colorOverride?: string,
+  ): void {
+    if (budget.remaining <= 0) return;
+
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    let node: Node | null;
+    const kind: CopyParticle["kind"] = target === "highlight" ? "highlight" : "text";
+
+    while ((node = walker.nextNode()) && budget.remaining > 0) {
+      const raw = node.nodeValue;
+      if (!raw || !raw.trim()) continue;
+      const parent = (node as Text).parentElement;
+      if (!parent) continue;
+      // Nested targets (e.g. highlight under a name host) are prepared separately
+      const nested = parent.closest("[data-motion-target]");
+      if (nested && nested !== el) continue;
+
+      const cs = getComputedStyle(parent);
+      const font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      const color = colorOverride || cs.color;
+      const tt = cs.textTransform;
+      const fs = parseFloat(cs.fontSize);
+      const STEP = Math.round(clamp(fs * 0.09, 2, 6));
+      const R = STEP * 0.46;
+
+      for (let i = 0; i < raw.length && budget.remaining > 0; i++) {
+        if (raw[i] === " ") continue;
+        range.setStart(node, i);
+        range.setEnd(node, i + 1);
+        const rects = range.getClientRects();
+        if (!rects.length) continue;
+        const r = rects[0];
+        if (!r.width || !r.height) continue;
+
+        const W = Math.ceil(r.width);
+        const H = Math.ceil(r.height);
+        const off = document.createElement("canvas");
+        off.width = W;
+        off.height = H;
+        const octx = off.getContext("2d");
+        if (!octx) continue;
+
+        octx.font = font;
+        octx.textBaseline = "alphabetic";
+        octx.fillStyle = "#000";
+        const glyph = transformGlyph(raw[i], tt);
+        const m = octx.measureText(glyph);
+        const asc = m.actualBoundingBoxAscent || fs * 0.72;
+        const desc = m.actualBoundingBoxDescent || fs * 0.2;
+        const gy = (H - (asc + desc)) / 2 + asc;
+        octx.fillText(glyph, 0, gy);
+        const pixels = octx.getImageData(0, 0, W, H).data;
+        const bx = r.left - hostRect.left;
+        const by = r.top - hostRect.top;
+
+        for (let y = 0; y < H && budget.remaining > 0; y += STEP) {
+          for (let x = 0; x < W && budget.remaining > 0; x += STEP) {
+            if (pixels[(y * W + x) * 4 + 3] > 110) {
+              out.push({
+                x: bx + x,
+                y: by + y,
+                color,
+                r: R,
+                kind,
+                target,
+              });
+              budget.remaining -= 1;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /** Shallow red band at the existing .hl underline position (in addition to glyph samples). */
+  function collectHighlightParticles(
+    el: HTMLElement,
+    hostRect: DOMRect,
+    out: CopyParticle[],
+    budget: { remaining: number },
+  ): void {
+    if (budget.remaining <= 0) return;
+
+    const rect = el.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    // Share the global copy budget; also cap highlights honestly
+    const maxHighlight = Math.min(MAX_HIGHLIGHT_PARTICLES, budget.remaining);
+    if (maxHighlight <= 0) return;
+
+    // CSS: linear-gradient(transparent 58%, var(--signal) 58%)
+    const bandTop = rect.top - hostRect.top + rect.height * 0.58;
+    const bandH = Math.max(3, rect.height * 0.42);
+    const left = rect.left - hostRect.left;
+    const rows = 3;
+    const perRow = Math.max(1, Math.floor(maxHighlight / rows));
+    const stepX = Math.max(3, rect.width / perRow);
+    const stepY = bandH / (rows + 1);
+    const r = Math.min(2.2, stepX * 0.42);
+    let placed = 0;
+
+    for (let row = 1; row <= rows && placed < maxHighlight && budget.remaining > 0; row++) {
+      const y = bandTop + stepY * row;
+      for (
+        let x = left;
+        x < left + rect.width && placed < maxHighlight && budget.remaining > 0;
+        x += stepX
+      ) {
+        out.push({
+          x: x + stepX * 0.5 * Math.random(),
+          y: y + (Math.random() - 0.5) * 1.2,
+          r,
+          color: SIGNAL,
+          kind: "highlight",
+          target: "highlight",
+        });
+        budget.remaining -= 1;
+        placed += 1;
+      }
+    }
+  }
+
+  function perimeterPoints(box: DOMRect, hostRect: DOMRect, spacing: number): Point[] {
+    const left = box.left - hostRect.left;
+    const top = box.top - hostRect.top;
+    const w = box.width;
+    const h = box.height;
+    const points: Point[] = [];
+    if (w <= 0 || h <= 0) return points;
+
+    const push = (x: number, y: number) => {
+      points.push({ x, y });
+    };
+
+    // Top edge L→R
+    for (let x = 0; x <= w; x += spacing) push(left + x, top);
+    // Right edge T→B (skip corners already covered)
+    for (let y = spacing; y < h; y += spacing) push(left + w, top + y);
+    // Bottom edge R→L
+    for (let x = w; x >= 0; x -= spacing) push(left + x, top + h);
+    // Left edge B→T
+    for (let y = h - spacing; y > 0; y -= spacing) push(left, top + y);
+
+    // Cap total perimeter samples
+    if (points.length > MAX_BUTTON_PERIMETER) {
+      const stride = Math.ceil(points.length / MAX_BUTTON_PERIMETER);
+      const capped: Point[] = [];
+      for (let i = 0; i < points.length && capped.length < MAX_BUTTON_PERIMETER; i += stride) {
+        capped.push(points[i]);
+      }
+      return capped;
+    }
+    return points;
+  }
+
+  function collectButtonParticles(
+    el: HTMLElement,
+    hostRect: DOMRect,
+    target: "primary-action" | "secondary-action",
+    out: CopyParticle[],
+    budget: { remaining: number },
+  ): void {
+    const cs = getComputedStyle(el);
+    const labelColor = cs.color || INK;
+    const borderColor = cs.borderColor || INK;
+
+    // Label glyphs only — not a solid rectangle fill
+    const before = out.length;
+    sampleTextElement(el, hostRect, target, out, budget);
+    for (let i = before; i < out.length; i++) {
+      out[i].kind = "button-label";
+      out[i].color = labelColor;
+    }
+
+    const box = el.getBoundingClientRect();
+    const spacing = Math.max(6, Math.min(box.width, box.height) / 12);
+    const ring = perimeterPoints(box, hostRect, spacing);
+    const pr = Math.min(2.4, spacing * 0.35);
+    const ringColor = target === "primary-action" ? SIGNAL : borderColor;
+
+    for (let i = 0; i < ring.length && budget.remaining > 0; i++) {
+      out.push({
+        x: ring[i].x,
+        y: ring[i].y,
+        r: pr,
+        color: ringColor,
+        kind: "button-perimeter",
+        target,
+      });
+      budget.remaining -= 1;
+    }
+  }
+
+  function collectTextParticles(root: HTMLElement, layout: Layout): CopyParticle[] {
+    const main = root.querySelector<HTMLElement>(".hero__main");
+    const grid = root.querySelector<HTMLElement>(".hero__grid");
+    if (!main || !grid) return [];
+
+    // Sample in main page space relative to main, then lift into grid-local space
+    // so particles align with the full-grid copy canvas (unclipped transfers).
+    const hostRect = main.getBoundingClientRect();
+    const gridPage = grid.getBoundingClientRect();
+    const offsetX = hostRect.left - gridPage.left - layout.copy.rect.left;
+    const offsetY = hostRect.top - gridPage.top - layout.copy.rect.top;
+
+    const copy: CopyParticle[] = [];
+    const budget = { remaining: MAX_COPY_PARTICLES };
+
+    const eyebrow = root.querySelector<HTMLElement>('[data-motion-target="eyebrow"]');
+    const name = root.querySelector<HTMLElement>('[data-motion-target="name"]');
+    const highlight = root.querySelector<HTMLElement>('[data-motion-target="highlight"]');
+    const subhead = root.querySelector<HTMLElement>('[data-motion-target="subhead"]');
+    const primary = root.querySelector<HTMLElement>('[data-motion-target="primary-action"]');
+    const secondary = root.querySelector<HTMLElement>('[data-motion-target="secondary-action"]');
+
+    if (eyebrow) sampleTextElement(eyebrow, hostRect, "eyebrow", copy, budget);
+    if (name) sampleTextElement(name, hostRect, "name", copy, budget);
+    // Vega forms from red glyph dots (same sampling as other text) plus underline band
+    if (highlight) {
+      sampleTextElement(highlight, hostRect, "highlight", copy, budget, SIGNAL);
+      collectHighlightParticles(highlight, hostRect, copy, budget);
+    }
+    if (subhead) sampleTextElement(subhead, hostRect, "subhead", copy, budget);
+
+    if (primary) collectButtonParticles(primary, hostRect, "primary-action", copy, budget);
+    if (secondary) collectButtonParticles(secondary, hostRect, "secondary-action", copy, budget);
+
+    if (offsetX !== 0 || offsetY !== 0) {
+      for (let i = 0; i < copy.length; i++) {
+        copy[i].x += offsetX;
+        copy[i].y += offsetY;
+      }
+    }
+
+    return copy;
+  }
+
+  /**
+   * Pair portrait edge sources with copy destinations; build cubic paths once.
+   * Coordinates are grid-local (full-grid copy canvas) so travel is visible from
+   * portrait sources across the seam into the copy region.
+   */
+  function prepareTransferParticles(
+    portrait: PortraitPrep,
+    copy: CopyParticle[],
+    layout: Layout,
+  ): TransferParticle[] {
+    if (!portrait.sourceIndices.length || !copy.length) return [];
+
+    // Portrait layer origin within the shared grid-sized copy canvas
+    const originX = layout.portrait.rect.left - layout.copy.rect.left;
+    const originY = layout.portrait.rect.top - layout.copy.rect.top;
+
+    // Destinations ordered for stable pairing (top-to-bottom, then left-to-right)
+    const destOrder = copy
+      .map((_, i) => i)
+      .sort((a, b) => copy[a].y - copy[b].y || copy[a].x - copy[b].x);
+
+    const sources = portrait.sourceIndices.slice().sort((a, b) => portrait.fy[a] - portrait.fy[b]);
+    const transfers: TransferParticle[] = [];
+    const n = Math.min(sources.length, destOrder.length, MAX_TRANSFER_SOURCES);
+
+    for (let i = 0; i < n; i++) {
+      const si = sources[i];
+      const di = destOrder[Math.floor((i / n) * destOrder.length)];
+      const dest = copy[di];
+
+      const start: Point = {
+        x: originX + portrait.fx[si],
+        y: originY + portrait.fy[si],
+      };
+      const end: Point = { x: dest.x, y: dest.y };
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      // Mild arc perpendicular to travel — L→R desktop, T→B stacked both work
+      const len = Math.hypot(dx, dy) || 1;
+      const arc = (0.08 + (i % 5) * 0.02) * len * (i % 2 === 0 ? 1 : -1);
+      const nx = -dy / len;
+      const ny = dx / len;
+
+      const control1: Point = {
+        x: start.x + dx * 0.32 + nx * arc,
+        y: start.y + dy * 0.32 + ny * arc,
+      };
+      const control2: Point = {
+        x: start.x + dx * 0.68 + nx * arc * 0.55,
+        y: start.y + dy * 0.68 + ny * arc * 0.55,
+      };
+
+      // Stagger within transfer window 450–1450ms
+      transfers.push({
+        start,
+        control1,
+        control2,
+        end,
+        r: Math.max(0.8, Math.min(portrait.fr[si], dest.r)),
+        color: dest.color,
+        delay: WINDOWS.transfer[0] + (i / Math.max(1, n - 1)) * 400 + Math.random() * 120,
+        sourceIndex: si,
+      });
+    }
+
+    return transfers;
+  }
+
+  /**
+   * Full particle preparation after fonts/layout are ready.
+   * Returns null if required targets produced no usable masks.
+   */
+  function prepareMotion(root: HTMLElement, layout: Layout): MotionPrep | null {
+    const portrait = preparePortraitParticles(layout.portrait);
+    const copy = collectTextParticles(root, layout);
+
+    // Require core copy masks; name/eyebrow text and Vega highlight glyphs both count
+    const hasText = copy.some((p) => p.kind === "text" || p.kind === "highlight");
+    if (!hasText || portrait.n === 0) return null;
+
+    const transfers = prepareTransferParticles(portrait, copy, layout);
+
+    return { portrait, copy, transfers };
+  }
+
+  /**
+   * Portrait fly-in + controlled edge attenuation/reseal.
+   * Uses only prepared typed arrays — no DOM or allocation.
+   */
+  function drawPortraitFrame(
+    elapsed: number,
+    layer: CanvasLayer,
+    portrait: PortraitPrep,
+    transfers: TransferParticle[],
+  ): void {
+    const { ctx, rect, dpr } = layer;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    ctx.fillStyle = INK;
+
+    const { n, sx, sy, del, fx, fy, fr, isSource, scale } = portrait;
+
+    for (let i = 0; i < n; i++) {
+      let p = (elapsed - del[i]) / PORTRAIT_DOT_DUR;
+      if (p <= 0) continue;
+      if (p > 1) p = 1;
+      const e = easeOutCubic(p);
+      const x = fx[i] + sx[i] * scale * (1 - e);
+      const y = fy[i] + sy[i] * scale * (1 - e);
+      const r = fr[i] * (0.18 + 0.82 * e);
+      let alpha = e < 0.85 ? e / 0.85 : 1;
+
+      // Edge sources: dip as transfer particles leave, reseal as the wave moves on
+      if (isSource[i]) {
+        let shed = 0;
+        let found = false;
+        for (let t = 0; t < transfers.length; t++) {
+          if (transfers[t].sourceIndex !== i) continue;
+          found = true;
+          const local = (elapsed - transfers[t].delay) / TRANSFER_TRAVEL_DUR;
+          // Peak attenuation just as the particle departs, reseal by mid-travel
+          const leave = smoothstep(0, 0.18, local) * (1 - smoothstep(0.35, 0.75, local));
+          if (leave > shed) shed = leave;
+        }
+        if (!found) {
+          const tp = progress(elapsed, WINDOWS.transfer);
+          shed = smoothstep(0, 0.2, tp) * (1 - smoothstep(0.45, 0.85, tp)) * 0.55;
+        }
+        alpha *= 1 - shed * 0.82;
+      }
+
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(x, y, r > 0.1 ? r : 0.1, 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /**
+   * Traveling transfer particles + landed target particles with coverage-driven fade.
+   */
+  function drawCopyFrame(
+    elapsed: number,
+    layer: CanvasLayer,
+    prep: MotionPrep,
+  ): void {
+    const { ctx, rect, dpr } = layer;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, rect.width, rect.height);
+
+    let lastColor = "";
+
+    // 1) Traveling particles on cubic paths
+    const transfers = prep.transfers;
+    for (let i = 0; i < transfers.length; i++) {
+      const tr = transfers[i];
+      let t = (elapsed - tr.delay) / TRANSFER_TRAVEL_DUR;
+      if (t <= 0 || t >= 1) continue;
+      const te = smoothstep(0, 1, t);
+      cubicPoint(_cubicOut, te, tr.start, tr.control1, tr.control2, tr.end);
+      // Soft in at start; soft out near landing so landed particles take over
+      const travelAlpha =
+        t < 0.12 ? t / 0.12 : t > 0.78 ? (1 - t) / 0.22 : 1;
+      if (travelAlpha < 0.02) continue;
+      if (tr.color !== lastColor) {
+        ctx.fillStyle = tr.color;
+        lastColor = tr.color;
+      }
+      ctx.globalAlpha = travelAlpha;
+      const rr = tr.r * (0.7 + 0.3 * (1 - te));
+      ctx.beginPath();
+      ctx.arc(_cubicOut.x, _cubicOut.y, rr > 0.15 ? rr : 0.15, 0, TAU);
+      ctx.fill();
+    }
+
+    // 2) Landed target particles — form then shrink/fade as DOM takes over
+    const copy = prep.copy;
+    lastColor = "";
+    for (let i = 0; i < copy.length; i++) {
+      const p = copy[i];
+      const coverage = progress(elapsed, TARGET_WINDOWS[p.target]);
+      if (coverage <= 0) continue;
+      const appear = smoothstep(0, 0.38, coverage);
+      const particleOpacity = 1 - smoothstep(0.5, 1, coverage);
+      const alpha = appear * particleOpacity;
+      if (alpha < 0.02) continue;
+      if (p.color !== lastColor) {
+        ctx.fillStyle = p.color;
+        lastColor = p.color;
+      }
+      ctx.globalAlpha = alpha;
+      const radius = p.r * (1 - 0.62 * smoothstep(0.45, 1, coverage));
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius > 0.12 ? radius : 0.12, 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function isActionTarget(kind: TargetKind): boolean {
+    return kind === "primary-action" || kind === "secondary-action";
+  }
+
+  /** Progressive per-target DOM handoff — no global finish() cross-fade. */
+  function updateDomReveal(elapsed: number, targets: TargetBinding[]): void {
+    for (let i = 0; i < targets.length; i++) {
+      const target = targets[i];
+      const coverage = progress(elapsed, target.window);
+      const domOpacity = smoothstep(0.28, 0.92, coverage);
+      // Buttons: form fill/border/label via --motion-reveal (not element opacity)
+      // so they are not translucent solid slabs over particles.
+      if (isActionTarget(target.kind)) {
+        target.el.style.setProperty("--motion-reveal", String(domOpacity));
+        target.el.style.opacity = "1";
+      } else {
+        target.el.style.opacity = String(domOpacity);
+      }
+    }
+  }
+
+  /**
+   * Single RAF frame: clear both canvases, draw portrait + copy, update DOM.
+   * No DOM measurement, no createElement, no array allocation.
+   */
+  function drawFrame(
+    elapsed: number,
+    layout: Layout,
+    prep: MotionPrep,
+    targets: TargetBinding[],
+  ): void {
+    drawPortraitFrame(elapsed, layout.portrait, prep.portrait, prep.transfers);
+    drawCopyFrame(elapsed, layout.copy, prep);
+    updateDomReveal(elapsed, targets);
+  }
+
+  function collectTargetBindings(root: HTMLElement): TargetBinding[] {
+    const kinds: TargetKind[] = [
+      "eyebrow",
+      "name",
+      "highlight",
+      "subhead",
+      "primary-action",
+      "secondary-action",
+    ];
+    const bindings: TargetBinding[] = [];
+    for (let i = 0; i < kinds.length; i++) {
+      const kind = kinds[i];
+      const el = root.querySelector<HTMLElement>(`[data-motion-target="${kind}"]`);
+      if (el) bindings.push({ el, kind, window: TARGET_WINDOWS[kind] });
+    }
+    return bindings;
+  }
+
+  function hideMotionTargets(targets: TargetBinding[]): void {
+    for (let i = 0; i < targets.length; i++) {
+      const t = targets[i];
+      t.el.setAttribute("data-motion-active", "");
+      if (isActionTarget(t.kind)) {
+        // Visible box; fill/border/label gated by --motion-reveal + playing CSS
+        t.el.style.opacity = "1";
+        t.el.style.setProperty("--motion-reveal", "0");
+      } else {
+        t.el.style.opacity = "0";
+      }
+    }
+  }
+
+  async function fontsReadyWithin(ms: number): Promise<boolean> {
+    if (!document.fonts?.ready) return true;
+    let timeoutId = 0;
+    try {
+      const ready = await Promise.race([
+        document.fonts.ready.then(() => true as const),
+        new Promise<false>((resolve) => {
+          timeoutId = window.setTimeout(() => resolve(false), ms);
+        }),
+      ]);
+      return ready;
+    } catch {
+      return true; // fonts API error: proceed with fallback metrics
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async function setup() {
+    const gen = ++setupGen;
+    dispose?.();
+    dispose = null;
+
+    const root = document.querySelector<HTMLElement>(".hero");
+    if (!root || document.body.dataset.page !== "home") return;
+
+    const duration = plannedDuration();
+
+    let rafId = 0;
+    let resizeTimer = 0;
+    let failsafeTimer = 0;
+    let layout: Layout | null = null;
+    let prep: MotionPrep | null = null;
+    let targets: TargetBinding[] = [];
+    let playing = false;
+
+    const cancelRuntime = () => {
+      playing = false;
+      cancelAnimationFrame(rafId);
+      clearTimeout(resizeTimer);
+      clearTimeout(failsafeTimer);
+    };
+
+    const redrawStatic = (): boolean => {
+      const next = measureLayout(root);
+      if (!next) return false;
+      layout = next;
+      drawStaticPortrait(next.portrait);
+      return true;
+    };
+
+    /**
+     * End the entrance. Session key is written only for a successful natural
+     * completion (full or quick settle) — never for focus/resize/failsafe interrupts.
+     */
+    const completeMotion = (options: { markSession?: boolean } = {}) => {
+      if (root.dataset.motionState === "complete" && !playing) return;
+      cancelRuntime();
+      settleToStatic(root, layout, { markSession: Boolean(options.markSession) });
+      root.removeAttribute("data-motion-mode");
+    };
+
+    const onResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        // Active motion: cancel and leave static without recording a successful play
+        cancelAnimationFrame(rafId);
+        if (playing) {
+          cancelRuntime();
+          settleToStatic(root, layout, { markSession: false });
+          root.removeAttribute("data-motion-mode");
+        }
+        rafId = requestAnimationFrame(() => {
+          if (!redrawStatic()) {
+            revealStaticHero(root);
+          } else if (layout) {
+            layout.copy.canvas.style.display = "none";
+          }
+        });
+      }, 150);
+    };
+
+    const onFocusIn = (event: FocusEvent) => {
+      if (root.dataset.motionState === "complete" && !playing) return;
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest("a")) return;
+      // Interrupt: reveal static hero; do not write the session key
+      completeMotion({ markSession: false });
+      redrawStatic();
+    };
+
+    const installListeners = () => {
+      window.addEventListener("resize", onResize);
+      window.addEventListener("orientationchange", onResize);
+      root.addEventListener("focusin", onFocusIn);
+      dispose = () => {
+        cancelRuntime();
+        window.removeEventListener("resize", onResize);
+        window.removeEventListener("orientationchange", onResize);
+        root.removeEventListener("focusin", onFocusIn);
+        clearTargetStyles(root);
+        hideCopyCanvas(root);
+        prep = null;
+        targets = [];
+      };
+    };
+
+    // Reduced motion: reveal immediately, still draw static portrait when possible
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      revealStaticHero(root);
+      redrawStatic();
+      installListeners();
+      return;
+    }
+
+    // Acquire both contexts and measure non-zero rectangles first.
+    // Do not hide targets until fonts + particle masks succeed (full path only).
+    if (!redrawStatic() || !layout) {
+      revealStaticHero(root);
+      installListeners();
+      return;
+    }
+
+    // Pin non-null layout for both quick and full paths (TS narrowing across awaits)
+    let activeLayout: Layout = layout;
+
+    installListeners();
+
+    // --- Quick path: later visits in the same session (~250ms settle) ---
+    // Skip font wait and particle prep so the hero + ticker resolve together.
+    if (duration <= QUICK_DURATION || hasPlayedThisSession()) {
+      targets = collectTargetBindings(root);
+      if (!targets.length) {
+        revealStaticHero(root);
+        return;
+      }
+      if (gen !== setupGen) return;
+
+      root.dataset.motionMode = "quick";
+      root.dataset.motionState = "playing";
+      hideMotionTargets(targets);
+      // Copy canvas unused on quick path; keep hidden
+      activeLayout.copy.canvas.style.display = "none";
+      playing = true;
+
+      let startTime = 0;
+      const stepQuick = (t: number) => {
+        if (!playing || gen !== setupGen) return;
+        if (!startTime) startTime = t;
+        const elapsed = t - startTime;
+        const o = smoothstep(0, 1, clamp(elapsed / QUICK_DURATION));
+        for (let i = 0; i < targets.length; i++) {
+          if (isActionTarget(targets[i].kind)) {
+            targets[i].el.style.setProperty("--motion-reveal", String(o));
+            targets[i].el.style.opacity = "1";
+          } else {
+            targets[i].el.style.opacity = String(o);
+          }
+        }
+        if (elapsed < QUICK_DURATION) {
+          rafId = requestAnimationFrame(stepQuick);
+        } else {
+          // Successful quick settle reaffirms the session key
+          completeMotion({ markSession: true });
+        }
+      };
+      rafId = requestAnimationFrame(stepQuick);
+      return;
+    }
+
+    // --- Full path: first visit this session ---
+    // Font deadline: skip full prep if fonts stall (glyph metrics may shift)
+    const fontsOk = await fontsReadyWithin(FONT_DEADLINE_MS);
+    // Abort if a newer setup superseded this run during the await
+    if (gen !== setupGen) return;
+    if (document.body.dataset.page !== "home") return;
+    if (!fontsOk) {
+      revealStaticHero(root);
+      redrawStatic();
+      return;
+    }
+
+    // Remeasure after fonts so targets match final metrics
+    if (!redrawStatic() || !layout) {
+      revealStaticHero(root);
+      return;
+    }
+    activeLayout = layout;
+
+    try {
+      prep = prepareMotion(root, activeLayout);
+    } catch {
+      prep = null;
+    }
+
+    if (gen !== setupGen) return;
+
+    if (!prep) {
+      revealStaticHero(root);
+      redrawStatic();
+      return;
+    }
+
+    targets = collectTargetBindings(root);
+    if (!targets.length) {
+      revealStaticHero(root);
+      redrawStatic();
+      return;
+    }
+
+    if (gen !== setupGen) return;
+
+    // Prep succeeded — only now hide targets and start the shared clock
+    root.dataset.motionMode = "full";
+    root.dataset.motionState = "playing";
+    hideMotionTargets(targets);
+    activeLayout.copy.canvas.style.display = "block";
+    playing = true;
+
+    // Failsafe armed after targets are hidden — does NOT mark the session key
+    failsafeTimer = window.setTimeout(() => {
+      if (gen !== setupGen) return;
+      completeMotion({ markSession: false });
+      redrawStatic();
+    }, FAILSAFE_DURATION);
+
+    const motionPrep = prep;
+    const motionLayout = activeLayout;
+    let startTime = 0;
+
+    const step = (t: number) => {
+      if (!playing || gen !== setupGen) return;
+      if (!startTime) startTime = t;
+      const elapsed = t - startTime;
+      drawFrame(elapsed, motionLayout, motionPrep, targets);
+      if (elapsed < FULL_DURATION) {
+        rafId = requestAnimationFrame(step);
+      } else {
+        // Successful full completion — only place (with quick settle) that marks session
+        completeMotion({ markSession: true });
+      }
+    };
+    rafId = requestAnimationFrame(step);
+  }
+
+  document.addEventListener("astro:page-load", () => {
+    void setup();
+  });
+</script>

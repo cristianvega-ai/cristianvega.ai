@@ -1,0 +1,54 @@
+# DreamHost (Apache) configuration for cristianvega.ai
+# Copied into dist/ on build via the public/ directory.
+
+# HTTPS + apex host (adjust if the site is ever served only on www)
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Force HTTPS
+  RewriteCond %{HTTPS} !=on
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Canonical host: apex (non-www)
+  RewriteCond %{HTTP_HOST} ^www\.cristianvega\.ai$ [NC]
+  RewriteRule ^ https://cristianvega.ai%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Security headers (best-effort; requires mod_headers)
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  # HSTS — only after HTTPS is confirmed working in production
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  # CSP matched to current static build: self-hosted assets, Google Fonts,
+  # data: favicon, Astro view-transition/module scripts (some inline).
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests"
+</IfModule>
+
+# Custom 404 (Astro emits 404.html for static hosts)
+ErrorDocument 404 /404.html
+
+# Cache static assets aggressively; HTML stays revalidatable
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/avif "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType application/xml "access plus 1 hour"
+  ExpiresByType application/rss+xml "access plus 1 hour"
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|webp|avif|png|svg)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(html)$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+</IfModule>

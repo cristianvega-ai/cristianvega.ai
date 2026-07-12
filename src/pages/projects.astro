@@ -1,0 +1,31 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ProjectCard from "../components/ProjectCard.astro";
+import { projects } from "../lib/projects";
+---
+
+<BaseLayout
+  title="Projects"
+  description="Apps and experiments Cristian Vega has designed, built, and shipped — production AI tools, playgrounds, and agentic systems."
+  active="projects"
+>
+  <main>
+    <section class="section section--tight page-head dotgrid">
+      <div class="wrap">
+        <p class="marker"><span class="marker__sig">§</span> Projects</p>
+        <h1 class="page-title">Apps &amp; experiments I've <span class="hl">shipped</span>.</h1>
+        <p class="page-lede">
+          Products, tools, and prototypes I've designed and built — mostly around applied AI, document systems, and agents.
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <div class="projects">
+          {projects.map((project) => <ProjectCard project={project} />)}
+        </div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>

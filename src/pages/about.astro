@@ -1,0 +1,117 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="About"
+  description="Cristian Vega — Head of AI R&D at Patra Corporation. A decade building software, six years building production AI from the ground up."
+  active="about"
+>
+  <main>
+    <section class="section section--tight page-head dotgrid">
+      <div class="wrap">
+        <p class="marker"><span class="marker__sig">§</span> About</p>
+        <h1 class="page-title">I build production AI — and lead the teams that <span class="hl">ship it</span>.</h1>
+        <p class="page-lede">
+          Head of AI R&amp;D at Patra Corporation. Over the last decade I've gone from shipping software to building AI from
+          the ground up — early NLP and BERT-era models, a production platform processing 400K+ insurance documents on a
+          multi-model strategy, and now agentic, autonomous workflows.
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap wrap--narrow">
+        <div class="profile-strip">
+          <picture>
+            <source srcset="/images/cristian-vega-portrait.avif" type="image/avif" />
+            <source srcset="/images/cristian-vega-portrait.webp" type="image/webp" />
+            <img
+              src="/images/cristian-vega-portrait.webp"
+              alt="Cristian Vega"
+              width="264"
+              height="264"
+              loading="lazy"
+              decoding="async"
+            />
+          </picture>
+          <div>
+            <p class="eyebrow">// experience</p>
+            <h2 class="section__title">Ten years building software, six building AI from the ground up.</h2>
+          </div>
+        </div>
+
+        <div class="exp__org-row">
+          <span class="exp__org">Patra Corporation</span>
+          <span class="exp__rule"></span>
+          <span class="exp__dur">[ 5Y 7M ]</span>
+        </div>
+        <div class="exp__list">
+          <div>
+            <div class="exp__role-head">
+              <span class="exp__role">Senior Director of AI Engineering · Head of AI R&amp;D</span>
+              <span class="exp__when">2024.09 → NOW</span>
+            </div>
+            <p class="exp__desc">AI strategy, org design and execution across teams; driving agentic, autonomous insurance workflows.</p>
+          </div>
+          <div>
+            <div class="exp__role-head">
+              <span class="exp__role">Director of AI Engineering</span>
+              <span class="exp__when">2023.10 → 24.09</span>
+            </div>
+            <p class="exp__desc">Scaled AI from early models to a platform processing 400K+ documents on a multi-model strategy.</p>
+          </div>
+          <div>
+            <div class="exp__role-head">
+              <span class="exp__role">Software Engineering Manager</span>
+              <span class="exp__when">2022.01 → 23.10</span>
+            </div>
+            <p class="exp__desc">Built AI/ML from the ground up with BERT, transformers and NLP for unstructured documents.</p>
+          </div>
+          <div>
+            <div class="exp__role-head">
+              <span class="exp__role">Software Engineering Team Lead</span>
+              <span class="exp__when">2020.12 → 22.01</span>
+            </div>
+            <p class="exp__desc">Owned early extraction architecture and recruited the foundational ML team.</p>
+          </div>
+        </div>
+
+        <div class="exp__org-row">
+          <span class="exp__org">BBVA</span>
+          <span class="exp__rule"></span>
+          <span class="exp__dur">[ 3Y 6M ]</span>
+        </div>
+        <div class="exp__list exp__list--muted">
+          <p class="exp__note">Engineering lead, then senior and front-end roles on the Online Account Origination platform: credit-card service, a shared Web Component library, and digital account opening on iOS and Android.</p>
+        </div>
+
+        <div class="facts">
+          <div class="fact">
+            <div class="fact__name">everis · Software Developer</div>
+            <div class="fact__sub">2016 → 2017</div>
+          </div>
+          <div class="fact">
+            <div class="fact__name">Univ. of Alabama · Web Developer</div>
+            <div class="fact__sub">2015 → 2016</div>
+          </div>
+        </div>
+
+        <hr class="divider divider--spaced" />
+
+        <div class="facts">
+          <div class="fact">
+            <div class="fact__label">Education</div>
+            <div class="fact__name">Georgia Tech</div>
+            <div class="fact__sub">M.S. Computer Science — Machine Learning</div>
+          </div>
+          <div class="fact">
+            <div class="fact__label">&nbsp;</div>
+            <div class="fact__name">CU Boulder</div>
+            <div class="fact__sub">M.S. Artificial Intelligence</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
