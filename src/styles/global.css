@@ -1,40 +1,59 @@
 :root {
-  --paper: #F3F4EE;
-  --panel: #FBFCF9;
-  --ink: #171A17;
-  --ink-2: #2A2D27;
-  --muted: #646B61;
-  --carbon: #15171A;
-  /* Signal/meta tuned for WCAG AA (≥4.5:1) on 12–15px text:
-     signal on paper ~4.81; white on signal ~5.32; meta on paper ~4.97 */
-  --signal: #C8331F;
-  --signal-d: #A82818;
-  --signal-bright: #F06050; /* accents on dark surfaces (inline code) */
-  --slate: #3A5378;
-  --line: #D3D8CE;
-  --hairline: #E7E9E1;
-  --hairline-2: #DFE2DA;
-  --grid-dot: #DEE2D9;
-  --meta: #646B61;
-  --meta-on-dark: #A8AEA2;
-  --tag-slate-bg: #E9EEF4;
-  --tag-slate-bd: #D2DCE6;
-  --tag-mute-bg: #F0F1EB;
-  --code-bg: #15171A;
-  --code-chrome: #1C1F23;
-  --code-line: #2A2E33;
-  --code-text: #CED2C8;
-  --code-gutter: #3F444A;
+  --ink: #14181F;
+  --ink-2: #1D232E;
+  --ink-3: #2A313D;
+  --paper: #F1F3F6;
+  --surface: #FFFFFF;
+  --surface-2: #F7F8FA;
+  --line: #DEE2E9;
+  --line-strong: #C6CDD8;
+  --hairline: #E8EBF1;
+  --hairline-2: #E1E5EC;
+  --muted: #586173;
+  --muted-2: #828C9C;
+  /* Accents tuned for WCAG AA on 12–15px text:
+     crimson on paper ~4.6; white on crimson ~5.0; meta on paper ~5.6.
+     Ember is reserved for dark surfaces (~6.4 on ink) and decoration. */
+  --crimson: #D42A3C;
+  --crimson-d: #B21F2F;
+  --ember: #F2792B;
+  --grad: linear-gradient(102deg, #D42A3C 0%, #F2792B 100%);
+  --grad-soft: linear-gradient(102deg, rgba(212, 42, 60, 0.09) 0%, rgba(242, 121, 43, 0.09) 100%);
+  --meta: #586173;
+  --meta-on-dark: #98A1B0;
+  --mast-text: #EAEDF2;
+  --mast-muted: #B9C1CE;
+  --mast-meta: #7C8595;
+  --mast-line: rgba(255, 255, 255, 0.1);
+  --grid-line: rgba(255, 255, 255, 0.028);
+  --grid-line-light: rgba(20, 24, 31, 0.055);
+  --tag-slate: #1D5FB0;
+  --tag-slate-bg: #E9F1FB;
+  --tag-slate-bd: #C6DBF3;
+  --tag-mute: #41485A;
+  --tag-mute-bg: #EEF0F4;
+  --tag-mute-bd: #D6DBE3;
+  --code-bg: #14181F;
+  --code-chrome: #20252D;
+  --code-line: #2A313D;
+  --code-text: #C9D1DC;
+  --code-gutter: #4A5261;
+  --code-accent: #F2CDBB;
   --syn-string: #9FBE86;
   --syn-number: #E2B062;
   --syn-type: #8FB6D4;
-  --font-display: "Schibsted Grotesk", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --shadow-sm: 0 1px 2px rgba(20, 24, 31, 0.05), 0 1px 1px rgba(20, 24, 31, 0.04);
+  --shadow: 0 6px 24px -12px rgba(20, 24, 31, 0.22), 0 2px 6px -3px rgba(20, 24, 31, 0.1);
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --container: 1180px;
   --gutter: max(32px, calc((100vw - var(--container)) / 2 + 32px));
   --seam: clamp(32px, 4vw, 56px);
-  --radius: 4px;
-  --radius-code: 7px;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --radius-xs: 6px;
+  --radius-code: 10px;
 }
 
 *,
@@ -53,9 +72,9 @@ html {
 }
 
 body {
-  font-family: var(--font-display);
-  font-size: 16px;
-  line-height: 1.5;
+  font-family: var(--font-body);
+  font-size: 16.5px;
+  line-height: 1.62;
   color: var(--ink);
   background: var(--paper);
   -webkit-font-smoothing: antialiased;
@@ -76,20 +95,29 @@ a {
 h1,
 h2,
 h3 {
+  font-family: var(--font-display);
   letter-spacing: -0.02em;
   line-height: 1.1;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 ::selection {
-  background: var(--signal);
+  background: var(--crimson);
   color: #fff;
 }
 
 :focus-visible {
-  outline: 2px solid var(--signal);
+  outline: 2px solid var(--crimson);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: 4px;
+}
+
+/* Ember outlines on dark surfaces, where crimson lacks contrast */
+.hero :focus-visible,
+.site-footer :focus-visible,
+.project__preview:focus-visible {
+  outline: 3px solid var(--ember);
+  outline-offset: 2px;
 }
 
 .skip-link {
@@ -103,14 +131,14 @@ h3 {
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 500;
-  border-radius: 0 0 var(--radius) var(--radius);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   transform: translateY(-120%);
   transition: transform 0.15s ease;
 }
 
 .skip-link:focus {
   transform: translateY(0);
-  outline: 2px solid var(--signal);
+  outline: 2px solid var(--ember);
   outline-offset: 2px;
 }
 
@@ -142,9 +170,11 @@ h3 {
   margin-block: 32px 28px;
 }
 
+/* Faint blueprint grid on light page heads — the masthead motif, in daylight */
 .dotgrid {
-  background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
-  background-size: 22px 22px;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 39px, var(--grid-line-light) 39px 40px),
+    repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line-light) 39px 40px);
 }
 
 .marker,
@@ -162,7 +192,7 @@ h3 {
 }
 
 .marker__sig {
-  color: var(--signal);
+  color: var(--crimson);
 }
 
 .site-header {
@@ -183,6 +213,7 @@ h3 {
   display: flex;
   align-items: center;
   gap: 11px;
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: 16px;
   letter-spacing: -0.01em;
@@ -193,7 +224,7 @@ h3 {
 .brand__mark {
   width: 28px;
   height: 28px;
-  border-radius: var(--radius);
+  border-radius: 7px;
   background: var(--ink);
   display: grid;
   place-items: center;
@@ -233,17 +264,40 @@ h3 {
 
 .nav__link--active {
   color: var(--ink);
-  border-bottom-color: var(--signal);
+  border-image: var(--grad) 1;
+}
+
+/* Home is a dark masthead page; the transparent header inverts to light */
+body:has(.hero) .brand {
+  color: var(--mast-text);
+}
+
+body:has(.hero) .brand__mark {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+body:has(.hero) .nav {
+  color: #9AA3B2;
+}
+
+body:has(.hero) .nav__link:hover,
+body:has(.hero) .nav__link--active {
+  color: #fff;
+}
+
+body:has(.hero) .site-header :focus-visible {
+  outline-color: var(--ember);
 }
 
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  font-family: var(--font-display);
   font-weight: 600;
   font-size: 15px;
   padding: 12px 22px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
   cursor: pointer;
   transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
@@ -254,18 +308,18 @@ h3 {
 }
 
 .btn--signal {
-  background: var(--signal);
+  background: var(--crimson);
   color: #fff;
 }
 
 .btn--signal:hover {
-  background: var(--signal-d);
+  background: var(--crimson-d);
 }
 
 .btn--ghost {
   background: transparent;
   color: var(--ink);
-  border-color: #B9BFB2;
+  border-color: var(--line-strong);
 }
 
 .btn--ghost:hover {
@@ -278,21 +332,26 @@ h3 {
   font-size: 12px;
   font-weight: 500;
   padding: 3px 9px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   border: 1px solid transparent;
   white-space: nowrap;
 }
 
 .tag--slate {
-  color: var(--slate);
+  color: var(--tag-slate);
   background: var(--tag-slate-bg);
   border-color: var(--tag-slate-bd);
 }
 
 .tag--muted {
-  color: var(--muted);
+  color: var(--tag-mute);
   background: var(--tag-mute-bg);
-  border-color: var(--hairline-2);
+  border-color: var(--tag-mute-bd);
+}
+
+/* Home is one full dark masthead; ink extends past the short stacked hero */
+body:has(.hero) {
+  background: var(--ink);
 }
 
 .hero {
@@ -301,6 +360,8 @@ h3 {
   margin-top: -64px;
   display: flex;
   flex-direction: column;
+  background: var(--ink);
+  color: var(--mast-text);
 }
 
 .hero__grid {
@@ -310,14 +371,25 @@ h3 {
   grid-template-columns: 0.92fr 1.08fr;
 }
 
-/* left column: the halftone portrait bleeding to the left edge, over the dot grid */
+/* Masthead grid lines, masked to glow from the top-right like the reference */
+.hero__grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 39px, var(--grid-line) 39px 40px),
+    repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line) 39px 40px);
+  -webkit-mask-image: radial-gradient(120% 100% at 82% 0%, #000 20%, transparent 72%);
+  mask-image: radial-gradient(120% 100% at 82% 0%, #000 20%, transparent 72%);
+  pointer-events: none;
+}
+
+/* left column: the Lyra star chart — Vega is the surname — in light ink */
 .hero__portrait-col {
   position: relative;
   overflow: hidden;
-  border-right: 1px solid var(--line);
-  background-color: var(--paper);
-  background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
-  background-size: 22px 22px;
+  border-right: 1px solid var(--mast-line);
 }
 
 /* Decorative dual-canvas layer; real hero copy stays above (z-index) and visible */
@@ -349,29 +421,43 @@ h3 {
    stalled or failed script never leaves the real copy inaccessible. */
 
 .hero__eyebrow {
-  color: var(--signal);
+  color: var(--ember);
   margin-bottom: 20px;
 }
 
 .hero__name {
-  font-size: clamp(42px, 5.6vw, 68px);
-  font-weight: 800;
-  letter-spacing: -0.045em;
-  line-height: 0.96;
+  font-size: clamp(42px, 5.6vw, 66px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.03;
   margin-bottom: 22px;
 }
 
+/* Gradient underline on light surfaces; the hero upgrades it to gradient text */
 .hl {
-  background: linear-gradient(transparent 58%, var(--signal) 58%);
-  padding: 0 3px;
+  background-image: var(--grad);
+  background-repeat: no-repeat;
+  background-position: 0 92%;
+  background-size: 100% 0.16em;
+  padding-bottom: 0.04em;
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .hero__name .hl {
+    background: var(--grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    padding-bottom: 0;
+  }
 }
 
 .hero__sub {
-  font-size: clamp(19px, 2.1vw, 24px);
-  font-weight: 500;
-  line-height: 1.36;
-  color: var(--ink-2);
-  max-width: 24ch;
+  font-size: clamp(18px, 2vw, 21px);
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--mast-muted);
+  max-width: 30ch;
   margin-bottom: 34px;
 }
 
@@ -379,6 +465,15 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
+}
+
+.hero .btn--ghost {
+  color: var(--mast-text);
+  border-color: rgba(255, 255, 255, 0.38);
+}
+
+.hero .btn--ghost:hover {
+  border-color: #fff;
 }
 
 /* Button formation during hero motion: fill/border/label track --motion-reveal.
@@ -439,7 +534,7 @@ h3 {
 .hero[data-motion-state="playing"] .hero__actions .btn.btn--signal {
   background-color: color-mix(
     in srgb,
-    var(--signal) calc(var(--motion-reveal) * 100%),
+    var(--crimson) calc(var(--motion-reveal) * 100%),
     transparent
   );
   color: color-mix(in srgb, #fff calc(var(--motion-reveal) * 100%), transparent);
@@ -448,7 +543,7 @@ h3 {
 .hero[data-motion-state="playing"] .hero__actions .btn.btn--signal:hover {
   background-color: color-mix(
     in srgb,
-    var(--signal-d) calc(var(--motion-reveal) * 100%),
+    var(--crimson-d) calc(var(--motion-reveal) * 100%),
     transparent
   );
 }
@@ -457,22 +552,22 @@ h3 {
   background-color: transparent;
   border-color: color-mix(
     in srgb,
-    #b9bfb2 calc(var(--motion-reveal) * 100%),
+    rgba(255, 255, 255, 0.38) calc(var(--motion-reveal) * 100%),
     transparent
   );
-  color: color-mix(in srgb, var(--ink) calc(var(--motion-reveal) * 100%), transparent);
+  color: color-mix(in srgb, #EAEDF2 calc(var(--motion-reveal) * 100%), transparent);
 }
 
 .hero[data-motion-state="playing"] .hero__actions .btn.btn--ghost:hover {
   border-color: color-mix(
     in srgb,
-    var(--ink) calc(var(--motion-reveal) * 100%),
+    #fff calc(var(--motion-reveal) * 100%),
     transparent
   );
 }
 
 .hero__ticker {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--mast-line);
 }
 
 .hero__ticker .wrap {
@@ -484,19 +579,19 @@ h3 {
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--mast-meta);
 }
 
 .hero__ticker b {
-  color: var(--ink);
-  font-weight: 700;
+  color: #DCE1E8;
+  font-weight: 600;
 }
 
 .section__title {
-  font-size: clamp(28px, 4vw, 40px);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.08;
+  font-size: clamp(28px, 4vw, 38px);
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.1;
   max-width: 22ch;
   margin-top: 12px;
 }
@@ -508,19 +603,32 @@ h3 {
 }
 
 .project {
+  position: relative;
   display: flex;
   flex-direction: column;
-  background: var(--panel);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.3s, border-color 0.15s ease;
+}
+
+.project::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--grad);
+  z-index: 1;
 }
 
 .project:hover {
   transform: translateY(-3px);
-  border-color: #B9BFB2;
-  box-shadow: 0 16px 34px rgba(8, 9, 7, 0.1);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow);
 }
 
 .project__preview {
@@ -529,16 +637,18 @@ h3 {
   align-items: center;
   justify-content: center;
   aspect-ratio: 16 / 10;
-  background-color: var(--carbon);
-  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-  background-size: 18px 18px;
+  background-color: var(--ink);
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 17px, rgba(255, 255, 255, 0.05) 17px 18px),
+    repeating-linear-gradient(90deg, transparent 0 17px, rgba(255, 255, 255, 0.05) 17px 18px);
 }
 
 .project__mark {
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-weight: 700;
   font-size: 34px;
   letter-spacing: -0.03em;
-  color: var(--paper);
+  color: var(--mast-text);
   opacity: 0.92;
 }
 
@@ -550,15 +660,17 @@ h3 {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.12em;
-  color: var(--signal);
-  border: 1px solid color-mix(in srgb, var(--signal) 45%, transparent);
-  padding: 2px 7px;
-  border-radius: 2px;
+  color: var(--code-accent);
+  border: 1px solid rgba(242, 121, 43, 0.4);
+  background: rgba(242, 121, 43, 0.08);
+  padding: 3px 9px;
+  border-radius: 100px;
 }
 
 .project__status--wip {
-  color: #8B9184;
-  border-color: var(--code-line);
+  color: #A8B0BD;
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .project__body {
@@ -567,9 +679,9 @@ h3 {
 }
 
 .project__name {
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .project__desc {
@@ -604,8 +716,8 @@ h3 {
 }
 
 .project__link:hover {
-  color: var(--signal);
-  border-bottom-color: var(--signal);
+  color: var(--crimson);
+  border-bottom-color: var(--crimson);
 }
 
 .project__link--read {
@@ -636,7 +748,7 @@ h3 {
 }
 
 .post:hover {
-  color: var(--signal);
+  color: var(--crimson);
   padding-left: 8px;
 }
 
@@ -650,15 +762,16 @@ h3 {
 
 .post__title {
   display: block;
+  font-family: var(--font-display);
   font-size: 21px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.22;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
   color: var(--ink);
 }
 
 .post:hover .post__title {
-  color: var(--signal);
+  color: var(--crimson);
 }
 
 .post__desc {
@@ -691,7 +804,7 @@ h3 {
   width: 132px;
   height: 132px;
   object-fit: cover;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   filter: grayscale(0.08) contrast(1.03);
   border: 1px solid var(--line);
 }
@@ -705,7 +818,7 @@ h3 {
 }
 
 .exp__org {
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
 }
 
@@ -742,7 +855,7 @@ h3 {
 
 .exp__role,
 .fact__name {
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
 }
 
@@ -777,17 +890,17 @@ h3 {
 .page-title {
   max-width: 18ch;
   margin-top: 18px;
-  font-size: clamp(36px, 7vw, 64px);
-  font-weight: 800;
-  letter-spacing: -0.045em;
-  line-height: 0.98;
+  font-size: clamp(36px, 7vw, 60px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.03;
 }
 
 .page-lede {
   max-width: 64ch;
   margin-top: 24px;
   font-size: 18px;
-  line-height: 1.65;
+  line-height: 1.62;
   color: var(--ink-2);
 }
 
@@ -813,10 +926,10 @@ h3 {
 }
 
 .article__title {
-  font-size: clamp(34px, 6vw, 52px);
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1.04;
+  font-size: clamp(34px, 6vw, 50px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.06;
   margin-bottom: 22px;
 }
 
@@ -834,7 +947,7 @@ h3 {
 }
 
 .article__meta .sep {
-  color: var(--hairline-2);
+  color: var(--line-strong);
 }
 
 .article__meta .by {
@@ -858,8 +971,8 @@ h3 {
 
 .prose h2 {
   font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: -0.018em;
   line-height: 1.14;
   margin-top: 44px;
 }
@@ -870,21 +983,23 @@ h3 {
 }
 
 .prose a {
-  border-bottom: 2px solid var(--signal);
-  transition: color 0.15s ease;
+  color: var(--crimson);
+  border-bottom: 1px solid rgba(212, 42, 60, 0.35);
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 .prose a:hover {
-  color: var(--signal);
+  color: var(--crimson-d);
+  border-bottom-color: var(--crimson-d);
 }
 
 .prose code {
   font-family: var(--font-mono);
   font-size: 0.86em;
   background: var(--code-bg);
-  color: var(--signal-bright);
+  color: var(--code-accent);
   padding: 2px 6px;
-  border-radius: 3px;
+  border-radius: 5px;
 }
 
 .prose pre {
@@ -896,7 +1011,7 @@ h3 {
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.75;
-  box-shadow: 0 14px 34px rgba(8, 9, 7, 0.24);
+  box-shadow: var(--shadow);
 }
 
 .prose pre code {
@@ -930,8 +1045,8 @@ h3 {
 }
 
 .contact-links a:hover {
-  color: var(--signal);
-  border-bottom-color: var(--signal);
+  color: var(--crimson);
+  border-bottom-color: var(--crimson);
 }
 
 .contact-links .k {
@@ -943,8 +1058,8 @@ h3 {
 }
 
 .site-footer {
-  background: var(--carbon);
-  border-top: 1px solid var(--code-line);
+  background: var(--ink);
+  border-top: 1px solid #0C1017;
 }
 
 .site-footer__inner {
@@ -969,7 +1084,8 @@ h3 {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--signal-bright);
+  background: var(--grad);
+  box-shadow: 0 0 0 3px rgba(242, 121, 43, 0.18);
 }
 
 .social {
@@ -978,7 +1094,7 @@ h3 {
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 500;
-  color: #CED2C8;
+  color: #C3CBD8;
 }
 
 .social a:hover {
@@ -998,8 +1114,7 @@ h3 {
   .hero__portrait-col {
     height: 300px;
     border-right: 0;
-    border-bottom: 1px solid var(--line);
-    background-size: 22px 22px;
+    border-bottom: 1px solid var(--mast-line);
   }
 
   .projects {
@@ -1143,11 +1258,6 @@ h3 {
   to { opacity: 1; transform: none; }
 }
 
-@keyframes pageTurn {
-  from { opacity: 0.2; transform: perspective(1800px) rotateY(-87deg); }
-  to { opacity: 1; transform: perspective(1800px) rotateY(0deg); }
-}
-
 @keyframes developUp {
   from { opacity: 0; transform: translateY(26px) scale(0.985); }
   to { opacity: 1; transform: none; }
@@ -1181,10 +1291,9 @@ h3 {
     transform: none;
   }
 
-  /* WRITING — the page turns in, hinged on the left edge like an opening book */
+  /* WRITING — the same calm rise as contact */
   [data-page="writing"] main {
-    transform-origin: left center;
-    animation: pageTurn 0.75s both cubic-bezier(0.36, 0, 0.2, 1);
+    animation: riseIn 0.6s both ease-out;
   }
 
   /* ABOUT — the bio develops upward, like a print coming through */
