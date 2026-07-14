@@ -8,8 +8,6 @@
 </div>
 
 <script>
-  import data from "../halftone-dots.json";
-
   const FULL_DURATION = 2450;
   const QUICK_DURATION = 250;
   const FAILSAFE_DURATION = 3000;
@@ -17,8 +15,11 @@
   const SESSION_KEY = "cristianvega:hero-motion:v1";
   const DPR_CAP = 2;
   const TAU = Math.PI * 2;
-  const INK = "#171A17";
-  const SIGNAL = "#C8331F";
+  // Chart palette for the dark masthead
+  const STAR = "#E4E9F2";
+  const SIGNAL = "#D42A3C";
+  const EMBER = "#F2792B";
+  const CHART_META = "#7C8595";
 
   // Overlapping target windows (ms). Full choreography ends at 2450.
   const WINDOWS = {
@@ -32,14 +33,42 @@
     secondaryAction: [1380, 2450],
   } as const;
 
-  const PORTRAIT_PHASE_END = WINDOWS.portrait[1];
   const PORTRAIT_DOT_DUR = 520;
   const TRANSFER_TRAVEL_DUR = 620;
-  const TRANSFER_EDGE_FRAC = 0.14;
+  const TRANSFER_EDGE_FRAC = 0.32;
   const MAX_TRANSFER_SOURCES = 96;
   const MAX_COPY_PARTICLES = 2800;
   const MAX_BUTTON_PERIMETER = 48;
-  const MAX_HIGHLIGHT_PARTICLES = 80;
+
+  // The six principal stars of Lyra as flat-chart offsets from Vega in degrees
+  // (screen x right, y down; RA deltas scaled by cos dec), from J2000 positions.
+  type LyraStar = { x: number; y: number; mag: number; name?: string };
+  const LYRA: LyraStar[] = [
+    { x: 0.0, y: 0.0, mag: 0.03, name: "VEGA · α LYR" },
+    { x: -1.44, y: -0.89, mag: 3.9 }, // epsilon — the Double Double
+    { x: -1.54, y: 1.18, mag: 4.36 }, // zeta
+    { x: -3.43, y: 1.81, mag: 4.22 }, // delta
+    { x: -2.57, y: 5.42, mag: 3.52, name: "SHELIAK" }, // beta
+    { x: -4.3, y: 6.09, mag: 3.25, name: "SULAFAT" }, // gamma
+  ];
+  // The classic figure: Vega→epsilon, Vega→zeta, then around the parallelogram.
+  const LYRA_LINKS = [
+    [0, 1],
+    [0, 2],
+    [2, 3],
+    [3, 5],
+    [5, 4],
+    [4, 2],
+  ] as const;
+  const CHART_ROT = 0.15; // slight tilt so the parallelogram hangs below-left
+  const FIELD_STARS = 44;
+  // Fixed low-discrepancy offsets so the field layout is identical on every draw
+  const FIELD_SEED_X = 0.1372;
+  const FIELD_SEED_Y = 0.6289;
+  const SAT_PERIOD = 9000;
+  const SAT_DUR = 1500;
+  const SAT_FIRST = 2600;
+  const SAT_TRAIL = 16;
 
   type Point = { x: number; y: number };
   type Rect = { left: number; top: number; width: number; height: number };
@@ -53,6 +82,39 @@
   type Layout = {
     portrait: CanvasLayer;
     copy: CanvasLayer;
+  };
+
+  type ChartLabel = {
+    chars: string[];
+    advances: Float32Array;
+    x: number;
+    y: number;
+    alpha: number;
+    font: string;
+  };
+
+  type ChartLane = {
+    x0: number;
+    y0: number;
+    cx: number;
+    cy: number;
+    x1: number;
+    y1: number;
+  };
+
+  type ChartScene = {
+    links: Float32Array; // trimmed segments: x1,y1,x2,y2 per link
+    graticule: Float32Array; // cx,cy,r per arc
+    ticks: Path2D;
+    labels: ChartLabel[];
+    vega: HTMLCanvasElement;
+    vegaHalf: number;
+    twinkleAmp: Float32Array;
+    twinkleSpeed: Float32Array;
+    twinklePhase: Float32Array;
+    baseAlpha: Float32Array;
+    lanes: ChartLane[];
+    trailColors: string[];
   };
 
   type TargetKind =
@@ -100,6 +162,7 @@
     isSource: Uint8Array;
     sourceIndices: number[];
     scale: number;
+    chart: ChartScene;
   };
 
   type MotionPrep = {
@@ -203,7 +266,7 @@
   }
 
   /**
-   * End of successful motion: static portrait, clear copy layer, reveal DOM, optional session key.
+   * End of successful motion: static chart, clear copy layer, reveal DOM, optional session key.
    */
   function settleToStatic(
     root: HTMLElement,
@@ -211,7 +274,7 @@
     options: { markSession?: boolean } = {},
   ) {
     if (layout) {
-      drawStaticPortrait(layout.portrait);
+      drawStaticScene(layout.portrait);
       const { ctx, rect, dpr, canvas } = layout.copy;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, rect.width, rect.height);
@@ -245,7 +308,7 @@
     canvas.style.top = `${rect.top}px`;
     canvas.style.width = `${rect.width}px`;
     canvas.style.height = `${rect.height}px`;
-    // Portrait stays visible; copy canvas display is managed by reveal/animation paths
+    // Chart stays visible; copy canvas display is managed by reveal/animation paths
     if (canvas.classList.contains("hero__portrait-canvas")) {
       canvas.style.display = "block";
     }
@@ -274,56 +337,76 @@
     if (!mainHost.width || !mainHost.height) return null;
 
     const portrait = sizeLayer(portraitCanvas, portraitHost, gridRect);
-    // Full-grid copy canvas so transfer particles are visible from portrait sources
-    // across the seam (not clipped to the right column alone).
+    // Full-grid copy canvas so transfer particles are visible from chart sources
+    // across the seam (not clipped to the left column alone).
     const copy = sizeLayer(copyCanvas, gridRect, gridRect);
     if (!portrait || !copy) return null;
 
     return { portrait, copy };
   }
 
-  function drawStaticPortrait(layer: CanvasLayer) {
-    const VW = data.w as number;
-    const VH = data.h as number;
-    const dots = data.dots as [number, number, number][];
-    const { ctx, rect, dpr } = layer;
-    const cw = rect.width;
-    const cht = rect.height;
+  function hexToRgb(hex: string): [number, number, number] {
+    return [
+      parseInt(hex.slice(1, 3), 16),
+      parseInt(hex.slice(3, 5), 16),
+      parseInt(hex.slice(5, 7), 16),
+    ];
+  }
 
-    // Preserve HeroPortrait bottom-anchoring and max-width behavior
-    const scale = Math.min(Math.min(600, cw * 0.94) / VW, cht / VH);
-    const offX = (cw - VW * scale) / 2;
-    const offY = cht - VH * scale;
+  function mixRgb(
+    a: [number, number, number],
+    b: [number, number, number],
+    t: number,
+  ): [number, number, number] {
+    return [
+      Math.round(a[0] + (b[0] - a[0]) * t),
+      Math.round(a[1] + (b[1] - a[1]) * t),
+      Math.round(a[2] + (b[2] - a[2]) * t),
+    ];
+  }
 
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cw, cht);
-    ctx.fillStyle = INK;
-    ctx.globalAlpha = 1;
+  function rgbString(c: [number, number, number], alpha?: number): string {
+    return alpha === undefined
+      ? `rgb(${c[0]},${c[1]},${c[2]})`
+      : `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+  }
 
-    for (let i = 0; i < dots.length; i++) {
-      const d = dots[i];
-      ctx.beginPath();
-      ctx.arc(offX + d[0] * scale, offY + d[1] * scale, d[2] * scale, 0, TAU);
-      ctx.fill();
+  const LABEL_FONT = '500 10px "IBM Plex Mono", ui-monospace, monospace';
+  const LABEL_FONT_SMALL = '500 9px "IBM Plex Mono", ui-monospace, monospace';
+
+  function makeLabel(
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    font: string,
+    letterSpacing: number,
+  ): { chars: string[]; advances: Float32Array; width: number } {
+    ctx.font = font;
+    const chars = text.split("");
+    const advances = new Float32Array(chars.length);
+    let x = 0;
+    for (let i = 0; i < chars.length; i++) {
+      advances[i] = x;
+      x += ctx.measureText(chars[i]).width + letterSpacing;
     }
+    return { chars, advances, width: x - letterSpacing };
   }
 
   /**
-   * Portrait fly-in offsets/delays (once). Radial scatter; phase ends at 750ms.
-   * Marks a bounded right-edge subset as transfer sources.
+   * Lay out the Lyra chart for a canvas layer: principal stars first, then a
+   * deterministic low-discrepancy background field, links, graticule, ticks,
+   * labels, satellite lanes, and the prerendered Vega sprite.
+   * Star arrays double as the fly-in particle set for the entrance.
    */
-  function preparePortraitParticles(layer: CanvasLayer): PortraitPrep {
-    const VW = data.w as number;
-    const VH = data.h as number;
-    const dots = data.dots as [number, number, number][];
-    const n = dots.length;
-    const cw = layer.rect.width;
-    const cht = layer.rect.height;
+  function prepareScene(layer: CanvasLayer): PortraitPrep {
+    const { ctx, rect, dpr } = layer;
+    const cw = rect.width;
+    const ch = rect.height;
+    const minWH = Math.min(cw, ch);
+    const scale = minWH * 0.075; // px per chart degree
+    const sizeK = Math.max(0.62, Math.min(1.1, scale / 46));
 
-    const scale = Math.min(Math.min(600, cw * 0.94) / VW, cht / VH);
-    const offX = (cw - VW * scale) / 2;
-    const offY = cht - VH * scale;
-
+    const nMain = LYRA.length;
+    const n = nMain + FIELD_STARS;
     const sx = new Float32Array(n);
     const sy = new Float32Array(n);
     const del = new Float32Array(n);
@@ -332,41 +415,484 @@
     const fr = new Float32Array(n);
     const isSource = new Uint8Array(n);
 
-    const cx = VW / 2;
-    const cy = VH * 0.44;
-    const maxd = Math.hypot(VW / 2, VH / 2);
-    const delaySpan = Math.max(0, PORTRAIT_PHASE_END - PORTRAIT_DOT_DUR);
-
-    // Candidates in the rightmost ~14% of the drawn portrait bounds
-    const edgeStartX = offX + VW * scale * (1 - TRANSFER_EDGE_FRAC);
-    const edgeCandidates: number[] = [];
-
-    for (let i = 0; i < n; i++) {
-      const d = dots[i];
-      const ddx = d[0] - cx;
-      const ddy = d[1] - cy;
-      const dist = Math.hypot(ddx, ddy) || 1;
-      const scatter = 30 + Math.random() * 120;
-      sx[i] = (ddx / dist) * scatter + (Math.random() - 0.5) * 46;
-      sy[i] = (ddy / dist) * scatter + (Math.random() - 0.5) * 46;
-      del[i] = (dist / maxd) * delaySpan * 0.9 + Math.random() * 40;
-      fx[i] = offX + d[0] * scale;
-      fy[i] = offY + d[1] * scale;
-      fr[i] = d[2] * scale;
-      if (fx[i] >= edgeStartX) edgeCandidates.push(i);
+    // Principal stars: rotate the chart, center the figure slightly up-left
+    const cosR = Math.cos(CHART_ROT);
+    const sinR = Math.sin(CHART_ROT);
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < nMain; i++) {
+      const rx = LYRA[i].x * cosR - LYRA[i].y * sinR;
+      const ry = LYRA[i].x * sinR + LYRA[i].y * cosR;
+      fx[i] = rx;
+      fy[i] = ry;
+      minX = Math.min(minX, rx);
+      maxX = Math.max(maxX, rx);
+      minY = Math.min(minY, ry);
+      maxY = Math.max(maxY, ry);
+    }
+    const fcx = (minX + maxX) / 2;
+    const fcy = (minY + maxY) / 2;
+    for (let i = 0; i < nMain; i++) {
+      fx[i] = cw * 0.45 + (fx[i] - fcx) * scale;
+      fy[i] = ch * 0.44 + (fy[i] - fcy) * scale;
+      fr[i] = (1.05 + 3.95 * Math.exp(-0.42 * LYRA[i].mag)) * sizeK;
     }
 
-    // Bounded subset of edge dots become transfer sources (prefer vertical spread)
+    // Entrance order: brightest first
+    const order = LYRA.map((_, i) => i).sort((a, b) => LYRA[a].mag - LYRA[b].mag);
+    for (let i = 0; i < nMain; i++) del[order[i]] = i * 55;
+
+    // Background field: fixed R2 sequence so the sky is identical on every draw
+    for (let k = 0; k < FIELD_STARS; k++) {
+      const i = nMain + k;
+      let px = ((FIELD_SEED_X + k * 0.7548776662) % 1) * cw * 0.96 + cw * 0.02;
+      let py = ((FIELD_SEED_Y + k * 0.569840291) % 1) * ch * 0.94 + ch * 0.03;
+      for (let j = 0; j < nMain; j++) {
+        const ddx = px - fx[j];
+        const ddy = py - fy[j];
+        const dd = Math.hypot(ddx, ddy);
+        if (dd < 26) {
+          if (dd < 0.001) px += 26;
+          else {
+            const f = (26 - dd) / dd;
+            px += ddx * f;
+            py += ddy * f;
+          }
+        }
+      }
+      fx[i] = px;
+      fy[i] = py;
+      fr[i] = 0.45 + (((k * 7) % 9) / 9) * 0.75;
+      del[i] = 90 + ((k * 13) % 10) * 14 + Math.random() * 80;
+    }
+
+    // Fly-in scatter: gentle radial drift toward each star's resting place
+    const ccx = cw * 0.45;
+    const ccy = ch * 0.44;
+    for (let i = 0; i < n; i++) {
+      const ddx = fx[i] - ccx;
+      const ddy = fy[i] - ccy;
+      const dist = Math.hypot(ddx, ddy) || 1;
+      const drift = 14 + Math.random() * 40;
+      sx[i] = (ddx / dist) * drift + (Math.random() - 0.5) * 18;
+      sy[i] = (ddy / dist) * drift + (Math.random() - 0.5) * 18;
+    }
+
+    // Transfer sources: background stars in the chart's right band send
+    // starlight across the seam to form the hero copy.
+    let starMinX = Infinity;
+    let starMaxX = -Infinity;
+    for (let i = 0; i < n; i++) {
+      starMinX = Math.min(starMinX, fx[i]);
+      starMaxX = Math.max(starMaxX, fx[i]);
+    }
+    const edgeStartX = starMaxX - (starMaxX - starMinX) * TRANSFER_EDGE_FRAC;
+    const edgeCandidates: number[] = [];
+    for (let i = nMain; i < n; i++) {
+      if (fx[i] >= edgeStartX) edgeCandidates.push(i);
+    }
     edgeCandidates.sort((a, b) => fy[a] - fy[b]);
     const sourceIndices: number[] = [];
-    const stride = Math.max(1, Math.ceil(edgeCandidates.length / MAX_TRANSFER_SOURCES));
-    for (let i = 0; i < edgeCandidates.length && sourceIndices.length < MAX_TRANSFER_SOURCES; i += stride) {
-      const idx = edgeCandidates[i];
+    for (const idx of edgeCandidates) {
       isSource[idx] = 1;
       sourceIndices.push(idx);
     }
 
-    return { n, sx, sy, del, fx, fy, fr, isSource, sourceIndices, scale };
+    // Links trimmed so strokes stop short of the stars
+    const links = new Float32Array(LYRA_LINKS.length * 4);
+    for (let i = 0; i < LYRA_LINKS.length; i++) {
+      const a = LYRA_LINKS[i][0];
+      const b = LYRA_LINKS[i][1];
+      const dx = fx[b] - fx[a];
+      const dy = fy[b] - fy[a];
+      const d = Math.hypot(dx, dy) || 1;
+      const gapA = fr[a] * 2 + 6;
+      const gapB = fr[b] * 2 + 6;
+      links[i * 4] = fx[a] + (dx / d) * gapA;
+      links[i * 4 + 1] = fy[a] + (dy / d) * gapA;
+      links[i * 4 + 2] = fx[b] - (dx / d) * gapB;
+      links[i * 4 + 3] = fy[b] - (dy / d) * gapB;
+    }
+
+    // Graticule: three huge-radius arcs whispering through the sky
+    const g1x = cw * 1.62;
+    const g1y = -ch * 0.72;
+    const g1r = Math.hypot(g1x - cw * 0.3, g1y - ch * 0.52);
+    const g3x = -cw * 0.55;
+    const g3y = ch * 1.58;
+    const g3r = Math.hypot(g3x - cw * 0.55, g3y - ch * 0.3);
+    const graticule = new Float32Array([
+      g1x, g1y, g1r,
+      g1x, g1y, g1r + minWH * 0.16,
+      g3x, g3y, g3r,
+    ]);
+
+    // Edge ticks on the site's 40px grid rhythm
+    const ticks = new Path2D();
+    for (let tx = 40; tx < cw - 1; tx += 40) {
+      const len = tx % 120 === 0 ? 8 : 4;
+      ticks.moveTo(tx, ch);
+      ticks.lineTo(tx, ch - len);
+    }
+    for (let ty = 40; ty < ch - 1; ty += 40) {
+      const len = ty % 120 === 0 ? 8 : 4;
+      ticks.moveTo(0, ty);
+      ticks.lineTo(len, ty);
+    }
+
+    // Twinkle character for the background field (~40% of stars, slow and gentle)
+    const baseAlpha = new Float32Array(n);
+    const twinkleAmp = new Float32Array(n);
+    const twinkleSpeed = new Float32Array(n);
+    const twinklePhase = new Float32Array(n);
+    for (let k = 0; k < FIELD_STARS; k++) {
+      const i = nMain + k;
+      baseAlpha[i] = 0.13 + (((k * 5) % 7) / 7) * 0.25;
+      if (k % 5 < 2) {
+        twinkleAmp[i] = baseAlpha[i] * 0.45;
+        twinkleSpeed[i] = TAU / (4800 + ((k * 13) % 9) * 520);
+        twinklePhase[i] = ((k * 11) % 12) * (TAU / 12);
+      }
+    }
+
+    // Vega sprite: ember glow + 4 fine diffraction spikes + core, prerendered at DPR
+    const ember = hexToRgb(EMBER);
+    const star = hexToRgb(STAR);
+    const crimson = hexToRgb(SIGNAL);
+    const spikeV = 30 * sizeK;
+    const spikeH = 23 * sizeK;
+    const glowR = 30 * sizeK;
+    const vegaHalf = Math.ceil(spikeV + 4);
+    const vega = document.createElement("canvas");
+    vega.width = vegaHalf * 2 * dpr;
+    vega.height = vegaHalf * 2 * dpr;
+    const vctx = vega.getContext("2d");
+    if (vctx) {
+      vctx.scale(dpr, dpr);
+      const glow = vctx.createRadialGradient(vegaHalf, vegaHalf, 0, vegaHalf, vegaHalf, glowR);
+      glow.addColorStop(0, rgbString(ember, 0.5));
+      glow.addColorStop(0.35, rgbString(ember, 0.16));
+      glow.addColorStop(1, rgbString(ember, 0));
+      vctx.fillStyle = glow;
+      vctx.beginPath();
+      vctx.arc(vegaHalf, vegaHalf, glowR, 0, TAU);
+      vctx.fill();
+      const spikeColor = mixRgb(ember, star, 0.55);
+      vctx.lineWidth = 1;
+      const dirs = [
+        [0, -1, spikeV],
+        [0, 1, spikeV],
+        [-1, 0, spikeH],
+        [1, 0, spikeH],
+      ] as const;
+      for (const [vx, vy, len] of dirs) {
+        const lg = vctx.createLinearGradient(
+          vegaHalf,
+          vegaHalf,
+          vegaHalf + vx * len,
+          vegaHalf + vy * len,
+        );
+        lg.addColorStop(0, rgbString(spikeColor, 0.7));
+        lg.addColorStop(1, rgbString(spikeColor, 0));
+        vctx.strokeStyle = lg;
+        vctx.beginPath();
+        vctx.moveTo(vegaHalf + vx * 2, vegaHalf + vy * 2);
+        vctx.lineTo(vegaHalf + vx * len, vegaHalf + vy * len);
+        vctx.stroke();
+      }
+      vctx.fillStyle = rgbString(ember);
+      vctx.beginPath();
+      vctx.arc(vegaHalf, vegaHalf, fr[0], 0, TAU);
+      vctx.fill();
+      vctx.fillStyle = rgbString(mixRgb(ember, star, 0.72));
+      vctx.beginPath();
+      vctx.arc(vegaHalf, vegaHalf, fr[0] * 0.45, 0, TAU);
+      vctx.fill();
+    }
+
+    // Micro-labels with precomputed per-character advances (letter-spaced mono)
+    const labels: ChartLabel[] = [];
+    const vegaLabel = makeLabel(ctx, LYRA[0].name!, LABEL_FONT, 1.6);
+    labels.push({
+      chars: vegaLabel.chars,
+      advances: vegaLabel.advances,
+      x: fx[0] + 16,
+      y: fy[0] + 19,
+      alpha: 0.95,
+      font: LABEL_FONT,
+    });
+    for (const idx of [4, 5]) {
+      const made = makeLabel(ctx, LYRA[idx].name!, LABEL_FONT_SMALL, 1.4);
+      labels.push({
+        chars: made.chars,
+        advances: made.advances,
+        x: fx[idx] - made.width / 2,
+        y: fy[idx] + 17,
+        alpha: 0.7,
+        font: LABEL_FONT_SMALL,
+      });
+    }
+
+    // Satellite lanes: gentle quadratic arcs through open sky
+    const lanes: ChartLane[] = [];
+    const addLane = (x0: number, y0: number, x1: number, y1: number, bulge: number) => {
+      const mx = (x0 + x1) / 2;
+      const my = (y0 + y1) / 2;
+      const ldx = x1 - x0;
+      const ldy = y1 - y0;
+      const ld = Math.hypot(ldx, ldy) || 1;
+      lanes.push({
+        x0,
+        y0,
+        cx: mx - (ldy / ld) * bulge * minWH,
+        cy: my + (ldx / ld) * bulge * minWH,
+        x1,
+        y1,
+      });
+    };
+    addLane(cw * 0.08, ch * 0.3, cw * 0.46, ch * 0.11, -0.05);
+    addLane(cw * 0.88, ch * 0.4, cw * 0.7, ch * 0.74, -0.06);
+    addLane(cw * 0.28, ch * 0.88, cw * 0.66, ch * 0.77, 0.05);
+
+    const trailColors: string[] = [];
+    for (let i = 0; i <= SAT_TRAIL; i++) {
+      trailColors.push(rgbString(mixRgb(ember, crimson, i / SAT_TRAIL)));
+    }
+
+    return {
+      n,
+      sx,
+      sy,
+      del,
+      fx,
+      fy,
+      fr,
+      isSource,
+      sourceIndices,
+      scale,
+      chart: {
+        links,
+        graticule,
+        ticks,
+        labels,
+        vega,
+        vegaHalf,
+        twinkleAmp,
+        twinkleSpeed,
+        twinklePhase,
+        baseAlpha,
+        lanes,
+        trailColors,
+      },
+    };
+  }
+
+  function drawChartApparatus(layer: CanvasLayer, chart: ChartScene, alpha: number) {
+    if (alpha <= 0) return;
+    const { ctx } = layer;
+    ctx.strokeStyle = STAR;
+    ctx.globalAlpha = 0.06 * alpha;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.arc(chart.graticule[i * 3], chart.graticule[i * 3 + 1], chart.graticule[i * 3 + 2], 0, TAU);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.12 * alpha;
+    ctx.strokeStyle = CHART_META;
+    ctx.stroke(chart.ticks);
+  }
+
+  function drawLinks(layer: CanvasLayer, chart: ChartScene, progressByLink: (i: number) => number) {
+    const { ctx } = layer;
+    ctx.strokeStyle = STAR;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < chart.links.length / 4; i++) {
+      const p = progressByLink(i);
+      if (p <= 0) continue;
+      const x1 = chart.links[i * 4];
+      const y1 = chart.links[i * 4 + 1];
+      const x2 = chart.links[i * 4 + 2];
+      const y2 = chart.links[i * 4 + 3];
+      ctx.globalAlpha = 0.3 * Math.min(1, p * 1.4);
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x1 + (x2 - x1) * p, y1 + (y2 - y1) * p);
+      ctx.stroke();
+    }
+  }
+
+  function drawLabels(layer: CanvasLayer, chart: ChartScene, alpha: number) {
+    if (alpha <= 0) return;
+    const { ctx } = layer;
+    ctx.fillStyle = CHART_META;
+    for (const label of chart.labels) {
+      ctx.font = label.font;
+      ctx.globalAlpha = label.alpha * alpha;
+      for (let c = 0; c < label.chars.length; c++) {
+        ctx.fillText(label.chars[c], label.x + label.advances[c], label.y);
+      }
+    }
+  }
+
+  function drawVega(layer: CanvasLayer, prep: PortraitPrep, alpha: number, breathe: number) {
+    const { ctx } = layer;
+    const chart = prep.chart;
+    const size = chart.vegaHalf * 2;
+    ctx.globalAlpha = alpha * (0.92 + 0.08 * breathe);
+    ctx.drawImage(
+      chart.vega,
+      prep.fx[0] - chart.vegaHalf,
+      prep.fy[0] - chart.vegaHalf,
+      size,
+      size,
+    );
+  }
+
+  /** Fully formed chart at rest: fallbacks, quick path, and the ambient base. */
+  function drawStaticScene(layer: CanvasLayer, scene?: PortraitPrep, ambientT = -1) {
+    const prep = scene ?? prepareScene(layer);
+    const { ctx, rect, dpr } = layer;
+    const chart = prep.chart;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, rect.width, rect.height);
+
+    drawChartApparatus(layer, chart, 1);
+    drawLinks(layer, chart, () => 1);
+
+    // Background field (twinkling when an ambient clock is supplied)
+    const nMain = LYRA.length;
+    ctx.fillStyle = STAR;
+    for (let i = nMain; i < prep.n; i++) {
+      let alpha = chart.baseAlpha[i];
+      if (ambientT >= 0 && chart.twinkleAmp[i] > 0) {
+        alpha += chart.twinkleAmp[i] * Math.sin(chart.twinkleSpeed[i] * ambientT + chart.twinklePhase[i]);
+      }
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(prep.fx[i], prep.fy[i], prep.fr[i], 0, TAU);
+      ctx.fill();
+    }
+
+    // Principal stars: halo + core (Vega drawn as its sprite)
+    for (let i = 1; i < nMain; i++) {
+      ctx.globalAlpha = 0.22;
+      ctx.beginPath();
+      ctx.arc(prep.fx[i], prep.fy[i], prep.fr[i] * 2.1, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 0.95;
+      ctx.beginPath();
+      ctx.arc(prep.fx[i], prep.fy[i], prep.fr[i], 0, TAU);
+      ctx.fill();
+    }
+    const breathe = ambientT >= 0 ? Math.sin((ambientT / 7000) * TAU) : 0;
+    drawVega(layer, prep, 1, breathe);
+    drawLabels(layer, chart, 1);
+
+    // Ambient satellite: a short crossing every ~9s trailing crimson→ember
+    if (ambientT >= SAT_FIRST) {
+      const cycle = Math.floor((ambientT - SAT_FIRST) / SAT_PERIOD);
+      const local = (ambientT - SAT_FIRST) % SAT_PERIOD;
+      if (local < SAT_DUR) {
+        const lane = chart.lanes[cycle % chart.lanes.length];
+        const head = smoothstep(0, 1, local / SAT_DUR);
+        for (let k = 0; k <= SAT_TRAIL; k++) {
+          const t = head - k * 0.016;
+          if (t <= 0 || t >= 1) continue;
+          const u = 1 - t;
+          const px = u * u * lane.x0 + 2 * u * t * lane.cx + t * t * lane.x1;
+          const py = u * u * lane.y0 + 2 * u * t * lane.cy + t * t * lane.y1;
+          const fade = 1 - k / SAT_TRAIL;
+          ctx.globalAlpha = fade * 0.7 * Math.sin(Math.PI * Math.min(1, head * 1.05));
+          ctx.fillStyle = chart.trailColors[k];
+          ctx.beginPath();
+          ctx.arc(px, py, 0.7 + fade * 1.3, 0, TAU);
+          ctx.fill();
+        }
+        ctx.fillStyle = STAR;
+      }
+    }
+    ctx.globalAlpha = 1;
+    return prep;
+  }
+
+  /**
+   * Entrance frame: stars fly in brightest-first, links draw, the chart
+   * apparatus and labels fade up — all on the shared 2450ms clock.
+   * Uses only prepared arrays — no DOM reads or allocation.
+   */
+  function drawSceneFrame(
+    elapsed: number,
+    layer: CanvasLayer,
+    portrait: PortraitPrep,
+    transfers: TransferParticle[],
+  ): void {
+    const { ctx, rect, dpr } = layer;
+    const chart = portrait.chart;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, rect.width, rect.height);
+
+    drawChartApparatus(layer, chart, smoothstep(650, 1250, elapsed));
+    drawLinks(layer, chart, (i) => clamp((elapsed - (520 + i * 110)) / 300));
+
+    const { n, sx, sy, del, fx, fy, fr, isSource } = portrait;
+    const nMain = LYRA.length;
+    ctx.fillStyle = STAR;
+
+    for (let i = 0; i < n; i++) {
+      let p = (elapsed - del[i]) / PORTRAIT_DOT_DUR;
+      if (p <= 0) continue;
+      if (p > 1) p = 1;
+      const e = easeOutCubic(p);
+      const x = fx[i] + sx[i] * (1 - e);
+      const y = fy[i] + sy[i] * (1 - e);
+      let alpha = e < 0.85 ? e / 0.85 : 1;
+
+      // Edge sources: dip as transfer particles leave, reseal as the wave moves on
+      if (isSource[i]) {
+        let shed = 0;
+        let found = false;
+        for (let t = 0; t < transfers.length; t++) {
+          if (transfers[t].sourceIndex !== i) continue;
+          found = true;
+          const local = (elapsed - transfers[t].delay) / TRANSFER_TRAVEL_DUR;
+          // Peak attenuation just as the particle departs, reseal by mid-travel
+          const leave = smoothstep(0, 0.18, local) * (1 - smoothstep(0.35, 0.75, local));
+          if (leave > shed) shed = leave;
+        }
+        if (!found) {
+          const tp = progress(elapsed, WINDOWS.transfer);
+          shed = smoothstep(0, 0.2, tp) * (1 - smoothstep(0.45, 0.85, tp)) * 0.55;
+        }
+        alpha *= 1 - shed * 0.82;
+      }
+
+      if (i === 0) {
+        drawVega(layer, portrait, alpha * e, 0);
+        ctx.fillStyle = STAR;
+        continue;
+      }
+
+      if (i < nMain) {
+        ctx.globalAlpha = alpha * 0.22;
+        ctx.beginPath();
+        ctx.arc(x, y, fr[i] * 2.1 * (0.4 + 0.6 * e), 0, TAU);
+        ctx.fill();
+        ctx.globalAlpha = alpha * 0.95;
+      } else {
+        // A touch brighter while in flight, decaying to the resting base alpha
+        ctx.globalAlpha = alpha * (chart.baseAlpha[i] + 0.3 * (1 - e));
+      }
+      const r = fr[i] * (0.18 + 0.82 * e);
+      ctx.beginPath();
+      ctx.arc(x, y, r > 0.1 ? r : 0.1, 0, TAU);
+      ctx.fill();
+    }
+
+    drawLabels(layer, chart, smoothstep(1000, 1350, elapsed));
+    ctx.globalAlpha = 1;
   }
 
   function transformGlyph(ch: string, tt: string): string {
@@ -378,7 +904,7 @@
   /**
    * Sample glyph ink from real DOM text into host-local particles (once).
    * Skips nested motion targets so parent/child targets do not double-sample.
-   * Optional colorOverride paints highlight glyphs in signal red.
+   * Optional colorOverride paints highlight glyphs in crimson.
    */
   function sampleTextElement(
     el: Element,
@@ -461,54 +987,6 @@
     }
   }
 
-  /** Shallow red band at the existing .hl underline position (in addition to glyph samples). */
-  function collectHighlightParticles(
-    el: HTMLElement,
-    hostRect: DOMRect,
-    out: CopyParticle[],
-    budget: { remaining: number },
-  ): void {
-    if (budget.remaining <= 0) return;
-
-    const rect = el.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-
-    // Share the global copy budget; also cap highlights honestly
-    const maxHighlight = Math.min(MAX_HIGHLIGHT_PARTICLES, budget.remaining);
-    if (maxHighlight <= 0) return;
-
-    // CSS: linear-gradient(transparent 58%, var(--signal) 58%)
-    const bandTop = rect.top - hostRect.top + rect.height * 0.58;
-    const bandH = Math.max(3, rect.height * 0.42);
-    const left = rect.left - hostRect.left;
-    const rows = 3;
-    const perRow = Math.max(1, Math.floor(maxHighlight / rows));
-    const stepX = Math.max(3, rect.width / perRow);
-    const stepY = bandH / (rows + 1);
-    const r = Math.min(2.2, stepX * 0.42);
-    let placed = 0;
-
-    for (let row = 1; row <= rows && placed < maxHighlight && budget.remaining > 0; row++) {
-      const y = bandTop + stepY * row;
-      for (
-        let x = left;
-        x < left + rect.width && placed < maxHighlight && budget.remaining > 0;
-        x += stepX
-      ) {
-        out.push({
-          x: x + stepX * 0.5 * Math.random(),
-          y: y + (Math.random() - 0.5) * 1.2,
-          r,
-          color: SIGNAL,
-          kind: "highlight",
-          target: "highlight",
-        });
-        budget.remaining -= 1;
-        placed += 1;
-      }
-    }
-  }
-
   function perimeterPoints(box: DOMRect, hostRect: DOMRect, spacing: number): Point[] {
     const left = box.left - hostRect.left;
     const top = box.top - hostRect.top;
@@ -550,8 +1028,8 @@
     budget: { remaining: number },
   ): void {
     const cs = getComputedStyle(el);
-    const labelColor = cs.color || INK;
-    const borderColor = cs.borderColor || INK;
+    const labelColor = cs.color || STAR;
+    const borderColor = cs.borderColor || STAR;
 
     // Label glyphs only — not a solid rectangle fill
     const before = out.length;
@@ -604,10 +1082,9 @@
 
     if (eyebrow) sampleTextElement(eyebrow, hostRect, "eyebrow", copy, budget);
     if (name) sampleTextElement(name, hostRect, "name", copy, budget);
-    // Vega forms from red glyph dots (same sampling as other text) plus underline band
+    // Vega forms from crimson glyph dots; the DOM reveal supplies the gradient fill
     if (highlight) {
       sampleTextElement(highlight, hostRect, "highlight", copy, budget, SIGNAL);
-      collectHighlightParticles(highlight, hostRect, copy, budget);
     }
     if (subhead) sampleTextElement(subhead, hostRect, "subhead", copy, budget);
 
@@ -625,9 +1102,10 @@
   }
 
   /**
-   * Pair portrait edge sources with copy destinations; build cubic paths once.
-   * Coordinates are grid-local (full-grid copy canvas) so travel is visible from
-   * portrait sources across the seam into the copy region.
+   * Pair right-band field stars with copy destinations; build cubic paths once.
+   * Stars are fewer than destinations, so each source star emits several
+   * staggered particles — starlight streaming across the seam into the copy.
+   * Coordinates are grid-local (full-grid copy canvas).
    */
   function prepareTransferParticles(
     portrait: PortraitPrep,
@@ -645,12 +1123,12 @@
       .map((_, i) => i)
       .sort((a, b) => copy[a].y - copy[b].y || copy[a].x - copy[b].x);
 
-    const sources = portrait.sourceIndices.slice().sort((a, b) => portrait.fy[a] - portrait.fy[b]);
+    const sources = portrait.sourceIndices;
     const transfers: TransferParticle[] = [];
-    const n = Math.min(sources.length, destOrder.length, MAX_TRANSFER_SOURCES);
+    const n = Math.min(MAX_TRANSFER_SOURCES, destOrder.length);
 
     for (let i = 0; i < n; i++) {
-      const si = sources[i];
+      const si = sources[i % sources.length];
       const di = destOrder[Math.floor((i / n) * destOrder.length)];
       const dest = copy[di];
 
@@ -682,7 +1160,7 @@
         control1,
         control2,
         end,
-        r: Math.max(0.8, Math.min(portrait.fr[si], dest.r)),
+        r: Math.max(0.8, Math.min(portrait.fr[si] + 0.6, dest.r)),
         color: dest.color,
         delay: WINDOWS.transfer[0] + (i / Math.max(1, n - 1)) * 400 + Math.random() * 120,
         sourceIndex: si,
@@ -697,7 +1175,7 @@
    * Returns null if required targets produced no usable masks.
    */
   function prepareMotion(root: HTMLElement, layout: Layout): MotionPrep | null {
-    const portrait = preparePortraitParticles(layout.portrait);
+    const portrait = prepareScene(layout.portrait);
     const copy = collectTextParticles(root, layout);
 
     // Require core copy masks; name/eyebrow text and Vega highlight glyphs both count
@@ -707,60 +1185,6 @@
     const transfers = prepareTransferParticles(portrait, copy, layout);
 
     return { portrait, copy, transfers };
-  }
-
-  /**
-   * Portrait fly-in + controlled edge attenuation/reseal.
-   * Uses only prepared typed arrays — no DOM or allocation.
-   */
-  function drawPortraitFrame(
-    elapsed: number,
-    layer: CanvasLayer,
-    portrait: PortraitPrep,
-    transfers: TransferParticle[],
-  ): void {
-    const { ctx, rect, dpr } = layer;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, rect.width, rect.height);
-    ctx.fillStyle = INK;
-
-    const { n, sx, sy, del, fx, fy, fr, isSource, scale } = portrait;
-
-    for (let i = 0; i < n; i++) {
-      let p = (elapsed - del[i]) / PORTRAIT_DOT_DUR;
-      if (p <= 0) continue;
-      if (p > 1) p = 1;
-      const e = easeOutCubic(p);
-      const x = fx[i] + sx[i] * scale * (1 - e);
-      const y = fy[i] + sy[i] * scale * (1 - e);
-      const r = fr[i] * (0.18 + 0.82 * e);
-      let alpha = e < 0.85 ? e / 0.85 : 1;
-
-      // Edge sources: dip as transfer particles leave, reseal as the wave moves on
-      if (isSource[i]) {
-        let shed = 0;
-        let found = false;
-        for (let t = 0; t < transfers.length; t++) {
-          if (transfers[t].sourceIndex !== i) continue;
-          found = true;
-          const local = (elapsed - transfers[t].delay) / TRANSFER_TRAVEL_DUR;
-          // Peak attenuation just as the particle departs, reseal by mid-travel
-          const leave = smoothstep(0, 0.18, local) * (1 - smoothstep(0.35, 0.75, local));
-          if (leave > shed) shed = leave;
-        }
-        if (!found) {
-          const tp = progress(elapsed, WINDOWS.transfer);
-          shed = smoothstep(0, 0.2, tp) * (1 - smoothstep(0.45, 0.85, tp)) * 0.55;
-        }
-        alpha *= 1 - shed * 0.82;
-      }
-
-      ctx.globalAlpha = alpha;
-      ctx.beginPath();
-      ctx.arc(x, y, r > 0.1 ? r : 0.1, 0, TAU);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
   }
 
   /**
@@ -846,7 +1270,7 @@
   }
 
   /**
-   * Single RAF frame: clear both canvases, draw portrait + copy, update DOM.
+   * Single RAF frame: clear both canvases, draw chart + copy, update DOM.
    * No DOM measurement, no createElement, no array allocation.
    */
   function drawFrame(
@@ -855,7 +1279,7 @@
     prep: MotionPrep,
     targets: TargetBinding[],
   ): void {
-    drawPortraitFrame(elapsed, layout.portrait, prep.portrait, prep.transfers);
+    drawSceneFrame(elapsed, layout.portrait, prep.portrait, prep.transfers);
     drawCopyFrame(elapsed, layout.copy, prep);
     updateDomReveal(elapsed, targets);
   }
@@ -918,9 +1342,11 @@
     const root = document.querySelector<HTMLElement>(".hero");
     if (!root || document.body.dataset.page !== "home") return;
 
+    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const duration = plannedDuration();
 
     let rafId = 0;
+    let ambientRafId = 0;
     let resizeTimer = 0;
     let failsafeTimer = 0;
     let layout: Layout | null = null;
@@ -931,6 +1357,7 @@
     const cancelRuntime = () => {
       playing = false;
       cancelAnimationFrame(rafId);
+      cancelAnimationFrame(ambientRafId);
       clearTimeout(resizeTimer);
       clearTimeout(failsafeTimer);
     };
@@ -939,8 +1366,27 @@
       const next = measureLayout(root);
       if (!next) return false;
       layout = next;
-      drawStaticPortrait(next.portrait);
+      drawStaticScene(next.portrait);
       return true;
+    };
+
+    /**
+     * Ambient sky after the entrance settles: gentle field-star twinkle,
+     * Vega's glow breathing, and a satellite pass roughly every nine seconds.
+     * Never runs under reduced motion; canceled by cancelRuntime/dispose.
+     */
+    const startAmbient = () => {
+      if (reduceMotion || !layout) return;
+      cancelAnimationFrame(ambientRafId);
+      const scene = prepareScene(layout.portrait);
+      let start = 0;
+      const tick = (t: number) => {
+        if (gen !== setupGen || !layout) return;
+        if (!start) start = t;
+        drawStaticScene(layout.portrait, scene, t - start);
+        ambientRafId = requestAnimationFrame(tick);
+      };
+      ambientRafId = requestAnimationFrame(tick);
     };
 
     /**
@@ -952,6 +1398,7 @@
       cancelRuntime();
       settleToStatic(root, layout, { markSession: Boolean(options.markSession) });
       root.removeAttribute("data-motion-mode");
+      startAmbient();
     };
 
     const onResize = () => {
@@ -959,6 +1406,7 @@
       resizeTimer = window.setTimeout(() => {
         // Active motion: cancel and leave static without recording a successful play
         cancelAnimationFrame(rafId);
+        cancelAnimationFrame(ambientRafId);
         if (playing) {
           cancelRuntime();
           settleToStatic(root, layout, { markSession: false });
@@ -969,6 +1417,7 @@
             revealStaticHero(root);
           } else if (layout) {
             layout.copy.canvas.style.display = "none";
+            if (root.dataset.motionState === "complete") startAmbient();
           }
         });
       }, 150);
@@ -999,8 +1448,8 @@
       };
     };
 
-    // Reduced motion: reveal immediately, still draw static portrait when possible
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    // Reduced motion: reveal immediately, still draw the static chart when possible
+    if (reduceMotion) {
       revealStaticHero(root);
       redrawStatic();
       installListeners();
@@ -1026,6 +1475,7 @@
       targets = collectTargetBindings(root);
       if (!targets.length) {
         revealStaticHero(root);
+        startAmbient();
         return;
       }
       if (gen !== setupGen) return;
@@ -1071,6 +1521,7 @@
     if (!fontsOk) {
       revealStaticHero(root);
       redrawStatic();
+      startAmbient();
       return;
     }
 
@@ -1092,6 +1543,7 @@
     if (!prep) {
       revealStaticHero(root);
       redrawStatic();
+      startAmbient();
       return;
     }
 
@@ -1099,6 +1551,7 @@
     if (!targets.length) {
       revealStaticHero(root);
       redrawStatic();
+      startAmbient();
       return;
     }
 

@@ -39,7 +39,6 @@ npm run build
 npm run check
 npm test
 npm audit
-npm run generate:halftone
 npm run generate:portrait
 ```
 
@@ -89,7 +88,7 @@ Adding focused tests for requested behavior does not require separate approval. 
 
 - Do not publish placeholder destinations or imply that private work is publicly available.
 - Keep post frontmatter aligned with `src/content.config.ts`.
-- Generated halftone data and optimized portrait derivatives are intentionally committed because production deployment is static and deterministic.
+- Optimized portrait derivatives are intentionally committed because production deployment is static and deterministic.
 - Regenerate tracked derivatives with the provided scripts when their source changes.
 - `dist/`, caches, reports, local tooling state, and internal planning artifacts must never be committed.
 
