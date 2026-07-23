@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI-000 · Run Retry Controls · Feature Spec</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!--
+═══════════════════════════════════════════════════════════════════════════════
+  FEATURE SPEC · BRIEF TEMPLATE                              template rev 2.0
+═══════════════════════════════════════════════════════════════════════════════
+
+  One self-contained HTML file. No build step, no dependencies: it opens
+  straight from disk, renders in any browser, and diffs cleanly in a pull
+  request. (Fonts load from Google Fonts and fall back to system faces
+  offline.) This file IS the spec; the repo history IS the paper trail.
+
+  HOW TO USE
+  1. Copy this file into the feature's home as index.html, in a folder named
+     after the ticket:  AI-101-run-retry/index.html
+  2. Fill in the MASTHEAD below (title, doc no, rev, status, owner).
+  3. Work tab by tab. Everything in this file is a WORKED SAMPLE for a
+     fictional feature ("Run Retry Controls") pitched at the altitude we
+     want. Replace all sample content; keep the structure.
+  4. Guide comments start with "✎ GUIDE". They are invisible in the browser
+     and may stay in the file, but delete them once they stop being useful.
+  5. Review = a pull request on this file. Approval flips STATUS and adds a
+     row to REVISION HISTORY at the bottom of the sheet.
+
+  STATUS VALUES (masthead status pill)
+     DRAFT → IN REVIEW → APPROVED → BUILDING → SHIPPED
+     CSS classes: st-draft · st-review · st-approved · st-building · st-shipped
+
+  HOUSE RULES · what makes a spec "done" here
+  · Requirements are testable. One behavior per REQ row, each with acceptance
+    criteria a reviewer could fail you on. IDs are stable: never renumber;
+    retire a requirement by flipping it to WON'T, so references stay valid.
+  · Claims about existing code cite evidence (file:line you actually opened).
+  · Plans are PHASES with EXIT CHECKPOINTS, never calendar estimates.
+    We sequence work; we don't schedule it. A phase is done when its
+    checkpoint is demonstrably true, not when a date passes.
+  · Every significant choice gets a DEC entry with alternatives considered
+    and a revisit trigger. No silent architecture.
+  · Open questions carry "decide by" as a checkpoint (e.g. "before Phase 2"),
+    not a date.
+  · Prototype tab is optional: set data-included="false" on its panel to
+    mark it N/A (the tab stays visible, dimmed, so reviewers can see the
+    omission was deliberate).
+
+  THEME · Editorial brief (the design standard set by reference.html)
+  · Single committed light theme; do not add theme switchers.
+  · Paper page, white cards, dark masthead; Space Grotesk headings,
+    IBM Plex Sans body, IBM Plex Mono for labels, ids, and chips.
+  · Use the CSS variables in :root; never invent one-off literal colors.
+  · Printing keeps ink-on-white (@media print) and lays the four tabs out
+    as consecutive sheets.
+
+  FILE MAP
+  · <style>      editorial tokens + components, grouped by § comments
+  · .masthead    spec identity (drives document.title and the credits line)
+  · .tabs        4 tabs: Requirements / Design / Plan / Prototype
+  · #panels      one <section class="panel"> per tab; ALL content is static
+                 HTML here, hand-editable, no data model
+  · <script>     behavior only: tab switching + deep links, optional-tab
+                 handling, phase progress meters, title sync
+═══════════════════════════════════════════════════════════════════════════════
+-->
+
+<style>
+  /* ---------- §1 tokens · the editorial brief palette (matches reference.html) ---------- */
+  :root{
+    --ink:#14181F; --ink-2:#1D232E; --ink-3:#2A313D;
+    --paper:#F1F3F6; --surface:#FFFFFF; --surface-2:#F7F8FA;
+    --line:#DEE2E9; --line-strong:#C6CDD8;
+    --muted:#586173; --muted-2:#828C9C;
+    --crimson:#D42A3C; --crimson-deep:#B21F2F; --crimson-bg:#FBECEE;
+    --ember:#F2792B;
+    --teal:#0C8B72; --teal-deep:#0A6D5A; --teal-bg:#E7F3F0; --teal-line:#CDE7E0;
+    --amber:#9A6410; --amber-deep:#7E520E; --amber-bg:#F6EFE1; --amber-line:#EAE0CC;
+    --blue:#1D5FB0; --blue-bg:#E9F1FB;
+    --slate:#41485A; --slate-bg:#EEF0F4;
+    --green:var(--teal); /* semantic alias; wireframe strips use it inline */
+    --grad:linear-gradient(102deg,#D42A3C 0%,#F2792B 100%);
+    --grad-soft:linear-gradient(102deg,rgba(212,42,60,.09) 0%,rgba(242,121,43,.09) 100%);
+    --shadow-sm:0 1px 2px rgba(20,24,31,.05),0 1px 1px rgba(20,24,31,.04);
+    --shadow:0 6px 24px -12px rgba(20,24,31,.22),0 2px 6px -3px rgba(20,24,31,.10);
+    --radius:14px; --radius-sm:9px;
+    --maxw:1080px;
+    --display:"Space Grotesk",system-ui,sans-serif;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    color-scheme:light;
+  }
+
+  /* ---------- §2 base ---------- */
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);font-size:16.5px;line-height:1.62;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  ::selection{background:var(--crimson);color:#fff}
+  a{color:var(--crimson);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:var(--mono);font-size:.86em;color:var(--ink-2);background:var(--slate-bg);border:1px solid var(--line);border-radius:5px;padding:1px 6px;white-space:nowrap}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+
+  /* ---------- §3 masthead · spec identity ---------- */
+  .masthead{background:var(--ink);color:#EAEDF2;padding:46px 0 40px;position:relative;overflow:hidden}
+  .masthead::before{
+    content:"";position:absolute;inset:0;
+    background:
+      repeating-linear-gradient(0deg,transparent 0 39px,rgba(255,255,255,.028) 39px 40px),
+      repeating-linear-gradient(90deg,transparent 0 39px,rgba(255,255,255,.028) 39px 40px);
+    mask-image:radial-gradient(120% 100% at 82% 0%,#000 20%,transparent 72%);
+    pointer-events:none;
+  }
+  .masthead .wrap{position:relative;z-index:1}
+  .mast-top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:26px}
+  .doc-id{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#9AA3B2}
+  .doc-id b{color:#EAEDF2;font-weight:600}
+  .mast-title{font-family:var(--display);font-weight:600;font-size:clamp(30px,4.8vw,50px);line-height:1.05;letter-spacing:-.02em;margin:0 0 14px;max-width:22ch;color:#fff}
+  .mast-title .accent{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .mast-lede{font-size:clamp(15px,1.8vw,17.5px);color:#B9C1CE;max-width:62ch;margin:0 0 28px;line-height:1.55}
+  .meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.09);border-radius:10px;overflow:hidden;max-width:440px}
+  .meta-cell{background:var(--ink);padding:13px 16px}
+  .meta-cell .k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7C8595;margin-bottom:5px}
+  .meta-cell .v{font-family:var(--display);font-size:14px;color:#DCE1E8;font-weight:500}
+  .status{--pc:#B9C1CE;display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--pc);border:1px solid color-mix(in srgb,var(--pc) 42%,transparent);border-radius:100px;padding:6px 13px;background:color-mix(in srgb,var(--pc) 9%,transparent)}
+  .status .dot{width:7px;height:7px;border-radius:50%;background:var(--pc);box-shadow:0 0 0 3px color-mix(in srgb,var(--pc) 22%,transparent)}
+  .st-draft{--pc:#B9C1CE}
+  .st-review{--pc:#EFC677}
+  .st-approved{--pc:#7CD9BC}
+  .st-building{--pc:#9DBEF5}
+  .st-shipped{--pc:#fff;background:var(--grad);border-color:transparent}
+  .st-shipped .dot{box-shadow:0 0 0 3px rgba(255,255,255,.25)}
+
+  /* ---------- §4 sheet column ---------- */
+  .sheet{max-width:var(--maxw);margin:0 auto;padding:0 28px 64px}
+
+  /* ---------- §5 tabs ---------- */
+  .tabs{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+  .tabs .wrap{display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tab{appearance:none;background:transparent;border:0;position:relative;color:var(--muted);
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
+    padding:16px 14px 15px;cursor:pointer;display:flex;align-items:center;gap:9px;white-space:nowrap}
+  .tab::before{content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:3px;background:var(--grad);opacity:0;transition:opacity .2s}
+  .tab:hover{color:var(--ink)}
+  .tab[aria-selected="true"]{color:var(--ink);font-weight:600}
+  .tab[aria-selected="true"]::before{opacity:1}
+  .tab:focus-visible{outline:3px solid var(--ember);outline-offset:-3px;border-radius:6px}
+  .tno{font-size:9.5px;color:var(--muted-2);border:1px solid var(--line-strong);border-radius:4px;padding:1px 5px}
+  .tab[aria-selected="true"] .tno{color:var(--crimson);border-color:var(--crimson)}
+  .tab.omitted{opacity:.45}
+  .tab.omitted::after{content:"· n/a";font-size:9px;letter-spacing:.08em}
+
+  /* ---------- §6 panels & typography ---------- */
+  .panel{display:none}
+  .panel.active{display:block}
+  .body{padding:48px 0 64px}
+  section{margin:0 0 56px}
+  section:last-child{margin-bottom:0}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted-2);font-weight:500}
+  .num{color:var(--crimson);font-weight:600}
+  h2,h3{font-family:var(--display);font-weight:600;color:var(--ink);text-wrap:balance}
+  h2{font-size:clamp(22px,3vw,30px);line-height:1.12;letter-spacing:-.015em;margin:10px 0 0}
+  h3{font-size:17px;letter-spacing:-.008em;margin:0 0 6px}
+  p{color:var(--muted);font-size:15.5px;line-height:1.62;max-width:72ch;margin:14px 0 0}
+  p b,li b{color:var(--ink);font-weight:600}
+  .lede{font-size:17.5px;color:var(--ink-2);max-width:66ch}
+  .kicker{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--crimson);font-weight:600;background:var(--grad-soft);border:1px solid rgba(212,42,60,.18);border-radius:7px;padding:5px 11px;margin:18px 0 0}
+  .aside{position:relative;margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:16px 18px 14px 22px;box-shadow:var(--shadow-sm);overflow:hidden}
+  .aside::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--grad)}
+  .aside .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--crimson);font-weight:600}
+  .aside p{margin-top:6px;font-size:14px}
+
+  /* numbered scenario steps */
+  .steps{list-style:none;padding:0;margin:20px 0 0;counter-reset:s}
+  .steps li{position:relative;padding:14px 0 14px 50px;border-top:1px solid var(--line)}
+  .steps li:first-child{border-top:0}
+  .steps li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:14px;width:32px;height:32px;
+    border:2px solid var(--line-strong);border-radius:50%;display:grid;place-items:center;
+    font-family:var(--mono);font-size:13px;font-weight:600;color:var(--crimson);background:var(--surface)}
+  .steps h3{font-size:15.5px}
+  .steps p{margin-top:4px;font-size:14px}
+
+  /* persona / cast cards */
+  .cast{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:20px}
+  .cardc{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-sm)}
+  .cardc .role{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2)}
+  .cardc h3{font-size:17px;margin-top:8px}
+  .cardc p{font-size:14px;margin-top:6px;max-width:none}
+
+  /* goals vs non-goals columns */
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px}
+  .col{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);padding:20px 20px 10px}
+  .col.goals{background:var(--teal-bg);border-color:var(--teal-line)}
+  .col.nongoals{background:var(--amber-bg);border-color:var(--amber-line)}
+  .col .badge{font-family:var(--display);font-weight:600;font-size:15px}
+  .col.goals .badge{color:var(--teal-deep)}
+  .col.nongoals .badge{color:var(--amber-deep)}
+  .col ul{list-style:none;margin:12px 0 0;padding:0}
+  .col li{padding:0 0 14px 22px;position:relative;font-size:14px;line-height:1.55;color:var(--ink-2)}
+  .col li::before{position:absolute;left:0;top:-1px;font-family:var(--mono);font-weight:600}
+  .col.goals li::before{content:"+";color:var(--teal)}
+  .col.nongoals li::before{content:"−";color:var(--amber)}
+
+  /* ---------- §7 tables & chips ---------- */
+  .tablewrap{margin-top:18px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow-sm);overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table.sheet-tbl{width:100%;border-collapse:collapse;font-size:14px;background:var(--surface)}
+  .sheet-tbl th{background:var(--ink);color:#DCE1E8;text-align:left;padding:12px 16px;
+    font-family:var(--display);font-weight:600;font-size:13px;white-space:nowrap}
+  .sheet-tbl td{padding:13px 16px;border-top:1px solid var(--line);color:var(--muted);vertical-align:top;line-height:1.5;font-variant-numeric:tabular-nums}
+  .sheet-tbl tr:nth-child(odd) td{background:var(--surface-2)}
+  .sheet-tbl td.id{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--crimson);white-space:nowrap}
+  .sheet-tbl td.main{color:var(--ink);font-weight:500}
+  .chip{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    border-radius:5px;padding:3px 8px;white-space:nowrap}
+  .must{color:var(--crimson-deep);background:var(--crimson-bg)}
+  .should{color:var(--blue);background:var(--blue-bg)}
+  .could{color:var(--slate);background:var(--slate-bg)}
+  .wont{color:var(--muted-2);border:1px dashed var(--line-strong)}
+  .risk-low{color:var(--teal-deep);background:var(--teal-bg)}
+  .risk-med{color:var(--amber-deep);background:var(--amber-bg)}
+  .risk-high{color:var(--crimson-deep);background:var(--crimson-bg)}
+
+  /* evidence lines · claims about existing code */
+  .finding{padding:12px 0;border-bottom:1px solid var(--line)}
+  .finding:last-child{border-bottom:0}
+  .finding .cl{font-size:14.5px;color:var(--ink-2)}
+  .finding .ev{font-family:var(--mono);font-size:11px;color:var(--muted-2);margin-top:5px;word-break:break-word}
+  .finding .ev::before{content:"▸ ";color:var(--ember)}
+  .findings{margin-top:18px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow-sm);padding:6px 20px}
+
+  /* key/value rows (rollout, security stances, data changes) */
+  .kv{margin-top:18px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow-sm);overflow:hidden}
+  .kv-row{display:grid;grid-template-columns:200px 1fr;border-top:1px solid var(--line)}
+  .kv-row:first-child{border-top:0}
+  .kv-k{padding:13px 18px;background:var(--surface-2);border-right:1px solid var(--line);font-family:var(--display);font-size:14px;color:var(--ink);font-weight:600}
+  .kv-k .aka{display:block;font-family:var(--mono);font-size:10px;color:var(--muted-2);letter-spacing:.04em;margin-top:3px;font-weight:400}
+  .kv-v{padding:13px 18px;font-size:14px;color:var(--muted)}
+  .kv-v p{margin:0;font-size:14px;max-width:none}
+
+  /* ---------- §8 decision records ---------- */
+  .dec{position:relative;margin-top:16px;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius);padding:20px 22px 18px 26px;box-shadow:var(--shadow-sm);overflow:hidden}
+  .dec::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--grad)}
+  .dec-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .dec-id{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--crimson-deep);background:var(--crimson-bg);border-radius:5px;padding:3px 8px}
+  .dec-head h3{font-size:16.5px;margin:0}
+  .dec-head .chip{margin-left:auto}
+  .decided{color:var(--teal-deep);background:var(--teal-bg)}
+  .open-q{color:var(--amber-deep);background:var(--amber-bg)}
+  .dec dl{margin:14px 0 0;display:grid;grid-template-columns:auto 1fr;gap:9px 16px}
+  .dec dt{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted-2);white-space:nowrap;padding-top:3px;font-weight:500}
+  .dec dd{margin:0;font-size:14px;color:var(--muted);line-height:1.55}
+  .dec dd.choice{color:var(--ink);font-weight:500}
+
+  /* open questions */
+  .questions{list-style:none;margin:20px 0 0;padding:4px 24px;counter-reset:q;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+  .questions>li{position:relative;padding:18px 0 18px 44px;border-top:1px solid var(--line)}
+  .questions>li:first-child{border-top:0}
+  .questions>li::before{counter-increment:q;content:"Q" counter(q);position:absolute;left:0;top:19px;
+    font-family:var(--mono);font-size:13px;font-weight:600;color:var(--crimson)}
+  .questions h3{font-size:16px}
+  .questions .why,.questions .decide{font-size:13.5px;margin-top:7px;max-width:78ch;display:flex;gap:10px}
+  .questions .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-2);flex:0 0 104px;padding-top:2px}
+  .questions .why span:last-child{color:var(--muted)}
+  .questions .decide span:last-child{color:var(--ink-2);font-weight:500}
+
+  /* ---------- §9 diagram surface ---------- */
+  .diagram-wrap{margin-top:20px;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);overflow-x:auto}
+  svg.flow{display:block;width:100%;min-width:760px;height:auto}
+  .lbl{font-family:var(--display);fill:var(--ink);font-size:14px;font-weight:600}
+  .lbl-sm{font-family:var(--mono);fill:var(--muted);font-size:10px;letter-spacing:.04em}
+  .fbox{fill:var(--surface-2);stroke:var(--line-strong);stroke-width:1.5}
+  .fmodel{fill:rgba(212,42,60,.04);stroke:var(--crimson);stroke-width:1.5;stroke-dasharray:7 7}
+  .fedge{fill:none;stroke:var(--muted-2);stroke-width:1.8;stroke-linecap:round}
+
+  /* ---------- §10 implementation plan ---------- */
+  .phase{margin-top:16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow-sm);overflow:hidden}
+  .phase-head{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .ph-badge{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--crimson-deep);background:var(--crimson-bg);border-radius:5px;padding:4px 9px;white-space:nowrap}
+  .ph-name{font-family:var(--display);font-size:16px;font-weight:600;color:var(--ink)}
+  .ph-intent{font-size:12.5px;color:var(--muted-2)}
+  .meter{margin-left:auto;display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:10.5px;color:var(--muted);white-space:nowrap}
+  .bar{width:96px;height:6px;border-radius:100px;border:1px solid var(--line);background:var(--paper);overflow:hidden}
+  .fill{display:block;height:100%;width:0;background:var(--grad);border-radius:100px;transition:width .3s}
+  .fill.full{background:var(--teal)}
+  .tasks{list-style:none;margin:0;padding:4px 0}
+  .task{display:flex;gap:11px;align-items:baseline;padding:10px 18px;border-top:1px solid var(--line)}
+  .task:first-child{border-top:0}
+  .task::before{font-family:var(--mono);font-size:12px;flex:0 0 14px}
+  .task[data-state="todo"]::before{content:"□";color:var(--muted-2)}
+  .task[data-state="doing"]::before{content:"◐";color:var(--amber)}
+  .task[data-state="done"]::before{content:"■";color:var(--teal)}
+  .task[data-state="blocked"]::before{content:"⊘";color:var(--crimson)}
+  .tid{font-family:var(--mono);font-size:10.5px;color:var(--muted-2);flex:0 0 40px}
+  .tx{font-size:14px;color:var(--ink-2);flex:1}
+  .task[data-state="done"] .tx{color:var(--muted-2)}
+  .covers{font-family:var(--mono);font-size:9.5px;color:var(--crimson-deep);background:var(--crimson-bg);border-radius:4px;padding:2px 6px;white-space:nowrap}
+  .checkpoint{margin:14px 18px 18px;border:1px solid var(--teal-line);background:var(--teal-bg);border-radius:var(--radius-sm);padding:14px 16px}
+  .cp-tag{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal-deep);font-weight:600}
+  .checkpoint ul{list-style:none;margin:9px 0 0;padding:0}
+  .checkpoint li{padding:5px 0 5px 18px;position:relative;font-size:13.5px;color:var(--ink-2)}
+  .checkpoint li::before{content:"▸";position:absolute;left:0;color:var(--teal)}
+
+  /* ---------- §11 prototype kit · wireframe primitives in brief style ---------- */
+  .proto-stage{margin-top:18px;border:1px dashed var(--line-strong);border-radius:var(--radius);background:var(--surface-2);padding:22px;overflow-x:auto}
+  .proto-window{min-width:560px;max-width:840px;margin:0 auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:var(--shadow)}
+  .proto-chrome{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line)}
+  .pdot{width:9px;height:9px;border-radius:50%;background:var(--paper);border:1px solid var(--line-strong)}
+  .purl{flex:1;margin-left:8px;border:1px solid var(--line);border-radius:6px;padding:4px 10px;font-family:var(--mono);font-size:10.5px;color:var(--muted-2);background:var(--surface-2)}
+  .proto-body{padding:14px 14px 16px}
+  .proto-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  .proto-input{flex:1;min-width:160px;border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--surface-2)}
+  .proto-btn{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;padding:7px 12px;border-radius:6px;border:1px solid var(--line-strong);color:var(--ink-2);background:var(--surface);cursor:default}
+  .proto-btn.primary{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}
+  table.proto-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  .proto-tbl th{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  .proto-tbl td{padding:9px 10px;border-top:1px solid var(--line);color:var(--muted)}
+  .proto-tbl td.mono{font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
+  .proto-strip{display:flex;gap:10px;align-items:center;margin-top:12px;border:1px solid var(--line);border-left:3px solid var(--crimson);background:var(--surface-2);padding:10px 12px;font-size:13px;color:var(--ink-2);border-radius:6px;flex-wrap:wrap}
+  .pin{display:inline-grid;place-items:center;min-width:17px;height:17px;border-radius:50%;background:var(--crimson);color:#fff;font-family:var(--mono);font-size:10px;font-weight:600;padding:0 2px;margin-left:6px;transform:translateY(-2px)}
+  .pin-notes{list-style:none;margin:18px 0 0;padding:0;counter-reset:pin}
+  .pin-notes li{position:relative;padding:10px 0 10px 30px;border-top:1px solid var(--line);font-size:14px;color:var(--muted);max-width:80ch}
+  .pin-notes li:first-child{border-top:0}
+  .pin-notes li::before{counter-increment:pin;content:counter(pin);position:absolute;left:0;top:11px;width:17px;height:17px;border-radius:50%;
+    background:var(--crimson);color:#fff;font-family:var(--mono);font-size:10px;font-weight:600;display:grid;place-items:center}
+  .na-note{margin:36px 0;border:1px dashed var(--line-strong);border-radius:var(--radius-sm);padding:20px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2);text-align:center;background:var(--surface-2)}
+  .panel.omitted>*:not(.na-note){display:none}
+
+  /* ---------- §12 revision history & credits ---------- */
+  details.revlog{border-top:1px solid var(--line-strong);margin-top:8px}
+  .revlog summary{list-style:none;cursor:pointer;padding:16px 0;font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted-2)}
+  .revlog summary::-webkit-details-marker{display:none}
+  .revlog summary::before{content:"▸ ";color:var(--crimson)}
+  .revlog[open] summary::before{content:"▾ ";color:var(--crimson)}
+  .revlog .tablewrap{margin:0 0 20px}
+  .credits{margin-top:28px;font-family:var(--mono);font-size:10px;color:var(--muted-2);letter-spacing:.08em;text-align:center;text-transform:uppercase}
+  .credits b{color:var(--crimson)}
+
+  :focus-visible{outline:3px solid var(--ember);outline-offset:2px;border-radius:4px}
+
+  /* ---------- §13 responsive ---------- */
+  @media(max-width:900px){.compare,.cast{grid-template-columns:1fr}}
+  @media(max-width:640px){
+    .wrap,.sheet{padding-left:20px;padding-right:20px}
+    .masthead{padding:36px 0 32px}
+    .kv-row{grid-template-columns:1fr}
+    .kv-k{border-right:0;border-bottom:1px solid var(--line)}
+    .dec dl{grid-template-columns:1fr;gap:3px 0}
+    .meter{margin-left:0;flex-basis:100%}
+  }
+
+  /* ---------- §14 print · four sheets, ink on white ---------- */
+  @media print{
+    body{background:#fff}
+    *{box-shadow:none!important}
+    .tabs,.credits{display:none}
+    .panel{display:block}
+    .panel+.panel{break-before:page}
+    .panel::before{content:attr(data-sheet);display:block;padding:18px 0 0;font-family:var(--mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted-2)}
+    .masthead{background:#fff;color:var(--ink);border-bottom:2px solid var(--ink);padding:24px 0}
+    .masthead::before{display:none}
+    .doc-id{color:var(--muted)} .doc-id b{color:var(--ink)}
+    .mast-title{color:var(--ink)}
+    .mast-title .accent{background:none;-webkit-background-clip:initial;background-clip:initial;color:inherit}
+    .mast-lede{color:var(--muted)}
+    .meta-grid{background:var(--line);border-color:var(--line)}
+    .meta-cell{background:#fff}
+    .meta-cell .k{color:var(--muted-2)} .meta-cell .v{color:var(--ink)}
+    .status{background:transparent}
+    .st-draft{--pc:#586173} .st-review{--pc:#7E520E} .st-approved{--pc:#0A6D5A} .st-building{--pc:#1D5FB0}
+    .st-shipped{--pc:#B21F2F;background:transparent;color:#B21F2F;border-color:currentColor}
+    .sheet-tbl th{background:#fff;color:var(--ink);border-bottom:2px solid var(--ink)}
+    section,.phase,.dec,.tablewrap,.checkpoint,.findings,.kv,.questions{break-inside:avoid}
+  }
+
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ✎ GUIDE · MASTHEAD
+     The spec's identity. Keep DOC NO equal to the ticket id (this is the
+     one id the whole company can search). REV bumps on every meaningful
+     change: R0 first draft, R1 after review, and so on; add a matching
+     row to Revision History at the bottom. STATUS is the pill: swap its
+     st-* class (st-draft / st-review / st-approved / st-building /
+     st-shipped) and its text together. The lede is one plain sentence on
+     what the feature is; to highlight a word in the title, wrap it in
+     <span class="accent">. The script mirrors doc no, title, and rev into
+     the browser tab title and the credits line, so this header is the
+     single source of truth. -->
+<header class="masthead">
+  <div class="wrap">
+    <div class="mast-top">
+      <div class="doc-id">Feature spec · <b id="tb-doc">AI-000</b></div>
+      <div class="status st-draft"><span class="dot"></span>Draft</div>
+    </div>
+    <h1 class="mast-title" id="tb-title">Run Retry Controls</h1>
+    <p class="mast-lede">Worked sample · replace with one sentence on what this feature is and who it serves.</p>
+    <div class="meta-grid">
+      <div class="meta-cell"><div class="k">Rev</div><div class="v" id="tb-rev">R0</div></div>
+      <div class="meta-cell"><div class="k">Owner</div><div class="v">unassigned</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- ✎ GUIDE · TABS
+     The four sheets of the spec, in reading order. Don't reorder them;
+     the sequence is the method: agree on the problem, then the shape,
+     then the sequence of work, then (when there is UX) the picture.
+     The Prototype tab is optional; see its panel for how to mark it N/A.
+     The script derives everything from aria-controls, so adding a tab is:
+     one button here + one section.panel below with a matching id. -->
+<nav class="tabs" role="tablist" aria-label="Spec sections">
+  <div class="wrap">
+    <button class="tab" role="tab" id="tab-requirements" aria-controls="panel-requirements" aria-selected="true" tabindex="0"><span class="tno">01</span>Product Requirements</button>
+    <button class="tab" role="tab" id="tab-design" aria-controls="panel-design" aria-selected="false" tabindex="-1"><span class="tno">02</span>Technical Design</button>
+    <button class="tab" role="tab" id="tab-plan" aria-controls="panel-plan" aria-selected="false" tabindex="-1"><span class="tno">03</span>Implementation Plan</button>
+    <button class="tab" role="tab" id="tab-prototype" aria-controls="panel-prototype" aria-selected="false" tabindex="-1"><span class="tno">04</span>Prototype</button>
+  </div>
+</nav>
+
+<main class="sheet">
+
+    <div id="panels">
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           TAB 1 · PRODUCT REQUIREMENTS
+           Owner voice: product. Everything on this sheet must be legible
+           to a non-engineer. If a sentence needs the codebase to be
+           understood, it belongs on the Technical Design sheet instead.
+           ═══════════════════════════════════════════════════════════════ -->
+      <section class="panel active" id="panel-requirements" role="tabpanel" aria-labelledby="tab-requirements" tabindex="0" data-sheet="Sheet 01 · Product Requirements">
+        <div class="body">
+
+          <!-- ✎ GUIDE · 1.1 SUMMARY
+               Three sentences, tops: what this is, who it serves, why now.
+               A director should be able to read only this and decide whether
+               the rest of the sheet is worth their while. -->
+          <section>
+            <div class="eyebrow"><span class="num">1.1</span> · Summary</div>
+            <h2>What this is</h2>
+            <p class="lede">When a run fails partway through a workflow, operators today re-key the whole thing from scratch. This spec adds first-class retry: resume a failed run from its last good checkpoint, skipping the blocks that already completed, with a truthful audit trail linking the original run to its recovery.</p>
+            <p><b>Why now:</b> failure recovery is the top operator complaint on the runs surface, and the engine already checkpoints every block boundary, so the expensive half of the problem is already solved.</p>
+          </section>
+
+          <!-- ✎ GUIDE · 1.2 PROBLEM & CONTEXT
+               The narrative case. Name the pain, who feels it, and what it
+               costs. Cite real observations (support threads, run data,
+               recordings), not vibes. The analogy aside is optional; use it
+               when the mechanism needs a plain-english anchor for
+               non-technical readers. -->
+          <section>
+            <div class="eyebrow"><span class="num">1.2</span> · Problem &amp; context</div>
+            <h2>The problem</h2>
+            <p>A seven-block workflow that fails at block 3 discards the work of blocks 1 and 2. The operator's only recovery is to start a brand-new run and re-enter every input, and nothing in the history connects the failed attempt to its replacement. On long document workflows this turns a transient timeout into many minutes of duplicate work, and it quietly corrupts our reliability picture: every recovered failure looks like two unrelated runs.</p>
+            <div class="aside">
+              <div class="tag">Plain english</div>
+              <p>Today a failed run is a torn-up form: you copy everything onto a fresh one by hand. Retry is "resume the download" instead of "download it again."</p>
+            </div>
+          </section>
+
+          <!-- ✎ GUIDE · 1.3 SUCCESS METRICS
+               How we'll know it worked. Placed right after the problem, so the
+               bar for success is set before scope is argued. Two lenses, kept
+               separate on purpose:
+                 · BUSINESS · the outcome the org feels: value delivered,
+                   operator effort saved, support load removed. "Was it worth
+                   doing?"
+                 · TECHNICAL · system behavior you can assert on: reliability
+                   and correctness of the mechanism. "Does it work?"
+               Every row names its source; a metric with no source is a wish,
+               not a metric. -->
+          <section>
+            <div class="eyebrow"><span class="num">1.3</span> · Business &amp; technical success metrics</div>
+            <h2>How we'll know it worked</h2>
+
+            <span class="kicker">Business</span>
+            <div class="tablewrap">
+              <table class="sheet-tbl">
+                <tr><th>Metric</th><th>Baseline</th><th>Target</th><th>Source</th></tr>
+                <tr>
+                  <td class="main">Failed runs recovered via retry, vs. manual re-run</td>
+                  <td>0% · feature absent</td>
+                  <td>&ge; 70% of recoveries</td>
+                  <td>run events · parent-link coverage</td>
+                </tr>
+                <tr>
+                  <td class="main">Operator time reclaimed from failure recovery</td>
+                  <td>full manual re-key per recovery</td>
+                  <td>&ge; 20 operator-hours / month</td>
+                  <td>run events &times; est. time-per-block</td>
+                </tr>
+                <tr>
+                  <td class="main">Support load: "run failed, had to redo it" tickets</td>
+                  <td>current ticket volume</td>
+                  <td>&ge; 50% fewer within a quarter</td>
+                  <td>support desk · tag</td>
+                </tr>
+              </table>
+            </div>
+
+            <span class="kicker">Technical</span>
+            <div class="tablewrap">
+              <table class="sheet-tbl">
+                <tr><th>Metric</th><th>Baseline</th><th>Target</th><th>Source</th></tr>
+                <tr>
+                  <td class="main">Retries that complete without a second failure</td>
+                  <td>n/a</td>
+                  <td>&ge; 80%</td>
+                  <td>run events</td>
+                </tr>
+                <tr>
+                  <td class="main">Blocks skipped per recovery (work saved)</td>
+                  <td>0 · full re-run</td>
+                  <td>median &ge; 2 blocks</td>
+                  <td>run snapshots</td>
+                </tr>
+                <tr>
+                  <td class="main">Duplicate external side-effects on resume</td>
+                  <td>n/a</td>
+                  <td>0 · soak &amp; production</td>
+                  <td>audit-log replay diff</td>
+                </tr>
+              </table>
+            </div>
+          </section>
+
+          <!-- ✎ GUIDE · 1.4 GOALS & NON-GOALS
+               Goals are outcomes, not features; each should be checkable at
+               the end. Non-goals are the sharpest tool on this sheet: write
+               down the tempting adjacent work you are deliberately NOT doing,
+               so scope arguments happen here, once, and not in review. -->
+          <section>
+            <div class="eyebrow"><span class="num">1.4</span> · Goals · Non-goals</div>
+            <h2>What we're signing up for, and what we're not</h2>
+            <div class="compare">
+              <div class="col goals">
+                <div class="badge">Goals</div>
+                <ul>
+                  <li>Recover a failed run without re-keying inputs or re-executing completed blocks.</li>
+                  <li>Keep the audit trail truthful: parent and child runs are linked and both tell the whole story.</li>
+                  <li>Ship behind a flag, reversible with one switch and no data cleanup.</li>
+                </ul>
+              </div>
+              <div class="col nongoals">
+                <div class="badge">Non-goals · v1</div>
+                <ul>
+                  <li>Bulk retry from the runs list. Needs a selection model and rate design; parked as a follow-up.</li>
+                  <li>Editing a run's inputs before resuming. Retry replays the same run, it does not fork it.</li>
+                  <li>Any change to bot scheduling, hosts, or handler packages.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- ✎ GUIDE · 1.5 USERS & PRIMARY SCENARIO
+               One card per user who touches the feature, in their own terms.
+               Then ONE primary scenario, told as steps: the single path that,
+               if it works end to end, means the feature works. Edge cases go
+               in requirements, not here. -->
+          <section>
+            <div class="eyebrow"><span class="num">1.5</span> · Users &amp; primary scenario</div>
+            <h2>Who this is for</h2>
+            <div class="cast">
+              <div class="cardc">
+                <div class="role">Primary · acts</div>
+                <h3>Operator</h3>
+                <p>Works the run queue and is first on the scene when a run fails. Wants recovery in two clicks, from the page they're already on.</p>
+              </div>
+              <div class="cardc">
+                <div class="role">Secondary · observes</div>
+                <h3>Builder</h3>
+                <p>Designs the workflow. Doesn't retry runs, but needs failures to stay debuggable: a retry must show exactly which blocks were skipped and why.</p>
+              </div>
+            </div>
+            <ol class="steps">
+              <li><h3>A run fails mid-workflow</h3><p>Run #4231 fails at block 3 of 7 on an external-write timeout. The operator opens the run detail.</p></li>
+              <li><h3>Operator retries from the failure</h3><p>They hit <b>Retry from failed block</b>; a confirm strip states exactly what will replay and what will be skipped.</p></li>
+              <li><h3>Engine resumes from checkpoint</h3><p>A child run is queued starting at block 3. Blocks 1 and 2 are not re-executed.</p></li>
+              <li><h3>History stays honest</h3><p>The child completes; both runs display the parent/child link, and the failed parent reads "recovered by #4232".</p></li>
+            </ol>
+          </section>
+
+          <!-- ✎ GUIDE · 1.6 REQUIREMENTS
+               The contract. One testable behavior per row; acceptance criteria
+               concrete enough that a reviewer could fail the build against
+               them. Priority is MoSCoW (chip classes: must / should / could /
+               wont). IDs are stable forever: never renumber, never reuse.
+               Dropping a requirement = flip its chip to WON'T and say why in
+               the row, so every REQ referenced by tasks and tests stays
+               resolvable. -->
+          <section>
+            <div class="eyebrow"><span class="num">1.6</span> · Requirements</div>
+            <h2>The contract</h2>
+            <div class="tablewrap">
+              <table class="sheet-tbl">
+                <tr><th>ID</th><th>Requirement</th><th>Priority</th><th>Acceptance criteria</th></tr>
+                <tr>
+                  <td class="id">REQ-01</td>
+                  <td class="main">An operator can retry a failed run; execution resumes from the last good checkpoint.</td>
+                  <td><span class="chip must">Must</span></td>
+                  <td>Given a run failed at block 3 of 7, retry produces a child run that starts at block 3; blocks 1 and 2 are not re-executed.</td>
+                </tr>
+                <tr>
+                  <td class="id">REQ-02</td>
+                  <td class="main">The child run is linked to its parent and both sides are audited.</td>
+                  <td><span class="chip must">Must</span></td>
+                  <td>Audit log carries <code>run.retried</code> on the parent and a created-from reference on the child; the child is reachable by filtering runs on the parent id.</td>
+                </tr>
+                <tr>
+                  <td class="id">REQ-03</td>
+                  <td class="main">Retry is gated to the operator persona and above.</td>
+                  <td><span class="chip should">Should</span></td>
+                  <td>Personas below operator see no retry affordance; a direct API call from one returns 403 and is audited.</td>
+                </tr>
+                <tr>
+                  <td class="id">REQ-04</td>
+                  <td class="main">Retry from an arbitrary completed block ("from step N").</td>
+                  <td><span class="chip could">Could</span></td>
+                  <td>Deferred pending Q2. If cut, cutting it costs nothing in v1.</td>
+                </tr>
+                <tr>
+                  <td class="id">REQ-05</td>
+                  <td class="main">Bulk retry from the runs list.</td>
+                  <td><span class="chip wont">Won't · v1</span></td>
+                  <td>Parked: requires multi-select and rate limiting design. See follow-ups on Sheet 03.</td>
+                </tr>
+              </table>
+            </div>
+          </section>
+
+          <!-- ✎ GUIDE · 1.7 OPEN QUESTIONS
+               Questions that change the design if answered differently.
+               Each carries "decide by" as a CHECKPOINT (before which phase),
+               never a date. A question still open past its checkpoint blocks
+               that phase; that is the point. Promote answers into
+               requirements or DEC records, then strike the question. -->
+          <section>
+            <div class="eyebrow"><span class="num">1.7</span> · Open questions</div>
+            <h2>Unresolved, and blocking what</h2>
+            <ol class="questions">
+              <li>
+                <h3>Should a retried run re-fire notifications to watchers of the parent?</h3>
+                <div class="why"><span class="k">Why it matters</span><span>Silent retries hide recoveries from the team; loud ones double-ping every watcher.</span></div>
+                <div class="decide"><span class="k">Decide by</span><span>End of Phase 1, before the console surface is built.</span></div>
+              </li>
+              <li>
+                <h3>Do we expose "retry from block N", or only "from the failure point" in v1?</h3>
+                <div class="why"><span class="k">Why it matters</span><span>Power for builders vs a bigger blast radius and a harder confirm UX. Drives REQ-04.</span></div>
+                <div class="decide"><span class="k">Decide by</span><span>Before the Phase 2 checkpoint.</span></div>
+              </li>
+            </ol>
+          </section>
+
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           TAB 2 · TECHNICAL DESIGN
+           Owner voice: engineering. The reader is a peer who will maintain
+           this. Every claim about existing code carries a file:line you
+           actually opened; every significant choice is a DEC record with
+           the road not taken.
+           ═══════════════════════════════════════════════════════════════ -->
+      <section class="panel" id="panel-design" role="tabpanel" aria-labelledby="tab-design" tabindex="0" data-sheet="Sheet 02 · Technical Design">
+        <div class="body">
+
+          <!-- ✎ GUIDE · 2.1 CURRENT STATE
+               Only what the design touches, as evidence lines: a claim, then
+               the file:line that proves it. If you didn't open the file,
+               don't cite it. This section is what makes the design reviewable
+               by someone who hasn't read the code this month. -->
+          <section>
+            <div class="eyebrow"><span class="num">2.1</span> · Current state</div>
+            <h2>How it works today</h2>
+            <div class="findings">
+              <div class="finding"><div class="cl">Starting a run inserts a queued row and schedules a background task; there is one entry point.</div><div class="ev">modules/automation/api/runs.py:182 · sample citation, verify against current code</div></div>
+              <div class="finding"><div class="cl">Execution claims the row and runs under a per-client concurrent-run cap.</div><div class="ev">orchestration/run.py:668</div></div>
+              <div class="finding"><div class="cl">Workflow state is checkpointed at block boundaries to Postgres via the LangGraph saver, on a dedicated checkpoint database.</div><div class="ev">orchestration/state/checkpoint.py:9</div></div>
+              <div class="finding"><div class="cl">Failure is terminal: no resume path exists, and nothing links a re-run to the run it replaces.</div><div class="ev">absence verified by search across orchestration/ · no retry, resume, or parent_run references</div></div>
+            </div>
+          </section>
+
+          <!-- ✎ GUIDE · 2.2 PROPOSED DESIGN
+               A paragraph of shape, then the picture. The diagram is plain
+               inline SVG (classes: fbox for components, fmodel for stores or
+               external systems, fedge for wires, lbl / lbl-sm for text):
+               edit coordinates by hand, N.T.S., no generator. Keep it to one
+               screenful; a diagram that needs a legend needs a redesign. -->
+          <section>
+            <div class="eyebrow"><span class="num">2.2</span> · Proposed design</div>
+            <h2>Shape of the change</h2>
+            <p>Retry is a thin new path over machinery that already exists. A new engine endpoint validates that the source run is failed, loads its last good checkpoint, and queues an ordinary <b>child run</b> that begins at the failed block. The child is a first-class run: same execution path, same caps, same audit surface, plus a <code>parent_run_id</code> pointer. The console adds one action and one banner; it learns nothing about checkpoints.</p>
+            <div class="diagram-wrap">
+              <svg class="flow" viewBox="0 0 760 240" role="img" aria-label="Retry flow: console calls the engine retry endpoint, which loads the checkpoint and queues a child run">
+                <defs>
+                  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                    <path d="M0 0 L10 5 L0 10 z" fill="#828C9C"/>
+                  </marker>
+                </defs>
+                <rect class="fbox" x="24" y="36" width="170" height="56" rx="3"/>
+                <text class="lbl" x="109" y="60" text-anchor="middle">Console</text>
+                <text class="lbl-sm" x="109" y="78" text-anchor="middle">run detail · retry action</text>
+                <rect class="fbox" x="286" y="36" width="210" height="56" rx="3"/>
+                <text class="lbl" x="391" y="60" text-anchor="middle">Engine · retry endpoint</text>
+                <text class="lbl-sm" x="391" y="78" text-anchor="middle">validate failed · persona gate</text>
+                <rect class="fbox" x="560" y="36" width="176" height="56" rx="3"/>
+                <text class="lbl" x="648" y="60" text-anchor="middle">Resume service</text>
+                <text class="lbl-sm" x="648" y="78" text-anchor="middle">build child at failed block</text>
+                <rect class="fmodel" x="286" y="150" width="210" height="56" rx="3"/>
+                <text class="lbl" x="391" y="174" text-anchor="middle">Checkpoint store</text>
+                <text class="lbl-sm" x="391" y="192" text-anchor="middle">LangGraph · Postgres</text>
+                <rect class="fbox" x="560" y="150" width="176" height="56" rx="3"/>
+                <text class="lbl" x="648" y="174" text-anchor="middle">Child run</text>
+                <text class="lbl-sm" x="648" y="192" text-anchor="middle">queued · parent_run_id set</text>
+                <line class="fedge" x1="194" y1="64" x2="282" y2="64" marker-end="url(#arr)"/>
+                <text class="lbl-sm" x="238" y="54" text-anchor="middle">POST …/retry</text>
+                <line class="fedge" x1="496" y1="64" x2="556" y2="64" marker-end="url(#arr)"/>
+                <line class="fedge" x1="496" y1="178" x2="614" y2="96" marker-end="url(#arr)"/>
+                <text class="lbl-sm" x="576" y="146" text-anchor="middle">last good state</text>
+                <line class="fedge" x1="648" y1="96" x2="648" y2="146" marker-end="url(#arr)"/>
+                <text class="lbl-sm" x="700" y="124" text-anchor="middle">queue</text>
+              </svg>
+            </div>
+          </section>
+
+          <!-- ✎ GUIDE · 2.3 KEY DECISIONS
+               One DEC per fork in the road. The ALTERNATIVES row is the whole
+               value: it proves the road not taken was seen, and REVISIT WHEN
+               names the trigger that would reopen it. IDs are stable, same
+               rule as REQ. Status chip: decided / open. -->
+          <section>
+            <div class="eyebrow"><span class="num">2.3</span> · Key decisions</div>
+            <h2>Forks in the road</h2>
+            <article class="dec">
+              <div class="dec-head"><span class="dec-id">DEC-01</span><h3>Resume from checkpoint, not full re-run</h3><span class="chip decided">Decided</span></div>
+              <dl>
+                <dt>Choice</dt><dd class="choice">Child run resumes at the failed block from the LangGraph checkpoint.</dd>
+                <dt>Alternatives</dt><dd>(a) Full re-run with copied inputs: simpler, but re-executes side-effecting blocks. (b) In-place restart of the same run row: no duplicate row, but rewrites history and breaks the audit story.</dd>
+                <dt>Why</dt><dd>Checkpoints already exist at block boundaries; resume is the only option that is both cheap and honest.</dd>
+                <dt>Revisit when</dt><dd>A run predates checkpointing or its checkpoint fails to load; those fall back to full re-run behind the same button.</dd>
+              </dl>
+            </article>
+            <article class="dec">
+              <div class="dec-head"><span class="dec-id">DEC-02</span><h3>Recovery is a new linked run, not a mutation</h3><span class="chip decided">Decided</span></div>
+              <dl>
+                <dt>Choice</dt><dd class="choice">The failed run stays failed forever; recovery is a child run pointing at it.</dd>
+                <dt>Alternatives</dt><dd>Flipping the failed run back to running: fewer rows, but every consumer of run history (insights, billing, audit) would need to understand resurrection.</dd>
+                <dt>Why</dt><dd>Append-only history keeps all downstream readers correct with zero changes, and the reliability picture stays truthful.</dd>
+                <dt>Revisit when</dt><dd>Child-run volume ever distorts run-count metrics; then teach insights to fold chains, not the engine to mutate.</dd>
+              </dl>
+            </article>
+          </section>
+
+          <!-- ✎ GUIDE · 2.4 DATA & CONTRACTS
+               Exact surface changes: endpoints as rows, schema changes as
+               key/value entries. This is the section other teams read, so it
+               must be complete even when it feels obvious. -->
+          <section>
+            <div class="eyebrow"><span class="num">2.4</span> · Data &amp; contracts</div>
+            <h2>Surface changes</h2>
+            <div class="tablewrap">
+              <table class="sheet-tbl">
+                <tr><th>Method</th><th>Path</th><th>Behavior</th></tr>
+                <tr>
+                  <td class="id">POST</td>
+                  <td class="id">/api/automation/runs/{run_id}/retry</td>
+                  <td>202 with the child run id. 409 if the run is not failed; 403 below operator persona. Idempotent per parent while a child is still queued or running.</td>
+                </tr>
+                <tr>
+                  <td class="id">GET</td>
+                  <td class="id">/api/automation/runs?parent_run_id={id}</td>
+                  <td>Existing list endpoint gains one filter; no shape change.</td>
+                </tr>
+              </table>
+            </div>
+            <div class="kv">
+              <div class="kv-row"><div class="kv-k">Schema<span class="aka">automation.run</span></div><div class="kv-v"><p>Add nullable <code>parent_run_id</code> FK onto the same table, plus an index. Forward-safe; no backfill.</p></div></div>
+              <div class="kv-row"><div class="kv-k">Audit events</div><div class="kv-v"><p><code>run.retried</code> on the parent (payload: child id, resumed block) and a created-from reference on the child.</p></div></div>
+              <div class="kv-row"><div class="kv-k">Contracts</div><div class="kv-v"><p>Regenerate console API types from the engine OpenAPI spec after the endpoint lands; no hand-written types.</p></div></div>
+            </div>
+          </section>
+
+          <!-- ✎ GUIDE · 2.5 SECURITY & TENANCY
+               Standing checklist; every row gets a written stance. "n/a" is
+               an acceptable stance, silence is not. Add rows when the feature
+               touches surfaces this list doesn't cover (PII, new secrets,
+               file handling, new network egress…). -->
+          <section>
+            <div class="eyebrow"><span class="num">2.5</span> · Security &amp; tenancy</div>
+            <h2>Stances</h2>
+            <div class="kv">
+              <div class="kv-row"><div class="kv-k">Authentication</div><div class="kv-v"><p>Unchanged: console BFF session, engine Bearer JWT. No new principals.</p></div></div>
+              <div class="kv-row"><div class="kv-k">Authorization</div><div class="kv-v"><p>Retry requires operator persona or above; denials return 403 and are written to the audit log (REQ-03).</p></div></div>
+              <div class="kv-row"><div class="kv-k">Tenancy</div><div class="kv-v"><p>The child run inherits the parent's client scope; RLS policies apply as-is. No new tables, so no new policies.</p></div></div>
+              <div class="kv-row"><div class="kv-k">Data handling</div><div class="kv-v"><p>No new PII. Checkpoint payloads already pass through the redacting serializer; retry adds no new readers of raw state.</p></div></div>
+              <div class="kv-row"><div class="kv-k">Abuse &amp; limits</div><div class="kv-v"><p>Child runs count against the existing per-client concurrent-run cap; one live child per parent at a time.</p></div></div>
+            </div>
+          </section>
+
+          <!-- ✎ GUIDE · 2.6 RISKS & DEPENDENCIES
+               Risks that survive the design, with the mitigation you are
+               actually doing (not "monitor closely"). Impact chips:
+               risk-low / risk-med / risk-high. -->
+          <section>
+            <div class="eyebrow"><span class="num">2.6</span> · Risks &amp; dependencies</div>
+            <h2>What could bite</h2>
+            <div class="tablewrap">
+              <table class="sheet-tbl">
+                <tr><th>Risk</th><th>Impact</th><th>Mitigation</th></tr>
+                <tr>
+                  <td class="main">Duplicate external side-effects on resume (emails sent twice, records written twice)</td>
+                  <td><span class="chip risk-high">High</span></td>
+                  <td>Idempotency keys on external-write blocks, audited in Phase 3 before the flag opens; soak test replays and diffs the audit log.</td>
+                </tr>
+                <tr>
+                  <td class="main">Checkpoint schema drift between engine versions strands old checkpoints</td>
+                  <td><span class="chip risk-med">Med</span></td>
+                  <td>Version-stamp checkpoints; unloadable ones degrade to full re-run behind the same button (DEC-01 revisit path).</td>
+                </tr>
+                <tr>
+                  <td class="main">Checkpoint retention grows storage on the checkpoint database</td>
+                  <td><span class="chip risk-low">Low</span></td>
+                  <td>Existing retention job already bounds it; measure during the Phase 3 soak.</td>
+                </tr>
+              </table>
+            </div>
+          </section>
+
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           TAB 3 · IMPLEMENTATION PLAN
+           House rule, non-negotiable: phases with exit checkpoints, never
+           calendar estimates. A phase ends when its checkpoint is
+           demonstrably true. Task states live in data-state on each row
+           (todo / doing / done / blocked); edit the attribute as work moves
+           and the meters update themselves. This sheet is a living document
+           through the build, not a proposal that fossilizes at approval.
+           ═══════════════════════════════════════════════════════════════ -->
+      <section class="panel" id="panel-plan" role="tabpanel" aria-labelledby="tab-plan" tabindex="0" data-sheet="Sheet 03 · Implementation Plan">
+        <div class="body">
+
+          <section>
+            <div class="eyebrow"><span class="num">3.1</span> · Phases</div>
+            <h2>Sequence of work</h2>
+            <span class="kicker">House rule · phases &amp; checkpoints, never dates</span>
+            <p>Phases are ordered by risk: the resume path is the part that can sink the feature, so it goes first and proves itself through the API alone before any UI exists. Each task cites the requirements it covers, so coverage gaps are visible by inspection.</p>
+
+            <!-- ✎ GUIDE · task rows
+                 <li class="task" data-state="todo|doing|done|blocked">
+                   <span class="tid">T1.1</span>
+                   <span class="tx">what, phrased as a verifiable act</span>
+                   <span class="covers">REQ-01</span>
+                 </li>
+                 Blocked tasks should say by what, inline in the text. -->
+            <div class="phase">
+              <div class="phase-head">
+                <span class="ph-badge">Phase 1</span>
+                <span class="ph-name">Engine · resume path</span>
+                <span class="ph-intent">prove resume end to end, API only</span>
+                <span class="meter"><span class="mtext">0 / 0</span><span class="bar"><span class="fill"></span></span></span>
+              </div>
+              <ul class="tasks">
+                <li class="task" data-state="done"><span class="tid">T1.1</span><span class="tx">Migration: nullable <code>parent_run_id</code> + index on automation.run</span><span class="covers">REQ-02</span></li>
+                <li class="task" data-state="done"><span class="tid">T1.2</span><span class="tx">Resume service: load checkpoint, build child run queued at the failed block</span><span class="covers">REQ-01</span></li>
+                <li class="task" data-state="doing"><span class="tid">T1.3</span><span class="tx">Retry endpoint with failed-state validation and persona gate</span><span class="covers">REQ-01 · 03</span></li>
+                <li class="task" data-state="todo"><span class="tid">T1.4</span><span class="tx">Audit events on parent and child, both directions resolvable</span><span class="covers">REQ-02</span></li>
+                <li class="task" data-state="todo"><span class="tid">T1.5</span><span class="tx">Integration tests against real Postgres checkpoints, including the unloadable-checkpoint fallback</span><span class="covers">REQ-01</span></li>
+              </ul>
+              <div class="checkpoint">
+                <div class="cp-tag">Exit checkpoint</div>
+                <ul>
+                  <li>Via API alone: the sample workflow failed at block 3 resumes, completes, and both audit rows exist.</li>
+                  <li>Blocks 1 and 2 provably not re-executed (block execution log).</li>
+                  <li>Existing run suite fully green; Q1 (notifications) answered and recorded.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="phase">
+              <div class="phase-head">
+                <span class="ph-badge">Phase 2</span>
+                <span class="ph-name">Console · retry surface</span>
+                <span class="ph-intent">the two-click operator path</span>
+                <span class="meter"><span class="mtext">0 / 0</span><span class="bar"><span class="fill"></span></span></span>
+              </div>
+              <ul class="tasks">
+                <li class="task" data-state="todo"><span class="tid">T2.1</span><span class="tx">Retry action on run detail, rendered only for failed runs</span><span class="covers">REQ-01</span></li>
+                <li class="task" data-state="todo"><span class="tid">T2.2</span><span class="tx">Confirm strip stating what replays and what is skipped; parent ↔ child banner</span><span class="covers">REQ-02</span></li>
+                <li class="task" data-state="todo"><span class="tid">T2.3</span><span class="tx">Hide the action below operator persona; regenerate API types</span><span class="covers">REQ-03</span></li>
+                <li class="task" data-state="todo"><span class="tid">T2.4</span><span class="tx">Playwright e2e: fail → retry → child completes → links verified</span><span class="covers">REQ-01 · 02</span></li>
+              </ul>
+              <div class="checkpoint">
+                <div class="cp-tag">Exit checkpoint</div>
+                <ul>
+                  <li>An operator recovers the sample failure from the UI in two clicks; a viewer persona never sees the action.</li>
+                  <li>The e2e run is green in CI, not just locally.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="phase">
+              <div class="phase-head">
+                <span class="ph-badge">Phase 3</span>
+                <span class="ph-name">Hardening · rollout</span>
+                <span class="ph-intent">make it safe to leave on</span>
+                <span class="meter"><span class="mtext">0 / 0</span><span class="bar"><span class="fill"></span></span></span>
+              </div>
+              <ul class="tasks">
+                <li class="task" data-state="todo"><span class="tid">T3.1</span><span class="tx">Idempotency audit of every external-write block a retry can replay</span><span class="covers">REQ-01</span></li>
+                <li class="task" data-state="todo"><span class="tid">T3.2</span><span class="tx">Feature flag wired; enabled for the internal tenant only</span></li>
+                <li class="task" data-state="todo"><span class="tid">T3.3</span><span class="tx">Operator guide page and release note</span></li>
+              </ul>
+              <div class="checkpoint">
+                <div class="cp-tag">Exit checkpoint</div>
+                <ul>
+                  <li>Internal-tenant soak: a batch of induced failures retried with zero duplicate side-effects in the audit log.</li>
+                  <li>Default-on decision taken and recorded as DEC-03.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- ✎ GUIDE · 3.2 VERIFICATION
+               What "verified" means at each layer, concretely. The manual row
+               exists because some things (a real bot on a real host) only
+               fail in the real world. -->
+          <section>
+            <div class="eyebrow"><span class="num">3.2</span> · Verification</div>
+            <h2>What proves it</h2>
+            <div class="tablewrap">
+              <table class="sheet-tbl">
+                <tr><th>Layer</th><th>What proves it</th></tr>
+                <tr><td class="id">Unit</td><td>Resume state machine: only failed runs are retryable; one live child per parent.</td></tr>
+                <tr><td class="id">Integration</td><td>Resume from a real Postgres checkpoint fixture; unloadable checkpoint degrades to full re-run.</td></tr>
+                <tr><td class="id">E2E</td><td>Console flow: fail → retry → child completes, links navigable both ways.</td></tr>
+                <tr><td class="id">Manual</td><td>One workflow that dispatches to a bot host, retried on staging, to confirm dispatch is unaffected.</td></tr>
+              </table>
+            </div>
+          </section>
+
+          <!-- ✎ GUIDE · 3.3 ROLLOUT & BACKOUT
+               The backout row is the one people skip and the one that matters:
+               state exactly what turning it off leaves behind. -->
+          <section>
+            <div class="eyebrow"><span class="num">3.3</span> · Rollout &amp; backout</div>
+            <h2>Switches</h2>
+            <div class="kv">
+              <div class="kv-row"><div class="kv-k">Flag</div><div class="kv-v"><p><code>automation.run_retry</code>, engine-side, default off. Console hides the action when the capability is absent.</p></div></div>
+              <div class="kv-row"><div class="kv-k">Migration</div><div class="kv-v"><p>Forward-safe nullable column; runs with no parent are untouched. No backfill, no downtime.</p></div></div>
+              <div class="kv-row"><div class="kv-k">Backout</div><div class="kv-v"><p>Flag off. Existing child runs remain valid ordinary runs in history; nothing to clean up.</p></div></div>
+              <div class="kv-row"><div class="kv-k">Comms</div><div class="kv-v"><p>Release note plus the operator guide from T3.3; support told which tenants have it on.</p></div></div>
+            </div>
+          </section>
+
+          <!-- ✎ GUIDE · 3.4 FOLLOW-UPS
+               The parking lot. Items here are deliberately out of scope and
+               should trace back to a non-goal or a WON'T requirement. -->
+          <section>
+            <div class="eyebrow"><span class="num">3.4</span> · Follow-ups</div>
+            <h2>Parked, on purpose</h2>
+            <div class="findings">
+              <div class="finding"><div class="cl">Bulk retry from the runs list (REQ-05) once a selection model exists.</div><div class="ev">traces to non-goal · sheet 01</div></div>
+              <div class="finding"><div class="cl">Retry analytics on the insights surface: recovery rate per workflow and per block.</div><div class="ev">needs child-run volume first</div></div>
+              <div class="finding"><div class="cl">Per-block auto-retry policies for known-transient failures.</div><div class="ev">separate spec; changes execution semantics</div></div>
+            </div>
+          </section>
+
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           TAB 4 · PROTOTYPE · optional
+           For features with a UX surface: the picture that ends the
+           argument. Build it with the .proto-* wireframe kit below, or drop
+           in screenshots / a link to a live prototype. Wireframes are
+           deliberately low-fi and in sheet style: decide layout and words
+           here, not colors and pixels.
+
+           NOT APPLICABLE? Set data-included="false" on this <section> and
+           leave everything else alone: the tab dims to "n/a" and the panel
+           shows a standard note, so reviewers see a deliberate omission
+           rather than a missing sheet.
+           ═══════════════════════════════════════════════════════════════ -->
+      <section class="panel" id="panel-prototype" role="tabpanel" aria-labelledby="tab-prototype" tabindex="0" data-sheet="Sheet 04 · Prototype" data-optional data-included="true">
+        <div class="body">
+
+          <section>
+            <div class="eyebrow"><span class="num">4.1</span> · Mockup</div>
+            <h2>Run detail · failed state</h2>
+            <p>Numbered pins mark the moments that need agreement; each pin is explained in 4.2. Everything else on the screen is existing UI.</p>
+
+            <!-- ✎ GUIDE · wireframe kit
+                 .proto-window  a framed app window (chrome + url strip)
+                 .proto-toolbar / .proto-input / .proto-btn (.primary)
+                 .proto-tbl     a data table
+                 .proto-strip   an inline banner or confirm strip
+                 .pin           numbered marker, pairs with .pin-notes below
+                 Compose inside .proto-stage so wide mockups scroll instead
+                 of breaking the sheet. One screen per mockup; add more
+                 .proto-stage blocks for more states. -->
+            <div class="proto-stage">
+              <div class="proto-window" role="img" aria-label="Wireframe of the run detail page with a retry button, block table, and confirm strip">
+                <div class="proto-chrome">
+                  <span class="pdot"></span><span class="pdot"></span><span class="pdot"></span>
+                  <span class="purl">console › runs › #4231</span>
+                </div>
+                <div class="proto-body">
+                  <div class="proto-toolbar">
+                    <span class="proto-input">run #4231 · certificate intake · FAILED at block 3 of 7</span>
+                    <button class="proto-btn">View workflow</button>
+                    <button class="proto-btn primary">Retry from failed block<span class="pin">1</span></button>
+                  </div>
+                  <table class="proto-tbl">
+                    <tr><th>Block</th><th>Status</th><th>Duration</th></tr>
+                    <tr><td class="mono">1 · tools.ocr_document</td><td><span class="chip risk-low">done</span></td><td>41s</td></tr>
+                    <tr><td class="mono">2 · ai.extract</td><td><span class="chip risk-low">done</span></td><td>12s</td></tr>
+                    <tr><td class="mono">3 · external write · AMS</td><td><span class="chip risk-high">failed</span></td><td>timeout</td></tr>
+                    <tr><td class="mono">4 · human.review</td><td><span class="chip could">skipped</span></td><td>·</td></tr>
+                  </table>
+                  <div class="proto-strip">
+                    Creates linked child run · blocks 1 and 2 will not re-execute · external writes replay with idempotency keys
+                    <span class="pin">2</span>
+                    <button class="proto-btn primary">Confirm retry</button>
+                    <button class="proto-btn">Cancel</button>
+                  </div>
+                  <div class="proto-strip" style="border-left-color:var(--green)">
+                    Recovered by run <b>#4232</b> · view child run →<span class="pin">3</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ✎ GUIDE · 4.2 INTERACTION NOTES
+               One numbered note per pin, in pin order. State behavior, not
+               implementation: visibility rules, keyboard behavior, what
+               changes after the action. Then cover the three states every
+               screen has: empty, loading, error. -->
+          <section>
+            <div class="eyebrow"><span class="num">4.2</span> · Interaction notes</div>
+            <h2>What the pins mean</h2>
+            <ol class="pin-notes">
+              <li>Visible only when the run status is failed and the viewer's persona is operator or above. One live child per parent: while a child is queued or running, the button reads "Retry in progress" and is disabled.</li>
+              <li>Confirm is an inline strip, not a modal: it states exactly what replays and what is skipped. Enter confirms, Esc cancels, focus lands on Confirm.</li>
+              <li>After the child completes, the parent gains this banner permanently; the child shows the mirror banner linking back. History reads truthfully in both directions.</li>
+            </ol>
+            <div class="aside">
+              <div class="tag">States</div>
+              <p><b>Empty:</b> never; the surface only exists on a failed run. <b>Loading:</b> the button shows a spinner until the 202 returns, then navigates to the child. <b>Error:</b> 409 (already recovered) refreshes the page state; anything else shows the standard error strip with the audit id.</p>
+            </div>
+          </section>
+
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ✎ GUIDE · REVISION HISTORY
+         One row per REV, newest first. The current REV in the title block
+         must always have a row here. Keep entries to one line: what changed
+         and who changed it; the diff carries the detail. -->
+    <details class="revlog">
+      <summary>Revision history</summary>
+      <div class="tablewrap">
+        <table class="sheet-tbl">
+          <tr><th>Rev</th><th>Change</th><th>By</th></tr>
+          <tr><td class="id">R0</td><td>Initial draft · template worked sample.</td><td>template</td></tr>
+        </table>
+      </div>
+    </details>
+
+  <div class="credits" id="credits"></div>
+</main>
+
+<script>
+/* Content lives entirely in the HTML above; this script only wires behavior.
+   Tabs are derived from the DOM (aria-controls), so adding or removing a tab
+   never requires touching this code. */
+const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+const tabs = $$(".tab");
+const panels = $$(".panel");
+const panelIds = tabs.map(t => t.getAttribute("aria-controls").replace("panel-", ""));
+
+function select(id){
+  tabs.forEach(t => {
+    const on = t.getAttribute("aria-controls") === "panel-" + id;
+    t.setAttribute("aria-selected", on);
+    t.tabIndex = on ? 0 : -1;
+  });
+  panels.forEach(p => p.classList.toggle("active", p.id === "panel-" + id));
+  if (history.replaceState) history.replaceState(null, "", "#" + id);
+}
+
+tabs.forEach(t => {
+  t.addEventListener("click", () => select(t.getAttribute("aria-controls").replace("panel-", "")));
+  t.addEventListener("keydown", e => {
+    const i = tabs.indexOf(t);
+    let next = null;
+    if (e.key === "ArrowRight") next = (i + 1) % tabs.length;
+    if (e.key === "ArrowLeft") next = (i - 1 + tabs.length) % tabs.length;
+    if (e.key === "Home") next = 0;
+    if (e.key === "End") next = tabs.length - 1;
+    if (next !== null) { e.preventDefault(); tabs[next].focus(); tabs[next].click(); }
+  });
+});
+window.addEventListener("hashchange", () => {
+  const h = location.hash.slice(1);
+  if (panelIds.includes(h)) select(h);
+});
+
+/* Optional sheets: a panel marked data-included="false" keeps its tab visible
+   but dimmed, and shows a standard note in place of content, so reviewers can
+   tell the sheet was skipped on purpose rather than forgotten. */
+$$(".panel[data-optional]").forEach(p => {
+  if (p.dataset.included !== "false") return;
+  p.classList.add("omitted");
+  const tab = document.getElementById("tab-" + p.id.replace("panel-", ""));
+  if (tab) tab.classList.add("omitted");
+  const note = document.createElement("div");
+  note.className = "na-note";
+  note.textContent = 'Marked not applicable for this spec · set data-included="true" on this panel to restore it';
+  p.appendChild(note);
+});
+
+/* Phase meters: progress derives from each task's data-state attribute. */
+$$(".phase").forEach(ph => {
+  const ts = $$(".task", ph);
+  const meter = ph.querySelector(".meter");
+  if (!meter || !ts.length) return;
+  const done = ts.filter(t => t.dataset.state === "done").length;
+  meter.querySelector(".mtext").textContent = done + " / " + ts.length;
+  const fill = meter.querySelector(".fill");
+  fill.style.width = (100 * done / ts.length) + "%";
+  if (done === ts.length) fill.classList.add("full");
+});
+
+/* The title block is the single source of truth for identity: mirror it into
+   the browser tab title and the credits line. */
+const docNo = (document.getElementById("tb-doc") || { textContent: "" }).textContent.trim();
+const title = (document.getElementById("tb-title") || { textContent: "" }).textContent.trim();
+const rev = (document.getElementById("tb-rev") || { textContent: "" }).textContent.trim();
+if (title) document.title = (docNo ? docNo + " · " : "") + title + " · Feature Spec";
+document.getElementById("credits").textContent =
+  [docNo, title, rev, "feature spec · brief sheet"].filter(Boolean).join(" · ");
+
+const initial = location.hash.slice(1);
+select(panelIds.includes(initial) ? initial : panelIds[0]);
+</script>
+</body>
+</html>
