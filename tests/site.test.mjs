@@ -348,7 +348,30 @@ test("rss feed includes published posts", () => {
 
   assert.match(xml, /<rss/);
   assert.match(xml, /From BERT to agents/);
-  assert.doesNotMatch(xml, /draft/i);
+
+  // Item set must match non-draft content slugs exactly (not a /draft/i substring proxy).
+  const postsDir = join(root, "src", "content", "posts");
+  const expectedSlugs = readdirSync(postsDir)
+    .filter((file) => /\.(md|mdx)$/.test(file))
+    .flatMap((file) => {
+      const fm = readFileSync(join(postsDir, file), "utf8").match(
+        /^---\r?\n([\s\S]*?)\r?\n---/,
+      )?.[1];
+      if (!fm || /^draft:\s*true\s*$/m.test(fm)) return [];
+      return [file.replace(/\.(md|mdx)$/, "")];
+    })
+    .sort();
+
+  const itemLinks = [...xml.matchAll(/<item>[\s\S]*?<link>([^<]+)<\/link>/g)].map(
+    (match) => match[1],
+  );
+  const feedSlugs = itemLinks
+    .map((href) => href.match(/\/posts\/([^/]+)\/?$/)?.[1])
+    .filter(Boolean)
+    .sort();
+
+  assert.deepEqual(feedSlugs, expectedSlugs);
+  assert.equal(itemLinks.length, expectedSlugs.length, "no extra non-post channel links as items");
 });
 
 test("compiled css assets are emitted", () => {
