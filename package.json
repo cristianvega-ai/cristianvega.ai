@@ -10,6 +10,7 @@
     "check": "astro check",
     "test": "node --test tests/*.test.mjs",
     "verify": "npm run build && npm run check && npm test",
+    "verify:deploy": "node scripts/verify-deploy.mjs",
     "generate:portrait": "node scripts/generate-portrait.mjs"
   },
   "dependencies": {

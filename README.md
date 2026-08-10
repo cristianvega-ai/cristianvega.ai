@@ -45,11 +45,12 @@ Build locally, then upload the contents of `dist/` to the DreamHost domain direc
 ```bash
 npm run build
 rsync -avz --delete dist/ USER@SERVER.dreamhost.com:/home/USER/cristianvega.ai/
+npm run verify:deploy
 ```
 
 Replace `USER`, `SERVER.dreamhost.com`, and the destination path with the values from DreamHost panel/SFTP settings. Upload the contents of `dist/`, not the `dist` directory itself.
 
-The build copies production Apache config from `public/.htaccess` (HTTPS redirect, security headers including CSP, custom 404, cache rules), plus `public/robots.txt`. After the first deploy, confirm HTTPS, HSTS, and CSP behave as expected in the DreamHost panel (this environment cannot resolve the live host).
+The build copies production Apache config from `public/.htaccess` (HTTPS redirect, security headers including CSP, custom 404, cache rules), plus `public/robots.txt`. Headers live inside `<IfModule mod_headers.c>`, so a host without `mod_headers` drops CSP/HSTS/frame protections silently — build-time tests cannot see that. After every deploy, run `npm run verify:deploy` against the live origin (override with `ORIGIN=...` if needed). It requires all six security header names on `GET /`, checks core CSP directives, and requires HTTP 404 for a deliberately missing path.
 
 Static operational assets:
 
@@ -58,6 +59,7 @@ Static operational assets:
 | `robots.txt` | `public/robots.txt` | Crawl policy + sitemap URL |
 | `404.html` | `src/pages/404.astro` | Custom not-found page |
 | `.htaccess` | `public/.htaccess` | HTTPS, security headers + CSP, ErrorDocument, caching |
+| `verify:deploy` | `scripts/verify-deploy.mjs` | Live header + 404 gate after rsync |
 
 ## Image derivatives
 
