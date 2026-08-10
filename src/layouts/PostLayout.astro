@@ -8,9 +8,19 @@ interface Props {
 }
 
 const { post } = Astro.props;
+const published = post.data.date;
+const updated = post.data.updatedDate;
+const modified = updated ?? published;
 ---
 
-<BaseLayout title={post.data.title} description={post.data.description} active="writing">
+<BaseLayout
+  title={post.data.title}
+  description={post.data.description}
+  active="writing"
+  ogType="article"
+  publishedTime={published}
+  modifiedTime={modified}
+>
   <main>
     <article class="section section--tight">
       <div class="wrap wrap--narrow">
@@ -21,7 +31,18 @@ const { post } = Astro.props;
           </p>
           <h1 class="article__title">{post.data.title}</h1>
           <div class="article__meta">
-            <time datetime={formatMachineDate(post.data.date)}>{formatReadableDate(post.data.date)}</time>
+            <time datetime={formatMachineDate(published)}>{formatReadableDate(published)}</time>
+            {
+              updated && (
+                <>
+                  <span class="sep">/</span>
+                  <span>
+                    Updated{" "}
+                    <time datetime={formatMachineDate(updated)}>{formatReadableDate(updated)}</time>
+                  </span>
+                </>
+              )
+            }
             <span class="sep">/</span>
             <span class="by">Cristian Vega</span>
             {

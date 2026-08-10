@@ -7,13 +7,19 @@ interface Props {
   description?: string;
   active?: "home" | "writing" | "projects" | "about" | "contact";
   bare?: boolean;
+  ogType?: "website" | "article";
+  publishedTime?: Date;
+  modifiedTime?: Date;
 }
 
 const {
   title = "Cristian Vega — Senior Director, AI Engineering",
   description = "Head of AI R&D at Patra Corporation. Engineering leader building production AI for insurance, from NLP models to agentic autonomous workflows.",
   active = "home",
-  bare = false
+  bare = false,
+  ogType = "website",
+  publishedTime,
+  modifiedTime,
 } = Astro.props;
 
 const pageTitle = title.includes("Cristian Vega") ? title : `${title} — Cristian Vega`;
@@ -33,10 +39,12 @@ const ogImageAlt = "Portrait of Cristian Vega";
     <link rel="canonical" href={canonicalUrl} />
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:image" content={ogImageUrl} />
     <meta property="og:image:alt" content={ogImageAlt} />
+    {publishedTime && <meta property="article:published_time" content={publishedTime.toISOString()} />}
+    {modifiedTime && <meta property="article:modified_time" content={modifiedTime.toISOString()} />}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content={ogImageUrl} />
     <meta name="twitter:image:alt" content={ogImageAlt} />
