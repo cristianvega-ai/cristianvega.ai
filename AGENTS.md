@@ -38,6 +38,7 @@ Useful focused commands:
 npm run build
 npm run check
 npm test
+npm run verify:deploy     # post-deploy: live security headers + real 404
 npm audit
 npm run generate:portrait
 ```
