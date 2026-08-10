@@ -363,3 +363,21 @@ test("compiled css assets are emitted", () => {
   const css = cssFiles.map((file) => readFileSync(join(astroDir, file), "utf8")).join("\n");
   assert.doesNotMatch(css, /html\.js[^{]*hero__name[^{]*\{[^}]*opacity\s*:\s*0/s);
 });
+
+test("spec template wireframe kit keeps role=img free of focusable controls", () => {
+  const html = readFileSync(join(root, "spec-template.html"), "utf8");
+  const windowMatch = html.match(
+    /<div class="proto-window"[^>]*role="img"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>\s*<\/section>/,
+  );
+  assert.ok(windowMatch, "prototype wireframe window should be present");
+  assert.doesNotMatch(
+    windowMatch[0],
+    /<(button|a|input|select|textarea)\b/i,
+    "decorative wireframe controls must not be focusable inside role=img",
+  );
+  assert.match(
+    html,
+    /never\s+<button>/i,
+    "GUIDE should tell copies to use span.proto-btn instead of button",
+  );
+});
