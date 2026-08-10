@@ -10,7 +10,14 @@ interface Props {
 const { post } = Astro.props;
 ---
 
-<BaseLayout title={post.data.title} description={post.data.description} active="writing">
+<BaseLayout
+  title={post.data.title}
+  description={post.data.description}
+  active="writing"
+  ogType="article"
+  publishedTime={post.data.date}
+  modifiedTime={post.data.updatedDate}
+>
   <main>
     <article class="section section--tight">
       <div class="wrap wrap--narrow">
