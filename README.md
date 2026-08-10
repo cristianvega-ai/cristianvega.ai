@@ -67,6 +67,7 @@ Requires `sharp` (devDependency).
 # Home-hero halftone dot data → src/halftone-dots.json
 npm run generate:halftone
 
-# About profile strip (264px WebP + AVIF) → public/images/cristian-vega-portrait.*
+# About profile strip (264px WebP + AVIF) + OG share card (1200×630 JPEG)
+# → public/images/cristian-vega-portrait.* and cristian-vega-og.jpg
 npm run generate:portrait
 ```
