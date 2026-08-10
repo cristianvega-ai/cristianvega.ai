@@ -23,7 +23,6 @@
 
   // Overlapping target windows (ms). Full choreography ends at 2450.
   const WINDOWS = {
-    portrait: [0, 750],
     transfer: [450, 1450],
     eyebrow: [720, 1320],
     name: [850, 1550],
@@ -69,6 +68,9 @@
   const SAT_DUR = 1500;
   const SAT_FIRST = 2600;
   const SAT_TRAIL = 16;
+  // Ambient repaint budget (~15fps): the slow twinkle and Vega's breath read
+  // identically at this cadence; satellite passes still draw every frame.
+  const AMBIENT_FRAME_MS = 66;
 
   type Point = { x: number; y: number };
   type Rect = { left: number; top: number; width: number; height: number };
@@ -468,10 +470,11 @@
       del[i] = 90 + ((k * 13) % 10) * 14 + Math.random() * 80;
     }
 
-    // Fly-in scatter: gentle radial drift toward each star's resting place
+    // Fly-in scatter: gentle radial drift toward each star's resting place.
+    // Vega (index 0) fades in at rest, so it is deliberately left unscattered.
     const ccx = cw * 0.45;
     const ccy = ch * 0.44;
-    for (let i = 0; i < n; i++) {
+    for (let i = 1; i < n; i++) {
       const ddx = fx[i] - ccx;
       const ddy = fy[i] - ccy;
       const dist = Math.hypot(ddx, ddy) || 1;
@@ -689,6 +692,48 @@
     };
   }
 
+  /**
+   * One prepared scene per canvas geometry. prepareScene is deterministic for a
+   * given size, so static redraws, the entrance and the ambient loop share a
+   * single build. Font status is part of the key because label advances are
+   * measured, so a scene built before webfonts resolve must be rebuilt after.
+   */
+  let sceneCache:
+    | {
+        canvas: HTMLCanvasElement;
+        width: number;
+        height: number;
+        dpr: number;
+        fontsLoaded: boolean;
+        prep: PortraitPrep;
+      }
+    | null = null;
+
+  function sceneFor(layer: CanvasLayer): PortraitPrep {
+    const { canvas, rect, dpr } = layer;
+    const fontsLoaded = document.fonts?.status === "loaded";
+    if (
+      sceneCache &&
+      sceneCache.canvas === canvas &&
+      sceneCache.width === rect.width &&
+      sceneCache.height === rect.height &&
+      sceneCache.dpr === dpr &&
+      sceneCache.fontsLoaded === fontsLoaded
+    ) {
+      return sceneCache.prep;
+    }
+    const prep = prepareScene(layer);
+    sceneCache = {
+      canvas,
+      width: rect.width,
+      height: rect.height,
+      dpr,
+      fontsLoaded,
+      prep,
+    };
+    return prep;
+  }
+
   function drawChartApparatus(layer: CanvasLayer, chart: ChartScene, alpha: number) {
     if (alpha <= 0) return;
     const { ctx } = layer;
@@ -704,6 +749,12 @@
     ctx.strokeStyle = CHART_META;
     ctx.stroke(chart.ticks);
   }
+
+  // Hoisted link-progress callbacks — the RAF loops must not allocate closures.
+  // The entrance reads its clock from linkElapsed, set just before the call.
+  const linkProgressFull = () => 1;
+  let linkElapsed = 0;
+  const linkProgressEntrance = (i: number) => clamp((linkElapsed - (520 + i * 110)) / 300);
 
   function drawLinks(layer: CanvasLayer, chart: ChartScene, progressByLink: (i: number) => number) {
     const { ctx } = layer;
@@ -753,14 +804,14 @@
 
   /** Fully formed chart at rest: fallbacks, quick path, and the ambient base. */
   function drawStaticScene(layer: CanvasLayer, scene?: PortraitPrep, ambientT = -1) {
-    const prep = scene ?? prepareScene(layer);
+    const prep = scene ?? sceneFor(layer);
     const { ctx, rect, dpr } = layer;
     const chart = prep.chart;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, rect.width, rect.height);
 
     drawChartApparatus(layer, chart, 1);
-    drawLinks(layer, chart, () => 1);
+    drawLinks(layer, chart, linkProgressFull);
 
     // Background field (twinkling when an ambient clock is supplied)
     const nMain = LYRA.length;
@@ -815,12 +866,12 @@
       }
     }
     ctx.globalAlpha = 1;
-    return prep;
   }
 
   /**
    * Entrance frame: stars fly in brightest-first, links draw, the chart
-   * apparatus and labels fade up — all on the shared 2450ms clock.
+   * apparatus and labels fade up — all on the shared 2450ms clock. Vega is the
+   * one exception: it fades in at rest so its spikes never smear.
    * Uses only prepared arrays — no DOM reads or allocation.
    */
   function drawSceneFrame(
@@ -835,7 +886,8 @@
     ctx.clearRect(0, 0, rect.width, rect.height);
 
     drawChartApparatus(layer, chart, smoothstep(650, 1250, elapsed));
-    drawLinks(layer, chart, (i) => clamp((elapsed - (520 + i * 110)) / 300));
+    linkElapsed = elapsed;
+    drawLinks(layer, chart, linkProgressEntrance);
 
     const { n, sx, sy, del, fx, fy, fr, isSource } = portrait;
     const nMain = LYRA.length;
@@ -901,6 +953,29 @@
     return ch;
   }
 
+  // One CPU-readable scratch canvas for the whole glyph sampling pass, grown to
+  // fit the largest glyph, instead of a canvas and a context per character.
+  let glyphCanvas: HTMLCanvasElement | null = null;
+  let glyphCtx: CanvasRenderingContext2D | null = null;
+
+  function glyphScratch(w: number, h: number): CanvasRenderingContext2D | null {
+    let canvas = glyphCanvas;
+    if (!canvas) {
+      canvas = document.createElement("canvas");
+      glyphCanvas = canvas;
+      glyphCtx = canvas.getContext("2d", { willReadFrequently: true });
+    }
+    const ctx = glyphCtx;
+    if (!ctx) return null;
+    if (canvas.width < w || canvas.height < h) {
+      // Resizing also clears; per-glyph font and fill style are set by the caller
+      canvas.width = Math.max(canvas.width, w);
+      canvas.height = Math.max(canvas.height, h);
+    }
+    ctx.clearRect(0, 0, w, h);
+    return ctx;
+  }
+
   /**
    * Sample glyph ink from real DOM text into host-local particles (once).
    * Skips nested motion targets so parent/child targets do not double-sample.
@@ -949,10 +1024,7 @@
 
         const W = Math.ceil(r.width);
         const H = Math.ceil(r.height);
-        const off = document.createElement("canvas");
-        off.width = W;
-        off.height = H;
-        const octx = off.getContext("2d");
+        const octx = glyphScratch(W, H);
         if (!octx) continue;
 
         octx.font = font;
@@ -1175,12 +1247,12 @@
    * Returns null if required targets produced no usable masks.
    */
   function prepareMotion(root: HTMLElement, layout: Layout): MotionPrep | null {
-    const portrait = prepareScene(layout.portrait);
+    const portrait = sceneFor(layout.portrait);
     const copy = collectTextParticles(root, layout);
 
     // Require core copy masks; name/eyebrow text and Vega highlight glyphs both count
     const hasText = copy.some((p) => p.kind === "text" || p.kind === "highlight");
-    if (!hasText || portrait.n === 0) return null;
+    if (!hasText) return null;
 
     const transfers = prepareTransferParticles(portrait, copy, layout);
 
@@ -1224,9 +1296,16 @@
       ctx.fill();
     }
 
-    // 2) Landed target particles — form then shrink/fade as DOM takes over
+    // 2) Landed target particles — form then shrink/fade as DOM takes over.
+    // Alpha and radius follow the target window alone, so runs of particles that
+    // share colour, alpha and radius batch into one path and one fill. The grid
+    // step exceeds the particle diameter, so the batched path covers the pixels
+    // the per-particle fills covered, at a fraction of the rasterisation cost.
     const copy = prep.copy;
     lastColor = "";
+    let batchAlpha = -1;
+    let batchRadius = -1;
+    let batched = false;
     for (let i = 0; i < copy.length; i++) {
       const p = copy[i];
       const coverage = progress(elapsed, TARGET_WINDOWS[p.target]);
@@ -1235,16 +1314,29 @@
       const particleOpacity = 1 - smoothstep(0.5, 1, coverage);
       const alpha = appear * particleOpacity;
       if (alpha < 0.02) continue;
-      if (p.color !== lastColor) {
-        ctx.fillStyle = p.color;
-        lastColor = p.color;
+      const scaled = p.r * (1 - 0.62 * smoothstep(0.45, 1, coverage));
+      const radius = scaled > 0.12 ? scaled : 0.12;
+      if (
+        batched &&
+        (p.color !== lastColor || alpha !== batchAlpha || radius !== batchRadius)
+      ) {
+        ctx.fill();
+        batched = false;
       }
-      ctx.globalAlpha = alpha;
-      const radius = p.r * (1 - 0.62 * smoothstep(0.45, 1, coverage));
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, radius > 0.12 ? radius : 0.12, 0, TAU);
-      ctx.fill();
+      if (!batched) {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        lastColor = p.color;
+        batchAlpha = alpha;
+        batchRadius = radius;
+        batched = true;
+      }
+      // moveTo starts a fresh subpath so circles are not joined by chords
+      ctx.moveTo(p.x + radius, p.y);
+      ctx.arc(p.x, p.y, radius, 0, TAU);
     }
+    if (batched) ctx.fill();
     ctx.globalAlpha = 1;
   }
 
@@ -1378,12 +1470,21 @@
     const startAmbient = () => {
       if (reduceMotion || !layout) return;
       cancelAnimationFrame(ambientRafId);
-      const scene = prepareScene(layout.portrait);
+      const scene = sceneFor(layout.portrait);
       let start = 0;
+      let lastDraw = -Infinity;
       const tick = (t: number) => {
         if (gen !== setupGen || !layout) return;
         if (!start) start = t;
-        drawStaticScene(layout.portrait, scene, t - start);
+        const ambientT = t - start;
+        // Repaint on the ambient budget; a satellite pass is the only motion
+        // fast enough to need every frame, so it lifts the cap while it runs.
+        const satellitePass =
+          ambientT >= SAT_FIRST && (ambientT - SAT_FIRST) % SAT_PERIOD < SAT_DUR;
+        if (satellitePass || ambientT - lastDraw >= AMBIENT_FRAME_MS) {
+          lastDraw = ambientT;
+          drawStaticScene(layout.portrait, scene, ambientT);
+        }
         ambientRafId = requestAnimationFrame(tick);
       };
       ambientRafId = requestAnimationFrame(tick);
@@ -1471,7 +1572,7 @@
 
     // --- Quick path: later visits in the same session (~250ms settle) ---
     // Skip font wait and particle prep so the hero + ticker resolve together.
-    if (duration <= QUICK_DURATION || hasPlayedThisSession()) {
+    if (duration <= QUICK_DURATION) {
       targets = collectTargetBindings(root);
       if (!targets.length) {
         revealStaticHero(root);
