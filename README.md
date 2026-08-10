@@ -28,6 +28,14 @@ Write the post here.
 
 Use `draft: true` to keep a post out of generated pages, indexes, and RSS. The filename becomes the URL slug. For example, `src/content/posts/my-post.md` builds to `/posts/my-post/`.
 
+## Design reference
+
+`reference.html` and `spec-template.html` are the design documents that define the editorial visual language the site theme was ported from. `reference.html` is the worked sample; `spec-template.html` generalizes it into a reusable template. Their `:root` token block is the source of the shared token values in `src/styles/global.css`.
+
+They are standalone documents, not part of the site: Astro ignores root-level HTML, so they are never built, tested, or deployed. Open them directly in a browser.
+
+Update them when the shared design tokens or the editorial rules change, and keep `src/styles/global.css` in sync with the token values they declare.
+
 ## Build
 
 ```bash
