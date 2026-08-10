@@ -1,9 +1,12 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const root = new URL("..", import.meta.url).pathname;
+// fileURLToPath, not URL.pathname: the latter stays percent-encoded, so a
+// checkout under a path with spaces or non-ASCII characters would ENOENT.
+const root = fileURLToPath(new URL("..", import.meta.url));
 const dist = join(root, "dist");
 
 function readDistFile(...segments) {
@@ -28,6 +31,70 @@ function assertPageBasics(html, { titleFragment, descriptionFragment } = {}) {
   if (descriptionFragment) assert.match(html, new RegExp(descriptionFragment, "i"));
 }
 
+/** Every public route the build emits, as absolute paths with trailing slashes. */
+function listBuiltRoutes(dir = dist, prefix = "/") {
+  const routes = [];
+
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (entry.name === "_astro") continue;
+      routes.push(...listBuiltRoutes(join(dir, entry.name), `${prefix}${entry.name}/`));
+    } else if (entry.name === "index.html") {
+      routes.push(prefix);
+    }
+  }
+
+  return routes;
+}
+
+/** The opening tag of the anchor carrying a given data-motion-target, if any. */
+function findMotionAnchor(html, target) {
+  return [...html.matchAll(/<a\b[^>]*>/gi)]
+    .map(([tag]) => tag)
+    .find((tag) => tag.includes(`data-motion-target="${target}"`));
+}
+
+/**
+ * The brace-matched `{ … }` block that follows `anchor`, so assertions can talk
+ * about a branch as a unit instead of comparing byte offsets. Braces inside
+ * strings and comments are skipped; regex literals are not parsed.
+ */
+function extractBlock(source, anchor) {
+  const start = source.indexOf(anchor);
+  if (start === -1) return null;
+
+  const open = source.indexOf("{", start);
+  if (open === -1) return null;
+
+  let depth = 0;
+
+  for (let i = open; i < source.length; i += 1) {
+    const char = source[i];
+    const next = source[i + 1];
+
+    if (char === "/" && next === "/") {
+      i = source.indexOf("\n", i);
+      if (i === -1) return null;
+    } else if (char === "/" && next === "*") {
+      const end = source.indexOf("*/", i + 2);
+      if (end === -1) return null;
+      i = end + 1;
+    } else if (char === '"' || char === "'" || char === "`") {
+      i += 1;
+      while (i < source.length && source[i] !== char) {
+        i += source[i] === "\\" ? 2 : 1;
+      }
+    } else if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(open, i + 1);
+    }
+  }
+
+  return null;
+}
+
 test("build emits the core static pages DreamHost will serve", () => {
   assert.equal(existsSync(join(dist, "index.html")), true);
   assert.equal(existsSync(join(dist, "writing", "index.html")), true);
@@ -38,13 +105,38 @@ test("build emits the core static pages DreamHost will serve", () => {
   assert.equal(existsSync(join(dist, "sitemap-index.xml")), true);
 });
 
+test("sitemap enumerates every public route the build produces", () => {
+  // robots.txt points crawlers at the index, so an index that references a
+  // missing or stale child sitemap is a silent SEO regression.
+  const index = readDistFile("sitemap-index.xml");
+  const child = index.match(/<loc>https:\/\/cristianvega\.ai\/(sitemap-\d+\.xml)<\/loc>/)?.[1];
+  assert.ok(child, `sitemap index must reference a child sitemap: ${index}`);
+  assert.equal(existsSync(join(dist, child)), true, `${child} is referenced but missing`);
+
+  const locations = [...readDistFile(child).matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, loc]) => loc);
+  const expected = listBuiltRoutes().map((route) => `https://cristianvega.ai${route}`);
+
+  assert.ok(expected.length > 0, "build must emit routes to enumerate");
+  assert.deepEqual(
+    [...locations].sort(),
+    [...expected].sort(),
+    "sitemap must list exactly the built routes, absolute and trailing-slashed",
+  );
+});
+
 test("homepage keeps the portfolio theme and links to the writing index", () => {
   const html = readDistFile("index.html");
 
   assertPageBasics(html, { titleFragment: "Cristian Vega" });
   assert.match(html, /reads the documents/);
-  assert.match(html, /href="\/writing\/"/);
-  assert.match(html, /href="\/projects\/"/);
+  // Scoped to the hero CTAs: the global nav renders both hrefs on every page,
+  // so a bare href match stays green with the call to action deleted.
+  const primaryCta = findMotionAnchor(html, "primary-action");
+  const secondaryCta = findMotionAnchor(html, "secondary-action");
+  assert.ok(primaryCta, "hero primary call to action required");
+  assert.ok(secondaryCta, "hero secondary call to action required");
+  assert.match(primaryCta, /href="\/projects\/"/);
+  assert.match(secondaryCta, /href="\/writing\/"/);
   // Hero copy must remain in HTML (progressive enhancement must not rely on
   // pre-hiding text in CSS that leaves content blank if JS fails).
   assert.match(html, /class="[^"]*hero__name[^"]*"/);
@@ -65,8 +157,7 @@ test("homepage ships one progressive hero motion system", () => {
   assert.match(html, /data-motion-target="subhead"/);
   assert.match(html, /data-motion-target="primary-action"/);
   assert.match(html, /data-motion-target="secondary-action"/);
-  assert.match(html, /href="\/projects\/"/);
-  assert.match(html, /href="\/writing\/"/);
+  // CTA destinations are asserted against the hero anchors in the test above.
   // Superseded components must not ship in the built homepage
   assert.doesNotMatch(html, /hero__dots-canvas/);
   assert.doesNotMatch(html, /HeroPortrait|HeroDots/);
@@ -120,13 +211,19 @@ test("hero motion samples Vega glyphs and settles ticker with quick replay", () 
   // Quick / full modes via dataset (maps to data-motion-mode)
   assert.match(source, /dataset\.motionMode\s*=\s*["']quick["']/);
   assert.match(source, /dataset\.motionMode\s*=\s*["']full["']/);
-  // Quick path returns before the await fonts / prepareMotion call sites
-  const quickIdx = source.indexOf('dataset.motionMode = "quick"');
-  const fontsCallIdx = source.indexOf("await fontsReadyWithin");
-  const prepCallIdx = source.indexOf("prep = prepareMotion(");
-  assert.ok(quickIdx > 0, "quick mode is set");
-  assert.ok(fontsCallIdx > quickIdx, "font wait call follows quick mode");
-  assert.ok(prepCallIdx > fontsCallIdx, "full particle prep follows font wait");
+  // The quick path must settle without the font wait or particle prep. Assert
+  // the branch as a unit (no await, ends in a return) instead of comparing byte
+  // offsets, so reordering or extracting helpers stays green while deleting the
+  // early return — the thing that actually enforces the guarantee — fails.
+  const quickBranch = extractBlock(source, "if (duration <= QUICK_DURATION) {");
+  assert.ok(quickBranch, "quick-path branch present");
+  assert.match(quickBranch, /dataset\.motionMode\s*=\s*["']quick["']/);
+  assert.doesNotMatch(quickBranch, /\bawait\b/, "quick path must not await fonts or prep");
+  assert.doesNotMatch(quickBranch, /prepareMotion\(/, "quick path must skip particle prep");
+  assert.match(quickBranch, /\breturn;\s*}$/, "quick path must return before the full path");
+  // The full path still owns both slow steps.
+  assert.match(source, /await fontsReadyWithin\(FONT_DEADLINE_MS\)/);
+  assert.match(source, /prep = prepareMotion\(/);
 
   // Ticker delay is gated to full first-run, not a fixed 2.15s on every visit
   assert.match(
@@ -227,6 +324,8 @@ test("writing index includes generated post links", () => {
   assertPageBasics(html);
   assert.match(html, /From BERT to agents/);
   assert.match(html, /href="\/posts\/from-bert-to-agents\/"/);
+  // Machine and human dates are both rendered, zero-padded and UTC-pinned.
+  assert.match(html, /<time[^>]*datetime="2026-02-27"[^>]*>2026\.02<\/time>/);
 });
 
 test("post pages are generated from markdown content", () => {
@@ -236,6 +335,8 @@ test("post pages are generated from markdown content", () => {
   assert.match(html, /From BERT to agents/);
   assert.match(html, /400K\+ documents/);
   assert.match(html, /Cristian Vega/);
+  // The byline date must render in UTC, not the builder's local day.
+  assert.match(html, /<time[^>]*datetime="2026-06-12"[^>]*>June 12, 2026<\/time>/);
 });
 
 test("about page ships experience and education content", () => {
@@ -274,16 +375,28 @@ test("projects page lists portfolio work with truthful destinations", () => {
     /Read the build[\s\S]{0,80}href="\/writing\/"|href="\/writing\/"[\s\S]{0,80}Read the build/i;
   assert.doesNotMatch(html, readBuildToWriting);
 
-  // Any project <a href> that is only /writing/ is not a credible case study link.
-  const projectAnchors = [...html.matchAll(/<a\b[^>]*class="[^"]*project__(?:preview|link)[^"]*"[^>]*>/gi)];
-  for (const [tag] of projectAnchors) {
-    const href = tag.match(/\bhref="([^"]*)"/i)?.[1];
-    assert.ok(href, `project link missing href: ${tag}`);
-    assert.notEqual(
-      href,
-      "/writing/",
-      "project cards must not use the writing archive as a fake case-study destination",
+  // Scan the rendered cards themselves, so the guard runs against real markup
+  // instead of a class name no card currently emits. Every card must either
+  // carry a credible destination or say in words that there is none.
+  const cards = [...html.matchAll(/<article\b[^>]*class="[^"]*\bproject\b[^"]*"[^>]*>([\s\S]*?)<\/article>/gi)];
+  assert.ok(cards.length >= 3, `expected rendered project cards, found ${cards.length}`);
+
+  const fakeDestinations = new Set(["/", "/writing/", "#", ""]);
+  for (const [, card] of cards) {
+    const anchors = [...card.matchAll(/<a\b[^>]*>/gi)].map(([tag]) => tag);
+    assert.ok(
+      anchors.length > 0 || /class="[^"]*project__availability[^"]*"/i.test(card),
+      "a card without a destination must state availability in words",
     );
+
+    for (const tag of anchors) {
+      const href = tag.match(/\bhref="([^"]*)"/i)?.[1]?.trim();
+      assert.ok(href, `project link missing href: ${tag}`);
+      assert.ok(
+        !fakeDestinations.has(href),
+        `project cards must not use ${href} as a fake case-study destination: ${tag}`,
+      );
+    }
   }
 });
 
@@ -349,6 +462,45 @@ test("rss feed includes published posts", () => {
   assert.match(xml, /<rss/);
   assert.match(xml, /From BERT to agents/);
   assert.doesNotMatch(xml, /draft/i);
+
+  // Channel essentials readers depend on.
+  assert.match(xml, /<channel>/);
+  assert.match(xml, /<title>Cristian Vega Writing<\/title>/);
+  assert.match(xml, /<link>https:\/\/cristianvega\.ai\/<\/link>/);
+  assert.match(xml, /<language>en-us<\/language>/);
+  assert.match(
+    xml,
+    /<atom:link\b[^>]*href="https:\/\/cristianvega\.ai\/rss\.xml"[^>]*rel="self"/,
+    "feed must reference itself with atom:link rel=self",
+  );
+  assert.match(xml, /<lastBuildDate>[^<]+GMT<\/lastBuildDate>/);
+
+  // Every published post ships with an absolute, trailing-slash link and a date.
+  const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(([, item]) => item);
+  const published = readdirSync(join(dist, "posts"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+
+  assert.ok(published.length > 0, "build must emit post pages to compare against");
+  assert.equal(items.length, published.length, "feed must carry every published post");
+
+  const links = items.map((item) => item.match(/<link>([^<]+)<\/link>/)?.[1]);
+  for (const [index, item] of items.entries()) {
+    assert.match(item, /<title>[^<]+<\/title>/);
+    assert.match(item, /<pubDate>[^<]+GMT<\/pubDate>/, "each item needs a pubDate");
+    assert.match(
+      links[index] ?? "",
+      /^https:\/\/cristianvega\.ai\/posts\/[a-z0-9-]+\/$/,
+      `item link must be absolute with a trailing slash: ${links[index]}`,
+    );
+  }
+
+  for (const slug of published) {
+    assert.ok(
+      links.includes(`https://cristianvega.ai/posts/${slug}/`),
+      `feed is missing /posts/${slug}/`,
+    );
+  }
 });
 
 test("compiled css assets are emitted", () => {
@@ -358,8 +510,6 @@ test("compiled css assets are emitted", () => {
   const cssFiles = readdirSync(astroDir).filter((file) => file.endsWith(".css"));
   assert.ok(cssFiles.length > 0);
   assert.ok(cssFiles.some((file) => statSync(join(astroDir, file)).size > 1_000));
-
-  // Hero must not pre-hide copy solely because JS is present.
-  const css = cssFiles.map((file) => readFileSync(join(astroDir, file), "utf8")).join("\n");
-  assert.doesNotMatch(css, /html\.js[^{]*hero__name[^{]*\{[^}]*opacity\s*:\s*0/s);
+  // The no-JS pre-hide and reduced-motion contracts over this CSS are enforced
+  // mechanism-agnostically in tests/motion-css.test.mjs.
 });
