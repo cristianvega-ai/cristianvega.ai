@@ -244,7 +244,12 @@
     return out;
   }
 
+  function clearHeroMotionPending() {
+    document.documentElement.removeAttribute("data-hero-motion-pending");
+  }
+
   function clearTargetStyles(root: HTMLElement) {
+    clearHeroMotionPending();
     root.querySelectorAll<HTMLElement>("[data-motion-target]").forEach((element) => {
       element.style.removeProperty("opacity");
       element.style.removeProperty("--motion-reveal");
@@ -1340,7 +1345,10 @@
     dispose = null;
 
     const root = document.querySelector<HTMLElement>(".hero");
-    if (!root || document.body.dataset.page !== "home") return;
+    if (!root || document.body.dataset.page !== "home") {
+      clearHeroMotionPending();
+      return;
+    }
 
     const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const duration = plannedDuration();
@@ -1517,7 +1525,10 @@
     const fontsOk = await fontsReadyWithin(FONT_DEADLINE_MS);
     // Abort if a newer setup superseded this run during the await
     if (gen !== setupGen) return;
-    if (document.body.dataset.page !== "home") return;
+    if (document.body.dataset.page !== "home") {
+      clearHeroMotionPending();
+      return;
+    }
     if (!fontsOk) {
       revealStaticHero(root);
       redrawStatic();
