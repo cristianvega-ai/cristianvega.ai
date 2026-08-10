@@ -28,14 +28,28 @@ function assertPageBasics(html, { titleFragment, descriptionFragment } = {}) {
   if (descriptionFragment) assert.match(html, new RegExp(descriptionFragment, "i"));
 }
 
+function assertDistPath(...segments) {
+  const path = join(dist, ...segments);
+  assert.equal(existsSync(path), true, `missing build output: ${path} (run \`npm test\` or \`npm run build\`)`);
+}
+
+test("dist build is present for contract tests", () => {
+  assert.equal(
+    existsSync(dist),
+    true,
+    `missing ${dist}/ — run \`npm test\` (builds first) or \`npm run build\` before node --test`,
+  );
+  assertDistPath("index.html");
+});
+
 test("build emits the core static pages DreamHost will serve", () => {
-  assert.equal(existsSync(join(dist, "index.html")), true);
-  assert.equal(existsSync(join(dist, "writing", "index.html")), true);
-  assert.equal(existsSync(join(dist, "projects", "index.html")), true);
-  assert.equal(existsSync(join(dist, "about", "index.html")), true);
-  assert.equal(existsSync(join(dist, "contact", "index.html")), true);
-  assert.equal(existsSync(join(dist, "rss.xml")), true);
-  assert.equal(existsSync(join(dist, "sitemap-index.xml")), true);
+  assertDistPath("index.html");
+  assertDistPath("writing", "index.html");
+  assertDistPath("projects", "index.html");
+  assertDistPath("about", "index.html");
+  assertDistPath("contact", "index.html");
+  assertDistPath("rss.xml");
+  assertDistPath("sitemap-index.xml");
 });
 
 test("homepage keeps the portfolio theme and links to the writing index", () => {
