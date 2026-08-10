@@ -30,24 +30,29 @@
 # Custom 404 (Astro emits 404.html for static hosts)
 ErrorDocument 404 /404.html
 
-# Cache static assets aggressively; HTML stays revalidatable
+# Caching: hashed /_astro/* is immutable; stable /images/* revalidates so
+# portrait regenerations are not pinned for a year. HTML always revalidates.
+# Path scoping uses Apache 2.4 <If> (LocationMatch is not valid in .htaccess).
 <IfModule mod_expires.c>
   ExpiresActive On
   ExpiresByType text/html "access plus 0 seconds"
   ExpiresByType text/css "access plus 1 year"
   ExpiresByType application/javascript "access plus 1 year"
-  ExpiresByType image/webp "access plus 1 year"
-  ExpiresByType image/avif "access plus 1 year"
-  ExpiresByType image/png "access plus 1 year"
-  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 week"
+  ExpiresByType image/avif "access plus 1 week"
+  ExpiresByType image/png "access plus 1 week"
+  ExpiresByType image/svg+xml "access plus 1 week"
   ExpiresByType application/xml "access plus 1 hour"
   ExpiresByType application/rss+xml "access plus 1 hour"
 </IfModule>
 
 <IfModule mod_headers.c>
-  <FilesMatch "\.(css|js|webp|avif|png|svg)$">
+  <If "%{REQUEST_URI} =~ m#^/_astro/#">
     Header set Cache-Control "public, max-age=31536000, immutable"
-  </FilesMatch>
+  </If>
+  <If "%{REQUEST_URI} =~ m#^/images/#">
+    Header set Cache-Control "public, max-age=604800, stale-while-revalidate=86400"
+  </If>
   <FilesMatch "\.(html)$">
     Header set Cache-Control "public, max-age=0, must-revalidate"
   </FilesMatch>
