@@ -1342,7 +1342,8 @@
     const root = document.querySelector<HTMLElement>(".hero");
     if (!root || document.body.dataset.page !== "home") return;
 
-    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Keep the MediaQueryList so mid-session preference changes can stop motion.
+    const motionQuery = matchMedia("(prefers-reduced-motion: reduce)");
     const duration = plannedDuration();
 
     let rafId = 0;
@@ -1376,12 +1377,12 @@
      * Never runs under reduced motion; canceled by cancelRuntime/dispose.
      */
     const startAmbient = () => {
-      if (reduceMotion || !layout) return;
+      if (motionQuery.matches || !layout) return;
       cancelAnimationFrame(ambientRafId);
       const scene = prepareScene(layout.portrait);
       let start = 0;
       const tick = (t: number) => {
-        if (gen !== setupGen || !layout) return;
+        if (gen !== setupGen || !layout || motionQuery.matches) return;
         if (!start) start = t;
         drawStaticScene(layout.portrait, scene, t - start);
         ambientRafId = requestAnimationFrame(tick);
@@ -1432,15 +1433,26 @@
       redrawStatic();
     };
 
+    const onReduceMotionChange = () => {
+      if (!motionQuery.matches) return;
+      // Preference flipped on while the page is open: stop canvas motion now.
+      cancelRuntime();
+      revealStaticHero(root);
+      root.removeAttribute("data-motion-mode");
+      redrawStatic();
+    };
+
     const installListeners = () => {
       window.addEventListener("resize", onResize);
       window.addEventListener("orientationchange", onResize);
       root.addEventListener("focusin", onFocusIn);
+      motionQuery.addEventListener("change", onReduceMotionChange);
       dispose = () => {
         cancelRuntime();
         window.removeEventListener("resize", onResize);
         window.removeEventListener("orientationchange", onResize);
         root.removeEventListener("focusin", onFocusIn);
+        motionQuery.removeEventListener("change", onReduceMotionChange);
         clearTargetStyles(root);
         hideCopyCanvas(root);
         prep = null;
@@ -1449,7 +1461,7 @@
     };
 
     // Reduced motion: reveal immediately, still draw the static chart when possible
-    if (reduceMotion) {
+    if (motionQuery.matches) {
       revealStaticHero(root);
       redrawStatic();
       installListeners();
