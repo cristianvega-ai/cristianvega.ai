@@ -343,6 +343,20 @@ test("static ops assets ship with the build", () => {
   assert.match(notFound, /href="\/"/);
 });
 
+test("htaccess ships bootstrap HSTS until HTTPS is confirmed", () => {
+  const htaccess = readDistFile(".htaccess");
+  assert.match(
+    htaccess,
+    /Header always set Strict-Transport-Security "max-age=300"/,
+    "first-deploy HSTS must stay short and reversible",
+  );
+  assert.doesNotMatch(
+    htaccess,
+    /Strict-Transport-Security "[^"]*includeSubDomains/,
+    "do not pin includeSubDomains before a live SAN audit",
+  );
+});
+
 test("rss feed includes published posts", () => {
   const xml = readDistFile("rss.xml");
 
