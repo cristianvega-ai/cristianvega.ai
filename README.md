@@ -33,10 +33,10 @@ Use `draft: true` to keep a post out of generated pages, indexes, and RSS. The f
 ```bash
 npm run build
 npm run check
-npm test
+npm test          # builds, then runs tests against that dist/
 ```
 
-Or run the full gate with `npm run verify` (build + type-check + tests). The deployable site is generated in `dist/`.
+Or run the full gate with `npm run verify` (one build + type-check + tests). Prefer `verify` or `test` over bare `node --test` so contract tests never read a missing or stale `dist/`.
 
 ## Deploy to DreamHost
 
