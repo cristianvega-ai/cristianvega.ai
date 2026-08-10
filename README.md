@@ -49,7 +49,7 @@ rsync -avz --delete dist/ USER@SERVER.dreamhost.com:/home/USER/cristianvega.ai/
 
 Replace `USER`, `SERVER.dreamhost.com`, and the destination path with the values from DreamHost panel/SFTP settings. Upload the contents of `dist/`, not the `dist` directory itself.
 
-The build copies production Apache config from `public/.htaccess` (HTTPS redirect, security headers including CSP, custom 404, cache rules), plus `public/robots.txt`. After the first deploy, confirm HTTPS, HSTS, and CSP behave as expected in the DreamHost panel (this environment cannot resolve the live host).
+The build copies production Apache config from `public/.htaccess` (HTTPS redirect, security headers including CSP, custom 404, cache rules), plus `public/robots.txt`. HSTS ships as a short bootstrap policy (`max-age=300`, no `includeSubDomains`) until HTTPS and the certificate SAN list are confirmed on the live origin; then raise it to `max-age=31536000; includeSubDomains` in a follow-up commit.
 
 Static operational assets:
 
