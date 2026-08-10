@@ -90,6 +90,17 @@ test("hero motion keeps explicit reduced-motion, session, and failure fallbacks"
   assert.match(source, /["']resize["']/);
   assert.match(source, /dispose\?\.\(\)/);
   assert.match(source, /setupGen/);
+  // Reduced-motion preference is live: hold MediaQueryList, re-check .matches,
+  // and tear down ambient/entrance motion when the preference flips on.
+  assert.match(source, /matchMedia\(\s*["']\(prefers-reduced-motion:\s*reduce\)["']\s*\)/);
+  assert.doesNotMatch(
+    source,
+    /const reduceMotion\s*=\s*matchMedia\([^)]+\)\.matches/,
+    "do not capture a one-shot reduced-motion boolean for the ambient loop",
+  );
+  assert.match(source, /motionQuery\.matches/);
+  assert.match(source, /motionQuery\.addEventListener\(\s*["']change["']/);
+  assert.match(source, /motionQuery\.removeEventListener\(\s*["']change["']/);
 });
 
 test("hero motion marks session only after successful completion", () => {
