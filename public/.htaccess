@@ -1,13 +1,16 @@
 # DreamHost (Apache) configuration for cristianvega.ai
 # Copied into dist/ on build via the public/ directory.
 
+# Never serve directory listings for /images/, /_astro/ or /posts/
+Options -Indexes
+
 # HTTPS + apex host (adjust if the site is ever served only on www)
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
   # Force HTTPS
   RewriteCond %{HTTPS} !=on
-  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+  RewriteRule ^ https://cristianvega.ai%{REQUEST_URI} [L,R=301]
 
   # Canonical host: apex (non-www)
   RewriteCond %{HTTP_HOST} ^www\.cristianvega\.ai$ [NC]
@@ -42,6 +45,18 @@ ErrorDocument 404 /404.html
   ExpiresByType image/svg+xml "access plus 1 year"
   ExpiresByType application/xml "access plus 1 hour"
   ExpiresByType application/rss+xml "access plus 1 hour"
+</IfModule>
+
+# Compress the text assets this build ships (no-op if the host already does)
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html
+  AddOutputFilterByType DEFLATE text/css
+  AddOutputFilterByType DEFLATE text/plain
+  AddOutputFilterByType DEFLATE text/xml
+  AddOutputFilterByType DEFLATE application/javascript
+  AddOutputFilterByType DEFLATE application/xml
+  AddOutputFilterByType DEFLATE application/rss+xml
+  AddOutputFilterByType DEFLATE image/svg+xml
 </IfModule>
 
 <IfModule mod_headers.c>
