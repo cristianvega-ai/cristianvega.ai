@@ -302,8 +302,14 @@ test("key pages share accessibility and SEO basics", () => {
     assertPageBasics(html);
     assert.match(html, /class="skip-link"[^>]*href="#main-content"/i, "skip link required");
     assert.match(html, /id="main-content"/i, "skip target required");
-    assert.match(html, /property="og:image"[^>]*content="https:\/\/cristianvega\.ai\//i);
+    assert.match(
+      html,
+      /property="og:image"[^>]*content="https:\/\/cristianvega\.ai\/images\/cristian-vega-og\.jpg"/i,
+    );
+    assert.match(html, /property="og:image:width"[^>]*content="1200"/i);
+    assert.match(html, /property="og:image:height"[^>]*content="630"/i);
     assert.match(html, /property="og:image:alt"/i);
+    assert.match(html, /name="twitter:card"[^>]*content="summary_large_image"/i);
     // External new-tab links should include a safe rel.
     const blankLinks = [...html.matchAll(/<a\b[^>]*target="_blank"[^>]*>/gi)];
     for (const [tag] of blankLinks) {
@@ -328,6 +334,7 @@ test("about page uses optimized portrait derivatives", () => {
   assert.match(html, /cristian-vega-portrait\.webp/);
   assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.webp")), true);
   assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.avif")), true);
+  assert.equal(existsSync(join(dist, "images", "cristian-vega-og.jpg")), true);
 });
 
 test("static ops assets ship with the build", () => {
