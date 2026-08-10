@@ -343,6 +343,40 @@ test("static ops assets ship with the build", () => {
   assert.match(notFound, /href="\/"/);
 });
 
+test("htaccess CSP denies inline scripts while allowing inline styles", () => {
+  const htaccess = readDistFile(".htaccess");
+  const csp = htaccess.match(/Header always set Content-Security-Policy "([^"]+)"/)?.[1];
+  assert.ok(csp, "CSP header must be present");
+
+  const scriptSrc = csp.match(/script-src\s+([^;]+)/)?.[1]?.trim();
+  assert.equal(scriptSrc, "'self'", "script-src must be same-origin modules only");
+  assert.doesNotMatch(scriptSrc, /unsafe-inline|unsafe-eval/);
+
+  const styleSrc = csp.match(/style-src\s+([^;]+)/)?.[1] ?? "";
+  assert.match(styleSrc, /'unsafe-inline'/, "style-src keeps unsafe-inline for Astro CSS");
+
+  // Built pages must not introduce inline scripts that would need the keyword back.
+  const htmlFiles = [];
+  const stack = [dist];
+  while (stack.length) {
+    const dir = stack.pop();
+    for (const name of readdirSync(dir)) {
+      const path = join(dir, name);
+      if (statSync(path).isDirectory()) stack.push(path);
+      else if (name.endsWith(".html")) htmlFiles.push(path);
+    }
+  }
+  assert.ok(htmlFiles.length >= 9, "expected the static HTML pages");
+  for (const file of htmlFiles) {
+    const html = readFileSync(file, "utf8");
+    assert.doesNotMatch(
+      html,
+      /<script(?![^>]*\bsrc=)[^>]*>/i,
+      `inline script would break script-src 'self': ${file}`,
+    );
+  }
+});
+
 test("rss feed includes published posts", () => {
   const xml = readDistFile("rss.xml");
 
