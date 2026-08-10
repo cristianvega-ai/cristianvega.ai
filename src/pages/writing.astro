@@ -27,16 +27,16 @@ const posts = getPublishedPosts(await getCollection("posts"));
         <div class="posts posts--archive">
           {
             posts.map((post) => (
-              <a class="post" href={getPostHref(post)}>
+              <article class="post">
                 <time class="post__date" datetime={formatMachineDate(post.data.date)}>{formatPostDate(post.data.date)}</time>
-                <span>
-                  <span class="post__title">{post.data.title}</span>
-                  <span class="post__desc">{post.data.description}</span>
-                </span>
+                <div>
+                  <h2 class="post__title"><a href={getPostHref(post)}>{post.data.title}</a></h2>
+                  <p class="post__desc">{post.data.description}</p>
+                </div>
                 <span class="post__tag">
                   <span class:list={["tag", post.data.category === "leadership" ? "tag--muted" : "tag--slate"]}>{post.data.category}</span>
                 </span>
-              </a>
+              </article>
             ))
           }
         </div>
