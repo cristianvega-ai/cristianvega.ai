@@ -265,6 +265,11 @@ test("projects page lists portfolio work with truthful destinations", () => {
   assert.match(html, /PromptRunner/);
   assert.match(html, /Ledgerbot/);
 
+  // Cards are the page's top-level sections: h1 then h2 (no skipped level).
+  assert.match(html, /<h1\b[^>]*class="[^"]*page-title/);
+  assert.match(html, /<h2\b[^>]*class="[^"]*project__name/);
+  assert.doesNotMatch(html, /<h3\b/i);
+
   // Unavailable work is labeled explicitly rather than omitted.
   assert.match(html, /project__availability/);
   assert.match(html, /Private demo|not public yet|no public write-up/i);
