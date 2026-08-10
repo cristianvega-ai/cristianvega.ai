@@ -45,18 +45,19 @@ test("homepage keeps the portfolio theme and links to the writing index", () => 
   assert.match(html, /reads the documents/);
   assert.match(html, /href="\/writing\/"/);
   assert.match(html, /href="\/projects\/"/);
-  // Hero copy must remain in HTML (progressive enhancement must not rely on
-  // pre-hiding text in CSS that leaves content blank if JS fails).
+  // Hero copy must remain in HTML. Pre-hide is gated on a head-stamped attribute
+  // (not html.js), so no-JS never blanks the copy.
   assert.match(html, /class="[^"]*hero__name[^"]*"/);
   assert.match(html, /class="[^"]*hero__sub[^"]*"/);
   assert.doesNotMatch(html, /html\.js|classList\.add\(["']js["']\)/);
+  assert.match(html, /data-hero-motion-pending/);
 });
 
 test("homepage ships one progressive hero motion system", () => {
   const html = readDistFile("index.html");
 
-  assert.match(html, /data-hero-motion/);
-  assert.equal((html.match(/data-hero-motion/g) || []).length, 1);
+  assert.match(html, /data-hero-motion(?!-)/);
+  assert.equal((html.match(/data-hero-motion(?!-)/g) || []).length, 1);
   assert.match(html, /class="[^"]*hero__portrait-canvas[^"]*"/);
   assert.match(html, /class="[^"]*hero__copy-canvas[^"]*"/);
   assert.match(html, /data-motion-target="eyebrow"/);
@@ -90,6 +91,47 @@ test("hero motion keeps explicit reduced-motion, session, and failure fallbacks"
   assert.match(source, /["']resize["']/);
   assert.match(source, /dispose\?\.\(\)/);
   assert.match(source, /setupGen/);
+  // Cold-load pre-hide attribute must be cleared on every static reveal path
+  assert.match(source, /function clearHeroMotionPending/);
+  assert.match(
+    source,
+    /function clearTargetStyles[\s\S]*?clearHeroMotionPending\(\)/,
+  );
+});
+
+test("homepage head script and CSS gate cold-load hero pre-hide", () => {
+  const layout = readSourceFile("layouts", "BaseLayout.astro");
+  const css = readSourceFile("styles", "global.css");
+  const motion = readSourceFile("components", "HeroMotion.astro");
+  const homeHtml = readDistFile("index.html");
+  const aboutHtml = readDistFile("about", "index.html");
+
+  // Home-only inline stamp; session replay and reduced motion skip pre-hide
+  assert.match(layout, /active === "home"/);
+  assert.match(layout, /is:inline/);
+  assert.match(layout, /data-hero-motion-pending/);
+  assert.match(layout, /cristianvega:hero-motion:v1/);
+  assert.match(layout, /prefers-reduced-motion:\s*reduce/);
+  assert.match(layout, /setTimeout[\s\S]*?3000/);
+
+  // Built homepage ships the stamp script; other pages must not
+  assert.match(homeHtml, /data-hero-motion-pending/);
+  assert.doesNotMatch(aboutHtml, /data-hero-motion-pending/);
+
+  // CSS hide is attribute-gated and outside the reduce branch
+  assert.match(
+    css,
+    /prefers-reduced-motion:\s*no-preference[\s\S]*?html\[data-hero-motion-pending\]\s*\.hero\s*\[data-motion-target\]\s*\{\s*opacity:\s*0/,
+  );
+  assert.match(
+    css,
+    /html\[data-hero-motion-pending\]\s*\.hero__ticker\s*\{\s*opacity:\s*0/,
+  );
+
+  // Session key string stays aligned between head stamp and motion module
+  const sessionKey = motion.match(/SESSION_KEY\s*=\s*"([^"]+)"/)?.[1];
+  assert.ok(sessionKey, "SESSION_KEY defined");
+  assert.match(layout, new RegExp(sessionKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
 test("hero motion marks session only after successful completion", () => {
@@ -359,7 +401,9 @@ test("compiled css assets are emitted", () => {
   assert.ok(cssFiles.length > 0);
   assert.ok(cssFiles.some((file) => statSync(join(astroDir, file)).size > 1_000));
 
-  // Hero must not pre-hide copy solely because JS is present.
+  // Hero must not pre-hide copy solely because JS is present (html.js).
+  // Attribute-gated pending hide (head stamp) is the supported cold-load path.
   const css = cssFiles.map((file) => readFileSync(join(astroDir, file), "utf8")).join("\n");
   assert.doesNotMatch(css, /html\.js[^{]*hero__name[^{]*\{[^}]*opacity\s*:\s*0/s);
+  assert.match(css, /html\[data-hero-motion-pending\]/);
 });
