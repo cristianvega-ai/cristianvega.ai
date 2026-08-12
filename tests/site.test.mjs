@@ -153,10 +153,11 @@ test("hero motion marks session only after successful completion", () => {
   assert.match(source, /completeMotion\(\s*\{\s*markSession:\s*true\s*\}\s*\)/);
   // Interrupts and failsafe must not claim a successful play
   assert.match(source, /markSession:\s*false/);
-  // Failsafe path explicitly refuses the session key
+  // Failsafe timer callback itself refuses the session key (not merely some
+  // earlier markSession:false like the focusin interrupt).
   assert.match(
     source,
-    /FAILSAFE_DURATION[\s\S]*?completeMotion\(\s*\{\s*markSession:\s*false\s*\}\s*\)/,
+    /failsafeTimer\s*=\s*window\.setTimeout\(\s*\(\)\s*=>\s*\{[\s\S]*?completeMotion\(\s*\{\s*markSession:\s*false\s*\}\s*\)[\s\S]*?\},\s*FAILSAFE_DURATION\s*\)/,
   );
 });
 
