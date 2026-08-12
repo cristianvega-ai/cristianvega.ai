@@ -28,6 +28,27 @@ const ogImageAlt = "Portrait of Cristian Vega";
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {
+      active === "home" && (
+        <script is:inline>
+          // Stamp before first paint so cold loads never flash readable hero copy
+          // then blank it after fonts. No-JS leaves the attribute unset. Must stay
+          // aligned with SESSION_KEY / FAILSAFE_DURATION in HeroMotion.astro.
+          (function () {
+            try {
+              if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+              if (sessionStorage.getItem("cristianvega:hero-motion:v1") === "1") return;
+              document.documentElement.setAttribute("data-hero-motion-pending", "");
+              window.setTimeout(function () {
+                document.documentElement.removeAttribute("data-hero-motion-pending");
+              }, 3000);
+            } catch (_) {
+              /* private mode / blocked storage: skip pre-hide */
+            }
+          })();
+        </script>
+      )
+    }
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalUrl} />
