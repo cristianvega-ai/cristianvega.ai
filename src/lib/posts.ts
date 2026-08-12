@@ -1,7 +1,7 @@
 import type { CollectionEntry } from "astro:content";
 import { getPublishedPosts as selectPublishedPosts } from "./published-posts.mjs";
 
-export type Post = CollectionEntry<"posts">;
+type Post = CollectionEntry<"posts">;
 
 export function getPublishedPosts(posts: Post[]): Post[] {
   return selectPublishedPosts(posts);

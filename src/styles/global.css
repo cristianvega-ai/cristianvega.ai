@@ -66,7 +66,6 @@ body {
   color: var(--ink);
   background: var(--paper);
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
 }
 
 img,
@@ -124,10 +123,16 @@ h3 {
   transition: transform 0.15s ease;
 }
 
+/* The ring is offset onto the page behind the chip, so it follows that ground:
+   crimson on paper (4.50), ember on the dark home masthead (6.39) */
 .skip-link:focus {
   transform: translateY(0);
-  outline: 2px solid var(--ember);
+  outline: 2px solid var(--crimson);
   outline-offset: 2px;
+}
+
+body:has(.hero) .skip-link:focus {
+  outline-color: var(--ember);
 }
 
 .wrap {
@@ -240,7 +245,9 @@ h3 {
   color: var(--muted);
 }
 
+/* Vertical padding, not line-height, sets the 24px minimum target height */
 .nav__link {
+  padding-top: 6px;
   padding-bottom: 3px;
   border-bottom: 2px solid transparent;
   transition: color 0.15s ease, border-color 0.15s ease;
@@ -253,6 +260,14 @@ h3 {
 .nav__link--active {
   color: var(--ink);
   border-image: var(--grad) 1;
+}
+
+/* Forced colours drop the gradient border-image; keep a system-coloured underline */
+@media (forced-colors: active) {
+  .nav__link--active {
+    border-image: none;
+    border-bottom-color: Highlight;
+  }
 }
 
 /* Home is a dark masthead page; the transparent header inverts to light */
@@ -304,10 +319,11 @@ body:has(.hero) .site-header :focus-visible {
   background: var(--crimson-d);
 }
 
+/* The border is the only edge this control has, so it clears 3:1 on paper (5.60) */
 .btn--ghost {
   background: transparent;
   color: var(--ink);
-  border-color: var(--line-strong);
+  border-color: var(--muted);
 }
 
 .btn--ghost:hover {
@@ -712,21 +728,6 @@ body:has(.hero) {
   font-weight: 500;
 }
 
-.project__link {
-  color: var(--ink);
-  border-bottom: 1px solid transparent;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.project__link:hover {
-  color: var(--crimson);
-  border-bottom-color: var(--crimson);
-}
-
-.project__link--read {
-  color: var(--muted);
-}
-
 .project__availability {
   color: var(--muted);
   font-style: normal;
@@ -949,10 +950,6 @@ body:has(.hero) {
   border-bottom: 1px solid var(--hairline);
 }
 
-.article__meta .sep {
-  color: var(--line-strong);
-}
-
 .article__meta .by {
   color: var(--muted);
 }
@@ -1098,6 +1095,10 @@ body:has(.hero) {
   font-size: 12px;
   font-weight: 500;
   color: #C3CBD8;
+}
+
+.social a {
+  padding-block: 3px;
 }
 
 .social a:hover {
@@ -1304,14 +1305,15 @@ body:has(.hero) {
     animation: developUp 0.7s both cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* PROJECTS — header rises, then the cards deal in with a stagger */
+  /* PROJECTS — header rises, then the cards deal in with a stagger.
+     The tail is clamped so no card is held at opacity 0 for more than 300ms,
+     and any card past the third joins that tail instead of leading the deal. */
   [data-page="projects"] .page-head { animation: riseIn 0.5s both ease-out; }
   [data-page="projects"] .project { animation: popIn 0.55s both cubic-bezier(0.22, 1, 0.36, 1); }
-  [data-page="projects"] .project:nth-child(1) { animation-delay: 0.14s; }
-  [data-page="projects"] .project:nth-child(2) { animation-delay: 0.24s; }
-  [data-page="projects"] .project:nth-child(3) { animation-delay: 0.34s; }
-  [data-page="projects"] .project:nth-child(4) { animation-delay: 0.44s; }
-  [data-page="projects"] .project:nth-child(5) { animation-delay: 0.54s; }
+  [data-page="projects"] .project:nth-child(1) { animation-delay: 0.06s; }
+  [data-page="projects"] .project:nth-child(2) { animation-delay: 0.14s; }
+  [data-page="projects"] .project:nth-child(3) { animation-delay: 0.22s; }
+  [data-page="projects"] .project:nth-child(n + 4) { animation-delay: 0.3s; }
 
   /* CONTACT — a calm rise */
   [data-page="contact"] main { animation: riseIn 0.6s both ease-out; }
