@@ -11,6 +11,7 @@
     "test:run": "node --test tests/*.test.mjs",
     "test": "npm run build && npm run test:run",
     "verify": "npm run build && npm run check && npm run test:run",
+    "verify:deploy": "node scripts/verify-deploy.mjs",
     "generate:portrait": "node scripts/generate-portrait.mjs"
   },
   "dependencies": {

@@ -39,6 +39,7 @@ npm run build
 npm run check
 npm test                 # builds, then runs tests (use this or verify — not bare node --test)
 npm run test:run         # tests only; requires a current dist/
+npm run verify:deploy    # post-deploy: live security headers + real 404
 npm audit
 npm run generate:portrait
 ```
