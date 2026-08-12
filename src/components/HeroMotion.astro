@@ -247,7 +247,6 @@
     root.querySelectorAll<HTMLElement>("[data-motion-target]").forEach((element) => {
       element.style.removeProperty("opacity");
       element.style.removeProperty("--motion-reveal");
-      element.removeAttribute("data-motion-active");
     });
   }
 
@@ -1303,7 +1302,6 @@
   function hideMotionTargets(targets: TargetBinding[]): void {
     for (let i = 0; i < targets.length; i++) {
       const t = targets[i];
-      t.el.setAttribute("data-motion-active", "");
       if (isActionTarget(t.kind)) {
         // Visible box; fill/border/label gated by --motion-reveal + playing CSS
         t.el.style.opacity = "1";

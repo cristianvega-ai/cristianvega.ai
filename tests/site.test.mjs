@@ -217,6 +217,8 @@ test("hero motion prep stores only fields the RAF path consumes", () => {
     source,
     /type TransferParticle\s*=\s*\{[^}]*target:\s*TargetKind/s,
   );
+  // data-motion-active was write-only; live hooks are mode/state/reveal
+  assert.doesNotMatch(source, /data-motion-active/);
 
   // RAF consumers still present
   assert.match(source, /sourceIndex/);
