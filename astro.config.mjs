@@ -1,7 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { defineConfig } from "astro/config";
-import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 
 /** Map post slug → ISO date string for sitemap lastmod (updatedDate ?? date). */
@@ -36,7 +35,6 @@ export default defineConfig({
   output: "static",
   trailingSlash: "always",
   integrations: [
-    mdx(),
     sitemap({
       serialize(item) {
         const match = item.url.match(/\/posts\/([^/]+)\/?$/);

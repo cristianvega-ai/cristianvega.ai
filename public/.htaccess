@@ -1,6 +1,9 @@
 # DreamHost (Apache) configuration for cristianvega.ai
 # Copied into dist/ on build via the public/ directory.
 
+# Never serve directory listings for /images/, /_astro/ or /posts/
+Options -Indexes
+
 # HTTPS + apex host in one hop each.
 # www must resolve in DNS (CNAME or A to the same host as the apex) and the
 # TLS cert SAN must cover www; otherwise this rule is unreachable.
@@ -11,9 +14,10 @@
   RewriteCond %{HTTP_HOST} ^www\.cristianvega\.ai$ [NC]
   RewriteRule ^ https://cristianvega.ai%{REQUEST_URI} [L,R=301]
 
-  # Force HTTPS on the apex (and any other host that reaches this vhost)
+  # Force HTTPS, always onto the canonical apex so no Host header this vhost
+  # receives is reflected back into a redirect target.
   RewriteCond %{HTTPS} !=on
-  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+  RewriteRule ^ https://cristianvega.ai%{REQUEST_URI} [L,R=301]
 </IfModule>
 
 # Security headers (best-effort; requires mod_headers)
@@ -51,6 +55,18 @@ ErrorDocument 404 /404.html
   ExpiresByType image/svg+xml "access plus 1 week"
   ExpiresByType application/xml "access plus 1 hour"
   ExpiresByType application/rss+xml "access plus 1 hour"
+</IfModule>
+
+# Compress the text assets this build ships (no-op if the host already does)
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html
+  AddOutputFilterByType DEFLATE text/css
+  AddOutputFilterByType DEFLATE text/plain
+  AddOutputFilterByType DEFLATE text/xml
+  AddOutputFilterByType DEFLATE application/javascript
+  AddOutputFilterByType DEFLATE application/xml
+  AddOutputFilterByType DEFLATE application/rss+xml
+  AddOutputFilterByType DEFLATE image/svg+xml
 </IfModule>
 
 <IfModule mod_headers.c>
