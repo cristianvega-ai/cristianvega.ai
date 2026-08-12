@@ -37,7 +37,8 @@ Useful focused commands:
 ```bash
 npm run build
 npm run check
-npm test
+npm test                 # builds, then runs tests (use this or verify — not bare node --test)
+npm run test:run         # tests only; requires a current dist/
 npm audit
 npm run generate:portrait
 ```
