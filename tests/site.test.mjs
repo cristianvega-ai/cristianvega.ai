@@ -408,3 +408,28 @@ test("reference brief keeps reveal content visible without JavaScript", () => {
     ".reveal must not start hidden when JavaScript is unavailable",
   );
 });
+
+test("spec template keeps every sheet reachable without JavaScript", () => {
+  const html = readFileSync(join(root, "spec-template.html"), "utf8");
+
+  assert.match(
+    html,
+    /document\.documentElement\.classList\.add\(['"]js-enabled['"]\)/,
+    "head script should mark JS-capable documents before paint",
+  );
+  assert.match(
+    html,
+    /html\.js-enabled\s+\.panel\s*\{[^}]*display\s*:\s*none/,
+    "single-panel hiding must be gated on js-enabled",
+  );
+  assert.match(
+    html,
+    /^\s*\.panel\s*\{[^}]*display\s*:\s*block/m,
+    "panels must start visible when JavaScript is unavailable",
+  );
+  assert.doesNotMatch(
+    html,
+    /^\s*\.panel\s*\{[^}]*display\s*:\s*none/m,
+    "ungated display:none on .panel would hide sheets 02–04 without JS",
+  );
+});
