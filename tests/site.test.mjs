@@ -545,6 +545,22 @@ test("htaccess ships bootstrap HSTS until HTTPS is confirmed", () => {
   );
 });
 
+test("post-deploy gate script checks live headers and 404", () => {
+  const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
+  for (const header of [
+    "x-content-type-options",
+    "x-frame-options",
+    "referrer-policy",
+    "permissions-policy",
+    "strict-transport-security",
+    "content-security-policy",
+  ]) {
+    assert.match(script, new RegExp(`["']${header}["']`));
+  }
+  assert.match(script, /__deploy-gate-missing-path__/);
+  assert.match(script, /status !== 404|status === 404/);
+});
+
 test("rss feed includes published posts", () => {
   const xml = readDistFile("rss.xml");
 
