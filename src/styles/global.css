@@ -404,9 +404,24 @@ body:has(.hero) {
   padding: 72px var(--gutter) 72px clamp(40px, 5vw, 76px);
 }
 
-/* Hero text stays visible by default. Progressive enhancement may hide it only
-   after the canvas layer has initialized successfully (inline style), so a
-   stalled or failed script never leaves the real copy inaccessible. */
+/* Hero text stays visible by default. A tiny home-only head script may stamp
+   html[data-hero-motion-pending] before paint; CSS below hides targets only
+   then. Without that attribute (no-JS, reduced motion, session replay, or any
+   bail-out clearing it) the real copy stays accessible. */
+
+/* Cold-load pre-hide: only while the head script's pending flag is set.
+   Reduced-motion users never get the attribute; the reduce branch also forces
+   opacity 1. Action targets use opacity (not --motion-reveal) here so buttons
+   stay fully gone until JS takes over with data-motion-state="playing". */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-hero-motion-pending] .hero [data-motion-target] {
+    opacity: 0;
+  }
+
+  html[data-hero-motion-pending] .hero__ticker {
+    opacity: 0;
+  }
+}
 
 .hero__eyebrow {
   color: var(--ember);
