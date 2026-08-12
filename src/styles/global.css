@@ -789,12 +789,25 @@ body:has(.hero) {
   justify-self: end;
 }
 
+/* ============================================================
+   About — profile, experience timeline, credentials
+   ============================================================ */
+
+.about-block + .about-block {
+  margin-top: 76px;
+}
+
+.about-block--flush + .about-block,
+.divider + .about-block {
+  margin-top: 0;
+}
+
 .profile-strip {
   display: grid;
   grid-template-columns: 132px minmax(0, 1fr);
   gap: 28px;
   align-items: center;
-  margin-bottom: 44px;
+  margin-bottom: 30px;
 }
 
 .profile-strip picture {
@@ -813,16 +826,78 @@ body:has(.hero) {
   border: 1px solid var(--line);
 }
 
+.about-prose p {
+  color: var(--ink-2);
+  line-height: 1.7;
+}
+
+.about-prose p + p {
+  margin-top: 18px;
+}
+
+/* Hairline-separated cells: the 1px grid gap lets the container colour show */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  position: relative;
+  margin: 36px 0 0;
+  padding: 3px 0 0;
+  list-style: none;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.stats::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--grad);
+}
+
+.stat {
+  background: var(--surface);
+  padding: 18px 16px 20px;
+}
+
+.stat__value {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.stat__label {
+  display: block;
+  margin-top: 7px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: var(--meta);
+}
+
 .exp__org-row {
   display: flex;
   align-items: center;
   gap: 16px;
-  font-family: var(--font-mono);
   margin: 38px 0 18px;
 }
 
 .exp__org {
+  font-family: var(--font-mono);
+  font-size: 15px;
   font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0;
   color: var(--ink);
 }
 
@@ -834,21 +909,54 @@ body:has(.hero) {
 
 .exp__dur,
 .exp__when,
-.fact__sub,
-.fact__label {
+.edu__when,
+.award__year {
   color: var(--meta);
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 500;
 }
 
-.exp__list {
+/* Timeline rail: the line sits under the dots, both centred on x = 3.5px */
+.exp__roles {
+  position: relative;
   display: grid;
-  gap: 20px;
+  gap: 26px;
+  margin: 0;
+  padding: 0 0 0 26px;
+  list-style: none;
 }
 
-.exp__list--muted {
-  color: var(--muted);
+.exp__roles::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: var(--line-strong);
+}
+
+.exp__role-item {
+  position: relative;
+}
+
+.exp__role-item::before {
+  content: "";
+  position: absolute;
+  left: -26px;
+  top: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+}
+
+.exp__role-item--current::before {
+  background: var(--grad);
+  border-color: transparent;
+  box-shadow: 0 0 0 3px rgba(242, 121, 43, 0.16);
 }
 
 .exp__role-head {
@@ -857,30 +965,180 @@ body:has(.hero) {
   gap: 18px;
 }
 
-.exp__role,
-.fact__name {
+.exp__role {
+  font-family: var(--font-body);
+  font-size: 16.5px;
   font-weight: 600;
+  line-height: 1.4;
   color: var(--ink);
 }
 
-.exp__desc,
-.exp__note {
+.exp__when {
+  flex: 0 0 auto;
+  padding-top: 3px;
+  white-space: nowrap;
+}
+
+.exp__desc {
   margin-top: 5px;
   color: var(--muted);
   line-height: 1.65;
 }
 
-.facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 36px;
-  margin-top: 32px;
+.patent {
+  position: relative;
+  overflow: hidden;
+  padding: 30px 32px 32px;
+  border-radius: var(--radius);
+  background-color: var(--ink);
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 39px, var(--grid-line) 39px 40px),
+    repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line) 39px 40px);
+  color: var(--mast-text);
+  box-shadow: var(--shadow);
 }
 
-.fact__label {
+.patent::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--grad);
+}
+
+.patent__label {
+  color: var(--ember);
+}
+
+.patent__title {
+  max-width: 24ch;
+  margin-top: 14px;
+  font-size: clamp(22px, 3vw, 27px);
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.18;
+}
+
+.patent__meta {
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--mast-muted);
+}
+
+.patent__desc {
+  max-width: 62ch;
+  margin-top: 16px;
+  color: var(--mast-muted);
+  line-height: 1.65;
+}
+
+.edu {
+  margin: 28px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.edu__item {
+  display: grid;
+  grid-template-columns: 136px minmax(0, 1fr);
+  gap: 24px;
+  align-items: baseline;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.edu__degree {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.edu__school {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.skills {
+  display: grid;
+  gap: 20px;
+  margin-top: 28px;
+}
+
+.skills__group {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  padding-top: 20px;
+  border-top: 1px solid var(--hairline);
+}
+
+.skills__label {
+  padding-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  margin-bottom: 8px;
+  color: var(--meta);
+}
+
+.skills__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.awards {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.award {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 20px;
+  align-items: baseline;
+}
+
+.award__name {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.award__note {
+  color: var(--muted);
+}
+
+.about-outro {
+  max-width: 54ch;
+  margin-top: 16px;
+  color: var(--ink-2);
+}
+
+.about-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 26px;
 }
 
 .page-head {
@@ -1177,14 +1435,40 @@ body:has(.hero) {
     height: 88px;
   }
 
+  .about-block + .about-block {
+    margin-top: 56px;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .exp__role-head {
     flex-direction: column;
     gap: 2px;
   }
 
-  .facts {
+  .exp__when {
+    padding-top: 0;
+  }
+
+  .patent {
+    padding: 24px 20px 26px;
+  }
+
+  .edu__item {
     grid-template-columns: 1fr;
-    gap: 28px;
+    gap: 8px;
+  }
+
+  .skills__group {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .award {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
 
   .prose p,

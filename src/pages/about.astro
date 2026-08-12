@@ -4,7 +4,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
 <BaseLayout
   title="About"
-  description="Cristian Vega — Head of AI R&D at Patra Corporation. A decade building software, six years building production AI from the ground up."
+  description="Cristian Vega — Head of AI R&D at Patra Corporation. Ten years in software engineering, six building production AI for regulated insurance and banking."
   active="about"
 >
   <main>
@@ -13,105 +13,398 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <p class="marker"><span class="marker__sig">§</span> About</p>
         <h1 class="page-title">I build production AI — and lead the teams that <span class="hl">ship it</span>.</h1>
         <p class="page-lede">
-          Head of AI R&amp;D at Patra Corporation. Over the last decade I've gone from shipping software to building AI from
-          the ground up — early NLP and BERT-era models, a production platform processing 400K+ insurance documents on a
-          multi-model strategy, and now agentic, autonomous workflows.
+          Head of AI R&amp;D at Patra Corporation. Ten years in software engineering, six of them delivering production AI
+          in regulated insurance and banking — three generations of AI products taken from zero to production, and the
+          engineering organization built around them.
         </p>
       </div>
     </section>
 
-    <section class="section">
+    <div class="section">
       <div class="wrap wrap--narrow">
-        <div class="profile-strip">
-          <picture>
-            <source srcset="/images/cristian-vega-portrait.avif" type="image/avif" />
-            <source srcset="/images/cristian-vega-portrait.webp" type="image/webp" />
-            <img
-              src="/images/cristian-vega-portrait.webp"
-              alt="Cristian Vega"
-              width="264"
-              height="264"
-              loading="lazy"
-              decoding="async"
-            />
-          </picture>
-          <div>
-            <p class="eyebrow">// experience</p>
-            <h2 class="section__title">Ten years building software, six building AI from the ground up.</h2>
+        <section class="about-block">
+          <div class="profile-strip">
+            <picture>
+              <source srcset="/images/cristian-vega-portrait.avif" type="image/avif" />
+              <source srcset="/images/cristian-vega-portrait.webp" type="image/webp" />
+              <img
+                src="/images/cristian-vega-portrait.webp"
+                alt="Cristian Vega"
+                width="264"
+                height="264"
+                loading="lazy"
+                decoding="async"
+              />
+            </picture>
+            <div>
+              <p class="eyebrow">// profile</p>
+              <h2 class="section__title">Ten years building software, six building AI from the ground up.</h2>
+            </div>
           </div>
-        </div>
 
-        <div class="exp__org-row">
-          <span class="exp__org">Patra Corporation</span>
-          <span class="exp__rule"></span>
-          <span class="exp__dur">[ 5Y 7M ]</span>
-        </div>
-        <div class="exp__list">
-          <div>
-            <div class="exp__role-head">
-              <span class="exp__role">Senior Director of AI Engineering · Head of AI R&amp;D</span>
-              <span class="exp__when">2024.09 → NOW</span>
-            </div>
-            <p class="exp__desc">AI strategy, org design and execution across teams; driving agentic, autonomous insurance workflows.</p>
+          <div class="about-prose">
+            <p>
+              I'm an AI engineering executive and a hands-on builder. At Patra I founded the AI engineering function,
+              took three generations of AI products from zero to production, and grew the engineering organization
+              behind them to a peak of 100 people.
+            </p>
+            <p>
+              Today I lead a 45-person AI engineering organization, partner with executive leadership on strategy,
+              roadmap, budget, and Responsible AI governance — and still architect the platforms and write production
+              code myself. Before insurance, I spent four years shipping regulated digital banking at BBVA.
+            </p>
           </div>
-          <div>
-            <div class="exp__role-head">
-              <span class="exp__role">Director of AI Engineering</span>
-              <span class="exp__when">2023.10 → 24.09</span>
-            </div>
-            <p class="exp__desc">Scaled AI from early models to a platform processing 400K+ documents on a multi-model strategy.</p>
-          </div>
-          <div>
-            <div class="exp__role-head">
-              <span class="exp__role">Software Engineering Manager</span>
-              <span class="exp__when">2022.01 → 23.10</span>
-            </div>
-            <p class="exp__desc">Built AI/ML from the ground up with BERT, transformers and NLP for unstructured documents.</p>
-          </div>
-          <div>
-            <div class="exp__role-head">
-              <span class="exp__role">Software Engineering Team Lead</span>
-              <span class="exp__when">2020.12 → 22.01</span>
-            </div>
-            <p class="exp__desc">Owned early extraction architecture and recruited the foundational ML team.</p>
-          </div>
-        </div>
 
-        <div class="exp__org-row">
-          <span class="exp__org">BBVA</span>
-          <span class="exp__rule"></span>
-          <span class="exp__dur">[ 3Y 6M ]</span>
-        </div>
-        <div class="exp__list exp__list--muted">
-          <p class="exp__note">Engineering lead, then senior and front-end roles on the Online Account Origination platform: credit-card service, a shared Web Component library, and digital account opening on iOS and Android.</p>
-        </div>
+          <ul class="stats">
+            <li class="stat">
+              <b class="stat__value">45</b>
+              <span class="stat__label">engineers in the AI organization</span>
+            </li>
+            <li class="stat">
+              <b class="stat__value">400K+</b>
+              <span class="stat__label">data points extracted monthly</span>
+            </li>
+            <li class="stat">
+              <b class="stat__value">14+</b>
+              <span class="stat__label">insurance lines in production</span>
+            </li>
+            <li class="stat">
+              <b class="stat__value">$0.20</b>
+              <span class="stat__label">cost per document processed</span>
+            </li>
+          </ul>
+        </section>
 
-        <div class="facts">
-          <div class="fact">
-            <div class="fact__name">everis · Software Developer</div>
-            <div class="fact__sub">2016 → 2017</div>
+        <section class="about-block">
+          <p class="eyebrow">// experience</p>
+          <h2 class="section__title">Where I've built it.</h2>
+
+          <div class="exp__group">
+            <div class="exp__org-row">
+              <h3 class="exp__org">Patra Corporation</h3>
+              <span class="exp__rule"></span>
+              <span class="exp__dur">[ 5Y 9M ]</span>
+            </div>
+            <ol class="exp__roles">
+              <li class="exp__role-item exp__role-item--current">
+                <div class="exp__role-head">
+                  <h4 class="exp__role">Senior Director of AI Engineering · Head of AI R&amp;D</h4>
+                  <span class="exp__when">2024.09 → NOW · 2Y</span>
+                </div>
+                <p class="exp__desc">
+                  Lead Patra's 45-person AI engineering organization and architected its Agent Platform, a block-based
+                  agentic system with deterministic-first execution. Raised extraction accuracy across 14+ insurance
+                  lines into the mid-90s at $0.20 per document. Own the AI budget and advise executive leadership on
+                  strategy, roadmap, and Responsible AI.
+                </p>
+              </li>
+              <li class="exp__role-item">
+                <div class="exp__role-head">
+                  <h4 class="exp__role">Director of AI Engineering</h4>
+                  <span class="exp__when">2023.10 → 2024.09 · 1Y</span>
+                </div>
+                <p class="exp__desc">
+                  Led four teams (~20 people) to build and deliver Patra AI, scaling to 12,000 documents and 400,000+
+                  data points extracted monthly. Designed its multi-model architecture, pairing the right technique to
+                  each pipeline stage. Shipped Patra's first self-correcting agentic AI system.
+                </p>
+              </li>
+              <li class="exp__role-item">
+                <div class="exp__role-head">
+                  <h4 class="exp__role">Software Engineering Manager</h4>
+                  <span class="exp__when">2022.01 → 2023.10 · 1Y 10M</span>
+                </div>
+                <p class="exp__desc">
+                  Matured Policy Checking Next Generation from first working application into a governed production
+                  system. Drove ML development with BERT, transformers, and NLP for insurance document extraction,
+                  owning the architecture and data pipeline behind Patra's AI products.
+                </p>
+              </li>
+              <li class="exp__role-item">
+                <div class="exp__role-head">
+                  <h4 class="exp__role">Software Engineering Team Lead</h4>
+                  <span class="exp__when">2020.12 → 2022.01 · 1Y 2M</span>
+                </div>
+                <p class="exp__desc">
+                  Founded Patra's AI engineering function in a zero-to-one role. Designed, built, and shipped Policy
+                  Checking Next Generation, the company's first AI-capable application and origin of its entire AI
+                  product line, and recruited the team that became Patra's AI organization.
+                </p>
+              </li>
+            </ol>
           </div>
-          <div class="fact">
-            <div class="fact__name">Univ. of Alabama · Web Developer</div>
-            <div class="fact__sub">2015 → 2016</div>
+
+          <div class="exp__group">
+            <div class="exp__org-row">
+              <h3 class="exp__org">BBVA in the USA</h3>
+              <span class="exp__rule"></span>
+              <span class="exp__dur">[ 3Y 6M ]</span>
+            </div>
+            <ol class="exp__roles">
+              <li class="exp__role-item">
+                <div class="exp__role-head">
+                  <h4 class="exp__role">Software Engineering Team Lead</h4>
+                  <span class="exp__when">2018.12 → 2020.12 · 2Y 1M</span>
+                </div>
+                <p class="exp__desc">
+                  Engineering lead for BBVA's Online Account Origination platform, owning the credit card service and
+                  expanding what customers could do entirely online. Managed two teams totaling 11 engineers and
+                  automation developers, shipping new features and integrating BBVA's new technology stack. Designed and
+                  deployed Spring Boot and Kubernetes services on AWS EKS, bridging modern front ends with legacy
+                  banking systems.
+                </p>
+              </li>
+              <li class="exp__role-item">
+                <div class="exp__role-head">
+                  <h4 class="exp__role">Senior Software Engineer</h4>
+                  <span class="exp__when">2018.05 → 2018.12 · 8M</span>
+                </div>
+                <p class="exp__desc">
+                  Front-end lead for BBVA's Online Account Origination platform, managing a team of two engineers and
+                  setting the standards the team built on. Built the shared Web Component library, overhauled the build
+                  system, and led a driver's license line-detection feature using Hough transforms. Promoted to Team
+                  Lead after seven months.
+                </p>
+              </li>
+              <li class="exp__role-item">
+                <div class="exp__role-head">
+                  <h4 class="exp__role">Software Engineer</h4>
+                  <span class="exp__when">2017.07 → 2018.05 · 11M</span>
+                </div>
+                <p class="exp__desc">
+                  Developed features across BBVA's Online Account Origination and Mobile Banking platforms,
+                  spearheading the integration that brought digital account opening (credit cards, CDs, money markets,
+                  loans) to iOS and Android for the first time. Shipped the Address Standardization service and a
+                  critical fraud detection fix that earned BBVA's Making It Happen Award. Promoted to Senior Software
+                  Engineer within ten months.
+                </p>
+              </li>
+            </ol>
           </div>
-        </div>
+
+          <div class="exp__group">
+            <div class="exp__org-row">
+              <h3 class="exp__org">everis</h3>
+              <span class="exp__rule"></span>
+              <span class="exp__dur">[ 1Y 2M ]</span>
+            </div>
+            <ol class="exp__roles">
+              <li class="exp__role-item">
+                <div class="exp__role-head">
+                  <h4 class="exp__role">Software Developer</h4>
+                  <span class="exp__when">2016.06 → 2017.07 · 1Y 2M</span>
+                </div>
+                <p class="exp__desc">
+                  Built customer-facing features for BBVA's Online Banking platform as an embedded consultant,
+                  including the Credit Card Activation application and reusable widgets like Money Transfer. Increased
+                  unit test coverage to over 80% of the application's functionality.
+                </p>
+              </li>
+            </ol>
+          </div>
+
+          <div class="exp__group">
+            <div class="exp__org-row">
+              <h3 class="exp__org">The University of Alabama</h3>
+              <span class="exp__rule"></span>
+              <span class="exp__dur">[ 1Y 1M ]</span>
+            </div>
+            <ol class="exp__roles">
+              <li class="exp__role-item">
+                <div class="exp__role-head">
+                  <h4 class="exp__role">Web Developer</h4>
+                  <span class="exp__when">2015.05 → 2016.05 · 1Y 1M</span>
+                </div>
+                <p class="exp__desc">
+                  Built a classroom management application in PHP and MySQL that let faculty and staff book and manage
+                  classrooms. Delivered a major overhaul of clealabama.com and developed screens and features for
+                  law.ua.edu's migration to WordPress.
+                </p>
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <section class="about-block">
+          <article class="patent">
+            <p class="eyebrow patent__label">// patent</p>
+            <h2 class="patent__title">Systems and Methods for Value Extraction and Guided Review</h2>
+            <p class="patent__meta">U.S. Patent No. 12,639,972 B2 · Issued May 26, 2026</p>
+            <p class="patent__desc">
+              Positional, ML-driven document extraction with a guided-review feedback loop — the core technology behind
+              Patra's Policy Checking AI. Co-invented with Tony Li and assigned to Patra Corporation.
+            </p>
+          </article>
+        </section>
+
+        <section class="about-block">
+          <p class="eyebrow">// education</p>
+          <h2 class="section__title">Education</h2>
+          <ol class="edu">
+            <li class="edu__item">
+              <span class="edu__when">2027.12 · expected</span>
+              <div>
+                <h3 class="edu__degree">M.S. Computer Science — Machine Learning</h3>
+                <p class="edu__school">Georgia Tech <span class="tag tag--slate">in progress</span></p>
+              </div>
+            </li>
+            <li class="edu__item">
+              <span class="edu__when">2026.03</span>
+              <div>
+                <h3 class="edu__degree">M.S. Software Engineering — AI Engineering</h3>
+                <p class="edu__school">Western Governors University</p>
+              </div>
+            </li>
+            <li class="edu__item">
+              <span class="edu__when">2020.01</span>
+              <div>
+                <h3 class="edu__degree">B.S. Software Development</h3>
+                <p class="edu__school">Western Governors University</p>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <section class="about-block">
+          <p class="eyebrow">// capabilities</p>
+          <h2 class="section__title">What I work in.</h2>
+          <div class="skills">
+            <div class="skills__group">
+              <h3 class="skills__label">AI &amp; ML</h3>
+              <ul class="skills__list">
+                <li class="tag tag--muted">AI strategy &amp; roadmapping</li>
+                <li class="tag tag--muted">agentic AI</li>
+                <li class="tag tag--muted">multi-agent orchestration</li>
+                <li class="tag tag--muted">multi-model architecture</li>
+                <li class="tag tag--muted">RAG</li>
+                <li class="tag tag--muted">NLP</li>
+                <li class="tag tag--muted">document intelligence</li>
+                <li class="tag tag--muted">BERT &amp; transformers</li>
+                <li class="tag tag--muted">model lifecycle management</li>
+                <li class="tag tag--muted">inference cost management</li>
+              </ul>
+            </div>
+            <div class="skills__group">
+              <h3 class="skills__label">Platforms</h3>
+              <ul class="skills__list">
+                <li class="tag tag--muted">Amazon Bedrock</li>
+                <li class="tag tag--muted">Amazon SageMaker</li>
+                <li class="tag tag--muted">Anthropic API</li>
+                <li class="tag tag--muted">OpenAI API</li>
+                <li class="tag tag--muted">LangGraph</li>
+                <li class="tag tag--muted">LangChain</li>
+                <li class="tag tag--muted">Strands Agents</li>
+                <li class="tag tag--muted">CrewAI</li>
+                <li class="tag tag--muted">Hugging Face</li>
+                <li class="tag tag--muted">vector databases</li>
+              </ul>
+            </div>
+            <div class="skills__group">
+              <h3 class="skills__label">Governance</h3>
+              <ul class="skills__list">
+                <li class="tag tag--muted">Responsible AI</li>
+                <li class="tag tag--muted">human-in-the-loop design</li>
+                <li class="tag tag--muted">regulatory compliance</li>
+                <li class="tag tag--muted">evaluation frameworks</li>
+                <li class="tag tag--muted">golden datasets</li>
+                <li class="tag tag--muted">hallucination detection</li>
+                <li class="tag tag--muted">drift monitoring</li>
+                <li class="tag tag--muted">explainability &amp; auditability</li>
+              </ul>
+            </div>
+            <div class="skills__group">
+              <h3 class="skills__label">Leadership</h3>
+              <ul class="skills__list">
+                <li class="tag tag--muted">engineering org design</li>
+                <li class="tag tag--muted">AI-native development</li>
+                <li class="tag tag--muted">spec-driven development</li>
+                <li class="tag tag--muted">executive advisory</li>
+                <li class="tag tag--muted">recruiting &amp; development</li>
+                <li class="tag tag--muted">technical vision &amp; strategy</li>
+                <li class="tag tag--muted">Agile at scale</li>
+              </ul>
+            </div>
+            <div class="skills__group">
+              <h3 class="skills__label">Engineering</h3>
+              <ul class="skills__list">
+                <li class="tag tag--muted">Python</li>
+                <li class="tag tag--muted">JavaScript</li>
+                <li class="tag tag--muted">SQL</li>
+                <li class="tag tag--muted">AWS (EKS, S3, Bedrock, SageMaker)</li>
+                <li class="tag tag--muted">Kubernetes</li>
+                <li class="tag tag--muted">Docker</li>
+                <li class="tag tag--muted">microservices</li>
+                <li class="tag tag--muted">REST APIs</li>
+                <li class="tag tag--muted">CI/CD</li>
+                <li class="tag tag--muted">observability</li>
+                <li class="tag tag--muted">system architecture</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="about-block">
+          <p class="eyebrow">// recognition</p>
+          <h2 class="section__title">Honors &amp; awards.</h2>
+
+          <div class="exp__org-row">
+            <h3 class="exp__org">Patra</h3>
+            <span class="exp__rule"></span>
+          </div>
+          <ul class="awards">
+            <li class="award">
+              <span class="award__year">2024</span>
+              <p><span class="award__name">Leadership Award</span> <span class="award__note">— peer- and leadership-nominated, for leadership excellence</span></p>
+            </li>
+            <li class="award">
+              <span class="award__year">2022</span>
+              <p><span class="award__name">Apex Award</span> <span class="award__note">— outsized, high-impact results</span></p>
+            </li>
+          </ul>
+
+          <div class="exp__org-row">
+            <h3 class="exp__org">BBVA</h3>
+            <span class="exp__rule"></span>
+          </div>
+          <ul class="awards">
+            <li class="award">
+              <span class="award__year">2019 &amp; 2020</span>
+              <p><span class="award__name">Director's Award</span> <span class="award__note">— given annually to one employee</span></p>
+            </li>
+            <li class="award">
+              <span class="award__year">2019</span>
+              <p><span class="award__name">Living Our Values Award</span></p>
+            </li>
+            <li class="award">
+              <span class="award__year">2018</span>
+              <p><span class="award__name">Making It Happen Award</span> <span class="award__note">— for a fraud detection fix that protected customer accounts</span></p>
+            </li>
+            <li class="award">
+              <span class="award__year">2018</span>
+              <p><span class="award__name">Front-page feature on bbva.com</span></p>
+            </li>
+          </ul>
+        </section>
 
         <hr class="divider divider--spaced" />
 
-        <div class="facts">
-          <div class="fact">
-            <div class="fact__label">Education</div>
-            <div class="fact__name">Georgia Tech</div>
-            <div class="fact__sub">M.S. Computer Science — Machine Learning</div>
+        <section class="about-block about-block--flush">
+          <p class="eyebrow">// next</p>
+          <h2 class="section__title">Open to talks.</h2>
+          <p class="about-outro">
+            Consulting on applied AI, collaborations, or comparing notes on shipping AI in production.
+          </p>
+          <div class="about-cta">
+            <a class="btn btn--signal" href="/contact/">Get in touch</a>
+            <a
+              class="btn btn--ghost"
+              href="https://www.linkedin.com/in/cristianvega-ai"
+              rel="me noopener noreferrer"
+              target="_blank">LinkedIn</a
+            >
           </div>
-          <div class="fact">
-            <div class="fact__label">&nbsp;</div>
-            <div class="fact__name">CU Boulder</div>
-            <div class="fact__sub">M.S. Artificial Intelligence</div>
-          </div>
-        </div>
+        </section>
       </div>
-    </section>
+    </div>
   </main>
 </BaseLayout>
