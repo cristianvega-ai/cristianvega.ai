@@ -616,8 +616,18 @@ test("htaccess CSP denies inline scripts while allowing inline styles", () => {
   const styleSrc = csp.match(/style-src\s+([^;]+)/)?.[1] ?? "";
   assert.match(styleSrc, /'unsafe-inline'/, "style-src keeps unsafe-inline for Astro CSS");
 
-  // Every inline script the build ships must be allow-listed by hash, so no
-  // page can quietly require 'unsafe-inline' back.
+  // Every *executable* inline script the build ships must be allow-listed by
+  // hash, so no page can quietly require 'unsafe-inline' back. Script elements
+  // carrying a non-JavaScript type are data blocks: the browser never executes
+  // them and script-src does not govern them, so they are checked separately.
+  const executableTypes = new Set([
+    "",
+    "module",
+    "text/javascript",
+    "application/javascript",
+    "application/ecmascript",
+    "text/ecmascript",
+  ]);
   const htmlFiles = [];
   const stack = [dist];
   while (stack.length) {
@@ -630,11 +640,17 @@ test("htaccess CSP denies inline scripts while allowing inline styles", () => {
   }
   assert.ok(htmlFiles.length >= 9, "expected the static HTML pages");
   const inlineDigests = new Set();
+  const dataBlockTypes = new Set();
   for (const file of htmlFiles) {
     const html = readFileSync(file, "utf8");
-    for (const [, , body] of html.matchAll(
+    for (const [, attributes, body] of html.matchAll(
       /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/gi,
     )) {
+      const type = (attributes.match(/\btype=["']([^"']*)["']/i)?.[1] ?? "").toLowerCase().trim();
+      if (!executableTypes.has(type)) {
+        dataBlockTypes.add(type);
+        continue;
+      }
       const digest = createHash("sha256").update(body, "utf8").digest("base64");
       inlineDigests.add(digest);
       assert.ok(
@@ -646,7 +662,12 @@ test("htaccess CSP denies inline scripts while allowing inline styles", () => {
   assert.deepEqual(
     [...inlineDigests],
     ["XAmQDOZkZmpTCL+kRJn5V0l3aQGa2/ZQ/miN4MqFqnI="],
-    "the hero pre-hide stamp is the only inline script the build may ship",
+    "the hero pre-hide stamp is the only executable inline script the build may ship",
+  );
+  assert.deepEqual(
+    [...dataBlockTypes].sort(),
+    ["application/ld+json"],
+    "the JSON-LD graph is the only non-executable script block the build may ship",
   );
 });
 
