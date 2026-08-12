@@ -562,7 +562,7 @@ test("htaccess canonicalises www to https apex in one hop", () => {
     /RewriteCond %\{HTTP_HOST\} \^www\\\.cristianvega\\\.ai\$[\s\S]*?RewriteRule \^ https:\/\/cristianvega\.ai%\{REQUEST_URI\}/,
   );
   const httpsIdx = htaccess.search(
-    /RewriteCond %\{HTTPS\} !=on[\s\S]*?RewriteRule \^ https:\/\/%\{HTTP_HOST\}%\{REQUEST_URI\}/,
+    /RewriteCond %\{HTTPS\} !=on[\s\S]*?RewriteRule \^ https:\/\/cristianvega\.ai%\{REQUEST_URI\}/,
   );
 
   assert.ok(wwwIdx >= 0, "www→apex rule must rewrite scheme and host together");
@@ -570,6 +570,11 @@ test("htaccess canonicalises www to https apex in one hop", () => {
   assert.ok(
     wwwIdx < httpsIdx,
     "www host canonicalisation must run before HTTPS-on-current-host to avoid a two-hop chain",
+  );
+  assert.doesNotMatch(
+    htaccess,
+    /RewriteRule \^ https:\/\/%\{HTTP_HOST\}%\{REQUEST_URI\}/,
+    "no redirect target may reflect the request Host header",
   );
 });
 
