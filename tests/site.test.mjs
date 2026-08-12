@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
@@ -455,13 +456,15 @@ test("htaccess CSP denies inline scripts while allowing inline styles", () => {
   assert.ok(csp, "CSP header must be present");
 
   const scriptSrc = csp.match(/script-src\s+([^;]+)/)?.[1]?.trim();
-  assert.equal(scriptSrc, "'self'", "script-src must be same-origin modules only");
+  assert.ok(scriptSrc, "script-src directive must be present");
+  assert.match(scriptSrc, /'self'/, "bundled scripts stay same-origin");
   assert.doesNotMatch(scriptSrc, /unsafe-inline|unsafe-eval/);
 
   const styleSrc = csp.match(/style-src\s+([^;]+)/)?.[1] ?? "";
   assert.match(styleSrc, /'unsafe-inline'/, "style-src keeps unsafe-inline for Astro CSS");
 
-  // Built pages must not introduce inline scripts that would need the keyword back.
+  // Every inline script the build ships must be allow-listed by hash, so no
+  // page can quietly require 'unsafe-inline' back.
   const htmlFiles = [];
   const stack = [dist];
   while (stack.length) {
@@ -473,14 +476,25 @@ test("htaccess CSP denies inline scripts while allowing inline styles", () => {
     }
   }
   assert.ok(htmlFiles.length >= 9, "expected the static HTML pages");
+  const inlineDigests = new Set();
   for (const file of htmlFiles) {
     const html = readFileSync(file, "utf8");
-    assert.doesNotMatch(
-      html,
-      /<script(?![^>]*\bsrc=)[^>]*>/i,
-      `inline script would break script-src 'self': ${file}`,
-    );
+    for (const [, , body] of html.matchAll(
+      /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/gi,
+    )) {
+      const digest = createHash("sha256").update(body, "utf8").digest("base64");
+      inlineDigests.add(digest);
+      assert.ok(
+        scriptSrc.includes(`'sha256-${digest}'`),
+        `inline script in ${file} is not hash-allow-listed in script-src (expected 'sha256-${digest}')`,
+      );
+    }
   }
+  assert.deepEqual(
+    [...inlineDigests],
+    ["XAmQDOZkZmpTCL+kRJn5V0l3aQGa2/ZQ/miN4MqFqnI="],
+    "the hero pre-hide stamp is the only inline script the build may ship",
+  );
 });
 
 test("htaccess ships bootstrap HSTS until HTTPS is confirmed", () => {
