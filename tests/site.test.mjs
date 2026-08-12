@@ -206,8 +206,12 @@ test("hero motion prep stores only fields the RAF path consumes", () => {
   assert.doesNotMatch(source, /type ButtonColors/);
   assert.doesNotMatch(source, /buttons:\s*\{\s*primary:/);
   assert.doesNotMatch(source, /defaultButtonColors/);
-  // PortraitPrep no longer keeps unused layout offsets
+  // PortraitPrep no longer keeps unused layout offsets or local-only scale
   assert.doesNotMatch(source, /offX:\s*number;\s*offY:\s*number/);
+  assert.doesNotMatch(
+    source,
+    /type PortraitPrep\s*=\s*\{[^}]*scale:\s*number/s,
+  );
   // TransferParticle no longer stores unused destination target
   assert.doesNotMatch(
     source,
