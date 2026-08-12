@@ -561,6 +561,50 @@ test("post-deploy gate script checks live headers and 404", () => {
   assert.match(script, /status !== 404|status === 404/);
 });
 
+test("htaccess preserves production security headers and CSP", () => {
+  const htaccess = readDistFile(".htaccess");
+
+  assert.match(htaccess, /Header always set X-Content-Type-Options "nosniff"/);
+  assert.match(htaccess, /Header always set X-Frame-Options "DENY"/);
+  assert.match(htaccess, /Header always set Referrer-Policy "strict-origin-when-cross-origin"/);
+  assert.match(
+    htaccess,
+    /Header always set Permissions-Policy "camera=\(\), microphone=\(\), geolocation=\(\)"/,
+  );
+  // Presence and shape only: the exact bootstrap value is pinned by
+  // "htaccess ships bootstrap HSTS until HTTPS is confirmed".
+  assert.match(htaccess, /Header always set Strict-Transport-Security "max-age=\d+/);
+  assert.match(htaccess, /ErrorDocument 404 \/404\.html/);
+
+  const cspMatch = htaccess.match(/Header always set Content-Security-Policy "([^"]+)"/);
+  assert.ok(cspMatch, "Content-Security-Policy header must be present");
+  const csp = cspMatch[1];
+
+  for (const directive of [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+  ]) {
+    assert.match(
+      csp,
+      new RegExp(directive.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      `CSP must keep ${directive}`,
+    );
+  }
+
+  const scriptSrc = csp.match(/script-src\s+([^;]+)/)?.[1]?.trim();
+  assert.ok(scriptSrc, "CSP must declare script-src");
+  assert.doesNotMatch(scriptSrc, /unsafe-eval/, "script-src must not allow unsafe-eval");
+  assert.doesNotMatch(scriptSrc, /unsafe-inline/, "script-src must not allow unsafe-inline");
+  for (const token of scriptSrc.split(/\s+/)) {
+    assert.ok(
+      token === "'self'" || /^'sha256-[A-Za-z0-9+/=]+'$/.test(token),
+      `script-src must not widen beyond 'self' and per-script hashes (found ${token})`,
+    );
+  }
+});
+
 test("rss feed includes published posts", () => {
   const xml = readDistFile("rss.xml");
 
