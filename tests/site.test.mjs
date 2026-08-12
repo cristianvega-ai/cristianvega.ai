@@ -365,6 +365,31 @@ test("htaccess canonicalises www to https apex in one hop", () => {
   );
 });
 
+test("htaccess scopes immutable caching away from stable image URLs", () => {
+  const htaccess = readDistFile(".htaccess");
+
+  assert.match(
+    htaccess,
+    /REQUEST_URI\}\s*=~\s*m#\^\/_astro\/#[\s\S]*?max-age=31536000,\s*immutable/,
+    "hashed /_astro/ assets should remain immutable",
+  );
+  assert.match(
+    htaccess,
+    /REQUEST_URI\}\s*=~\s*m#\^\/images\/#[\s\S]*?max-age=604800,\s*stale-while-revalidate=86400/,
+    "stable /images/ URLs should revalidate after portrait regenerations",
+  );
+  assert.doesNotMatch(
+    htaccess,
+    /FilesMatch\s+"\\\.\(css\|js\|webp\|avif\|png\|svg\)\$"/,
+    "extension-wide immutable FilesMatch must not cover public images",
+  );
+  assert.doesNotMatch(
+    htaccess,
+    /ExpiresByType\s+image\/(webp|avif|png|svg\+xml)\s+"access plus 1 year"/,
+    "image Expires must not keep a one-year freshness lifetime",
+  );
+});
+
 test("rss feed includes published posts", () => {
   const xml = readDistFile("rss.xml");
 
