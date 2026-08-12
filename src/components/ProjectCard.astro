@@ -35,7 +35,7 @@ const hasFooter = project.links.length > 0 || Boolean(project.availability);
     )
   }
   <div class="project__body">
-    <h3 class="project__name">{project.name}</h3>
+    <h2 class="project__name">{project.name}</h2>
     <p class="project__desc">{project.blurb}</p>
     <div class="project__tags">
       {project.tags.map((tag) => <span class="tag tag--slate">{tag}</span>)}
