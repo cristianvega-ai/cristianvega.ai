@@ -348,6 +348,23 @@ test("static ops assets ship with the build", () => {
   assert.match(notFound, /href="\/"/);
 });
 
+test("htaccess canonicalises www to https apex in one hop", () => {
+  const htaccess = readDistFile(".htaccess");
+  const wwwIdx = htaccess.search(
+    /RewriteCond %\{HTTP_HOST\} \^www\\\.cristianvega\\\.ai\$[\s\S]*?RewriteRule \^ https:\/\/cristianvega\.ai%\{REQUEST_URI\}/,
+  );
+  const httpsIdx = htaccess.search(
+    /RewriteCond %\{HTTPS\} !=on[\s\S]*?RewriteRule \^ https:\/\/%\{HTTP_HOST\}%\{REQUEST_URI\}/,
+  );
+
+  assert.ok(wwwIdx >= 0, "www→apex rule must rewrite scheme and host together");
+  assert.ok(httpsIdx >= 0, "HTTPS-forcing rule must remain for non-www http");
+  assert.ok(
+    wwwIdx < httpsIdx,
+    "www host canonicalisation must run before HTTPS-on-current-host to avoid a two-hop chain",
+  );
+});
+
 test("rss feed includes published posts", () => {
   const xml = readDistFile("rss.xml");
 

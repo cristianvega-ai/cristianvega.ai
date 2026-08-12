@@ -1,17 +1,19 @@
 # DreamHost (Apache) configuration for cristianvega.ai
 # Copied into dist/ on build via the public/ directory.
 
-# HTTPS + apex host (adjust if the site is ever served only on www)
+# HTTPS + apex host in one hop each.
+# www must resolve in DNS (CNAME or A to the same host as the apex) and the
+# TLS cert SAN must cover www; otherwise this rule is unreachable.
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
-  # Force HTTPS
-  RewriteCond %{HTTPS} !=on
-  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-
-  # Canonical host: apex (non-www)
+  # Canonical host first: http(s)://www → https://apex (single 301)
   RewriteCond %{HTTP_HOST} ^www\.cristianvega\.ai$ [NC]
   RewriteRule ^ https://cristianvega.ai%{REQUEST_URI} [L,R=301]
+
+  # Force HTTPS on the apex (and any other host that reaches this vhost)
+  RewriteCond %{HTTPS} !=on
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 </IfModule>
 
 # Security headers (best-effort; requires mod_headers)
