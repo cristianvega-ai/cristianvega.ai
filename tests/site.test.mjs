@@ -388,3 +388,23 @@ test("design tokens omit unused custom properties", () => {
   assert.doesNotMatch(readFileSync(join(root, "reference.html"), "utf8"), /--ink-3\s*:/);
   assert.doesNotMatch(readFileSync(join(root, "spec-template.html"), "utf8"), /--ink-3\s*:/);
 });
+
+test("reference brief keeps reveal content visible without JavaScript", () => {
+  const html = readFileSync(join(root, "reference.html"), "utf8");
+
+  assert.match(
+    html,
+    /document\.documentElement\.classList\.add\(['"]js-enabled['"]\)/,
+    "head script should mark JS-capable documents before paint",
+  );
+  assert.match(
+    html,
+    /html\.js-enabled\s+\.reveal:not\(\.in\)\s*\{[^}]*opacity\s*:\s*0/,
+    "entrance hiding must be gated on js-enabled",
+  );
+  assert.doesNotMatch(
+    html,
+    /^\s*\.reveal\s*\{[^}]*opacity\s*:\s*0/m,
+    ".reveal must not start hidden when JavaScript is unavailable",
+  );
+});
