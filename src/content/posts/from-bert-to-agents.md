@@ -2,6 +2,7 @@
 title: "From BERT to agents: scaling document AI to 400K+ documents"
 description: "The architecture decisions that took us from one extraction model to a multi-model platform, and what broke along the way."
 date: 2026-06-12
+updatedDate: 2026-07-01
 category: systems
 tags: ["systems", "document-ai", "agents"]
 draft: false
