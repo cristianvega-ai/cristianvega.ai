@@ -296,6 +296,18 @@ test("post pages are generated from markdown content", () => {
   assert.match(html, /From BERT to agents/);
   assert.match(html, /400K\+ documents/);
   assert.match(html, /Cristian Vega/);
+
+  // updatedDate is consumed: visible meta, Open Graph article times, sitemap lastmod
+  assert.match(html, /Updated\s*<time[^>]*datetime="2026-07-01"/);
+  assert.match(html, /property="og:type"\s+content="article"/);
+  assert.match(html, /property="article:published_time"\s+content="2026-06-12T/);
+  assert.match(html, /property="article:modified_time"\s+content="2026-07-01T/);
+
+  const sitemap = readDistFile("sitemap-0.xml");
+  assert.match(
+    sitemap,
+    /posts\/from-bert-to-agents\/[\s\S]*?<lastmod>2026-07-01T/,
+  );
 });
 
 test("about page ships experience and education content", () => {
