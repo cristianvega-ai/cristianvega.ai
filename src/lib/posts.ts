@@ -1,11 +1,10 @@
 import type { CollectionEntry } from "astro:content";
+import { getPublishedPosts as selectPublishedPosts } from "./published-posts.mjs";
 
 export type Post = CollectionEntry<"posts">;
 
 export function getPublishedPosts(posts: Post[]): Post[] {
-  return posts
-    .filter((post) => !post.data.draft)
-    .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+  return selectPublishedPosts(posts);
 }
 
 export function getPostHref(post: Post): string {
