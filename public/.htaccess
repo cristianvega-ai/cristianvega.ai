@@ -22,8 +22,9 @@
   Header always set X-Frame-Options "DENY"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
-  # HSTS — only after HTTPS is confirmed working in production
-  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  # HSTS bootstrap: short, reversible, apex-only. After HTTPS and the cert SAN
+  # list are confirmed on the live origin, raise to max-age=31536000; includeSubDomains.
+  Header always set Strict-Transport-Security "max-age=300"
   # CSP matched to current static build: self-hosted assets, Google Fonts,
   # data: favicon. All scripts are external same-origin modules (no inline).
   # style-src keeps 'unsafe-inline' for Astro inlineStylesheets: 'auto'.
