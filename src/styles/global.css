@@ -1,16 +1,12 @@
 :root {
   --ink: #14181F;
   --ink-2: #1D232E;
-  --ink-3: #2A313D;
   --paper: #F1F3F6;
   --surface: #FFFFFF;
-  --surface-2: #F7F8FA;
   --line: #DEE2E9;
   --line-strong: #C6CDD8;
   --hairline: #E8EBF1;
-  --hairline-2: #E1E5EC;
   --muted: #586173;
-  --muted-2: #646D7E;
   /* Accents tuned for WCAG AA on 12–15px text:
      crimson on paper ~4.6; white on crimson ~5.0; meta on paper ~5.6.
      Ember is reserved for dark surfaces (~6.4 on ink) and decoration. */
@@ -18,7 +14,6 @@
   --crimson-d: #B21F2F;
   --ember: #F2792B;
   --grad: linear-gradient(102deg, #D42A3C 0%, #F2792B 100%);
-  --grad-soft: linear-gradient(102deg, rgba(212, 42, 60, 0.09) 0%, rgba(242, 121, 43, 0.09) 100%);
   --meta: #586173;
   --meta-on-dark: #98A1B0;
   --mast-text: #EAEDF2;
@@ -34,14 +29,8 @@
   --tag-mute-bg: #EEF0F4;
   --tag-mute-bd: #D6DBE3;
   --code-bg: #14181F;
-  --code-chrome: #20252D;
-  --code-line: #2A313D;
   --code-text: #C9D1DC;
-  --code-gutter: #4A5261;
   --code-accent: #F2CDBB;
-  --syn-string: #9FBE86;
-  --syn-number: #E2B062;
-  --syn-type: #8FB6D4;
   --shadow-sm: 0 1px 2px rgba(20, 24, 31, 0.05), 0 1px 1px rgba(20, 24, 31, 0.04);
   --shadow: 0 6px 24px -12px rgba(20, 24, 31, 0.22), 0 2px 6px -3px rgba(20, 24, 31, 0.1);
   --font-display: "Space Grotesk", system-ui, sans-serif;
@@ -49,7 +38,6 @@
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --container: 1180px;
   --gutter: max(32px, calc((100vw - var(--container)) / 2 + 32px));
-  --seam: clamp(32px, 4vw, 56px);
   --radius: 14px;
   --radius-sm: 9px;
   --radius-xs: 6px;

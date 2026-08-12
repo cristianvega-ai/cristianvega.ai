@@ -363,3 +363,28 @@ test("compiled css assets are emitted", () => {
   const css = cssFiles.map((file) => readFileSync(join(astroDir, file), "utf8")).join("\n");
   assert.doesNotMatch(css, /html\.js[^{]*hero__name[^{]*\{[^}]*opacity\s*:\s*0/s);
 });
+
+test("design tokens omit unused custom properties", () => {
+  const css = readSourceFile("styles", "global.css");
+  const dead = [
+    "--ink-3:",
+    "--surface-2:",
+    "--hairline-2:",
+    "--muted-2:",
+    "--grad-soft:",
+    "--code-chrome:",
+    "--code-line:",
+    "--code-gutter:",
+    "--syn-string:",
+    "--syn-number:",
+    "--syn-type:",
+    "--seam:",
+  ];
+  for (const decl of dead) {
+    assert.doesNotMatch(css, new RegExp(decl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+
+  // Orphan ink-3 must not keep propagating through the design contract docs.
+  assert.doesNotMatch(readFileSync(join(root, "reference.html"), "utf8"), /--ink-3\s*:/);
+  assert.doesNotMatch(readFileSync(join(root, "spec-template.html"), "utf8"), /--ink-3\s*:/);
+});
