@@ -64,9 +64,6 @@ Static operational assets:
 Requires `sharp` (devDependency).
 
 ```bash
-# Home-hero halftone dot data → src/halftone-dots.json
-npm run generate:halftone
-
 # About profile strip (264px WebP + AVIF) → public/images/cristian-vega-portrait.*
 npm run generate:portrait
 ```
