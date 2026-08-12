@@ -433,3 +433,21 @@ test("spec template keeps every sheet reachable without JavaScript", () => {
     "ungated display:none on .panel would hide sheets 02–04 without JS",
   );
 });
+
+test("spec template wireframe kit keeps role=img free of focusable controls", () => {
+  const html = readFileSync(join(root, "spec-template.html"), "utf8");
+  const windowMatch = html.match(
+    /<div class="proto-window"[^>]*role="img"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>\s*<\/section>/,
+  );
+  assert.ok(windowMatch, "prototype wireframe window should be present");
+  assert.doesNotMatch(
+    windowMatch[0],
+    /<(button|a|input|select|textarea)\b/i,
+    "decorative wireframe controls must not be focusable inside role=img",
+  );
+  assert.match(
+    html,
+    /never\s+<button>/i,
+    "GUIDE should tell copies to use span.proto-btn instead of button",
+  );
+});
