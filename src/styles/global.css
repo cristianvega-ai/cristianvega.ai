@@ -36,6 +36,7 @@
   --font-display: "Space Grotesk", system-ui, sans-serif;
   --font-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --header-h: 64px;
   --container: 1180px;
   --gutter: max(32px, calc((100vw - var(--container)) / 2 + 32px));
   --radius: 14px;
@@ -188,7 +189,7 @@ body:has(.hero) .skip-link:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 64px;
+  min-height: var(--header-h);
   gap: 20px;
   padding-inline: clamp(20px, 3.2vw, 40px);
 }
@@ -818,15 +819,19 @@ body:has(.hero) {
    divider and strand a wide dead band at each viewport edge.
 
    max-height + overflow is a backstop: on viewports too short for the rail the
-   content stays reachable instead of being clipped past the sticky edge. */
+   content stays reachable instead of being clipped past the sticky edge. The
+   header is subtracted because the rail is at its tallest before it pins, while
+   the header still occupies the top of the viewport — sizing to a bare 100dvh
+   there runs the last control off the bottom of the screen. Once pinned the
+   header has scrolled away and the reserve is simply unused ink. */
 .about-rail__inner {
   position: sticky;
   top: 0;
   z-index: 1;
   max-width: 620px;
   margin-inline: auto;
-  max-height: 100vh;
-  max-height: 100dvh;
+  max-height: calc(100vh - var(--header-h));
+  max-height: calc(100dvh - var(--header-h));
   overflow-y: auto;
   scrollbar-width: thin;
   padding: clamp(36px, 4.4vh, 60px) clamp(28px, 3vw, 52px);
@@ -1542,34 +1547,34 @@ body:has(.hero) {
    fits down to ~720px tall, before the backstop scroll has to engage. */
 @media (min-width: 961px) and (max-height: 880px) {
   .about-rail__inner {
-    padding-block: 26px;
+    padding-block: 18px;
   }
 
   .about-rail__portrait {
-    width: 72px;
-    height: 72px;
-    margin-top: 20px;
+    width: 52px;
+    height: 52px;
+    margin-top: 14px;
   }
 
   .about-rail__portrait img {
-    width: 72px;
-    height: 72px;
+    width: 52px;
+    height: 52px;
   }
 
   .about-rail__lede {
-    margin-top: 14px;
+    margin-top: 12px;
   }
 
   .stats--rail {
-    margin-top: 16px;
+    margin-top: 12px;
   }
 
   .about-rail__note {
-    margin-top: 14px;
+    margin-top: 10px;
   }
 
   .about-rail .about-cta {
-    margin-top: 14px;
+    margin-top: 10px;
   }
 }
 
