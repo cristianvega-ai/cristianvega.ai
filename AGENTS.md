@@ -1,5 +1,7 @@
 # Repository Instructions
 
+- Always use ASD-STE100 Simplified Technical English.
+
 This repository contains Cristian Vega's static personal site. It is built with Astro 7, TypeScript, content collections, and hand-written CSS. Optimize for correctness, clarity, accessibility, and minimal surprise.
 
 ## Ground Truth First
