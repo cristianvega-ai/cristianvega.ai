@@ -8,54 +8,30 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   active="about"
 >
   <main>
-    <section class="section section--tight page-head dotgrid">
-      <div class="wrap">
-        <p class="marker"><span class="marker__sig">§</span> About</p>
-        <h1 class="page-title">I build production AI — and lead the teams that <span class="hl">ship it</span>.</h1>
-        <p class="page-lede">
-          Head of AI R&amp;D at Patra Corporation. Ten years in software engineering, six of them delivering production AI
-          in regulated insurance and banking — three generations of AI products taken from zero to production, and the
-          engineering organization built around them.
-        </p>
-      </div>
-    </section>
+    <div class="about-split">
+      <aside class="about-rail">
+        <div class="about-rail__inner">
+          <p class="marker"><span class="marker__sig">§</span> About</p>
+          <h1 class="about-rail__title">I build production AI — and lead the teams that <span class="hl">ship it</span>.</h1>
+          <p class="about-rail__lede">
+            Head of AI R&amp;D at Patra Corporation. Ten years in software engineering, six of them delivering
+            production AI in regulated insurance and banking.
+          </p>
 
-    <div class="section">
-      <div class="wrap wrap--narrow">
-        <section class="about-block">
-          <div class="profile-strip">
-            <picture>
-              <source srcset="/images/cristian-vega-portrait.avif" type="image/avif" />
-              <source srcset="/images/cristian-vega-portrait.webp" type="image/webp" />
-              <img
-                src="/images/cristian-vega-portrait.webp"
-                alt="Cristian Vega"
-                width="264"
-                height="264"
-                loading="lazy"
-                decoding="async"
-              />
-            </picture>
-            <div>
-              <p class="eyebrow">// profile</p>
-              <h2 class="section__title">Ten years building software, six building AI from the ground up.</h2>
-            </div>
-          </div>
+          <picture class="about-rail__portrait">
+            <source srcset="/images/cristian-vega-portrait.avif" type="image/avif" />
+            <source srcset="/images/cristian-vega-portrait.webp" type="image/webp" />
+            <img
+              src="/images/cristian-vega-portrait.webp"
+              alt="Cristian Vega"
+              width="264"
+              height="264"
+              loading="lazy"
+              decoding="async"
+            />
+          </picture>
 
-          <div class="about-prose">
-            <p>
-              I'm an AI engineering executive and a hands-on builder. At Patra I founded the AI engineering function,
-              took three generations of AI products from zero to production, and grew the engineering organization
-              behind them to a peak of 100 people.
-            </p>
-            <p>
-              Today I lead a 45-person AI engineering organization, partner with executive leadership on strategy,
-              roadmap, budget, and Responsible AI governance — and still architect the platforms and write production
-              code myself. Before insurance, I spent four years shipping regulated digital banking at BBVA.
-            </p>
-          </div>
-
-          <ul class="stats">
+          <ul class="stats stats--rail">
             <li class="stat">
               <b class="stat__value">45</b>
               <span class="stat__label">engineers in the AI organization</span>
@@ -73,6 +49,38 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               <span class="stat__label">cost per document processed</span>
             </li>
           </ul>
+
+          <p class="about-rail__note">
+            Open to consulting on applied AI, collaborations, or comparing notes on shipping AI in production.
+          </p>
+          <div class="about-cta">
+            <a class="btn btn--signal" href="/contact/">Get in touch</a>
+            <a
+              class="btn btn--ghost"
+              href="https://www.linkedin.com/in/cristianvega-ai"
+              rel="me noopener noreferrer"
+              target="_blank">LinkedIn</a
+            >
+          </div>
+        </div>
+      </aside>
+
+      <div class="about-scroll">
+        <section class="about-block">
+          <p class="eyebrow">// profile</p>
+          <h2 class="section__title">Ten years building software, six building AI from the ground up.</h2>
+          <div class="about-prose">
+            <p>
+              I'm an AI engineering executive and a hands-on builder. At Patra I founded the AI engineering function,
+              took three generations of AI products from zero to production, and grew the engineering organization
+              behind them to a peak of 100 people.
+            </p>
+            <p>
+              Today I lead a 45-person AI engineering organization, partner with executive leadership on strategy,
+              roadmap, budget, and Responsible AI governance — and still architect the platforms and write production
+              code myself. Before insurance, I spent four years shipping regulated digital banking at BBVA.
+            </p>
+          </div>
         </section>
 
         <section class="about-block">
@@ -384,25 +392,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               <p><span class="award__name">Front-page feature on bbva.com</span></p>
             </li>
           </ul>
-        </section>
-
-        <hr class="divider divider--spaced" />
-
-        <section class="about-block about-block--flush">
-          <p class="eyebrow">// next</p>
-          <h2 class="section__title">Open to talks.</h2>
-          <p class="about-outro">
-            Consulting on applied AI, collaborations, or comparing notes on shipping AI in production.
-          </p>
-          <div class="about-cta">
-            <a class="btn btn--signal" href="/contact/">Get in touch</a>
-            <a
-              class="btn btn--ghost"
-              href="https://www.linkedin.com/in/cristianvega-ai"
-              rel="me noopener noreferrer"
-              target="_blank">LinkedIn</a
-            >
-          </div>
         </section>
       </div>
     </div>
