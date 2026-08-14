@@ -154,16 +154,6 @@ body:has(.hero) .skip-link:focus {
   padding-block: 64px;
 }
 
-.divider {
-  height: 1px;
-  background: var(--hairline);
-  border: 0;
-}
-
-.divider--spaced {
-  margin-block: 32px 28px;
-}
-
 /* Faint blueprint grid on light page heads — the masthead motif, in daylight */
 .dotgrid {
   background-image:
@@ -927,11 +917,6 @@ body:has(.hero) {
   margin-top: 76px;
 }
 
-.about-block--flush + .about-block,
-.divider + .about-block {
-  margin-top: 0;
-}
-
 .about-prose {
   margin-top: 22px;
 }
@@ -1259,12 +1244,6 @@ body:has(.hero) {
 
 .award__note {
   color: var(--muted);
-}
-
-.about-outro {
-  max-width: 54ch;
-  margin-top: 16px;
-  color: var(--ink-2);
 }
 
 .about-cta {
