@@ -4,7 +4,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
 <BaseLayout
   title="About"
-  description="Cristian Vega — Head of AI R&D at Patra Corporation. Ten years in software engineering, six building production AI for regulated insurance and banking."
+  description="Cristian Vega — Head of AI R&D at Patra Corporation. Ten years in software engineering, five of them building production AI for regulated insurance and banking."
   active="about"
 >
   <main>
@@ -14,7 +14,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           <p class="marker"><span class="marker__sig">§</span> About</p>
           <h1 class="about-rail__title">I build production AI — and lead the teams that <span class="hl">ship it</span>.</h1>
           <p class="about-rail__lede">
-            Head of AI R&amp;D at Patra Corporation. Ten years in software engineering, six of them delivering
+            Head of AI R&amp;D at Patra Corporation. Ten years in software engineering, five of them delivering
             production AI in regulated insurance and banking.
           </p>
 
@@ -68,7 +68,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       <div class="about-scroll">
         <section class="about-block">
           <p class="eyebrow">// profile</p>
-          <h2 class="section__title">Ten years building software, six building AI from the ground up.</h2>
+          <h2 class="section__title">Ten years building software, five building AI from the ground up.</h2>
           <div class="about-prose">
             <p>
               I'm an AI engineering executive and a hands-on builder. At Patra I founded the AI engineering function,
@@ -76,11 +76,81 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               behind them to a peak of 100 people.
             </p>
             <p>
+              I architected the Agent Platform, which turns one-off AI use cases into governed, reusable building
+              blocks. I also led the accuracy program that scaled document intelligence to 12,000 documents and
+              400,000+ data points a month, at mid-90s accuracy across 14+ insurance lines and $0.20 per document.
+            </p>
+            <p>
               Today I lead a 45-person AI engineering organization, partner with executive leadership on strategy,
               roadmap, budget, and Responsible AI governance — and still architect the platforms and write production
-              code myself. Before insurance, I spent four years shipping regulated digital banking at BBVA.
+              code myself. Before insurance, I spent four and a half years shipping regulated digital banking on
+              BBVA's platforms, first as a consultant and then in house.
             </p>
           </div>
+        </section>
+
+        <section class="about-block">
+          <p class="eyebrow">// independent project</p>
+          <h2 class="section__title">What I build on my own time.</h2>
+
+          <div class="exp__org-row">
+            <h3 class="exp__org">
+              <a href="https://opencatalyst.ai/" target="_blank" rel="noopener noreferrer">OpenCatalyst</a>
+            </h3>
+            <span class="exp__rule"></span>
+            <span class="exp__dur">[ 2026.07 → NOW ]</span>
+          </div>
+
+          <div class="about-prose">
+            <p>
+              OpenCatalyst is a local-first agentic AI desktop app, in the same category as Claude Cowork and OpenAI
+              Codex. I'm its architect and sole engineer: a Rust engine, a React and TypeScript console, a CLI, and a
+              Tauri desktop app that runs on the local machine.
+            </p>
+            <p>
+              The engine runs a streaming agent loop over sandboxed file and shell tools, and it asks for human
+              approval before it acts. Sessions are event-sourced in SQLite, so a task can resume mid-run after the
+              engine restarts.
+            </p>
+            <p>
+              A multi-provider gateway streams from Anthropic, OpenAI, Gemini, xAI, and local Ollama models, with
+              prompt caching. Its layered router picks the model for each request from spend caps, task-type rules,
+              session affinity, and scores learned from the results people keep — then fails over when a provider goes
+              down. Team fusion, the multi-agent mode, sends one brief to several models at once, has a judge model
+              merge the drafts, and verifies the result in a scratch workspace.
+            </p>
+            <p>
+              The agent gets real access to the machine, so every part of that access is constrained. Provider keys sit
+              in an encrypted vault, the agent runs under macOS Seatbelt with scoped write access and a network egress
+              allowlist, and every tool call goes through a four-tier permission ladder. MCP plugins over stdio and
+              HTTP let agents reach outside tools inside those limits.
+            </p>
+            <p>
+              I ran the build agent-first to prove the method. The Rust engine and the TypeScript client meet at a
+              61-method typed RPC protocol, and the client is generated from the Rust types through JSON Schema. The
+              architecture rules are automated CI gates with live-engine smoke tests. I directed Claude Code and Cursor
+              inside those gates.
+            </p>
+          </div>
+
+          <ul class="stats">
+            <li class="stat">
+              <b class="stat__value">60K</b>
+              <span class="stat__label">lines of Rust and TypeScript</span>
+            </li>
+            <li class="stat">
+              <b class="stat__value">25</b>
+              <span class="stat__label">crates in the Rust engine</span>
+            </li>
+            <li class="stat">
+              <b class="stat__value">411</b>
+              <span class="stat__label">Rust tests gating the build</span>
+            </li>
+            <li class="stat">
+              <b class="stat__value">3</b>
+              <span class="stat__label">weeks from first commit to working app</span>
+            </li>
+          </ul>
         </section>
 
         <section class="about-block">
@@ -101,8 +171,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                 </div>
                 <p class="exp__desc">
                   Lead Patra's 45-person AI engineering organization and architected its Agent Platform, a block-based
-                  agentic system with deterministic-first execution. Raised extraction accuracy across 14+ insurance
-                  lines into the mid-90s at $0.20 per document. Own the AI budget and advise executive leadership on
+                  agentic system with deterministic-first execution and portable deployment. Led the accuracy program
+                  that raised extraction across 14+ insurance lines from the 80–85% range into the mid-90s — months
+                  ahead of schedule, at $0.20 per document against a $1.00 estimate. Drove the shift to AI-native
+                  development across the organization: agentic coding tools, evaluation harnesses to judge
+                  AI-generated work, and spec-driven templates. Own the AI budget and advise executive leadership on
                   strategy, roadmap, and Responsible AI.
                 </p>
               </li>
@@ -113,8 +186,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                 </div>
                 <p class="exp__desc">
                   Led four teams (~20 people) to build and deliver Patra AI, scaling to 12,000 documents and 400,000+
-                  data points extracted monthly. Designed its multi-model architecture, pairing the right technique to
-                  each pipeline stage. Shipped Patra's first self-correcting agentic AI system.
+                  data points extracted monthly. Designed its multi-model architecture — NLP for policy parsing, rules
+                  for comparison, LLM extraction with RAG for retrieval — and delivered proprietary models on
+                  SageMaker with full lifecycle management. Shipped Patra's first agentic AI system, which found and
+                  corrected its own extraction errors; customers saw average handling time drop about 30%.
                 </p>
               </li>
               <li class="exp__role-item">
@@ -124,8 +199,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                 </div>
                 <p class="exp__desc">
                   Matured Policy Checking Next Generation from first working application into a governed production
-                  system. Drove ML development with BERT, transformers, and NLP for insurance document extraction,
-                  owning the architecture and data pipeline behind Patra's AI products.
+                  system, with model performance review and formal code review standards. Drove ML development with
+                  BERT, transformers, and NLP for insurance document extraction, owning the architecture and data
+                  pipeline behind Patra's AI products, plus the security and observability groundwork under them.
                 </p>
               </li>
               <li class="exp__role-item">
@@ -136,7 +212,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                 <p class="exp__desc">
                   Founded Patra's AI engineering function in a zero-to-one role. Designed, built, and shipped Policy
                   Checking Next Generation, the company's first AI-capable application and origin of its entire AI
-                  product line, and recruited the team that became Patra's AI organization.
+                  product line. Architected it as a modular monolith on AWS, so a small team could ship and evolve it
+                  quickly, and recruited the team that became Patra's AI organization.
                 </p>
               </li>
             </ol>
@@ -159,7 +236,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                   expanding what customers could do entirely online. Managed two teams totaling 11 engineers and
                   automation developers, shipping new features and integrating BBVA's new technology stack. Designed and
                   deployed Spring Boot and Kubernetes services on AWS EKS, bridging modern front ends with legacy
-                  banking systems.
+                  banking systems. Introduced the team's automation framework and an A/B testing framework for
+                  validating business ideas.
                 </p>
               </li>
               <li class="exp__role-item">
@@ -280,9 +358,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             <div class="skills__group">
               <h3 class="skills__label">AI &amp; ML</h3>
               <ul class="skills__list">
-                <li class="tag tag--muted">AI strategy &amp; roadmapping</li>
                 <li class="tag tag--muted">agentic AI</li>
-                <li class="tag tag--muted">multi-agent orchestration</li>
+                <li class="tag tag--muted">multi-agent systems</li>
+                <li class="tag tag--muted">MCP (Model Context Protocol)</li>
+                <li class="tag tag--muted">LLM architecture</li>
                 <li class="tag tag--muted">multi-model architecture</li>
                 <li class="tag tag--muted">RAG</li>
                 <li class="tag tag--muted">NLP</li>
@@ -290,6 +369,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                 <li class="tag tag--muted">BERT &amp; transformers</li>
                 <li class="tag tag--muted">model lifecycle management</li>
                 <li class="tag tag--muted">inference cost management</li>
+                <li class="tag tag--muted">AI strategy &amp; roadmapping</li>
               </ul>
             </div>
             <div class="skills__group">
@@ -311,13 +391,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               <h3 class="skills__label">Governance</h3>
               <ul class="skills__list">
                 <li class="tag tag--muted">Responsible AI</li>
-                <li class="tag tag--muted">human-in-the-loop design</li>
+                <li class="tag tag--muted">human-in-the-loop &amp; human-on-the-loop design</li>
+                <li class="tag tag--muted">agent sandboxing &amp; permission design</li>
                 <li class="tag tag--muted">regulatory compliance</li>
                 <li class="tag tag--muted">evaluation frameworks</li>
                 <li class="tag tag--muted">golden datasets</li>
                 <li class="tag tag--muted">hallucination detection</li>
                 <li class="tag tag--muted">drift monitoring</li>
                 <li class="tag tag--muted">explainability &amp; auditability</li>
+                <li class="tag tag--muted">prompt engineering standards</li>
               </ul>
             </div>
             <div class="skills__group">
@@ -327,6 +409,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                 <li class="tag tag--muted">AI-native development</li>
                 <li class="tag tag--muted">spec-driven development</li>
                 <li class="tag tag--muted">executive advisory</li>
+                <li class="tag tag--muted">cross-functional team leadership</li>
                 <li class="tag tag--muted">recruiting &amp; development</li>
                 <li class="tag tag--muted">technical vision &amp; strategy</li>
                 <li class="tag tag--muted">Agile at scale</li>
@@ -336,6 +419,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               <h3 class="skills__label">Engineering</h3>
               <ul class="skills__list">
                 <li class="tag tag--muted">Python</li>
+                <li class="tag tag--muted">Rust</li>
+                <li class="tag tag--muted">TypeScript</li>
                 <li class="tag tag--muted">JavaScript</li>
                 <li class="tag tag--muted">SQL</li>
                 <li class="tag tag--muted">AWS (EKS, S3, Bedrock, SageMaker)</li>
@@ -346,6 +431,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                 <li class="tag tag--muted">CI/CD</li>
                 <li class="tag tag--muted">observability</li>
                 <li class="tag tag--muted">system architecture</li>
+                <li class="tag tag--muted">legacy system integration</li>
               </ul>
             </div>
           </div>
