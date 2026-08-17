@@ -1,5 +1,15 @@
 import { expect, test } from "@playwright/test";
 
+import {
+  columnCount,
+  layoutWidth,
+  settle,
+  tabTo,
+  useReducedMotion,
+  VIEWPORTS,
+  viewportTop,
+} from "./fixtures.mjs";
+
 /**
  * The about page's split layout is a computed-layout contract: sticky
  * positioning, a grid that collapses at 960px, and rules keyed to viewport
@@ -7,51 +17,13 @@ import { expect, test } from "@playwright/test";
  * from the Node contract tests in tests/*.test.mjs.
  */
 
-const DESKTOP = { width: 1440, height: 900 };
-const DESKTOP_SHORT = { width: 1280, height: 720 };
-const DESKTOP_TINY = { width: 1280, height: 560 };
-const TABLET = { width: 900, height: 1000 };
-const MOBILE = { width: 390, height: 844 };
+const { desktop: DESKTOP, desktopShort: DESKTOP_SHORT, desktopTiny: DESKTOP_TINY } = VIEWPORTS;
+const { tablet: TABLET, mobile: MOBILE } = VIEWPORTS;
 
 const RAIL = ".about-rail";
 const RAIL_INNER = ".about-rail__inner";
 const SCROLL = ".about-scroll";
 const STATS = ".stats--rail";
-
-/** Viewport-relative top edge, which is what sticky behavior is defined in. */
-async function viewportTop(page, selector) {
-  return page.locator(selector).evaluate((el) => el.getBoundingClientRect().top);
-}
-
-/** Track count of a grid, read off the resolved template rather than the rule. */
-async function columnCount(page, selector) {
-  const template = await page
-    .locator(selector)
-    .evaluate((el) => getComputedStyle(el).gridTemplateColumns);
-  return template.split(/\s+/).filter(Boolean).length;
-}
-
-/** Tab forward until the target holds focus, so :focus-visible genuinely applies. */
-async function tabTo(page, selector, limit = 25) {
-  const target = page.locator(selector);
-  for (let i = 0; i < limit; i += 1) {
-    await page.keyboard.press("Tab");
-    if (await target.evaluate((el) => el === document.activeElement)) return true;
-  }
-  return false;
-}
-
-/**
- * `[data-page="about"] main` runs a 0.7s developUp entrance that scales and
- * offsets the whole page. Geometry read before it lands is the animation's,
- * not the layout's. Resolves immediately under reduced motion, where the
- * animation never applies.
- */
-async function settle(page) {
-  await page
-    .locator("main")
-    .evaluate((el) => Promise.all(el.getAnimations().map((animation) => animation.finished)));
-}
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/about/");
@@ -192,8 +164,7 @@ test.describe("stacked layout below 960px", () => {
 
       // Against the layout viewport, not the nominal width: a classic scrollbar
       // legitimately narrows the former and would make this flap.
-      const layoutWidth = await page.evaluate(() => document.documentElement.clientWidth);
-      expect(rail.width).toBeCloseTo(layoutWidth, 0);
+      expect(rail.width).toBeCloseTo(await layoutWidth(page), 0);
     });
   }
 
@@ -254,9 +225,28 @@ test.describe("document semantics", () => {
 });
 
 test.describe("reduced motion", () => {
-  test.use({ viewport: DESKTOP, reducedMotion: "reduce" });
+  test.use({ viewport: DESKTOP });
 
   test("content stays visible and the rail still pins", async ({ page }) => {
+    // beforeEach navigated with motion on, so emulate and reload to put the
+    // preference in force before the page runs its own entrance.
+    await useReducedMotion(page);
+    await page.reload();
+    await settle(page);
+
+    // Assert the emulation took. Without this the whole block passes while
+    // running at full motion, which is exactly how it silently did nothing.
+    const reduced = await page.evaluate(
+      () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    );
+    expect(reduced).toBe(true);
+
+    // The entrance lives under (prefers-reduced-motion: no-preference), so
+    // honouring the preference means no animation is attached at all — the
+    // claim that separates a real reduced-motion run from an ordinary one.
+    const running = await page.locator("main").evaluate((el) => el.getAnimations().length);
+    expect(running).toBe(0);
+
     await expect(page.locator(`${RAIL} h1`)).toBeVisible();
     await expect(page.locator(`${SCROLL} .about-block`).first()).toBeVisible();
     await expect(page.locator(RAIL_INNER)).toHaveCSS("position", "sticky");
