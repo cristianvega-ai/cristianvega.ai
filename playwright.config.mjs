@@ -16,7 +16,7 @@ export default defineConfig({
   reporter: process.env.CI ? "list" : [["list"], ["html", { open: "never" }]],
 
   use: {
-    baseURL: "http://localhost:4321",
+    baseURL: "http://localhost:4323",
     trace: "retain-on-failure",
   },
 
@@ -27,10 +27,13 @@ export default defineConfig({
     },
   ],
 
-  /* Not `astro preview`: it daemonizes, so Playwright sees the command exit. */
+  /* Not `astro preview`: it daemonizes, so Playwright sees the command exit.
+     Deliberately not 4321. reuseExistingServer adopts whatever already answers
+     on the port, so sharing one with `astro dev` would silently run the whole
+     suite against the dev server and report green for a build it never saw. */
   webServer: {
-    command: "node scripts/serve-dist.mjs",
-    url: "http://localhost:4321/about/",
+    command: "PORT=4323 node scripts/serve-dist.mjs",
+    url: "http://localhost:4323/about/",
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },
