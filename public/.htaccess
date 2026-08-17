@@ -32,8 +32,8 @@ Options -Indexes
   # CSP matched to current static build: self-hosted assets, Google Fonts,
   # data: favicon. Bundled scripts are external same-origin modules; the one
   # inline script (the homepage hero pre-hide stamp in BaseLayout.astro) is
-  # allowed by hash, never by 'unsafe-inline'. tests/site.test.mjs recomputes
-  # the hash from dist/ so an edit to that script fails the gate.
+  # allowed by hash, never by 'unsafe-inline'. tests/security.test.mjs
+  # recomputes the hash from dist/ so an edit to that script fails the gate.
   # style-src keeps 'unsafe-inline' for Astro inlineStylesheets: 'auto'.
   Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'sha256-XAmQDOZkZmpTCL+kRJn5V0l3aQGa2/ZQ/miN4MqFqnI='; connect-src 'self'; upgrade-insecure-requests"
 </IfModule>
