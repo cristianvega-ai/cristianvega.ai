@@ -1,15 +1,14 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
 import assert from "node:assert/strict";
+
+import { dist } from "./helpers.mjs";
 
 // Motion contracts asserted over the compiled stylesheet rather than over a
 // single source spelling: reduced motion must be honoured, and hero copy must
 // never be hidden by CSS that only a running script can undo.
 
-const root = fileURLToPath(new URL("..", import.meta.url));
-const dist = join(root, "dist");
 const astroDir = join(dist, "_astro");
 
 function readAstroAssets(extension) {
