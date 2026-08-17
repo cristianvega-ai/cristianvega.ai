@@ -1024,6 +1024,19 @@ body:has(.hero) {
   color: var(--ink);
 }
 
+/* A linked org name would otherwise inherit the heading's flat ink and give no
+   sign it is a destination. Same treatment as prose links, which clears AA. */
+.exp__org a {
+  color: var(--crimson);
+  border-bottom: 1px solid rgba(212, 42, 60, 0.35);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.exp__org a:hover {
+  color: var(--crimson-d);
+  border-bottom-color: var(--crimson-d);
+}
+
 .exp__rule {
   height: 1px;
   background: var(--line);
