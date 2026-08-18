@@ -23,9 +23,15 @@ const { project } = Astro.props;
     </div>
   </div>
   {
-    project.availability && (
+    (project.href || project.availability) && (
       <div class="project__links">
-        <span class="project__availability">{project.availability}</span>
+        {project.href ? (
+          <a class="project__site" href={project.href} target="_blank" rel="noopener noreferrer">
+            {project.availability ?? "Visit site"}
+          </a>
+        ) : (
+          <span class="project__availability">{project.availability}</span>
+        )}
       </div>
     )
   }

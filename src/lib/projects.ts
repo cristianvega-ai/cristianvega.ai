@@ -6,14 +6,26 @@ export interface Project {
   blurb: string;
   status: ProjectStatus;
   tags: string[];
+  /** Public destination, for the projects that have one. */
+  href?: string;
   /**
-   * No project has a public destination yet, so cards state availability in
-   * words instead of linking somewhere unrelated.
+   * Projects without a public destination state availability in words instead
+   * of linking somewhere unrelated.
    */
   availability?: string;
 }
 
 export const projects: Project[] = [
+  {
+    name: "OpenCatalyst",
+    initials: "OC",
+    blurb:
+      "A local-first agentic AI desktop app — a Rust engine, multi-provider model routing, and a multi-agent mode where models draft, judge, and verify each other's work.",
+    status: "live",
+    tags: ["Rust", "TypeScript", "Agents"],
+    href: "https://opencatalyst.ai/",
+    availability: "Live at opencatalyst.ai",
+  },
   {
     name: "DocSieve",
     initials: "DS",

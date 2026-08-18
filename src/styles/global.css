@@ -725,6 +725,19 @@ body:has(.hero) {
   font-style: normal;
 }
 
+/* Linked projects get the prose-link treatment; the muted availability colour
+   would otherwise give a real destination no affordance. */
+.project__site {
+  color: var(--crimson);
+  border-bottom: 1px solid rgba(212, 42, 60, 0.35);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.project__site:hover {
+  color: var(--crimson-d);
+  border-bottom-color: var(--crimson-d);
+}
+
 .posts {
   border-top: 1px solid var(--line);
 }
