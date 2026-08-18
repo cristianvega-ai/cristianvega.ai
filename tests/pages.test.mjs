@@ -20,7 +20,7 @@ test("homepage keeps the portfolio theme and links to the writing index", () => 
   const html = readDistFile("index.html");
 
   assertPageBasics(html, { titleFragment: "Cristian Vega" });
-  assert.match(html, /reads the documents/);
+  assert.match(html, /where mistakes are expensive/);
   // Scoped to the hero CTAs: the global nav renders both hrefs on every page,
   // so a bare href match stays green with the call to action deleted.
   const primaryCta = findMotionAnchor(html, "primary-action");
