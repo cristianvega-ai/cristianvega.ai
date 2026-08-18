@@ -52,7 +52,7 @@ test("post pages are generated from markdown content", () => {
 
   assertPageBasics(html);
   assert.match(html, /From BERT to agents/);
-  assert.match(html, /400K\+ documents/);
+  assert.match(html, /400K\+ data points/);
   assert.match(html, /Cristian Vega/);
 
   // The byline date must render in UTC, not the builder's local day.

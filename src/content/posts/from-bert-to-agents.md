@@ -1,5 +1,5 @@
 ---
-title: "From BERT to agents: scaling document AI to 400K+ documents"
+title: "From BERT to agents: scaling document AI to 400K+ data points"
 description: "The architecture decisions that took us from one extraction model to a multi-model platform, and what broke along the way."
 date: 2026-06-12
 updatedDate: 2026-07-01
@@ -14,6 +14,6 @@ The BERT-era approach gave us a strong foundation because it forced the team to 
 
 The durable pattern was to make the pipeline multi-stage and multi-model. Cheaper deterministic steps handled normalization and obvious validation. Transformer models handled language-heavy extraction. Rules stayed close to compliance and business invariants. Human review stayed in the loop where confidence, cost, or regulatory impact demanded it.
 
-That structure made it possible to process 400K+ documents without treating every page as a bespoke machine learning problem. It also created a better path toward agents: once each stage has clear inputs, outputs, and verification boundaries, autonomous workflow components have something stable to operate inside.
+That structure made it possible to extract 400K+ data points a month from 12K documents without treating every page as a bespoke machine learning problem. It also created a better path toward agents: once each stage has clear inputs, outputs, and verification boundaries, autonomous workflow components have something stable to operate inside.
 
 The hard part was not deciding whether to use better models. The hard part was building the surrounding system so better models could be swapped in without rewriting the whole operation.
