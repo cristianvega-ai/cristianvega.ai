@@ -142,6 +142,11 @@ const structuredData = {
 
         <nav class="nav" aria-label="Primary">
           <a
+            class:list={["nav__link", active === "about" && "nav__link--active"]}
+            href="/about/"
+            aria-current={active === "about" ? "page" : undefined}>about</a
+          >
+          <a
             class:list={["nav__link", active === "projects" && "nav__link--active"]}
             href="/projects/"
             aria-current={active === "projects" ? "page" : undefined}>projects</a
@@ -150,11 +155,6 @@ const structuredData = {
             class:list={["nav__link", active === "writing" && "nav__link--active"]}
             href="/writing/"
             aria-current={active === "writing" ? "page" : undefined}>writing</a
-          >
-          <a
-            class:list={["nav__link", active === "about" && "nav__link--active"]}
-            href="/about/"
-            aria-current={active === "about" ? "page" : undefined}>about</a
           >
           <a
             class:list={["nav__link", active === "contact" && "nav__link--active"]}
