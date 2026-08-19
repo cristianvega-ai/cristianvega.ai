@@ -21,14 +21,17 @@ export const VIEWPORTS = {
  * Wait out the per-page entrance animation before measuring.
  *
  * Every route runs one (`[data-page="about"] main` uses developUp, writing and
- * contact use riseIn), and geometry read while it is mid-flight is the
+ * contact use riseIn, projects animates the page head itself), and geometry
+ * read while it is mid-flight is the
  * animation's transform, not the layout's. Resolves immediately under reduced
  * motion, where the animation never applies.
  */
 export async function settle(page) {
   await page
     .locator("main")
-    .evaluate((el) => Promise.all(el.getAnimations().map((animation) => animation.finished)));
+    .evaluate((el) =>
+      Promise.all(el.getAnimations({ subtree: true }).map((animation) => animation.finished)),
+    );
 }
 
 /**

@@ -114,3 +114,27 @@ test.describe("the footer is seated", () => {
     });
   }
 });
+
+/* Routes that open with a grid band. The homepage opens with the hero, and a
+   post opens with its article head. */
+const HEAD_ROUTES = ["/about/", "/projects/", "/writing/", "/contact/", "/no-such-page/"];
+
+test.describe("the grid runs to the top", () => {
+  test.use({ viewport: VIEWPORTS.desktop });
+
+  for (const route of HEAD_ROUTES) {
+    test(`${route} starts its band behind the header`, async ({ page }) => {
+      await page.goto(route);
+      await settle(page);
+
+      const top = await page
+        .locator("main .page-head")
+        .evaluate((el) => el.getBoundingClientRect().top);
+
+      // The band slides under the transparent header, so the grid reaches the
+      // top of the page. Stop it at the header and the logo and the nav sit on
+      // bare paper, reading as detached from the page under them.
+      expect(top).toBeLessThanOrEqual(0.5);
+    });
+  }
+});
