@@ -3,7 +3,7 @@ import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { assertPageBasics, dist, readDistFile, root } from "./helpers.mjs";
+import { assertPageBasics, dist, readDistFile } from "./helpers.mjs";
 
 // Build output contract: the files the static deploy uploads must exist and be
 // complete. Page copy lives in tests/pages.test.mjs; this suite only asks
@@ -45,7 +45,6 @@ test("build emits the core static pages DreamHost will serve", () => {
   assertDistPath("projects", "index.html");
   assertDistPath("about", "index.html");
   assertDistPath("contact", "index.html");
-  assertDistPath("rss.xml");
   assertDistPath("sitemap-index.xml");
 });
 
@@ -79,76 +78,6 @@ test("static ops assets ship with the build", () => {
   const notFound = readDistFile("404.html");
   assertPageBasics(notFound, { titleFragment: "Page not found" });
   assert.match(notFound, /href="\/"/);
-});
-
-test("rss feed includes published posts", () => {
-  const xml = readDistFile("rss.xml");
-
-  assert.match(xml, /<rss/);
-  assert.match(xml, /From BERT to agents/);
-
-  // Item set must match non-draft content slugs exactly (not a /draft/i substring proxy).
-  const postsDir = join(root, "src", "content", "posts");
-  const expectedSlugs = readdirSync(postsDir)
-    .filter((file) => /\.(md|mdx)$/.test(file))
-    .flatMap((file) => {
-      const fm = readFileSync(join(postsDir, file), "utf8").match(
-        /^---\r?\n([\s\S]*?)\r?\n---/,
-      )?.[1];
-      if (!fm || /^draft:\s*true\s*$/m.test(fm)) return [];
-      return [file.replace(/\.(md|mdx)$/, "")];
-    })
-    .sort();
-
-  const itemLinks = [...xml.matchAll(/<item>[\s\S]*?<link>([^<]+)<\/link>/g)].map(
-    (match) => match[1],
-  );
-  const feedSlugs = itemLinks
-    .map((href) => href.match(/\/posts\/([^/]+)\/?$/)?.[1])
-    .filter(Boolean)
-    .sort();
-
-  assert.deepEqual(feedSlugs, expectedSlugs);
-  assert.equal(itemLinks.length, expectedSlugs.length, "no extra non-post channel links as items");
-
-  // Channel essentials readers depend on.
-  assert.match(xml, /<channel>/);
-  assert.match(xml, /<title>Cristian Vega Writing<\/title>/);
-  assert.match(xml, /<link>https:\/\/cristianvega\.ai\/<\/link>/);
-  assert.match(xml, /<language>en-us<\/language>/);
-  assert.match(
-    xml,
-    /<atom:link\b[^>]*href="https:\/\/cristianvega\.ai\/rss\.xml"[^>]*rel="self"/,
-    "feed must reference itself with atom:link rel=self",
-  );
-  assert.match(xml, /<lastBuildDate>[^<]+GMT<\/lastBuildDate>/);
-
-  // Every published post ships with an absolute, trailing-slash link and a date.
-  const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(([, item]) => item);
-  const published = readdirSync(join(dist, "posts"), { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
-
-  assert.ok(published.length > 0, "build must emit post pages to compare against");
-  assert.equal(items.length, published.length, "feed must carry every published post");
-
-  const links = items.map((item) => item.match(/<link>([^<]+)<\/link>/)?.[1]);
-  for (const [index, item] of items.entries()) {
-    assert.match(item, /<title>[^<]+<\/title>/);
-    assert.match(item, /<pubDate>[^<]+GMT<\/pubDate>/, "each item needs a pubDate");
-    assert.match(
-      links[index] ?? "",
-      /^https:\/\/cristianvega\.ai\/posts\/[a-z0-9-]+\/$/,
-      `item link must be absolute with a trailing slash: ${links[index]}`,
-    );
-  }
-
-  for (const slug of published) {
-    assert.ok(
-      links.includes(`https://cristianvega.ai/posts/${slug}/`),
-      `feed is missing /posts/${slug}/`,
-    );
-  }
 });
 
 test("compiled css assets are emitted", () => {

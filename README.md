@@ -16,7 +16,7 @@ Create a Markdown or MDX file in `src/content/posts/`.
 ```md
 ---
 title: "Post title"
-description: "One sentence summary for listings, RSS, and metadata."
+description: "One sentence summary for listings and metadata."
 date: 2026-07-01
 category: systems
 tags: ["ai", "document-ai"]
@@ -26,7 +26,7 @@ draft: false
 Write the post here.
 ```
 
-Use `draft: true` to keep a post out of generated pages, indexes, and RSS. The filename becomes the URL slug. For example, `src/content/posts/my-post.md` builds to `/posts/my-post/`.
+Use `draft: true` to keep a post out of generated pages and indexes. The filename becomes the URL slug. For example, `src/content/posts/my-post.md` builds to `/posts/my-post/`.
 
 ## Design reference
 

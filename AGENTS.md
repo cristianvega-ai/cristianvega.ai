@@ -14,7 +14,7 @@ This repository contains Cristian Vega's static personal site. It is built with 
 
 ## Project Map
 
-- `src/pages/`: Astro routes, including the homepage, portfolio pages, posts, RSS, and the custom 404 page.
+- `src/pages/`: Astro routes, including the homepage, portfolio pages, posts, and the custom 404 page.
 - `src/components/`: reusable presentation and motion components.
 - `src/layouts/`: shared document, navigation, metadata, and article layouts.
 - `src/content/`: Markdown posts validated by `src/content.config.ts`.

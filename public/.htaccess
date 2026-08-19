@@ -54,7 +54,6 @@ ErrorDocument 404 /404.html
   ExpiresByType image/png "access plus 1 week"
   ExpiresByType image/svg+xml "access plus 1 week"
   ExpiresByType application/xml "access plus 1 hour"
-  ExpiresByType application/rss+xml "access plus 1 hour"
 </IfModule>
 
 # Compress the text assets this build ships (no-op if the host already does)
@@ -65,7 +64,6 @@ ErrorDocument 404 /404.html
   AddOutputFilterByType DEFLATE text/xml
   AddOutputFilterByType DEFLATE application/javascript
   AddOutputFilterByType DEFLATE application/xml
-  AddOutputFilterByType DEFLATE application/rss+xml
   AddOutputFilterByType DEFLATE image/svg+xml
 </IfModule>
 

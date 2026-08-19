@@ -1276,41 +1276,57 @@ body:has(.hero) {
   color: inherit;
 }
 
-.btn--lg {
-  font-size: 17px;
-  padding: 15px 28px;
+/* CONTACT — one card per channel. auto-fit means a new channel is one more
+   list item and no CSS change: the row refills itself, and the 220px floor
+   drops the grid to a single column before a card can squeeze its address. */
+.contact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.contact-links {
+/* The whole card is the link, so each channel has exactly one focusable
+   element and one accessible name. Rest/hover matches .project deliberately. */
+.contact-card {
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  margin-top: 38px;
+  gap: 8px;
+  height: 100%;
+  padding: 24px 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.3s, border-color 0.15s ease;
+}
+
+.contact-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow);
+}
+
+/* The address is what the reader came to copy, so it carries the ink. */
+.contact-card__value {
   font-family: var(--font-mono);
   font-size: 14px;
-}
-
-.contact-links a {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 14px;
-  width: fit-content;
+  font-weight: 500;
   color: var(--ink);
-  border-bottom: 1px solid transparent;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  overflow-wrap: anywhere;
+  transition: color 0.15s ease;
 }
 
-.contact-links a:hover {
+.contact-card:hover .contact-card__value {
   color: var(--crimson);
-  border-bottom-color: var(--crimson);
 }
 
-.contact-links .k {
-  min-width: 92px;
-  color: var(--meta);
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.contact-card__note {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
 }
 
 .site-footer {
@@ -1495,6 +1511,12 @@ body:has(.hero) {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /* Contact cards keep the shadow and border cues, but never lift. Collapsing
+     the transition alone would only make the same 3px jump instantaneous. */
+  .contact-card:hover {
+    transform: none !important;
   }
 
   /* No button ripple under reduced motion */
