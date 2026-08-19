@@ -1587,7 +1587,7 @@
     installListeners();
 
     // --- Quick path: later visits in the same session (~250ms settle) ---
-    // Skip font wait and particle prep so the hero + ticker resolve together.
+    // Skip the font wait and the particle prep so the hero settles at once.
     if (duration <= QUICK_DURATION) {
       targets = collectTargetBindings(root);
       if (!targets.length) {

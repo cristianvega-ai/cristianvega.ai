@@ -26,6 +26,8 @@ test("design tokens omit unused custom properties", () => {
     "--syn-number:",
     "--syn-type:",
     "--seam:",
+    /* The hero ticker was the only reader of this token. */
+    "--mast-meta:",
   ];
   for (const decl of dead) {
     assert.doesNotMatch(css, new RegExp(decl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));

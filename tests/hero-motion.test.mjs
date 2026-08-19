@@ -122,11 +122,12 @@ test("hero motion source keeps glyph sampling and the quick-path shortcut", () =
 test("hero motion source pins the two clock constants", () => {
   const source = readSourceFile("components", "HeroMotion.astro");
 
-  // "the ticker finishes on the same beat as the hero clock" measures the run
-  // and compares the ticker against that measurement, so the shared boundary
-  // holds at any tempo. Retiming the constant and the CSS together keeps the
-  // relationship and still changes how long every visitor waits. These two
-  // literals are the tempo itself, so they are pinned where they are written.
+  // Every browser spec measures a run against itself. "a finished visit
+  // replays quick on the next load and settles far sooner"
+  // (tests/e2e/hero.spec.mjs) compares the quick run with the full one, so it
+  // stays green at any tempo. Retiming both constants keeps that relation and
+  // still changes how long each visitor waits. These two literals are the
+  // tempo itself, so they are pinned where they are written.
   const fullMs = Number(source.match(/const FULL_DURATION\s*=\s*(\d+)/)?.[1]);
   const quickMs = Number(source.match(/const QUICK_DURATION\s*=\s*(\d+)/)?.[1]);
   assert.equal(fullMs, 2450);
