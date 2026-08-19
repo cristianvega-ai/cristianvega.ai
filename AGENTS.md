@@ -1,8 +1,26 @@
 # Repository Instructions
 
-- Always use ASD-STE100 Simplified Technical English.
-
 This repository contains Cristian Vega's static personal site. It is built with Astro 7, TypeScript, content collections, and hand-written CSS. Optimize for correctness, clarity, accessibility, and minimal surprise.
+
+## Language
+
+Two registers apply here. Choose the one that matches what you are writing.
+
+**Use ASD-STE100 Simplified Technical English for everything written about the
+work.** This covers replies to the owner, commit subjects and bodies, code
+comments, test names, and the documentation in this repository, including this
+file and the README. Write short sentences. Use active voice. Give one idea per
+sentence. Choose the plain word over the long one.
+
+**Do not apply Simplified Technical English to what the site publishes.** Page
+copy, headlines, posts in `src/content/`, project descriptions in
+`src/lib/projects.ts`, and the meta descriptions that quote them are the owner's
+voice. Match the voice already on the page. Keep the figurative lines, because
+they are deliberate: the homepage says "I build agentic AI where mistakes are
+expensive", and Simplified Technical English would reject that sentence.
+
+When you edit site copy, you are writing as the owner. When you explain that
+edit, you are writing as an engineer.
 
 ## Ground Truth First
 
