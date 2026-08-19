@@ -8,64 +8,19 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   active="about"
 >
   <main>
-    <div class="about-split">
-      <aside class="about-rail">
-        <div class="about-rail__inner">
-          <p class="marker"><span class="marker__sig">§</span> About</p>
-          <h1 class="about-rail__title">I build production AI, and lead the teams that <span class="hl">ship&nbsp;it</span>.</h1>
-          <p class="about-rail__lede">
-            Head of AI R&amp;D at Patra Corporation. Ten years in software engineering, five of them delivering
-            production AI in regulated insurance and banking.
-          </p>
+    <section class="section section--tight page-head dotgrid">
+      <div class="wrap">
+        <p class="marker"><span class="marker__sig">§</span> About</p>
+        <h1 class="page-title">I build production AI, and lead the teams that <span class="hl">ship&nbsp;it</span>.</h1>
+        <p class="page-lede">
+          Head of AI R&amp;D at Patra Corporation. Ten years in software engineering, five of them delivering
+          production AI in regulated insurance and banking.
+        </p>
+      </div>
+    </section>
 
-          <picture class="about-rail__portrait">
-            <source srcset="/images/cristian-vega-portrait.avif" type="image/avif" />
-            <source srcset="/images/cristian-vega-portrait.webp" type="image/webp" />
-            <img
-              src="/images/cristian-vega-portrait.webp"
-              alt="Cristian Vega"
-              width="264"
-              height="264"
-              loading="lazy"
-              decoding="async"
-            />
-          </picture>
-
-          <ul class="stats stats--rail">
-            <li class="stat">
-              <b class="stat__value">45</b>
-              <span class="stat__label">engineers in the AI organization</span>
-            </li>
-            <li class="stat">
-              <b class="stat__value">400K+</b>
-              <span class="stat__label">data points extracted monthly</span>
-            </li>
-            <li class="stat">
-              <b class="stat__value">14+</b>
-              <span class="stat__label">insurance lines in production</span>
-            </li>
-            <li class="stat">
-              <b class="stat__value">$0.20</b>
-              <span class="stat__label">cost per document processed</span>
-            </li>
-          </ul>
-
-          <p class="about-rail__note">
-            Open to consulting on applied AI, collaborations, or comparing notes on shipping AI in production.
-          </p>
-          <div class="about-cta">
-            <a class="btn btn--signal" href="/contact/">Get in touch</a>
-            <a
-              class="btn btn--ghost"
-              href="https://www.linkedin.com/in/cristianvega-ai"
-              rel="me noopener noreferrer"
-              target="_blank">LinkedIn</a
-            >
-          </div>
-        </div>
-      </aside>
-
-      <div class="about-scroll">
+    <div class="section">
+      <div class="wrap wrap--narrow">
         <section class="about-block">
           <p class="eyebrow">// profile</p>
           <h2 class="section__title">Ten years building software, five building AI from the ground up.</h2>
@@ -478,6 +433,25 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               <p><span class="award__name">Front-page feature on bbva.com</span></p>
             </li>
           </ul>
+        </section>
+
+        <section class="about-block">
+          <p class="eyebrow">// next</p>
+          <h2 class="section__title">Open to talks.</h2>
+          <div class="about-prose">
+            <p>
+              Open to consulting on applied AI, collaborations, or comparing notes on shipping AI in production.
+            </p>
+          </div>
+          <div class="about-cta">
+            <a class="btn btn--signal" href="/contact/">Get in touch</a>
+            <a
+              class="btn btn--ghost"
+              href="https://www.linkedin.com/in/cristianvega-ai"
+              rel="me noopener noreferrer"
+              target="_blank">LinkedIn</a
+            >
+          </div>
         </section>
       </div>
     </div>

@@ -11,11 +11,7 @@
 export const VIEWPORTS = {
   /** Comfortably above every breakpoint. */
   desktop: { width: 1440, height: 900 },
-  /** Inside the (max-height: 880px) trim, the common laptop case. */
-  desktopShort: { width: 1280, height: 720 },
-  /** Short enough that height-keyed backstops must engage. */
-  desktopTiny: { width: 1280, height: 560 },
-  /** Below the 960px split collapse. */
+  /** Below the 960px layout breakpoint. */
   tablet: { width: 900, height: 1000 },
   /** Below the 760px and 520px refinements. */
   mobile: { width: 390, height: 844 },
@@ -46,11 +42,6 @@ export async function settle(page) {
  */
 export async function useReducedMotion(page) {
   await page.emulateMedia({ reducedMotion: "reduce" });
-}
-
-/** Viewport-relative top edge, which is what sticky behavior is defined in. */
-export function viewportTop(page, selector) {
-  return page.locator(selector).evaluate((el) => el.getBoundingClientRect().top);
 }
 
 /** Track count of a grid, read off the resolved template rather than the rule. */

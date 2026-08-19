@@ -7,190 +7,143 @@ import {
   tabTo,
   useReducedMotion,
   VIEWPORTS,
-  viewportTop,
 } from "./fixtures.mjs";
 
 /**
- * The about page's split layout is a computed-layout contract: sticky
- * positioning, a grid that collapses at 960px, and rules keyed to viewport
- * height. None of it is visible in the built HTML, so none of it is reachable
- * from the Node contract tests in tests/*.test.mjs.
+ * The about page is one centred column on paper, the same shell every other
+ * route uses: a `.wrap` page head over a `.wrap--narrow` body. What the browser
+ * has to compute — the resolved measure, the gutters either side of it, the
+ * stat band's track count, and the focus ring the page ground selects — is
+ * absent from the built HTML, so none of it is reachable from the Node contract
+ * tests in tests/*.test.mjs.
  */
 
-const { desktop: DESKTOP, desktopShort: DESKTOP_SHORT, desktopTiny: DESKTOP_TINY } = VIEWPORTS;
-const { tablet: TABLET, mobile: MOBILE } = VIEWPORTS;
+const { desktop: DESKTOP, tablet: TABLET, mobile: MOBILE } = VIEWPORTS;
 
-const RAIL = ".about-rail";
-const RAIL_INNER = ".about-rail__inner";
-const SCROLL = ".about-scroll";
-const STATS = ".stats--rail";
+/** The `.wrap--narrow` cap in src/styles/global.css, which the body column reads. */
+const NARROW_MEASURE = 840;
+/** The `--container` cap, which the page head reads through a plain `.wrap`. */
+const CONTAINER_MEASURE = 1180;
+
+const HEAD = "main .page-head";
+const HEAD_WRAP = "main .page-head .wrap";
+const COLUMN = "main .wrap--narrow";
+const STATS = "main .stats";
+const CTA = ".about-cta a[href='/contact/']";
+const LINKEDIN = ".about-cta a[href*='linkedin.com']";
+
+/**
+ * A container's border-box width, and the space left and right of the text it
+ * holds. The gutter has to be measured to the content edge, not the box edge:
+ * these wrappers carry their gutter as padding, so below the cap the box is
+ * full-bleed while the measure inside it is still inset.
+ */
+async function measure(page, selector) {
+  const box = await page.locator(selector).evaluate((el) => {
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    return {
+      width: rect.width,
+      contentLeft: rect.left + parseFloat(style.paddingLeft),
+      contentRight: rect.right - parseFloat(style.paddingRight),
+    };
+  });
+  const viewport = await layoutWidth(page);
+
+  return {
+    width: box.width,
+    centre: (box.contentLeft + box.contentRight) / 2,
+    left: box.contentLeft,
+    right: viewport - box.contentRight,
+  };
+}
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/about/");
   await settle(page);
 });
 
-test.describe("pinned rail at desktop width", () => {
+test.describe("one centred column at desktop width", () => {
   test.use({ viewport: DESKTOP });
 
-  test("the rail and the content column share a row", async ({ page }) => {
-    const rail = await page.locator(RAIL).boundingBox();
-    const column = await page.locator(SCROLL).boundingBox();
+  test("the body column is capped at the narrow measure", async ({ page }) => {
+    const column = await measure(page, COLUMN);
+    const head = await measure(page, HEAD_WRAP);
 
-    // Side by side: the rail ends where the content column begins.
-    expect(rail.x + rail.width).toBeLessThanOrEqual(column.x + 1);
-    // And they genuinely overlap vertically rather than merely not colliding.
-    expect(rail.y).toBeLessThan(column.y + column.height);
-    expect(column.y).toBeLessThan(rail.y + rail.height);
+    // Capped, not filling: the viewport is far wider than either container.
+    expect(column.width).toBeCloseTo(NARROW_MEASURE, 0);
+    expect(head.width).toBeCloseTo(CONTAINER_MEASURE, 0);
+    expect(column.width).toBeLessThan(head.width);
   });
 
-  test("the rail pins while the content column scrolls past it", async ({ page }) => {
-    await expect(page.locator(RAIL_INNER)).toHaveCSS("position", "sticky");
+  test("the body column sits centred, with equal gutters", async ({ page }) => {
+    const column = await measure(page, COLUMN);
 
-    // Scroll far enough that the rail has reached its pinned offset.
-    await page.evaluate(() => window.scrollBy(0, 1200));
-    const railBefore = await viewportTop(page, RAIL_INNER);
-    const columnBefore = await viewportTop(page, `${SCROLL} .about-block:last-of-type`);
-
-    await page.evaluate(() => window.scrollBy(0, 600));
-    const railAfter = await viewportTop(page, RAIL_INNER);
-    const columnAfter = await viewportTop(page, `${SCROLL} .about-block:last-of-type`);
-
-    // Pinned: the rail holds its viewport position across further scrolling...
-    expect(Math.abs(railAfter - railBefore)).toBeLessThan(2);
-    expect(Math.abs(railAfter)).toBeLessThan(2);
-    // ...while the content beside it keeps moving by the full scroll delta.
-    expect(columnBefore - columnAfter).toBeGreaterThan(500);
+    // The old split parked this content in the right-hand track, against a
+    // sticky ink rail. Centred means the slack divides evenly instead.
+    expect(column.left).toBeGreaterThan(0);
+    expect(Math.abs(column.left - column.right)).toBeLessThanOrEqual(1);
   });
 
-  test("the ink ground covers the rail's full column height", async ({ page }) => {
-    const rail = await page.locator(RAIL).boundingBox();
-    const column = await page.locator(SCROLL).boundingBox();
+  test("the page head and the body column share one centre line", async ({ page }) => {
+    const head = await measure(page, HEAD_WRAP);
+    const column = await measure(page, COLUMN);
 
-    // The stretched column is what keeps the seam running the whole page; if the
-    // rail only spanned its own content the ink would stop mid-scroll.
-    expect(rail.height).toBeGreaterThanOrEqual(column.height - 1);
+    // Two different caps, one axis: the head is wider, but nothing is offset.
+    expect(Math.abs(head.centre - column.centre)).toBeLessThanOrEqual(1);
+  });
+});
+
+test.describe("the surviving stat band", () => {
+  test.use({ viewport: DESKTOP });
+
+  test("the page carries one stat band, the independent project's, 4-up", async ({ page }) => {
+    // The rail's own band went with the rail. This one belongs to OpenCatalyst
+    // and must not be collateral: a second band here means the wrong one lived.
+    await expect(page.locator(STATS)).toHaveCount(1);
+    await expect(page.locator(`${STATS} .stat__value`).first()).toHaveText("60K");
+    expect(await columnCount(page, STATS)).toBe(4);
   });
 
-  test("the stat band is 2-up inside the rail's measure", async ({ page }) => {
+  test("the band folds to 2-up once the column is narrow", async ({ page }) => {
+    await page.setViewportSize(MOBILE);
     expect(await columnCount(page, STATS)).toBe(2);
   });
-
-  test("the rail's contact controls take visible focus on ink", async ({ page }) => {
-    const cta = `${RAIL} a[href="/contact/"]`;
-    expect(await tabTo(page, cta)).toBe(true);
-
-    const focus = await page.locator(cta).evaluate((el) => {
-      const style = getComputedStyle(el);
-      return {
-        visible: el.matches(":focus-visible"),
-        style: style.outlineStyle,
-        width: parseFloat(style.outlineWidth),
-      };
-    });
-
-    expect(focus.visible).toBe(true);
-    expect(focus.style).not.toBe("none");
-    expect(focus.width).toBeGreaterThanOrEqual(3);
-  });
 });
 
-test.describe("short desktop viewports", () => {
-  test("the trimmed rail fits a 720px-tall viewport without inner scrolling", async ({ page }) => {
-    await page.setViewportSize(DESKTOP_SHORT);
-    const fit = await page.locator(RAIL_INNER).evaluate((el) => ({
-      content: el.scrollHeight,
-      visible: el.clientHeight,
-    }));
-
-    // The height-keyed trim exists precisely so the backstop never engages here.
-    expect(fit.content).toBeLessThanOrEqual(fit.visible + 1);
-  });
-
-  /**
-   * At rest the rail sits below the header, so it has less room than 100dvh.
-   * Measuring only its internal overflow misses a rail that fits itself while
-   * still running off the screen — which is exactly how this regressed: the
-   * block was sized to a bare 100dvh and pushed its last control 14px past the
-   * bottom edge. The clamp has to subtract the header, not assume the viewport.
-   */
-  for (const [name, viewport] of [
-    ["720px-tall", DESKTOP_SHORT],
-    ["560px-tall", DESKTOP_TINY],
-  ]) {
-    test(`the unpinned rail stays inside a ${name} viewport`, async ({ page }) => {
-      await page.setViewportSize(viewport);
-
-      const overhang = await page
-        .locator(RAIL_INNER)
-        .evaluate((el) => el.getBoundingClientRect().bottom - window.innerHeight);
-
-      expect(overhang).toBeLessThanOrEqual(0);
-    });
-  }
-
-  test("the rail's controls are on screen at 720px without scrolling", async ({ page }) => {
-    await page.setViewportSize(DESKTOP_SHORT);
-
-    await expect(page.locator(`${RAIL} a[href="/contact/"]`)).toBeInViewport();
-    await expect(page.locator(`${RAIL} a[href*="linkedin.com"]`)).toBeInViewport();
-  });
-
-  test("a viewport too short to fit the rail still reaches the last control", async ({ page }) => {
-    await page.setViewportSize(DESKTOP_TINY);
-    const linkedin = page.locator(`${RAIL} a[href*="linkedin.com"]`);
-
-    // Backstop: the rail scrolls internally rather than clipping past the pin.
-    await linkedin.scrollIntoViewIfNeeded();
-    await expect(linkedin).toBeInViewport();
-  });
-});
-
-test.describe("stacked layout below 960px", () => {
+test.describe("narrow viewports", () => {
   for (const [name, viewport] of [
     ["tablet", TABLET],
     ["mobile", MOBILE],
   ]) {
-    test(`the rail becomes a full-width masthead at ${name} width`, async ({ page }) => {
+    test(`${name} leaves the document free of horizontal overflow`, async ({ page }) => {
       await page.setViewportSize(viewport);
 
-      // Nothing to pin against once stacked, so the sticky must be released.
-      await expect(page.locator(RAIL_INNER)).toHaveCSS("position", "static");
+      const overflow = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      }));
 
-      const rail = await page.locator(RAIL).boundingBox();
-      const column = await page.locator(SCROLL).boundingBox();
+      expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1);
+    });
 
-      expect(rail.y + rail.height).toBeLessThanOrEqual(column.y + 1);
+    test(`the column stays centred inside the ${name} viewport`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      const column = await measure(page, COLUMN);
 
-      // Against the layout viewport, not the nominal width: a classic scrollbar
-      // legitimately narrows the former and would make this flap.
-      expect(rail.width).toBeCloseTo(await layoutWidth(page), 0);
+      expect(column.left).toBeGreaterThan(0);
+      expect(Math.abs(column.left - column.right)).toBeLessThanOrEqual(1);
     });
   }
-
-  test("the stat band opens to 4-up once the masthead is full width", async ({ page }) => {
-    await page.setViewportSize(TABLET);
-    expect(await columnCount(page, STATS)).toBe(4);
-  });
-
-  test("mobile leaves the document free of horizontal overflow", async ({ page }) => {
-    await page.setViewportSize(MOBILE);
-    const overflow = await page.evaluate(() => ({
-      scrollWidth: document.documentElement.scrollWidth,
-      clientWidth: document.documentElement.clientWidth,
-    }));
-
-    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1);
-  });
 });
 
 test.describe("document semantics", () => {
   test.use({ viewport: DESKTOP });
 
-  test("the rail carries the page's only h1", async ({ page }) => {
+  test("the page head carries the page's only h1", async ({ page }) => {
     const h1 = page.locator("h1");
     await expect(h1).toHaveCount(1);
-    await expect(page.locator(`${RAIL} h1`)).toHaveCount(1);
+    await expect(page.locator(`${HEAD} h1`)).toHaveCount(1);
   });
 
   test("heading levels descend without skipping", async ({ page }) => {
@@ -214,7 +167,7 @@ test.describe("document semantics", () => {
   });
 
   test("the external profile link is safely rel-scoped", async ({ page }) => {
-    const linkedin = page.locator(`${RAIL} a[href*="linkedin.com"]`);
+    const linkedin = page.locator(LINKEDIN);
     await expect(linkedin).toHaveAttribute("target", "_blank");
 
     const rel = await linkedin.getAttribute("rel");
@@ -222,12 +175,34 @@ test.describe("document semantics", () => {
     expect(rel).toContain("noreferrer");
     expect(rel).toContain("me");
   });
+
+  test("the contact call to action takes the paper focus ring", async ({ page }) => {
+    expect(await tabTo(page, CTA)).toBe(true);
+
+    const focus = await page.locator(CTA).evaluate((el) => {
+      const style = getComputedStyle(el);
+      return {
+        visible: el.matches(":focus-visible"),
+        style: style.outlineStyle,
+        width: parseFloat(style.outlineWidth),
+        color: style.outlineColor,
+      };
+    });
+
+    // This control now stands on paper, so it takes the document's crimson ring
+    // (4.50 on paper). The ember ring it used to take belongs to ink grounds,
+    // and would sit at 2.31 here.
+    expect(focus.visible).toBe(true);
+    expect(focus.style).toBe("solid");
+    expect(focus.width).toBe(2);
+    expect(focus.color).toBe("rgb(212, 42, 60)");
+  });
 });
 
 test.describe("reduced motion", () => {
   test.use({ viewport: DESKTOP });
 
-  test("content stays visible and the rail still pins", async ({ page }) => {
+  test("the content is readable and no entrance is attached", async ({ page }) => {
     // beforeEach navigated with motion on, so emulate and reload to put the
     // preference in force before the page runs its own entrance.
     await useReducedMotion(page);
@@ -247,8 +222,8 @@ test.describe("reduced motion", () => {
     const running = await page.locator("main").evaluate((el) => el.getAnimations().length);
     expect(running).toBe(0);
 
-    await expect(page.locator(`${RAIL} h1`)).toBeVisible();
-    await expect(page.locator(`${SCROLL} .about-block`).first()).toBeVisible();
-    await expect(page.locator(RAIL_INNER)).toHaveCSS("position", "sticky");
+    await expect(page.locator(`${HEAD} h1`)).toBeVisible();
+    await expect(page.locator(`${COLUMN} .about-block`).first()).toBeVisible();
+    await expect(page.locator(CTA)).toBeVisible();
   });
 });
