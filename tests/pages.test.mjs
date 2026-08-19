@@ -178,11 +178,12 @@ test("active navigation exposes aria-current=page", () => {
   assert.doesNotMatch(writing, /href="\/about\/"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/about\/"/i);
 });
 
-test("about page uses optimized portrait derivatives", () => {
-  const html = readDistFile("about", "index.html");
-  assert.match(html, /cristian-vega-portrait\.avif/);
-  assert.match(html, /cristian-vega-portrait\.webp/);
+// Every derivative below comes from one committed master through
+// scripts/generate-portrait.mjs. The share card is the load-bearing one: the
+// og:image URL asserted above is a promise the build has to keep, and a missing
+// file there breaks link previews everywhere without breaking a page.
+test("generated image derivatives ship in the build", () => {
+  assert.equal(existsSync(join(dist, "images", "cristian-vega-og.jpg")), true);
   assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.webp")), true);
   assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.avif")), true);
-  assert.equal(existsSync(join(dist, "images", "cristian-vega-og.jpg")), true);
 });

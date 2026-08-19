@@ -102,7 +102,6 @@ h3 {
 
 /* Ember outlines on dark surfaces, where crimson lacks contrast */
 .hero :focus-visible,
-.about-rail :focus-visible,
 .site-footer :focus-visible,
 .project__preview:focus-visible {
   outline: 3px solid var(--ember);
@@ -795,141 +794,8 @@ body:has(.hero) {
 }
 
 /* ============================================================
-   About — split masthead rail, experience timeline, credentials
+   About — centred credentials column: experience, patent, education
    ============================================================ */
-
-/* Home's two-column masthead, restated for a scrolling page: the ink rail
-   holds identity and pins to the viewport while the paper column scrolls. */
-.about-split {
-  display: grid;
-  grid-template-columns: 0.92fr 1.08fr;
-  align-items: stretch;
-}
-
-/* The column stretches so the ink ground runs the full page; the inner block
-   is what sticks. No overflow clipping here — that would break the sticky. */
-.about-rail {
-  position: relative;
-  background: var(--ink);
-  color: var(--mast-text);
-  border-right: 1px solid var(--mast-line);
-}
-
-.about-rail::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    repeating-linear-gradient(0deg, transparent 0 39px, var(--grid-line) 39px 40px),
-    repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line) 39px 40px);
-  -webkit-mask-image: radial-gradient(120% 80% at 20% 0%, #000 20%, transparent 74%);
-  mask-image: radial-gradient(120% 80% at 20% 0%, #000 20%, transparent 74%);
-  pointer-events: none;
-}
-
-/* Each column centres its own content block. Aligning the outer padding to the
-   page gutter instead would push both columns' content against the middle
-   divider and strand a wide dead band at each viewport edge.
-
-   max-height + overflow is a backstop: on viewports too short for the rail the
-   content stays reachable instead of being clipped past the sticky edge. The
-   header is subtracted because the rail is at its tallest before it pins, while
-   the header still occupies the top of the viewport — sizing to a bare 100dvh
-   there runs the last control off the bottom of the screen. Once pinned the
-   header has scrolled away and the reserve is simply unused ink. */
-.about-rail__inner {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  max-width: 620px;
-  margin-inline: auto;
-  max-height: calc(100vh - var(--header-h));
-  max-height: calc(100dvh - var(--header-h));
-  overflow-y: auto;
-  scrollbar-width: thin;
-  padding: clamp(36px, 4.4vh, 60px) clamp(28px, 3vw, 52px);
-}
-
-.about-rail .marker {
-  color: var(--mast-meta);
-}
-
-.about-rail .marker__sig {
-  color: var(--ember);
-}
-
-.about-rail__title {
-  max-width: 18ch;
-  margin-top: 16px;
-  font-size: clamp(27px, 2.7vw, 40px);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.06;
-}
-
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .about-rail__title .hl {
-    background: var(--grad);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-}
-
-.about-rail__lede {
-  max-width: 46ch;
-  margin-top: 18px;
-  font-size: 15.5px;
-  line-height: 1.62;
-  color: var(--mast-muted);
-}
-
-.about-rail__portrait {
-  display: block;
-  width: 96px;
-  height: 96px;
-  margin-top: 26px;
-}
-
-.about-rail__portrait img {
-  aspect-ratio: 1;
-  width: 96px;
-  height: 96px;
-  object-fit: cover;
-  border-radius: var(--radius-sm);
-  filter: grayscale(0.08) contrast(1.03);
-  border: 1px solid var(--mast-line);
-}
-
-.about-rail__note {
-  max-width: 44ch;
-  margin-top: 24px;
-  font-size: 13.5px;
-  line-height: 1.6;
-  color: var(--mast-muted);
-}
-
-.about-rail .about-cta {
-  margin-top: 18px;
-}
-
-/* Matches the masthead treatment: the border is this control's only edge */
-.about-rail .btn--ghost {
-  color: var(--mast-text);
-  border-color: rgba(255, 255, 255, 0.38);
-}
-
-.about-rail .btn--ghost:hover {
-  border-color: #fff;
-}
-
-/* Capped so the prose measure stays readable; the slack splits evenly instead
-   of piling up against the right edge. */
-.about-scroll {
-  max-width: 700px;
-  margin-inline: auto;
-  padding: 64px clamp(28px, 3vw, 52px) 96px;
-}
 
 .about-block + .about-block {
   margin-top: 76px;
@@ -996,29 +862,6 @@ body:has(.hero) {
   line-height: 1.5;
   letter-spacing: 0.04em;
   color: var(--meta);
-}
-
-/* Ink cells keep the 1px gaps reading as hairlines; mast-meta clears 4.5:1 on
-   ink (4.83), which the lifted panel greys would not at this label size. */
-.stats--rail {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 28px;
-  background: var(--mast-line);
-  border-color: var(--mast-line);
-}
-
-.stats--rail .stat {
-  background: var(--ink);
-  padding: 14px 14px 16px;
-}
-
-.stats--rail .stat__value {
-  font-size: 22px;
-  color: var(--mast-text);
-}
-
-.stats--rail .stat__label {
-  color: var(--mast-meta);
 }
 
 .exp__org-row {
@@ -1529,79 +1372,6 @@ body:has(.hero) {
   .hero__main {
     padding: 48px 32px 52px;
   }
-
-  /* Stacked: nothing to pin against, so the rail becomes a plain ink masthead */
-  .about-split {
-    grid-template-columns: 1fr;
-  }
-
-  .about-rail {
-    border-right: 0;
-    border-bottom: 1px solid var(--mast-line);
-  }
-
-  /* Shared cap matches .wrap--narrow so the masthead and the body below it
-     share one left edge and one measure. */
-  .about-rail__inner,
-  .about-scroll {
-    max-width: 840px;
-  }
-
-  .about-rail__inner {
-    position: static;
-    max-height: none;
-    overflow: visible;
-    padding: 48px 32px 52px;
-  }
-
-  .about-rail__title {
-    font-size: clamp(32px, 5.4vw, 44px);
-    max-width: 20ch;
-  }
-
-  /* Full-width masthead has the room the pinned rail did not */
-  .stats--rail {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .about-scroll {
-    padding: 56px 32px 80px;
-  }
-}
-
-/* Desktop viewports too short for the full rail: trim so the whole rail still
-   fits down to ~720px tall, before the backstop scroll has to engage. */
-@media (min-width: 961px) and (max-height: 880px) {
-  .about-rail__inner {
-    padding-block: 18px;
-  }
-
-  .about-rail__portrait {
-    width: 52px;
-    height: 52px;
-    margin-top: 14px;
-  }
-
-  .about-rail__portrait img {
-    width: 52px;
-    height: 52px;
-  }
-
-  .about-rail__lede {
-    margin-top: 12px;
-  }
-
-  .stats--rail {
-    margin-top: 12px;
-  }
-
-  .about-rail__note {
-    margin-top: 10px;
-  }
-
-  .about-rail .about-cta {
-    margin-top: 10px;
-  }
 }
 
 @media (max-width: 760px) {
@@ -1638,14 +1408,6 @@ body:has(.hero) {
 
   .post__tag {
     justify-self: start;
-  }
-
-  .about-rail__inner {
-    padding: 44px 20px 48px;
-  }
-
-  .about-scroll {
-    padding: 48px 20px 72px;
   }
 
   .about-block + .about-block {
