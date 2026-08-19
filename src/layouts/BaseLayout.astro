@@ -14,8 +14,8 @@ interface Props {
 }
 
 const {
-  title = "Cristian Vega — Senior Director, AI Engineering",
-  description = "AI engineering leader building agentic AI and multi-agent platforms for regulated insurance and banking — and the engineering organizations that ship them.",
+  title = "Cristian Vega · Senior Director, AI Engineering",
+  description = "AI engineering leader building agentic AI and multi-agent platforms for regulated insurance and banking, and the engineering organizations that ship them.",
   active = "home",
   bare = false,
   noindex = false,
@@ -24,7 +24,7 @@ const {
   modifiedTime,
 } = Astro.props;
 
-const pageTitle = title.includes("Cristian Vega") ? title : `${title} — Cristian Vega`;
+const pageTitle = title.includes("Cristian Vega") ? title : `${title} · Cristian Vega`;
 const siteOrigin = Astro.site ?? new URL("https://cristianvega.ai");
 const canonicalUrl = new URL(Astro.url.pathname, siteOrigin).toString();
 // Dedicated 1200×630 share card (see scripts/generate-portrait.mjs); not the square master.
