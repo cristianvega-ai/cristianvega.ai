@@ -6,7 +6,6 @@ interface Props {
   title?: string;
   description?: string;
   active?: "home" | "writing" | "projects" | "about" | "contact" | "error";
-  bare?: boolean;
   noindex?: boolean;
   ogType?: "website" | "article";
   publishedTime?: Date;
@@ -17,13 +16,13 @@ const {
   title = "Cristian Vega · Senior Director, AI Engineering",
   description = "AI engineering leader building agentic AI and multi-agent platforms for regulated insurance and banking, and the engineering organizations that ship them.",
   active = "home",
-  bare = false,
   noindex = false,
   ogType = "website",
   publishedTime,
   modifiedTime,
 } = Astro.props;
 
+const buildYear = new Date().getFullYear();
 const pageTitle = title.includes("Cristian Vega") ? title : `${title} · Cristian Vega`;
 const siteOrigin = Astro.site ?? new URL("https://cristianvega.ai");
 const canonicalUrl = new URL(Astro.url.pathname, siteOrigin).toString();
@@ -172,18 +171,13 @@ const structuredData = {
       <slot />
     </div>
 
-    {
-      !bare && (
-        <footer class="site-footer">
-          <div class="wrap site-footer__inner">
-            <span class="site-footer__left"><span class="dot"></span> © 2026 · open to talks</span>
-            <div class="social">
-              <a href="/writing/">writing</a>
-              <a href="/sitemap-index.xml">sitemap</a>
-            </div>
-          </div>
-        </footer>
-      )
-    }
+    <footer class="site-footer">
+      <div class="wrap site-footer__inner">
+        <p class="site-footer__disclaimer">
+          Disclaimer: The views and opinions expressed on this site are my own.
+        </p>
+        <p class="site-footer__copyright">© Copyright {buildYear} Cristian Vega</p>
+      </div>
+    </footer>
   </body>
 </html>

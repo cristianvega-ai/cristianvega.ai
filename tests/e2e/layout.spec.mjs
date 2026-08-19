@@ -97,8 +97,7 @@ test.describe("the footer is seated", () => {
   /* Deliberately taller than the shortest pages, so the slack is real. */
   test.use({ viewport: { width: 1440, height: 1200 } });
 
-  /* The homepage is `bare` and ships no footer; its hero fills the screen. */
-  for (const route of ROUTES.filter((r) => r !== "/")) {
+  for (const route of ROUTES) {
     test(`${route} runs its footer to the foot of the viewport`, async ({ page }) => {
       await page.goto(route);
       await settle(page);
