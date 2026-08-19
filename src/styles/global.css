@@ -60,6 +60,9 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Column layout so the footer is seated at the foot of the viewport rather
+   than wherever short pages happen to end. Without it, /contact/ left 82px of
+   paper under the ink footer and the 404 left 402px. */
 body {
   font-family: var(--font-body);
   font-size: 16.5px;
@@ -67,6 +70,15 @@ body {
   color: var(--ink);
   background: var(--paper);
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The slot wrapper takes the slack, so the footer never rides up the page. */
+#main-content {
+  flex: 1 0 auto;
 }
 
 img,
