@@ -22,12 +22,12 @@ const { desktop: DESKTOP, tablet: TABLET, mobile: MOBILE } = VIEWPORTS;
 
 /** The `.wrap--narrow` cap in src/styles/global.css, which the body column reads. */
 const NARROW_MEASURE = 840;
-/** The `--container` cap, which the page head reads through a plain `.wrap`. */
-const CONTAINER_MEASURE = 1180;
 
 const HEAD = "main .page-head";
 const HEAD_WRAP = "main .page-head .wrap";
-const COLUMN = "main .wrap--narrow";
+// Both the head and the body now use .wrap--narrow, so the body needs a
+// selector that cannot also match the head.
+const COLUMN = "main .section:not(.page-head) > .wrap--narrow";
 const STATS = "main .stats";
 const CTA = ".about-cta a[href='/contact/']";
 const LINKEDIN = ".about-cta a[href*='linkedin.com']";
@@ -66,14 +66,13 @@ test.beforeEach(async ({ page }) => {
 test.describe("one centred column at desktop width", () => {
   test.use({ viewport: DESKTOP });
 
-  test("the body column is capped at the narrow measure", async ({ page }) => {
+  test("the head and the body share one measure", async ({ page }) => {
     const column = await measure(page, COLUMN);
     const head = await measure(page, HEAD_WRAP);
 
     // Capped, not filling: the viewport is far wider than either container.
     expect(column.width).toBeCloseTo(NARROW_MEASURE, 0);
-    expect(head.width).toBeCloseTo(CONTAINER_MEASURE, 0);
-    expect(column.width).toBeLessThan(head.width);
+    expect(head.width).toBeCloseTo(NARROW_MEASURE, 0);
   });
 
   test("the body column sits centred, with equal gutters", async ({ page }) => {
@@ -85,11 +84,14 @@ test.describe("one centred column at desktop width", () => {
     expect(Math.abs(column.left - column.right)).toBeLessThanOrEqual(1);
   });
 
-  test("the page head and the body column share one centre line", async ({ page }) => {
+  test("the head and the body start on the same left edge", async ({ page }) => {
     const head = await measure(page, HEAD_WRAP);
     const column = await measure(page, COLUMN);
 
-    // Two different caps, one axis: the head is wider, but nothing is offset.
+    // A shared centre is not enough. Two containers can share a centre and
+    // still start in different places, which reads as the page tilting right
+    // as the eye moves from the headline down into the body.
+    expect(Math.abs(head.left - column.left)).toBeLessThanOrEqual(1);
     expect(Math.abs(head.centre - column.centre)).toBeLessThanOrEqual(1);
   });
 });
