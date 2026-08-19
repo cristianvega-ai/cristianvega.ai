@@ -142,12 +142,25 @@ Adding focused tests for requested behavior does not require separate approval. 
 - Use imperative commit subjects with complete-word prefixes:
   - `feature:` for user-facing functionality;
   - `fix:` for defect corrections;
+  - `content:` for site copy and published content that does not change behavior;
   - `test:` for test-only changes;
-  - `documentation:` for documentation-only changes;
+  - `documentation:` for repository documentation, such as this file or the README;
   - `performance:` for measured performance work;
   - `refactor:` for behavior-preserving restructuring;
   - `chore:` for repository or tooling maintenance.
 - Do not use abbreviated prefixes such as `feat:`, `docs:`, or `perf:`.
+- Use `content:` for the words on the site and `documentation:` for the words about the repository.
+- Keep the subject to 72 characters, including the prefix. Write it in the
+  imperative mood and end it without a full stop.
+- The subject must describe what the commit contains. If a commit lands less
+  than its message claims, correct it in the next commit and say so there. A
+  message that overstates its commit is worse than no message, because it
+  misleads anyone who reads or bisects the history.
+- Wrap the body at 72 columns. Explain why the change is needed and what it
+  affects. The diff already shows what changed.
+- Prefer a fast-forward or a squash merge. When a merge commit is unavoidable,
+  do not give it the same subject as the commit it brings in, because the two
+  then read as a duplicate in the log.
 - Do not commit `.superpowers/`, `docs/superpowers/`, local agent/editor directories, build output, caches, reports, or environment files.
 - Do not force-push, rewrite shared history, or bypass required checks without explicit approval.
 
