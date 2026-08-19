@@ -87,7 +87,6 @@ test("contact page exposes email and social destinations", () => {
   assert.match(html, /mailto:hello@cristianvega\.ai/);
   assert.match(html, /linkedin\.com\/in\/cristianvega-ai/);
   assert.match(html, /github\.com\/cristianvega-ai/);
-  assert.match(html, /href="\/rss\.xml"/);
 });
 
 test("projects page lists portfolio work with truthful destinations", () => {

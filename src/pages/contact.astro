@@ -20,13 +20,39 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     <section class="section">
       <div class="wrap wrap--narrow">
-        <a class="btn btn--signal btn--lg" href="mailto:hello@cristianvega.ai">hello@cristianvega.ai</a>
-        <div class="contact-links">
-          <a href="mailto:hello@cristianvega.ai"><span class="k">Email</span> hello@cristianvega.ai</a>
-          <a href="https://www.linkedin.com/in/cristianvega-ai" rel="me noopener noreferrer" target="_blank"><span class="k">LinkedIn</span> /in/cristianvega-ai</a>
-          <a href="https://github.com/cristianvega-ai" rel="me noopener noreferrer" target="_blank"><span class="k">GitHub</span> @cristianvega-ai</a>
-          <a href="/rss.xml"><span class="k">RSS</span> cristianvega.ai/rss.xml</a>
-        </div>
+        <ul class="contact-grid">
+          <li>
+            <a class="contact-card" href="mailto:hello@cristianvega.ai">
+              <span class="eyebrow">Email</span>
+              <span class="contact-card__value">hello@cristianvega.ai</span>
+              <span class="contact-card__note">I use this for consulting work and long questions.</span>
+            </a>
+          </li>
+          <li>
+            <a
+              class="contact-card"
+              href="https://www.linkedin.com/in/cristianvega-ai"
+              rel="me noopener noreferrer"
+              target="_blank"
+            >
+              <span class="eyebrow">LinkedIn</span>
+              <span class="contact-card__value">/in/cristianvega-ai</span>
+              <span class="contact-card__note">I use this for introductions and my work history.</span>
+            </a>
+          </li>
+          <li>
+            <a
+              class="contact-card"
+              href="https://github.com/cristianvega-ai"
+              rel="me noopener noreferrer"
+              target="_blank"
+            >
+              <span class="eyebrow">GitHub</span>
+              <span class="contact-card__value">@cristianvega-ai</span>
+              <span class="contact-card__note">I put my public code and experiments here.</span>
+            </a>
+          </li>
+        </ul>
       </div>
     </section>
   </main>
