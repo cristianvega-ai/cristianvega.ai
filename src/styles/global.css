@@ -1288,6 +1288,14 @@ body:has(.hero) {
   list-style: none;
 }
 
+/* Three cards fill one row at the page measure, but a fourth resolves to a
+   second row holding one card. Raising the floor once a fourth exists pairs
+   them off instead. auto-fit still collapses to a single column on phones,
+   so this needs no breakpoint of its own. */
+.contact-grid:has(> :nth-child(4)) {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
 /* The whole card is the link, so each channel has exactly one focusable
    element and one accessible name. Rest/hover matches .project deliberately. */
 .contact-card {
