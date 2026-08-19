@@ -20,7 +20,7 @@ export const projects: Project[] = [
     name: "OpenCatalyst",
     initials: "OC",
     blurb:
-      "A local-first agentic AI desktop app — a Rust engine, multi-provider model routing, and a multi-agent mode where models draft, judge, and verify each other's work.",
+      "A local-first agentic AI desktop app: a Rust engine, multi-provider model routing, and a multi-agent mode where models draft, judge, and verify each other's work.",
     status: "live",
     tags: ["Rust", "TypeScript", "Agents"],
     href: "https://opencatalyst.ai/",
@@ -30,10 +30,10 @@ export const projects: Project[] = [
     name: "DocSieve",
     initials: "DS",
     blurb:
-      "Drag-and-drop document extraction for small insurance shops — upload a PDF, get structured JSON back.",
+      "Drag-and-drop document extraction for small insurance shops: upload a PDF, get structured JSON back.",
     status: "live",
     tags: ["Next.js", "FastAPI", "LLM"],
-    availability: "Private demo — case study soon",
+    availability: "Private demo, case study soon",
   },
   {
     name: "PromptRunner",
@@ -42,7 +42,7 @@ export const projects: Project[] = [
       "A side-by-side playground for testing multi-model prompt pipelines and comparing cost against accuracy.",
     status: "beta",
     tags: ["React", "Python"],
-    availability: "Beta — not public yet",
+    availability: "Beta, not public yet",
   },
   {
     name: "Ledgerbot",
@@ -51,6 +51,6 @@ export const projects: Project[] = [
       "An agentic bookkeeping assistant that reconciles statements and flags anomalies for human review.",
     status: "wip",
     tags: ["Agents", "Postgres"],
-    availability: "In progress — no public write-up yet",
+    availability: "In progress, no public write-up yet",
   },
 ];

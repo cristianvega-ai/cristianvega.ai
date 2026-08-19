@@ -177,7 +177,7 @@ test.describe("the first visit plays the full entrance", () => {
     // The words themselves, not just the boxes that hold them.
     await expect(page.locator(".hero__name")).toHaveText("Cristian Vega");
     await expect(target(page, "subhead")).toHaveText(
-      "I build agentic AI where mistakes are expensive — and lead the teams that ship it.",
+      "I build agentic AI where mistakes are expensive, and lead the teams that ship it.",
     );
 
     // Only a finished run claims the session.
@@ -509,7 +509,7 @@ test.describe("without javascript", () => {
     await expect(page.locator("html")).not.toHaveAttribute(PENDING);
     await expect(page.locator(".hero__name")).toHaveText("Cristian Vega");
     await expect(target(page, "subhead")).toHaveText(
-      "I build agentic AI where mistakes are expensive — and lead the teams that ship it.",
+      "I build agentic AI where mistakes are expensive, and lead the teams that ship it.",
     );
 
     for (const kind of TARGETS) {
