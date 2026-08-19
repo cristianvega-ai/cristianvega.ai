@@ -51,17 +51,26 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
         await settle(page);
 
         const boxes = await containers(page);
-        expect(boxes.length).toBeGreaterThan(0);
 
-        // Every container starts in the same place. Centring each one
-        // separately is not enough — two different caps share a centre while
-        // starting 170px apart, which is exactly the drift that shipped.
-        const lefts = new Set(boxes.map((b) => b.left));
-        expect([...lefts]).toHaveLength(1);
+        if (route === "/") {
+          /* The homepage is `bare`. Its hero runs full bleed on its own grid,
+             so it holds no shared container. There is no edge relation to
+             check. This asserts the absence instead of skipping the route, so
+             a `.wrap` added here later must be aligned on purpose. */
+          expect(boxes).toEqual([]);
+        } else {
+          expect(boxes.length).toBeGreaterThan(0);
 
-        // And each is centred, so the page is not simply inset from one side.
-        for (const box of boxes) {
-          expect(Math.abs(box.left - box.right)).toBeLessThanOrEqual(1);
+          // Every container starts in the same place. Centring each one
+          // separately is not enough — two different caps share a centre while
+          // starting 170px apart, which is exactly the drift that shipped.
+          const lefts = new Set(boxes.map((b) => b.left));
+          expect([...lefts]).toHaveLength(1);
+
+          // And each is centred, so the page is not simply inset from one side.
+          for (const box of boxes) {
+            expect(Math.abs(box.left - box.right)).toBeLessThanOrEqual(1);
+          }
         }
 
         const overflow = await page.evaluate(

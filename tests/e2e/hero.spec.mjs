@@ -18,7 +18,6 @@ import { tabTo, VIEWPORTS } from "./fixtures.mjs";
 const { desktop: DESKTOP, tablet: TABLET, mobile: MOBILE } = VIEWPORTS;
 
 const HERO = ".hero";
-const TICKER = ".hero__ticker";
 const COPY_CANVAS = ".hero__copy-canvas";
 const MOTION_LAYER = "[data-hero-motion]";
 const PENDING = "data-hero-motion-pending";
@@ -99,29 +98,17 @@ async function settleDelay(page, since) {
   return ended - since;
 }
 
-/** The ticker's entrance animation, read from the running animation itself. */
-function tickerAnimation(page) {
-  return page.locator(TICKER).evaluate((element) => {
-    const animation = element.getAnimations()[0];
-    if (!animation) return null;
-
-    const timing = animation.effect.getComputedTiming();
-    return { name: animation.animationName, delay: timing.delay, endTime: timing.endTime };
-  });
-}
-
 /**
- * What the ticker and the last hero button look like on the frame before the
- * hero settles. Completion clears data-motion-mode, which drops the ticker's
- * animation and the button's reveal ramp. Anything still climbing at that
- * moment snaps to full in front of the reader.
+ * How far the last hero button has formed on the frame before the hero
+ * settles. Completion clears data-motion-mode, which drops the button's reveal
+ * ramp. A button still climbing at that moment snaps to full in front of the
+ * reader.
  */
-function handoffFrame(page) {
+function handoffReveal(page) {
   return page.evaluate(
     (limit) =>
       new Promise((resolve) => {
         const root = document.querySelector(".hero");
-        const ticker = document.querySelector(".hero__ticker");
         const action = document.querySelector('[data-motion-target="secondary-action"]');
         const deadline = performance.now() + limit;
         let last = null;
@@ -131,10 +118,7 @@ function handoffFrame(page) {
             resolve(last);
             return;
           }
-          last = {
-            ticker: Number(getComputedStyle(ticker).opacity),
-            action: Number(getComputedStyle(action).getPropertyValue("--motion-reveal")),
-          };
+          last = Number(getComputedStyle(action).getPropertyValue("--motion-reveal"));
           requestAnimationFrame(sample);
         };
 
@@ -151,7 +135,6 @@ async function expectHeroReadable(page) {
     await expect(target(page, kind)).toHaveCSS("opacity", "1");
   }
 
-  await expect(page.locator(TICKER)).toHaveCSS("opacity", "1");
   await expect(page.locator(COPY_CANVAS)).toHaveCSS("display", "none");
 }
 
@@ -184,36 +167,15 @@ test.describe("the first visit plays the full entrance", () => {
     expect(await sessionFlag(page)).toBe("1");
   });
 
-  test("the ticker finishes on the same beat as the hero clock", async ({ page }) => {
-    await recordMotionMarks(page);
-    await page.goto("/");
-    await expect(hero(page)).toHaveAttribute("data-motion-mode", "full");
-
-    const ticker = await tickerAnimation(page);
-    const handoff = await handoffFrame(page);
-    const length = runLength(await readMarks(page));
-
-    expect(ticker, "the ticker must run its entrance in full mode").not.toBeNull();
-    expect(ticker.name).toBe("riseIn");
-
-    // The ticker waits for the hero and then lands with it. Compared against the
-    // measured run, so the shared boundary holds if the clock is ever retimed.
-    expect(ticker.delay).toBeGreaterThan(length * 0.8);
-    expect(Math.abs(ticker.endTime - length)).toBeLessThanOrEqual(120);
-
-    // A longer ticker would still be climbing when the mode is cleared.
-    expect(handoff.ticker).toBeGreaterThan(0.9);
-  });
-
   test("the last hero button has arrived when the clock stops", async ({ page }) => {
     await page.goto("/");
     await expect(hero(page)).toHaveAttribute("data-motion-mode", "full");
 
-    const handoff = await handoffFrame(page);
+    const reveal = await handoffReveal(page);
 
     // The buttons form through --motion-reveal, and the last one owns the end of
     // the run. A window that outlasted the clock would snap it into place.
-    expect(handoff.action).toBeGreaterThan(0.9);
+    expect(reveal).toBeGreaterThan(0.9);
   });
 
   test("the copy layer spans the whole hero grid while it plays", async ({ page }) => {
@@ -282,25 +244,6 @@ test.describe("a later visit in the same session", () => {
     expect(marks.some((mark) => mark.name === PENDING)).toBe(false);
     expect(runLength(marks)).toBeLessThan(full / 4);
     await expectHeroReadable(page);
-  });
-
-  test("the quick replay drops the ticker's long wait", async ({ page }) => {
-    await recordMotionMarks(page);
-    await page.addInitScript((key) => sessionStorage.setItem(key, "1"), SESSION_KEY);
-    await page.goto("/");
-    await expect(hero(page)).toHaveAttribute("data-motion-mode", "quick");
-
-    const ticker = await tickerAnimation(page);
-    const handoff = await handoffFrame(page);
-    const length = runLength(await readMarks(page));
-
-    expect(ticker, "the ticker must run its entrance in quick mode").not.toBeNull();
-
-    // The full path holds the ticker back for most of its run. The replay must
-    // settle the hero and the ticker together instead.
-    expect(ticker.delay).toBeLessThan(length / 2);
-    expect(Math.abs(ticker.endTime - length)).toBeLessThanOrEqual(120);
-    expect(handoff.ticker).toBeGreaterThan(0.9);
   });
 
   test("arriving from another page runs the entrance again", async ({ page }) => {
@@ -403,14 +346,12 @@ test.describe("the pre-hide gate never strands the hero copy", () => {
     for (const kind of TARGETS) {
       await expect(target(page, kind)).toHaveCSS("opacity", "0");
     }
-    await expect(page.locator(TICKER)).toHaveCSS("opacity", "0");
 
     // The head script's own timer releases the gate without any module help.
     await expect(page.locator("html")).not.toHaveAttribute(PENDING, { timeout: SETTLE_TIMEOUT });
     for (const kind of TARGETS) {
       await expect(target(page, kind)).toHaveCSS("opacity", "1");
     }
-    await expect(page.locator(TICKER)).toHaveCSS("opacity", "1");
   });
 
   test("a stalled webfont reveals the copy without an entrance", async ({ page }) => {
@@ -468,9 +409,6 @@ test.describe("reduced motion", () => {
     await expect(hero(page)).not.toHaveAttribute("data-motion-mode");
     await expectHeroReadable(page);
 
-    // The ticker holds no delayed entrance either.
-    await expect(page.locator(TICKER)).toHaveCSS("animation-name", "none");
-
     const marks = await readMarks(page);
     // The copy is never hidden, not even for one frame before paint.
     expect(marks.some((mark) => mark.name === PENDING)).toBe(false);
@@ -515,7 +453,6 @@ test.describe("without javascript", () => {
     for (const kind of TARGETS) {
       await expect(target(page, kind)).toHaveCSS("opacity", "1");
     }
-    await expect(page.locator(TICKER)).toHaveCSS("opacity", "1");
   });
 });
 

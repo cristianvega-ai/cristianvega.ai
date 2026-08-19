@@ -164,11 +164,6 @@ test("compiled css ships a meaningful reduced-motion contract", () => {
   );
   assert.ok(targetsVisible, "reduce block must leave hero motion targets visible");
 
-  const tickerSettled = reduceRules.some(
-    (rule) => /\.hero__ticker\b/.test(rule.selector) && declarationValue(rule, "animation") === "none",
-  );
-  assert.ok(tickerSettled, "reduce block must stop the hero ticker entrance");
-
   // Page entrances must live inside the no-preference wrapper, so a new one
   // cannot animate for users who asked for reduced motion.
   for (const rule of rules) {

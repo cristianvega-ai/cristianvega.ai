@@ -18,7 +18,6 @@
   --meta-on-dark: #98A1B0;
   --mast-text: #EAEDF2;
   --mast-muted: #B9C1CE;
-  --mast-meta: #7C8595;
   --mast-line: rgba(255, 255, 255, 0.1);
   --grid-line: rgba(255, 255, 255, 0.028);
   --grid-line-light: rgba(20, 24, 31, 0.055);
@@ -436,10 +435,6 @@ body:has(.hero) {
   html[data-hero-motion-pending] .hero [data-motion-target] {
     opacity: 0;
   }
-
-  html[data-hero-motion-pending] .hero__ticker {
-    opacity: 0;
-  }
 }
 
 .hero__eyebrow {
@@ -586,27 +581,6 @@ body:has(.hero) {
     #fff calc(var(--motion-reveal) * 100%),
     transparent
   );
-}
-
-.hero__ticker {
-  border-top: 1px solid var(--mast-line);
-}
-
-.hero__ticker .wrap {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 30px;
-  padding-block: 16px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--mast-meta);
-}
-
-.hero__ticker b {
-  color: #DCE1E8;
-  font-weight: 600;
 }
 
 .section__title {
@@ -1540,13 +1514,6 @@ body:has(.hero) {
     transform: none !important;
     --motion-reveal: 1;
   }
-
-  /* Ticker never waits for a delayed entrance under reduced motion */
-  [data-page="home"] .hero__ticker {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-  }
 }
 
 /* ============================================================
@@ -1574,27 +1541,7 @@ body:has(.hero) {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  /* HOME ticker: default visible (JS-off / complete). Delayed only during full first-run. */
-  [data-page="home"] .hero__ticker {
-    opacity: 1;
-    transform: none;
-  }
-  /* Full entrance: rise in the final 300ms so the run ends with the 2.45s hero clock
-     (delay 2.15s + duration 0.3s = 2.45s). A longer duration would snap when completeMotion
-     clears data-motion-mode/playing mid-animation. */
-  [data-page="home"] .hero[data-motion-state="playing"][data-motion-mode="full"] .hero__ticker {
-    animation: riseIn 0.3s 2.15s both ease-out;
-  }
-  /* Session replay: settle with the ~250ms quick path (not the full 2.15s delay) */
-  [data-page="home"] .hero[data-motion-state="playing"][data-motion-mode="quick"] .hero__ticker {
-    animation: riseIn 0.25s both ease-out;
-  }
-  /* After entrance (or interrupt → complete): ticker stays fully visible */
-  [data-page="home"] .hero[data-motion-state="complete"] .hero__ticker {
-    animation: none;
-    opacity: 1;
-    transform: none;
-  }
+  /* HOME has no page-level entrance. The hero motion module owns that run. */
 
   /* WRITING — the same calm rise as contact */
   [data-page="writing"] main {
