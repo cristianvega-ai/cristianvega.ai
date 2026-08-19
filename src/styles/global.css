@@ -1318,45 +1318,17 @@ body:has(.hero) {
 
 .site-footer__inner {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding-block: 24px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 6px;
+  padding-block: 26px;
 }
 
-.site-footer__left {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.site-footer__disclaimer,
+.site-footer__copyright {
   font-family: var(--font-mono);
   font-size: 12px;
+  line-height: 1.6;
   color: var(--meta-on-dark);
-}
-
-.site-footer__left .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--grad);
-  box-shadow: 0 0 0 3px rgba(242, 121, 43, 0.18);
-}
-
-.social {
-  display: flex;
-  gap: 16px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  color: #C3CBD8;
-}
-
-.social a {
-  padding-block: 3px;
-}
-
-.social a:hover {
-  color: #fff;
 }
 
 @media (max-width: 960px) {
