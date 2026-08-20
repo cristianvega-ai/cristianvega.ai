@@ -191,6 +191,19 @@ Adding focused tests for requested behavior does not require separate approval. 
 
 All future changes to `main` should arrive through a pull request. The repository's initial publication is the only bootstrap exception unless the owner explicitly approves another.
 
+One further exception covers the automated webmaster. An agent that runs
+unattended may commit a small content or copy change, merge it to `main` as a
+fast-forward, push it, and deploy it. "Small" means words on the site and
+nothing else. Every other change from that agent goes to a branch and a pull
+request, and waits for the owner. That includes code, tests, configuration,
+dependencies, layout, navigation, deployment behavior, and any change over
+about five files.
+
+The agent must never deploy uncommitted work. `dist/` is built from the disk,
+not from a commit, so a deploy from a dirty tree puts words on the live site
+that no commit records. Check `git status --short` first, and report the commit
+hash that went out.
+
 Before opening a pull request:
 
 1. Rebase or merge the current `main` into the branch and resolve conflicts locally.
