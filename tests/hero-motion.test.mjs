@@ -1,7 +1,26 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { readDistFile, readSourceFile } from "./helpers.mjs";
+import { readDistFile, readSourceFile, root } from "./helpers.mjs";
+
+/**
+ * The hero motion contract now lives across HeroMotion.astro and the modules
+ * under src/lib/hero-motion/. Tests that must see a name or a branch read the
+ * whole set as one source, so a safe move from one file to another stays green
+ * and a deleted guarantee still fails.
+ */
+function readHeroMotionSource() {
+  const parts = [readSourceFile("components", "HeroMotion.astro")];
+  const dir = join(root, "src", "lib", "hero-motion");
+  for (const name of readdirSync(dir).sort()) {
+    if (name.endsWith(".ts")) {
+      parts.push(readFileSync(join(dir, name), "utf8"));
+    }
+  }
+  return parts.join("\n");
+}
 
 // The residue of the hero motion contract. tests/e2e/hero.spec.mjs owns the
 // behavior — the clock, the session replay, the font race, the pre-hide gate,
@@ -68,7 +87,7 @@ test("the built homepage ships no superseded hero component", () => {
 });
 
 test("hero motion source keeps teardown hygiene the DOM cannot show", () => {
-  const source = readSourceFile("components", "HeroMotion.astro");
+  const source = readHeroMotionSource();
 
   // A run that forgets to release its frames, listeners and predecessors still
   // settles into the same readable hero. The browser specs prove every entrance
@@ -89,7 +108,7 @@ test("hero motion source keeps teardown hygiene the DOM cannot show", () => {
 });
 
 test("hero motion source keeps glyph sampling and the quick-path shortcut", () => {
-  const source = readSourceFile("components", "HeroMotion.astro");
+  const source = readHeroMotionSource();
 
   // The highlight word is sampled from its own glyphs, so the particles spell
   // it instead of drawing a bar beneath it. The difference is canvas pixels.
@@ -120,7 +139,7 @@ test("hero motion source keeps glyph sampling and the quick-path shortcut", () =
 });
 
 test("hero motion source pins the two clock constants", () => {
-  const source = readSourceFile("components", "HeroMotion.astro");
+  const source = readHeroMotionSource();
 
   // Every browser spec measures a run against itself. "a finished visit
   // replays quick on the next load and settles far sooner"
@@ -134,8 +153,8 @@ test("hero motion source pins the two clock constants", () => {
   assert.equal(quickMs, 250);
 });
 
-test("hero motion prep stores only fields the RAF path consumes", () => {
-  const source = readSourceFile("components", "HeroMotion.astro");
+test("hero motion prep stores only fields the animation frame path consumes", () => {
+  const source = readHeroMotionSource();
 
   // Prep runs once per entrance and feeds the frame loop. A field it stores but
   // never reads costs measurement and memory on every run and shows up nowhere
@@ -163,7 +182,7 @@ test("hero motion prep stores only fields the RAF path consumes", () => {
   // the exact shape this line exists to forbid, so it stays.
   assert.doesNotMatch(source, /data-motion-active/);
 
-  // RAF consumers still present
+  // Animation-frame consumers still present
   assert.match(source, /sourceIndex/);
   assert.match(source, /prep\.transfers/);
   assert.match(source, /prep\.copy/);
