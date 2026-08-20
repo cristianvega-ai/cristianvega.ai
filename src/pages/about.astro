@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { experience } from "../lib/experience";
 ---
 
 <BaseLayout
@@ -112,158 +113,26 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           <p class="eyebrow">// experience</p>
           <h2 class="section__title">Where I've built it.</h2>
 
-          <div class="exp__group">
-            <div class="exp__org-row">
-              <h3 class="exp__org">Patra Corporation</h3>
-              <span class="exp__rule"></span>
-              <span class="exp__dur">[ 5Y 9M ]</span>
+          {experience.map((organisation) => (
+            <div class="exp__group">
+              <div class="exp__org-row">
+                <h3 class="exp__org">{organisation.name}</h3>
+                <span class="exp__rule"></span>
+                <span class="exp__dur">[ {organisation.duration} ]</span>
+              </div>
+              <ol class="exp__roles">
+                {organisation.roles.map((role) => (
+                  <li class={`exp__role-item${role.current ? " exp__role-item--current" : ""}`}>
+                    <div class="exp__role-head">
+                      <h4 class="exp__role">{role.title}</h4>
+                      <span class="exp__when">{role.dateRange} · {role.duration}</span>
+                    </div>
+                    <p class="exp__desc" set:html={role.description} />
+                  </li>
+                ))}
+              </ol>
             </div>
-            <ol class="exp__roles">
-              <li class="exp__role-item exp__role-item--current">
-                <div class="exp__role-head">
-                  <h4 class="exp__role">Senior Director of AI Engineering · Head of AI R&amp;D</h4>
-                  <span class="exp__when">2024.09 → NOW · 2Y</span>
-                </div>
-                <p class="exp__desc">
-                  Lead Patra's 45-person AI engineering organization and architected its Agent Platform, a block-based
-                  agentic system with deterministic-first execution and portable deployment. Led the accuracy program
-                  that raised extraction across 14+ insurance lines from the 80–85% range into the mid-90s, months
-                  ahead of schedule, at $0.20 per document against a $1.00 estimate. Drove the shift to AI-native
-                  development across the organization: agentic coding tools, evaluation harnesses to judge
-                  AI-generated work, and spec-driven templates. Own the AI budget and advise executive leadership on
-                  strategy, roadmap, and Responsible AI.
-                </p>
-              </li>
-              <li class="exp__role-item">
-                <div class="exp__role-head">
-                  <h4 class="exp__role">Director of AI Engineering</h4>
-                  <span class="exp__when">2023.10 → 2024.09 · 1Y</span>
-                </div>
-                <p class="exp__desc">
-                  Led four teams (~20 people) to build and deliver Patra AI, scaling to 12,000 documents and 400,000+
-                  data points extracted monthly. Designed its multi-model architecture (NLP for policy parsing, rules
-                  for comparison, LLM extraction with RAG for retrieval) and delivered proprietary models on
-                  SageMaker with full lifecycle management. Shipped Patra's first agentic AI system, which found and
-                  corrected its own extraction errors; customers saw average handling time drop about 30%.
-                </p>
-              </li>
-              <li class="exp__role-item">
-                <div class="exp__role-head">
-                  <h4 class="exp__role">Software Engineering Manager</h4>
-                  <span class="exp__when">2022.01 → 2023.10 · 1Y 10M</span>
-                </div>
-                <p class="exp__desc">
-                  Matured Policy Checking Next Generation from first working application into a governed production
-                  system, with model performance review and formal code review standards. Drove ML development with
-                  BERT, transformers, and NLP for insurance document extraction, owning the architecture and data
-                  pipeline behind Patra's AI products, plus the security and observability groundwork under them.
-                </p>
-              </li>
-              <li class="exp__role-item">
-                <div class="exp__role-head">
-                  <h4 class="exp__role">Software Engineering Team Lead</h4>
-                  <span class="exp__when">2020.12 → 2022.01 · 1Y 2M</span>
-                </div>
-                <p class="exp__desc">
-                  Founded Patra's AI engineering function in a zero-to-one role. Designed, built, and shipped Policy
-                  Checking Next Generation, the company's first AI-capable application and origin of its entire AI
-                  product line. Architected it as a modular monolith on AWS, so a small team could ship and evolve it
-                  quickly, and recruited the team that became Patra's AI organization.
-                </p>
-              </li>
-            </ol>
-          </div>
-
-          <div class="exp__group">
-            <div class="exp__org-row">
-              <h3 class="exp__org">BBVA in the USA</h3>
-              <span class="exp__rule"></span>
-              <span class="exp__dur">[ 3Y 6M ]</span>
-            </div>
-            <ol class="exp__roles">
-              <li class="exp__role-item">
-                <div class="exp__role-head">
-                  <h4 class="exp__role">Software Engineering Team Lead</h4>
-                  <span class="exp__when">2018.12 → 2020.12 · 2Y 1M</span>
-                </div>
-                <p class="exp__desc">
-                  Engineering lead for BBVA's Online Account Origination platform, owning the credit card service and
-                  expanding what customers could do entirely online. Managed two teams totaling 11 engineers and
-                  automation developers, shipping new features and integrating BBVA's new technology stack. Designed and
-                  deployed Spring Boot and Kubernetes services on AWS EKS, bridging modern front ends with legacy
-                  banking systems. Introduced the team's automation framework and an A/B testing framework for
-                  validating business ideas.
-                </p>
-              </li>
-              <li class="exp__role-item">
-                <div class="exp__role-head">
-                  <h4 class="exp__role">Senior Software Engineer</h4>
-                  <span class="exp__when">2018.05 → 2018.12 · 8M</span>
-                </div>
-                <p class="exp__desc">
-                  Front-end lead for BBVA's Online Account Origination platform, managing a team of two engineers and
-                  setting the standards the team built on. Built the shared Web Component library, overhauled the build
-                  system, and led a driver's license line-detection feature using Hough transforms. Promoted to Team
-                  Lead after seven months.
-                </p>
-              </li>
-              <li class="exp__role-item">
-                <div class="exp__role-head">
-                  <h4 class="exp__role">Software Engineer</h4>
-                  <span class="exp__when">2017.07 → 2018.05 · 11M</span>
-                </div>
-                <p class="exp__desc">
-                  Developed features across BBVA's Online Account Origination and Mobile Banking platforms,
-                  spearheading the integration that brought digital account opening (credit cards, CDs, money markets,
-                  loans) to iOS and Android for the first time. Shipped the Address Standardization service and a
-                  critical fraud detection fix that earned BBVA's Making It Happen Award. Promoted to Senior Software
-                  Engineer within ten months.
-                </p>
-              </li>
-            </ol>
-          </div>
-
-          <div class="exp__group">
-            <div class="exp__org-row">
-              <h3 class="exp__org">everis</h3>
-              <span class="exp__rule"></span>
-              <span class="exp__dur">[ 1Y 2M ]</span>
-            </div>
-            <ol class="exp__roles">
-              <li class="exp__role-item">
-                <div class="exp__role-head">
-                  <h4 class="exp__role">Software Developer</h4>
-                  <span class="exp__when">2016.06 → 2017.07 · 1Y 2M</span>
-                </div>
-                <p class="exp__desc">
-                  Built customer-facing features for BBVA's Online Banking platform as an embedded consultant,
-                  including the Credit Card Activation application and reusable widgets like Money Transfer. Increased
-                  unit test coverage to over 80% of the application's functionality.
-                </p>
-              </li>
-            </ol>
-          </div>
-
-          <div class="exp__group">
-            <div class="exp__org-row">
-              <h3 class="exp__org">The University of Alabama</h3>
-              <span class="exp__rule"></span>
-              <span class="exp__dur">[ 1Y 1M ]</span>
-            </div>
-            <ol class="exp__roles">
-              <li class="exp__role-item">
-                <div class="exp__role-head">
-                  <h4 class="exp__role">Web Developer</h4>
-                  <span class="exp__when">2015.05 → 2016.05 · 1Y 1M</span>
-                </div>
-                <p class="exp__desc">
-                  Built a classroom management application in PHP and MySQL that let faculty and staff book and manage
-                  classrooms. Delivered a major overhaul of clealabama.com and developed screens and features for
-                  law.ua.edu's migration to WordPress.
-                </p>
-              </li>
-            </ol>
-          </div>
+          ))}
         </section>
 
         <section class="about-block">
