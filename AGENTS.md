@@ -76,7 +76,7 @@ The suite has two runners and one file per concern. Put each new test in the lay
 | Build | `tests/build.test.mjs` | The build emits every expected route, asset, feed, and sitemap entry. |
 | Pages | `tests/pages.test.mjs` | Rendered HTML content, headings, metadata, and navigation state. |
 | Security | `tests/security.test.mjs` | `.htaccess` rules, the CSP, response headers, and the post-deploy gate. |
-| Design docs | `tests/design-docs.test.mjs` | `reference.html`, `spec-template.html`, and design-token hygiene. |
+| Design tokens | `tests/design-tokens.test.mjs` | Design-token hygiene in `global.css`. |
 | CSS | `tests/motion-css.test.mjs` | Rules that must survive compilation, such as the reduced-motion contract. |
 | Behavior | `tests/e2e/*.spec.mjs` | Computed layout, sticky and responsive rules, focus, and runtime JavaScript. |
 
