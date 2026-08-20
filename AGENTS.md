@@ -180,6 +180,11 @@ Adding focused tests for requested behavior does not require separate approval. 
   do not give it the same subject as the commit it brings in, because the two
   then read as a duplicate in the log.
 - Do not commit `.superpowers/`, `docs/superpowers/`, local agent/editor directories, build output, caches, reports, or environment files.
+- One carve-out: `.claude/skills/` holds shared project skills and is tracked.
+  Everything else under `.claude/` stays local. Keep hostnames, accounts, paths,
+  and any other deployment detail out of a tracked skill, because this
+  repository is public. Those values belong in `.claude/deploy-target.local`,
+  which stays untracked.
 - Do not force-push, rewrite shared history, or bypass required checks without explicit approval.
 
 ## Pull Requests

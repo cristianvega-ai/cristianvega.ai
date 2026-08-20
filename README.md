@@ -40,15 +40,58 @@ Or run the full gate with `npm run verify` (one build + type-check + tests). Pre
 
 ## Deploy to DreamHost
 
-Build locally, then upload the contents of `dist/` to the DreamHost domain directory.
+The site is static, so a deploy is one rsync of `dist/` to the document root,
+then a check against the live origin.
+
+The host, account, document root, and key path are not in this repository,
+because it is public. They live in `.claude/deploy-target.local`, which is
+untracked. Create it once from the DreamHost panel values:
 
 ```bash
-npm run build
-rsync -avz --delete dist/ USER@SERVER.dreamhost.com:/home/USER/cristianvega.ai/
+HOST=<shared host>.dreamhost.com
+USER=<shell user>
+PORT=22
+DOC_ROOT=/home/<shell user>/cristianvega.ai/
+SSH_KEY=~/.ssh/dreamhost_cristianvega
+ORIGIN=https://cristianvega.ai
+```
+
+Deploys authenticate with an SSH key, not the account password. Generate one
+and add the public half through the DreamHost panel, or with `ssh-copy-id`:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/dreamhost_cristianvega -C "cristianvega.ai deploy"
+```
+
+Then load the target and run the deploy:
+
+```bash
+set -a; . .claude/deploy-target.local; set +a
+
+npm run verify && npm run build
+
+rsync -avzn --delete --exclude '.dh-diag' \
+  -e "ssh -i $SSH_KEY -p $PORT" dist/ "$USER@$HOST:$DOC_ROOT"   # dry run first
+
+rsync -avz --delete --exclude '.dh-diag' \
+  -e "ssh -i $SSH_KEY -p $PORT" dist/ "$USER@$HOST:$DOC_ROOT"
+
 npm run verify:deploy
 ```
 
-Replace `USER`, `SERVER.dreamhost.com`, and the destination path with the values from DreamHost panel/SFTP settings. Upload the contents of `dist/`, not the `dist` directory itself.
+Four things that matter:
+
+- Upload the contents of `dist/`, not the `dist` directory itself. The trailing
+  slash on `dist/` is what does that.
+- Read the dry run before the real run. `--delete` removes anything in the
+  document root that is not in `dist/`, so an unexpected deletion means the
+  destination path is wrong.
+- Keep `--exclude '.dh-diag'`. That is a DreamHost diagnostic symlink owned by
+  root, and `--delete` would otherwise try to remove it.
+- Confirm `dist/.htaccess` exists before uploading. It carries the production
+  security headers, and a deploy without it drops all of them silently.
+
+`.claude/skills/deploy/SKILL.md` holds the same procedure for coding agents.
 
 The build copies production Apache config from `public/.htaccess` (single-hop HTTPS + www→apex redirects, security headers including CSP, custom 404, cache rules), plus `public/robots.txt`. Headers live inside `<IfModule mod_headers.c>`, so a host without `mod_headers` drops CSP/HSTS/frame protections silently — build-time tests cannot see that. After every deploy, run `npm run verify:deploy` against the live origin (override with `ORIGIN=...` if needed). It requires all six security header names on `GET /`, checks core CSP directives, and requires HTTP 404 for a deliberately missing path. HSTS ships as a short bootstrap policy (`max-age=300`, no `includeSubDomains`) until HTTPS and the certificate SAN list are confirmed on the live origin; then raise it to `max-age=31536000; includeSubDomains` in a follow-up commit.
 

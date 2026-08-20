@@ -36,7 +36,10 @@ Thumbs.db
 
 # Local agent, browser, and planning workspaces
 .agents/
-.claude/
+.claude/*
+# Shared project skills are tracked. Everything else under .claude/ is local
+# agent state, including deploy-target.local, which names a live host.
+!.claude/skills/
 .codex/
 .cursor/
 .gemini/
