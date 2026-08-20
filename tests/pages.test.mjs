@@ -9,26 +9,25 @@ import { assertPageBasics, dist, readDistFile } from "./helpers.mjs";
 // accessibility landmarks, SEO metadata, navigation state, and truthful links.
 // Hero motion belongs to tests/hero-motion.test.mjs, even on the homepage.
 
-/** The opening tag of the anchor carrying a given data-motion-target, if any. */
-function findMotionAnchor(html, target) {
-  return [...html.matchAll(/<a\b[^>]*>/gi)]
-    .map(([tag]) => tag)
-    .find((tag) => tag.includes(`data-motion-target="${target}"`));
-}
-
 test("homepage keeps the portfolio theme and links to the writing index", () => {
   const html = readDistFile("index.html");
 
   assertPageBasics(html, { titleFragment: "Cristian Vega" });
   assert.match(html, /where mistakes are expensive/);
-  // Scoped to the hero CTAs: the global nav renders both hrefs on every page,
-  // so a bare href match stays green with the call to action deleted.
-  const primaryCta = findMotionAnchor(html, "primary-action");
-  const secondaryCta = findMotionAnchor(html, "secondary-action");
-  assert.ok(primaryCta, "hero primary call to action required");
-  assert.ok(secondaryCta, "hero secondary call to action required");
-  assert.match(primaryCta, /href="\/contact\/"/);
-  assert.match(secondaryCta, /href="\/about\/"/);
+
+  // The profile is the page. It replaced a separate About page, so the words
+  // must be in the served HTML, not assembled by script after load.
+  assert.match(html, /class="[^"]*hero__profile[^"]*"/);
+  assert.match(html, /Ten years building software, five building AI from the ground up/);
+  assert.match(html, /founded the AI engineering function/);
+  assert.match(html, /architected the Agent Platform/);
+  assert.match(html, /45-person AI engineering organization/);
+  assert.match(html, /BBVA/);
+
+  // The hero holds copy only now. A stray button would re-enter the motion
+  // choreography, which no longer has a window for one.
+  assert.doesNotMatch(html, /data-motion-target="(primary|secondary)-action"/);
+  assert.doesNotMatch(html, /class="[^"]*hero__actions[^"]*"/);
   // Hero copy must remain in HTML. Pre-hide is gated on a head-stamped attribute
   // (not html.js), so no-JS never blanks the copy.
   assert.match(html, /class="[^"]*hero__name[^"]*"/);
@@ -64,24 +63,6 @@ test("post pages are generated from markdown content", () => {
   assert.match(html, /property="og:type"\s+content="article"/);
   assert.match(html, /property="article:published_time"\s+content="2026-06-12T/);
   assert.match(html, /property="article:modified_time"\s+content="2026-07-01T/);
-});
-
-test("about page ships experience and education content", () => {
-  const html = readDistFile("about", "index.html");
-
-  assertPageBasics(html, { titleFragment: "About" });
-  assert.match(html, /Patra Corporation/);
-  assert.match(html, /Georgia Tech/);
-  assert.match(html, /Head of AI R&amp;D|Head of AI R&D/);
-});
-
-test("contact page exposes email and social destinations", () => {
-  const html = readDistFile("contact", "index.html");
-
-  assertPageBasics(html, { titleFragment: "Contact" });
-  assert.match(html, /mailto:hello@cristianvega\.ai/);
-  assert.match(html, /linkedin\.com\/in\/cristianvega-ai/);
-  assert.match(html, /github\.com\/cristianvega-ai/);
 });
 
 test("projects page lists portfolio work with truthful destinations", () => {
@@ -136,8 +117,6 @@ test("key pages share accessibility and SEO basics", () => {
     ["index.html"],
     ["writing", "index.html"],
     ["projects", "index.html"],
-    ["about", "index.html"],
-    ["contact", "index.html"],
     ["posts", "from-bert-to-agents", "index.html"],
   ];
 
@@ -163,13 +142,16 @@ test("key pages share accessibility and SEO basics", () => {
   }
 });
 
-test("active navigation exposes aria-current=page", () => {
-  const about = readDistFile("about", "index.html");
-  assert.match(about, /href="\/about\/"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/about\/"/i);
+test("the retired pages are gone from the build", () => {
+  // About and contact were public and indexed. The build must not emit them,
+  // and .htaccess must send both URLs to the home page. A stale page in dist/
+  // would be uploaded and would outrank the redirect.
+  assert.equal(existsSync(join(dist, "about", "index.html")), false, "about page must be gone");
+  assert.equal(existsSync(join(dist, "contact", "index.html")), false, "contact page must be gone");
 
-  const contact = readDistFile("contact", "index.html");
-  assert.match(contact, /href="\/contact\/"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/contact\/"/i);
-  assert.doesNotMatch(contact, /href="\/about\/"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/about\/"/i);
+  const htaccess = readDistFile(".htaccess");
+  assert.match(htaccess, /RewriteRule \^about\/\?\$ \/ \[L,R=301\]/);
+  assert.match(htaccess, /RewriteRule \^contact\/\?\$ \/ \[L,R=301\]/);
 });
 
 // The share card is the load-bearing derivative: the og:image URL asserted

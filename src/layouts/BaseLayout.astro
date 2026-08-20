@@ -5,7 +5,7 @@ import { ClientRouter } from "astro:transitions";
 interface Props {
   title?: string;
   description?: string;
-  active?: "home" | "writing" | "projects" | "about" | "contact" | "error";
+  active?: "home" | "writing" | "projects" | "error";
   noindex?: boolean;
   ogType?: "website" | "article";
   publishedTime?: Date;
@@ -143,16 +143,9 @@ const structuredData = {
         </a>
 
         <nav class="nav" aria-label="Primary">
-          <a
-            class:list={["nav__link", active === "about" && "nav__link--active"]}
-            href="/about/"
-            aria-current={active === "about" ? "page" : undefined}>about</a
-          >
-          <a
-            class:list={["nav__link", active === "contact" && "nav__link--active"]}
-            href="/contact/"
-            aria-current={active === "contact" ? "page" : undefined}>contact</a
-          >
+          <a class="nav__link" href="https://www.linkedin.com/in/cristianvega-ai" rel="me noopener noreferrer" target="_blank">linkedin</a>
+          <a class="nav__link" href="https://x.com/cristianvega" rel="me noopener noreferrer" target="_blank">x</a>
+          <a class="nav__link" href="https://github.com/cristianvega-ai" rel="me noopener noreferrer" target="_blank">github</a>
         </nav>
       </div>
     </header>

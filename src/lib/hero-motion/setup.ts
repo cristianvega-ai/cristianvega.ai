@@ -4,7 +4,6 @@ import {
   collectTargetBindings,
   drawFrame,
   hideMotionTargets,
-  isActionTarget,
   prepareMotion,
   type MotionPrep,
 } from "./particles";
@@ -280,12 +279,7 @@ export async function setup() {
       const elapsed = t - startTime;
       const o = smoothstep(0, 1, clamp(elapsed / QUICK_DURATION));
       for (let i = 0; i < targets.length; i++) {
-        if (isActionTarget(targets[i].kind)) {
-          targets[i].element.style.setProperty("--motion-reveal", String(o));
-          targets[i].element.style.opacity = "1";
-        } else {
-          targets[i].element.style.opacity = String(o);
-        }
+        targets[i].element.style.opacity = String(o);
       }
       if (elapsed < QUICK_DURATION) {
         animationFrameId = requestAnimationFrame(stepQuick);

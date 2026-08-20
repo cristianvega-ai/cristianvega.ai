@@ -23,8 +23,8 @@ const MOTION_LAYER = "[data-hero-motion]";
 const PENDING = "data-hero-motion-pending";
 const SESSION_KEY = "cristianvega:hero-motion:v1";
 
-/** The six hero lines the entrance hides and then hands back to the DOM. */
-const TARGETS = ["eyebrow", "name", "highlight", "subhead", "primary-action", "secondary-action"];
+/** The four hero lines the entrance hides and then hands back to the DOM. */
+const TARGETS = ["eyebrow", "name", "highlight", "subhead"];
 
 /** Long enough for the full entrance plus the module failsafe, never longer. */
 const SETTLE_TIMEOUT = 6000;
@@ -99,17 +99,16 @@ async function settleDelay(page, since) {
 }
 
 /**
- * How far the last hero button has formed on the frame before the hero
- * settles. Completion clears data-motion-mode, which drops the button's reveal
- * ramp. A button still climbing at that moment snaps to full in front of the
- * reader.
+ * How far the last hero line has arrived on the frame before the hero settles.
+ * Completion clears data-motion-mode, which drops the reveal ramp. A line still
+ * climbing at that moment snaps to full in front of the reader.
  */
 function handoffReveal(page) {
   return page.evaluate(
     (limit) =>
       new Promise((resolve) => {
         const root = document.querySelector(".hero");
-        const action = document.querySelector('[data-motion-target="secondary-action"]');
+        const action = document.querySelector('[data-motion-target="subhead"]');
         const deadline = performance.now() + limit;
         let last = null;
 
@@ -118,7 +117,7 @@ function handoffReveal(page) {
             resolve(last);
             return;
           }
-          last = Number(getComputedStyle(action).getPropertyValue("--motion-reveal"));
+          last = Number(getComputedStyle(action).opacity);
           requestAnimationFrame(sample);
         };
 
@@ -167,14 +166,14 @@ test.describe("the first visit plays the full entrance", () => {
     expect(await sessionFlag(page)).toBe("1");
   });
 
-  test("the last hero button has arrived when the clock stops", async ({ page }) => {
+  test("the last hero line has arrived when the clock stops", async ({ page }) => {
     await page.goto("/");
     await expect(hero(page)).toHaveAttribute("data-motion-mode", "full");
 
     const reveal = await handoffReveal(page);
 
-    // The buttons form through --motion-reveal, and the last one owns the end of
-    // the run. A window that outlasted the clock would snap it into place.
+    // The subhead is the last window to close, so it owns the end of the copy
+    // run. A window that outlasted the clock would snap it into place.
     expect(reveal).toBeGreaterThan(0.9);
   });
 
@@ -247,7 +246,7 @@ test.describe("a later visit in the same session", () => {
   });
 
   test("arriving from another page runs the entrance again", async ({ page }) => {
-    await page.goto("/about/");
+    await page.goto("/writing/");
 
     // The router swaps the document without a reload, so the entrance depends on
     // the astro:page-load hook rather than on the page's own first parse.
@@ -263,24 +262,16 @@ test.describe("a later visit in the same session", () => {
 });
 
 test.describe("the session flag records only a finished play", () => {
-  test("focus on a hero link reveals the copy and claims no play", async ({ page }) => {
-    await recordMotionMarks(page);
+  test("the hero holds nothing a keyboard can land on mid-entrance", async ({ page }) => {
     await page.goto("/");
     await expect(hero(page)).toHaveAttribute("data-motion-state", "playing");
 
-    // A keyboard user who reaches the buttons must not have to wait for them.
-    const interruptedAt = await pageClock(page);
-    await target(page, "primary-action").focus();
-
-    await expect(hero(page)).toHaveAttribute("data-motion-state", "complete");
-    await expect(hero(page)).not.toHaveAttribute("data-motion-mode");
-    await expectHeroReadable(page);
-    expect(await settleDelay(page, interruptedAt)).toBeLessThan(500);
-    expect(await sessionFlag(page)).toBeNull();
-
-    // No play was recorded, so the next load owes the visitor the full entrance.
-    await page.goto("/");
-    await expect(hero(page)).toHaveAttribute("data-motion-mode", "full");
+    // The hero is copy only, so no reader can be caught waiting on a control
+    // that is still forming. The motion module keeps a focusin interrupt for
+    // the day a link returns here; this count is what makes it unreachable now.
+    await expect(
+      page.locator(`${HERO} a, ${HERO} button, ${HERO} [tabindex]:not([tabindex="-1"])`),
+    ).toHaveCount(0);
   });
 
   test("a resize reveals the copy and claims no play", async ({ page }) => {
@@ -382,7 +373,7 @@ test.describe("the pre-hide gate never strands the hero copy", () => {
   test("pages other than the homepage never stamp the pending flag", async ({ page }) => {
     await recordMotionMarks(page);
 
-    for (const route of ["/about/", "/writing/"]) {
+    for (const route of ["/writing/", "/projects/"]) {
       await page.goto(route);
       await expect(page.locator(MOTION_LAYER)).toHaveCount(0);
       await expect(page.locator("html")).not.toHaveAttribute(PENDING);
@@ -487,8 +478,9 @@ test.describe("hero structure and decorative layers", () => {
 
     await expect(page.locator(`${MOTION_LAYER} a, ${MOTION_LAYER} [tabindex]`)).toHaveCount(0);
 
-    // The decorative layer sits above the copy, so keyboard order must ignore it.
-    expect(await tabTo(page, `${HERO} [data-motion-target="primary-action"]`)).toBe(true);
+    // The decorative layer sits above the copy, so keyboard order must ignore
+    // it and carry on to the navigation.
+    expect(await tabTo(page, 'nav[aria-label="Primary"] a[href*="linkedin.com"]')).toBe(true);
   });
 });
 

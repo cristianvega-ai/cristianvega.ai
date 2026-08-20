@@ -11,14 +11,13 @@ import {
 
 export const MAX_TRANSFER_SOURCES = 96;
 export const MAX_COPY_PARTICLES = 2800;
-export const MAX_BUTTON_PERIMETER = 48;
 
 export type CopyParticle = {
   x: number;
   y: number;
   r: number;
   color: string;
-  kind: "text" | "highlight" | "button-label" | "button-perimeter";
+  kind: "text" | "highlight";
   target: TargetKind;
 };
 
@@ -154,77 +153,6 @@ function sampleTextElement(
   }
 }
 
-function perimeterPoints(box: DOMRect, hostRect: DOMRect, spacing: number): Point[] {
-  const left = box.left - hostRect.left;
-  const top = box.top - hostRect.top;
-  const boxWidth = box.width;
-  const boxHeight = box.height;
-  const points: Point[] = [];
-  if (boxWidth <= 0 || boxHeight <= 0) return points;
-
-  const push = (x: number, y: number) => {
-    points.push({ x, y });
-  };
-
-  // Top edge L→R
-  for (let x = 0; x <= boxWidth; x += spacing) push(left + x, top);
-  // Right edge T→B (skip corners already covered)
-  for (let y = spacing; y < boxHeight; y += spacing) push(left + boxWidth, top + y);
-  // Bottom edge R→L
-  for (let x = boxWidth; x >= 0; x -= spacing) push(left + x, top + boxHeight);
-  // Left edge B→T
-  for (let y = boxHeight - spacing; y > 0; y -= spacing) push(left, top + y);
-
-  // Cap total perimeter samples
-  if (points.length > MAX_BUTTON_PERIMETER) {
-    const stride = Math.ceil(points.length / MAX_BUTTON_PERIMETER);
-    const capped: Point[] = [];
-    for (let i = 0; i < points.length && capped.length < MAX_BUTTON_PERIMETER; i += stride) {
-      capped.push(points[i]);
-    }
-    return capped;
-  }
-  return points;
-}
-
-function collectButtonParticles(
-  el: HTMLElement,
-  hostRect: DOMRect,
-  target: "primary-action" | "secondary-action",
-  out: CopyParticle[],
-  budget: { remaining: number },
-): void {
-  const computedStyle = getComputedStyle(el);
-  const labelColor = computedStyle.color || STAR;
-  const borderColor = computedStyle.borderColor || STAR;
-
-  // Label glyphs only — not a solid rectangle fill
-  const before = out.length;
-  sampleTextElement(el, hostRect, target, out, budget);
-  for (let i = before; i < out.length; i++) {
-    out[i].kind = "button-label";
-    out[i].color = labelColor;
-  }
-
-  const box = el.getBoundingClientRect();
-  const spacing = Math.max(6, Math.min(box.width, box.height) / 12);
-  const ring = perimeterPoints(box, hostRect, spacing);
-  const perimeterRadius = Math.min(2.4, spacing * 0.35);
-  const ringColor = target === "primary-action" ? SIGNAL : borderColor;
-
-  for (let i = 0; i < ring.length && budget.remaining > 0; i++) {
-    out.push({
-      x: ring[i].x,
-      y: ring[i].y,
-      r: perimeterRadius,
-      color: ringColor,
-      kind: "button-perimeter",
-      target,
-    });
-    budget.remaining -= 1;
-  }
-}
-
 function collectTextParticles(root: HTMLElement, layout: Layout): CopyParticle[] {
   const main = root.querySelector<HTMLElement>(".hero__main");
   const grid = root.querySelector<HTMLElement>(".hero__grid");
@@ -244,8 +172,6 @@ function collectTextParticles(root: HTMLElement, layout: Layout): CopyParticle[]
   const name = root.querySelector<HTMLElement>('[data-motion-target="name"]');
   const highlight = root.querySelector<HTMLElement>('[data-motion-target="highlight"]');
   const subhead = root.querySelector<HTMLElement>('[data-motion-target="subhead"]');
-  const primary = root.querySelector<HTMLElement>('[data-motion-target="primary-action"]');
-  const secondary = root.querySelector<HTMLElement>('[data-motion-target="secondary-action"]');
 
   if (eyebrow) sampleTextElement(eyebrow, hostRect, "eyebrow", copy, budget);
   if (name) sampleTextElement(name, hostRect, "name", copy, budget);
@@ -254,9 +180,6 @@ function collectTextParticles(root: HTMLElement, layout: Layout): CopyParticle[]
     sampleTextElement(highlight, hostRect, "highlight", copy, budget, SIGNAL);
   }
   if (subhead) sampleTextElement(subhead, hostRect, "subhead", copy, budget);
-
-  if (primary) collectButtonParticles(primary, hostRect, "primary-action", copy, budget);
-  if (secondary) collectButtonParticles(secondary, hostRect, "secondary-action", copy, budget);
 
   if (offsetX !== 0 || offsetY !== 0) {
     for (let i = 0; i < copy.length; i++) {
@@ -435,24 +358,13 @@ function drawCopyFrame(
   ctx.globalAlpha = 1;
 }
 
-export function isActionTarget(kind: TargetKind): boolean {
-  return kind === "primary-action" || kind === "secondary-action";
-}
-
 /** Progressive per-target DOM handoff — no global finish() cross-fade. */
 export function updateDomReveal(elapsed: number, targets: TargetBinding[]): void {
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i];
     const coverage = progress(elapsed, target.window);
     const domOpacity = smoothstep(0.28, 0.92, coverage);
-    // Buttons: form fill/border/label via --motion-reveal (not element opacity)
-    // so they are not translucent solid slabs over particles.
-    if (isActionTarget(target.kind)) {
-      target.element.style.setProperty("--motion-reveal", String(domOpacity));
-      target.element.style.opacity = "1";
-    } else {
-      target.element.style.opacity = String(domOpacity);
-    }
+    target.element.style.opacity = String(domOpacity);
   }
 }
 
@@ -472,14 +384,7 @@ export function drawFrame(
 }
 
 export function collectTargetBindings(root: HTMLElement): TargetBinding[] {
-  const kinds: TargetKind[] = [
-    "eyebrow",
-    "name",
-    "highlight",
-    "subhead",
-    "primary-action",
-    "secondary-action",
-  ];
+  const kinds: TargetKind[] = ["eyebrow", "name", "highlight", "subhead"];
   const bindings: TargetBinding[] = [];
   for (let i = 0; i < kinds.length; i++) {
     const kind = kinds[i];
@@ -491,13 +396,6 @@ export function collectTargetBindings(root: HTMLElement): TargetBinding[] {
 
 export function hideMotionTargets(targets: TargetBinding[]): void {
   for (let i = 0; i < targets.length; i++) {
-    const target = targets[i];
-    if (isActionTarget(target.kind)) {
-      // Visible box; fill/border/label gated by --motion-reveal + playing CSS
-      target.element.style.opacity = "1";
-      target.element.style.setProperty("--motion-reveal", "0");
-    } else {
-      target.element.style.opacity = "0";
-    }
+    targets[i].element.style.opacity = "0";
   }
 }

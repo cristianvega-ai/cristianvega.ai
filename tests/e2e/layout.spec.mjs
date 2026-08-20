@@ -6,8 +6,8 @@ import { settle, VIEWPORTS } from "./fixtures.mjs";
  * Shell contracts that every route owes the reader, checked on all of them at
  * once rather than page by page.
  *
- * This exists because /contact/ and /about/ both shipped a wide page head over
- * a narrow body. Each container was centred, so each looked right on its own,
+ * This exists because two retired pages both shipped a wide page head over a
+ * narrow body. Each container was centred, so each looked right on its own,
  * but their left edges sat 170px apart and the page read as tilting right as
  * the eye moved from the headline into the text. A per-page spec did not catch
  * it: the defect is a relationship between containers, and it repeats wherever
@@ -16,10 +16,8 @@ import { settle, VIEWPORTS } from "./fixtures.mjs";
 
 const ROUTES = [
   "/",
-  "/about/",
   "/projects/",
   "/writing/",
-  "/contact/",
   "/posts/from-bert-to-agents/",
   /* Any unknown path: the static host serves 404.html for it. */
   "/no-such-page/",
@@ -108,7 +106,7 @@ test.describe("the footer is seated", () => {
       });
 
       // A short page used to end wherever its content did, leaving paper under
-      // the ink footer: 82px on /contact/, 402px on the 404.
+      // the ink footer: 82px on a retired page, 402px on the 404.
       expect(seated).not.toBeNull();
       expect(seated).toBeLessThanOrEqual(1);
     });
@@ -117,7 +115,7 @@ test.describe("the footer is seated", () => {
 
 /* Routes that open with a grid band. The homepage opens with the hero, and a
    post opens with its article head. */
-const HEAD_ROUTES = ["/about/", "/projects/", "/writing/", "/contact/", "/no-such-page/"];
+const HEAD_ROUTES = ["/projects/", "/writing/", "/no-such-page/"];
 
 test.describe("the grid runs to the top", () => {
   test.use({ viewport: VIEWPORTS.desktop });

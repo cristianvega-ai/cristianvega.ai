@@ -33,7 +33,7 @@ export default defineConfig({
      suite against the dev server and report green for a build it never saw. */
   webServer: {
     command: "PORT=4323 node scripts/serve-dist.mjs",
-    url: "http://localhost:4323/about/",
+    url: "http://localhost:4323/",
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },
