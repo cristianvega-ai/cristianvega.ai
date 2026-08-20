@@ -127,7 +127,7 @@ import { experience } from "../lib/experience";
                       <h4 class="exp__role">{role.title}</h4>
                       <span class="exp__when">{role.dateRange} · {role.duration}</span>
                     </div>
-                    <p class="exp__desc" set:html={role.description} />
+                    <p class="exp__desc">{role.description}</p>
                   </li>
                 ))}
               </ol>
