@@ -12,7 +12,7 @@ import { experience } from "../lib/experience";
     <section class="section section--tight page-head dotgrid">
       <div class="wrap wrap--narrow">
         <p class="marker"><span class="marker__sig">§</span> About</p>
-        <h1 class="page-title">I build production AI, and lead the teams that <span class="hl">ship&nbsp;it</span>.</h1>
+        <h1 class="page-title">I build production AI, and lead the teams that <span class="highlight">ship&nbsp;it</span>.</h1>
         <p class="page-lede">
           Head of AI R&amp;D at Patra Corporation. Ten years in software engineering, five of them delivering
           production AI in regulated insurance and banking.
@@ -49,12 +49,12 @@ import { experience } from "../lib/experience";
           <p class="eyebrow">// independent project</p>
           <h2 class="section__title">What I build on my own time.</h2>
 
-          <div class="exp__org-row">
-            <h3 class="exp__org">
+          <div class="experience__org-row">
+            <h3 class="experience__org">
               <a href="https://opencatalyst.ai/" target="_blank" rel="noopener noreferrer">OpenCatalyst</a>
             </h3>
-            <span class="exp__rule"></span>
-            <span class="exp__dur">[ 2026.07 → NOW ]</span>
+            <span class="experience__rule"></span>
+            <span class="experience__duration">[ 2026.07 → NOW ]</span>
           </div>
 
           <div class="about-prose">
@@ -114,20 +114,20 @@ import { experience } from "../lib/experience";
           <h2 class="section__title">Where I've built it.</h2>
 
           {experience.map((organisation) => (
-            <div class="exp__group">
-              <div class="exp__org-row">
-                <h3 class="exp__org">{organisation.name}</h3>
-                <span class="exp__rule"></span>
-                <span class="exp__dur">[ {organisation.duration} ]</span>
+            <div class="experience__group">
+              <div class="experience__org-row">
+                <h3 class="experience__org">{organisation.name}</h3>
+                <span class="experience__rule"></span>
+                <span class="experience__duration">[ {organisation.duration} ]</span>
               </div>
-              <ol class="exp__roles">
+              <ol class="experience__roles">
                 {organisation.roles.map((role) => (
-                  <li class={`exp__role-item${role.current ? " exp__role-item--current" : ""}`}>
-                    <div class="exp__role-head">
-                      <h4 class="exp__role">{role.title}</h4>
-                      <span class="exp__when">{role.dateRange} · {role.duration}</span>
+                  <li class={`experience__role-item${role.current ? " experience__role-item--current" : ""}`}>
+                    <div class="experience__role-head">
+                      <h4 class="experience__role">{role.title}</h4>
+                      <span class="experience__dates">{role.dateRange} · {role.duration}</span>
                     </div>
-                    <p class="exp__desc" set:html={role.description} />
+                    <p class="experience__description" set:html={role.description} />
                   </li>
                 ))}
               </ol>
@@ -140,7 +140,7 @@ import { experience } from "../lib/experience";
             <p class="eyebrow patent__label">// patent</p>
             <h2 class="patent__title">Systems and Methods for Value Extraction and Guided Review</h2>
             <p class="patent__meta">U.S. Patent No. 12,639,972 B2 · Issued May 26, 2026</p>
-            <p class="patent__desc">
+            <p class="patent__description">
               Positional, ML-driven document extraction with a guided-review feedback loop, the core technology behind
               Patra's Policy Checking AI. Co-invented with Tony Li and assigned to Patra Corporation.
             </p>
@@ -150,26 +150,26 @@ import { experience } from "../lib/experience";
         <section class="about-block">
           <p class="eyebrow">// education</p>
           <h2 class="section__title">Education</h2>
-          <ol class="edu">
-            <li class="edu__item">
-              <span class="edu__when">2027.12 · expected</span>
+          <ol class="education">
+            <li class="education__item">
+              <span class="education__dates">2027.12 · expected</span>
               <div>
-                <h3 class="edu__degree">M.S. Computer Science, Machine Learning</h3>
-                <p class="edu__school">Georgia Tech <span class="tag tag--slate">in progress</span></p>
+                <h3 class="education__degree">M.S. Computer Science, Machine Learning</h3>
+                <p class="education__school">Georgia Tech <span class="tag tag--slate">in progress</span></p>
               </div>
             </li>
-            <li class="edu__item">
-              <span class="edu__when">2026.03</span>
+            <li class="education__item">
+              <span class="education__dates">2026.03</span>
               <div>
-                <h3 class="edu__degree">M.S. Software Engineering, AI Engineering</h3>
-                <p class="edu__school">Western Governors University</p>
+                <h3 class="education__degree">M.S. Software Engineering, AI Engineering</h3>
+                <p class="education__school">Western Governors University</p>
               </div>
             </li>
-            <li class="edu__item">
-              <span class="edu__when">2020.01</span>
+            <li class="education__item">
+              <span class="education__dates">2020.01</span>
               <div>
-                <h3 class="edu__degree">B.S. Software Development</h3>
-                <p class="edu__school">Western Governors University</p>
+                <h3 class="education__degree">B.S. Software Development</h3>
+                <p class="education__school">Western Governors University</p>
               </div>
             </li>
           </ol>
@@ -265,9 +265,9 @@ import { experience } from "../lib/experience";
           <p class="eyebrow">// recognition</p>
           <h2 class="section__title">Honors &amp; awards.</h2>
 
-          <div class="exp__org-row">
-            <h3 class="exp__org">Patra</h3>
-            <span class="exp__rule"></span>
+          <div class="experience__org-row">
+            <h3 class="experience__org">Patra</h3>
+            <span class="experience__rule"></span>
           </div>
           <ul class="awards">
             <li class="award">
@@ -280,9 +280,9 @@ import { experience } from "../lib/experience";
             </li>
           </ul>
 
-          <div class="exp__org-row">
-            <h3 class="exp__org">BBVA</h3>
-            <span class="exp__rule"></span>
+          <div class="experience__org-row">
+            <h3 class="experience__org">BBVA</h3>
+            <span class="experience__rule"></span>
           </div>
           <ul class="awards">
             <li class="award">
@@ -313,9 +313,9 @@ import { experience } from "../lib/experience";
             </p>
           </div>
           <div class="about-cta">
-            <a class="btn btn--signal" href="/contact/">Get in touch</a>
+            <a class="button button--signal" href="/contact/">Get in touch</a>
             <a
-              class="btn btn--ghost"
+              class="button button--ghost"
               href="https://www.linkedin.com/in/cristianvega-ai"
               rel="me noopener noreferrer"
               target="_blank">LinkedIn</a
