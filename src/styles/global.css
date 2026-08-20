@@ -295,7 +295,7 @@ body:has(.hero) .site-header :focus-visible {
   outline-color: var(--ember);
 }
 
-.btn {
+.button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -309,27 +309,27 @@ body:has(.hero) .site-header :focus-visible {
   transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-.btn:active {
+.button:active {
   transform: translateY(1px);
 }
 
-.btn--signal {
+.button--signal {
   background: var(--crimson);
   color: #fff;
 }
 
-.btn--signal:hover {
+.button--signal:hover {
   background: var(--crimson-d);
 }
 
 /* The border is the only edge this control has, so it clears 3:1 on paper (5.60) */
-.btn--ghost {
+.button--ghost {
   background: transparent;
   color: var(--ink);
   border-color: var(--muted);
 }
 
-.btn--ghost:hover {
+.button--ghost:hover {
   border-color: var(--ink);
 }
 
@@ -452,7 +452,7 @@ body:has(.hero) {
 }
 
 /* Gradient underline on light surfaces; the hero upgrades it to gradient text */
-.hl {
+.highlight {
   background-image: var(--grad);
   background-repeat: no-repeat;
   background-position: 0 92%;
@@ -461,7 +461,7 @@ body:has(.hero) {
 }
 
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .hero__name .hl {
+  .hero__name .highlight {
     background: var(--grad);
     -webkit-background-clip: text;
     background-clip: text;
@@ -485,18 +485,18 @@ body:has(.hero) {
   gap: 14px;
 }
 
-.hero .btn--ghost {
+.hero .button--ghost {
   color: var(--mast-text);
   border-color: rgba(255, 255, 255, 0.38);
 }
 
-.hero .btn--ghost:hover {
+.hero .button--ghost:hover {
   border-color: #fff;
 }
 
 /* Button formation during hero motion: fill/border/label track --motion-reveal.
    Default 1 so post-completion and non-home buttons stay fully solid. */
-.hero__actions .btn {
+.hero__actions .button {
   --motion-reveal: 1;
   position: relative;
   overflow: hidden;
@@ -504,7 +504,7 @@ body:has(.hero) {
 }
 
 /* Finite dotted ripple (hover / focus-visible). Not infinite; ≤450ms. */
-.hero__actions .btn::after {
+.hero__actions .button::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -529,7 +529,7 @@ body:has(.hero) {
   transform: scale(0.5);
 }
 
-@keyframes hero-btn-ripple {
+@keyframes hero-button-ripple {
   0% {
     opacity: 0;
     transform: scale(0.5);
@@ -544,12 +544,12 @@ body:has(.hero) {
 }
 
 /* Post-entrance only: skip ripple while particles are still forming the buttons */
-.hero:not([data-motion-state="playing"]) .hero__actions .btn:hover::after,
-.hero:not([data-motion-state="playing"]) .hero__actions .btn:focus-visible::after {
-  animation: hero-btn-ripple 400ms ease-out 1 both;
+.hero:not([data-motion-state="playing"]) .hero__actions .button:hover::after,
+.hero:not([data-motion-state="playing"]) .hero__actions .button:focus-visible::after {
+  animation: hero-button-ripple 400ms ease-out 1 both;
 }
 
-.hero[data-motion-state="playing"] .hero__actions .btn.btn--signal {
+.hero[data-motion-state="playing"] .hero__actions .button.button--signal {
   background-color: color-mix(
     in srgb,
     var(--crimson) calc(var(--motion-reveal) * 100%),
@@ -558,7 +558,7 @@ body:has(.hero) {
   color: color-mix(in srgb, #fff calc(var(--motion-reveal) * 100%), transparent);
 }
 
-.hero[data-motion-state="playing"] .hero__actions .btn.btn--signal:hover {
+.hero[data-motion-state="playing"] .hero__actions .button.button--signal:hover {
   background-color: color-mix(
     in srgb,
     var(--crimson-d) calc(var(--motion-reveal) * 100%),
@@ -566,7 +566,7 @@ body:has(.hero) {
   );
 }
 
-.hero[data-motion-state="playing"] .hero__actions .btn.btn--ghost {
+.hero[data-motion-state="playing"] .hero__actions .button.button--ghost {
   background-color: transparent;
   border-color: color-mix(
     in srgb,
@@ -576,7 +576,7 @@ body:has(.hero) {
   color: color-mix(in srgb, #EAEDF2 calc(var(--motion-reveal) * 100%), transparent);
 }
 
-.hero[data-motion-state="playing"] .hero__actions .btn.btn--ghost:hover {
+.hero[data-motion-state="playing"] .hero__actions .button.button--ghost:hover {
   border-color: color-mix(
     in srgb,
     #fff calc(var(--motion-reveal) * 100%),
@@ -681,7 +681,7 @@ body:has(.hero) {
   letter-spacing: -0.01em;
 }
 
-.project__desc {
+.project__description {
   margin-top: 8px;
   font-size: 15px;
   line-height: 1.55;
@@ -769,7 +769,7 @@ body:has(.hero) {
   color: var(--crimson);
 }
 
-.post__desc {
+.post__description {
   display: block;
   margin-top: 6px;
   color: var(--muted);
@@ -851,14 +851,14 @@ body:has(.hero) {
   color: var(--meta);
 }
 
-.exp__org-row {
+.experience__org-row {
   display: flex;
   align-items: center;
   gap: 16px;
   margin: 38px 0 18px;
 }
 
-.exp__org {
+.experience__org {
   font-family: var(--font-mono);
   font-size: 15px;
   font-weight: 600;
@@ -869,26 +869,26 @@ body:has(.hero) {
 
 /* A linked org name would otherwise inherit the heading's flat ink and give no
    sign it is a destination. Same treatment as prose links, which clears AA. */
-.exp__org a {
+.experience__org a {
   color: var(--crimson);
   border-bottom: 1px solid rgba(212, 42, 60, 0.35);
   transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.exp__org a:hover {
+.experience__org a:hover {
   color: var(--crimson-d);
   border-bottom-color: var(--crimson-d);
 }
 
-.exp__rule {
+.experience__rule {
   height: 1px;
   background: var(--line);
   flex: 1;
 }
 
-.exp__dur,
-.exp__when,
-.edu__when,
+.experience__duration,
+.experience__dates,
+.education__dates,
 .award__year {
   color: var(--meta);
   font-family: var(--font-mono);
@@ -897,7 +897,7 @@ body:has(.hero) {
 }
 
 /* Timeline rail: the line sits under the dots, both centred on x = 3.5px */
-.exp__roles {
+.experience__roles {
   position: relative;
   display: grid;
   gap: 26px;
@@ -906,7 +906,7 @@ body:has(.hero) {
   list-style: none;
 }
 
-.exp__roles::before {
+.experience__roles::before {
   content: "";
   position: absolute;
   left: 3px;
@@ -916,11 +916,11 @@ body:has(.hero) {
   background: var(--line-strong);
 }
 
-.exp__role-item {
+.experience__role-item {
   position: relative;
 }
 
-.exp__role-item::before {
+.experience__role-item::before {
   content: "";
   position: absolute;
   left: -26px;
@@ -932,19 +932,19 @@ body:has(.hero) {
   border: 1px solid var(--line-strong);
 }
 
-.exp__role-item--current::before {
+.experience__role-item--current::before {
   background: var(--grad);
   border-color: transparent;
   box-shadow: 0 0 0 3px rgba(242, 121, 43, 0.16);
 }
 
-.exp__role-head {
+.experience__role-head {
   display: flex;
   justify-content: space-between;
   gap: 18px;
 }
 
-.exp__role {
+.experience__role {
   font-family: var(--font-body);
   font-size: 16.5px;
   font-weight: 600;
@@ -952,13 +952,13 @@ body:has(.hero) {
   color: var(--ink);
 }
 
-.exp__when {
+.experience__dates {
   flex: 0 0 auto;
   padding-top: 3px;
   white-space: nowrap;
 }
 
-.exp__desc {
+.experience__description {
   margin-top: 5px;
   color: var(--muted);
   line-height: 1.65;
@@ -1009,21 +1009,21 @@ body:has(.hero) {
   color: var(--mast-muted);
 }
 
-.patent__desc {
+.patent__description {
   max-width: 62ch;
   margin-top: 16px;
   color: var(--mast-muted);
   line-height: 1.65;
 }
 
-.edu {
+.education {
   margin: 28px 0 0;
   padding: 0;
   list-style: none;
   border-top: 1px solid var(--line);
 }
 
-.edu__item {
+.education__item {
   display: grid;
   grid-template-columns: 136px minmax(0, 1fr);
   gap: 24px;
@@ -1032,14 +1032,14 @@ body:has(.hero) {
   border-bottom: 1px solid var(--line);
 }
 
-.edu__degree {
+.education__degree {
   font-size: 19px;
   font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.25;
 }
 
-.edu__school {
+.education__school {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1152,7 +1152,7 @@ body:has(.hero) {
   padding-block: 24px 0;
 }
 
-.article__cat {
+.article__category {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1406,12 +1406,12 @@ body:has(.hero) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .exp__role-head {
+  .experience__role-head {
     flex-direction: column;
     gap: 2px;
   }
 
-  .exp__when {
+  .experience__dates {
     padding-top: 0;
   }
 
@@ -1419,7 +1419,7 @@ body:has(.hero) {
     padding: 24px 20px 26px;
   }
 
-  .edu__item {
+  .education__item {
     grid-template-columns: 1fr;
     gap: 8px;
   }
@@ -1480,7 +1480,7 @@ body:has(.hero) {
   }
 
   /* No button ripple under reduced motion */
-  .hero__actions .btn::after {
+  .hero__actions .button::after {
     content: none !important;
     animation: none !important;
     opacity: 0 !important;
