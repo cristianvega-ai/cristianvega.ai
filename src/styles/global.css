@@ -12,36 +12,36 @@
      crimson on paper ~4.6; white on crimson ~5.0; meta on paper ~5.6.
      Ember is reserved for dark surfaces (~6.4 on ink) and decoration. */
   --crimson: #D42A3C;
-  --crimson-d: #B21F2F;
+  --crimson-dark: #B21F2F;
   --ember: #F2792B;
-  --grad: linear-gradient(102deg, #D42A3C 0%, #F2792B 100%);
+  --gradient: linear-gradient(102deg, #D42A3C 0%, #F2792B 100%);
   --meta: #586173;
   --meta-on-dark: #98A1B0;
-  --mast-text: #EAEDF2;
-  --mast-muted: #B9C1CE;
-  --mast-line: rgba(255, 255, 255, 0.1);
+  --masthead-text: #EAEDF2;
+  --masthead-muted: #B9C1CE;
+  --masthead-line: rgba(255, 255, 255, 0.1);
   --grid-line: rgba(255, 255, 255, 0.028);
   --grid-line-light: rgba(20, 24, 31, 0.055);
   --tag-slate: #1D5FB0;
-  --tag-slate-bg: #E9F1FB;
-  --tag-slate-bd: #C6DBF3;
-  --tag-mute: #41485A;
-  --tag-mute-bg: #EEF0F4;
-  --tag-mute-bd: #D6DBE3;
-  --code-bg: #14181F;
+  --tag-slate-background: #E9F1FB;
+  --tag-slate-border: #C6DBF3;
+  --tag-muted: #41485A;
+  --tag-muted-background: #EEF0F4;
+  --tag-muted-border: #D6DBE3;
+  --code-background: #14181F;
   --code-text: #C9D1DC;
   --code-accent: #F2CDBB;
-  --shadow-sm: 0 1px 2px rgba(20, 24, 31, 0.05), 0 1px 1px rgba(20, 24, 31, 0.04);
+  --shadow-small: 0 1px 2px rgba(20, 24, 31, 0.05), 0 1px 1px rgba(20, 24, 31, 0.04);
   --shadow: 0 6px 24px -12px rgba(20, 24, 31, 0.22), 0 2px 6px -3px rgba(20, 24, 31, 0.1);
   --font-display: "Space Grotesk", system-ui, sans-serif;
   --font-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-  --header-h: 64px;
+  --header-height: 64px;
   --container: 1180px;
   --gutter: max(32px, calc((100vw - var(--container)) / 2 + 32px));
   --radius: 14px;
-  --radius-sm: 9px;
-  --radius-xs: 6px;
+  --radius-small: 9px;
+  --radius-extra-small: 6px;
   --radius-code: 10px;
 }
 
@@ -131,7 +131,7 @@ h3 {
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 500;
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  border-radius: 0 0 var(--radius-small) var(--radius-small);
   transform: translateY(-120%);
   transition: transform 0.15s ease;
 }
@@ -200,7 +200,7 @@ body:has(.hero) .skip-link:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: var(--header-h);
+  min-height: var(--header-height);
   gap: 20px;
   padding-inline: clamp(20px, 3.2vw, 40px);
 }
@@ -262,7 +262,7 @@ body:has(.hero) .skip-link:focus {
 
 .nav__link--active {
   color: var(--ink);
-  border-image: var(--grad) 1;
+  border-image: var(--gradient) 1;
 }
 
 /* Forced colours drop the gradient border-image; keep a system-coloured underline */
@@ -275,7 +275,7 @@ body:has(.hero) .skip-link:focus {
 
 /* Home is a dark masthead page; the transparent header inverts to light */
 body:has(.hero) .brand {
-  color: var(--mast-text);
+  color: var(--masthead-text);
 }
 
 body:has(.hero) .brand__mark {
@@ -295,7 +295,7 @@ body:has(.hero) .site-header :focus-visible {
   outline-color: var(--ember);
 }
 
-.btn {
+.button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -303,33 +303,33 @@ body:has(.hero) .site-header :focus-visible {
   font-weight: 600;
   font-size: 15px;
   padding: 12px 22px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-small);
   border: 1px solid transparent;
   cursor: pointer;
   transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-.btn:active {
+.button:active {
   transform: translateY(1px);
 }
 
-.btn--signal {
+.button--signal {
   background: var(--crimson);
   color: #fff;
 }
 
-.btn--signal:hover {
-  background: var(--crimson-d);
+.button--signal:hover {
+  background: var(--crimson-dark);
 }
 
 /* The border is the only edge this control has, so it clears 3:1 on paper (5.60) */
-.btn--ghost {
+.button--ghost {
   background: transparent;
   color: var(--ink);
   border-color: var(--muted);
 }
 
-.btn--ghost:hover {
+.button--ghost:hover {
   border-color: var(--ink);
 }
 
@@ -339,21 +339,21 @@ body:has(.hero) .site-header :focus-visible {
   font-size: 12px;
   font-weight: 500;
   padding: 3px 9px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-extra-small);
   border: 1px solid transparent;
   white-space: nowrap;
 }
 
 .tag--slate {
   color: var(--tag-slate);
-  background: var(--tag-slate-bg);
-  border-color: var(--tag-slate-bd);
+  background: var(--tag-slate-background);
+  border-color: var(--tag-slate-border);
 }
 
 .tag--muted {
-  color: var(--tag-mute);
-  background: var(--tag-mute-bg);
-  border-color: var(--tag-mute-bd);
+  color: var(--tag-muted);
+  background: var(--tag-muted-background);
+  border-color: var(--tag-muted-border);
 }
 
 /* Home is one full dark masthead; ink extends past the short stacked hero */
@@ -364,11 +364,11 @@ body:has(.hero) {
 .hero {
   min-height: 100vh;
   min-height: 100svh;
-  margin-top: calc(var(--header-h) * -1);
+  margin-top: calc(var(--header-height) * -1);
   display: flex;
   flex-direction: column;
   background: var(--ink);
-  color: var(--mast-text);
+  color: var(--masthead-text);
 }
 
 .hero__grid {
@@ -396,7 +396,7 @@ body:has(.hero) {
 .hero__portrait-col {
   position: relative;
   overflow: hidden;
-  border-right: 1px solid var(--mast-line);
+  border-right: 1px solid var(--masthead-line);
 }
 
 /* Decorative dual-canvas layer; real hero copy stays above (z-index) and visible */
@@ -452,8 +452,8 @@ body:has(.hero) {
 }
 
 /* Gradient underline on light surfaces; the hero upgrades it to gradient text */
-.hl {
-  background-image: var(--grad);
+.highlight {
+  background-image: var(--gradient);
   background-repeat: no-repeat;
   background-position: 0 92%;
   background-size: 100% 0.16em;
@@ -461,8 +461,8 @@ body:has(.hero) {
 }
 
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .hero__name .hl {
-    background: var(--grad);
+  .hero__name .highlight {
+    background: var(--gradient);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -474,7 +474,7 @@ body:has(.hero) {
   font-size: clamp(18px, 2vw, 21px);
   font-weight: 400;
   line-height: 1.5;
-  color: var(--mast-muted);
+  color: var(--masthead-muted);
   max-width: 30ch;
   margin-bottom: 34px;
 }
@@ -485,18 +485,18 @@ body:has(.hero) {
   gap: 14px;
 }
 
-.hero .btn--ghost {
-  color: var(--mast-text);
+.hero .button--ghost {
+  color: var(--masthead-text);
   border-color: rgba(255, 255, 255, 0.38);
 }
 
-.hero .btn--ghost:hover {
+.hero .button--ghost:hover {
   border-color: #fff;
 }
 
 /* Button formation during hero motion: fill/border/label track --motion-reveal.
    Default 1 so post-completion and non-home buttons stay fully solid. */
-.hero__actions .btn {
+.hero__actions .button {
   --motion-reveal: 1;
   position: relative;
   overflow: hidden;
@@ -504,7 +504,7 @@ body:has(.hero) {
 }
 
 /* Finite dotted ripple (hover / focus-visible). Not infinite; ≤450ms. */
-.hero__actions .btn::after {
+.hero__actions .button::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -529,7 +529,7 @@ body:has(.hero) {
   transform: scale(0.5);
 }
 
-@keyframes hero-btn-ripple {
+@keyframes hero-button-ripple {
   0% {
     opacity: 0;
     transform: scale(0.5);
@@ -544,12 +544,12 @@ body:has(.hero) {
 }
 
 /* Post-entrance only: skip ripple while particles are still forming the buttons */
-.hero:not([data-motion-state="playing"]) .hero__actions .btn:hover::after,
-.hero:not([data-motion-state="playing"]) .hero__actions .btn:focus-visible::after {
-  animation: hero-btn-ripple 400ms ease-out 1 both;
+.hero:not([data-motion-state="playing"]) .hero__actions .button:hover::after,
+.hero:not([data-motion-state="playing"]) .hero__actions .button:focus-visible::after {
+  animation: hero-button-ripple 400ms ease-out 1 both;
 }
 
-.hero[data-motion-state="playing"] .hero__actions .btn.btn--signal {
+.hero[data-motion-state="playing"] .hero__actions .button.button--signal {
   background-color: color-mix(
     in srgb,
     var(--crimson) calc(var(--motion-reveal) * 100%),
@@ -558,15 +558,15 @@ body:has(.hero) {
   color: color-mix(in srgb, #fff calc(var(--motion-reveal) * 100%), transparent);
 }
 
-.hero[data-motion-state="playing"] .hero__actions .btn.btn--signal:hover {
+.hero[data-motion-state="playing"] .hero__actions .button.button--signal:hover {
   background-color: color-mix(
     in srgb,
-    var(--crimson-d) calc(var(--motion-reveal) * 100%),
+    var(--crimson-dark) calc(var(--motion-reveal) * 100%),
     transparent
   );
 }
 
-.hero[data-motion-state="playing"] .hero__actions .btn.btn--ghost {
+.hero[data-motion-state="playing"] .hero__actions .button.button--ghost {
   background-color: transparent;
   border-color: color-mix(
     in srgb,
@@ -576,7 +576,7 @@ body:has(.hero) {
   color: color-mix(in srgb, #EAEDF2 calc(var(--motion-reveal) * 100%), transparent);
 }
 
-.hero[data-motion-state="playing"] .hero__actions .btn.btn--ghost:hover {
+.hero[data-motion-state="playing"] .hero__actions .button.button--ghost:hover {
   border-color: color-mix(
     in srgb,
     #fff calc(var(--motion-reveal) * 100%),
@@ -607,7 +607,7 @@ body:has(.hero) {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-small);
   transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.3s, border-color 0.15s ease;
 }
 
@@ -618,7 +618,7 @@ body:has(.hero) {
   left: 0;
   right: 0;
   height: 3px;
-  background: var(--grad);
+  background: var(--gradient);
   z-index: 1;
 }
 
@@ -645,7 +645,7 @@ body:has(.hero) {
   font-weight: 700;
   font-size: 34px;
   letter-spacing: -0.03em;
-  color: var(--mast-text);
+  color: var(--masthead-text);
   opacity: 0.92;
 }
 
@@ -681,7 +681,7 @@ body:has(.hero) {
   letter-spacing: -0.01em;
 }
 
-.project__desc {
+.project__description {
   margin-top: 8px;
   font-size: 15px;
   line-height: 1.55;
@@ -720,8 +720,8 @@ body:has(.hero) {
 }
 
 .project__site:hover {
-  color: var(--crimson-d);
-  border-bottom-color: var(--crimson-d);
+  color: var(--crimson-dark);
+  border-bottom-color: var(--crimson-dark);
 }
 
 .posts {
@@ -769,7 +769,7 @@ body:has(.hero) {
   color: var(--crimson);
 }
 
-.post__desc {
+.post__description {
   display: block;
   margin-top: 6px;
   color: var(--muted);
@@ -823,7 +823,7 @@ body:has(.hero) {
   left: 0;
   right: 0;
   height: 3px;
-  background: var(--grad);
+  background: var(--gradient);
 }
 
 .stat {
@@ -851,14 +851,14 @@ body:has(.hero) {
   color: var(--meta);
 }
 
-.exp__org-row {
+.experience__org-row {
   display: flex;
   align-items: center;
   gap: 16px;
   margin: 38px 0 18px;
 }
 
-.exp__org {
+.experience__org {
   font-family: var(--font-mono);
   font-size: 15px;
   font-weight: 600;
@@ -869,26 +869,26 @@ body:has(.hero) {
 
 /* A linked org name would otherwise inherit the heading's flat ink and give no
    sign it is a destination. Same treatment as prose links, which clears AA. */
-.exp__org a {
+.experience__org a {
   color: var(--crimson);
   border-bottom: 1px solid rgba(212, 42, 60, 0.35);
   transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.exp__org a:hover {
-  color: var(--crimson-d);
-  border-bottom-color: var(--crimson-d);
+.experience__org a:hover {
+  color: var(--crimson-dark);
+  border-bottom-color: var(--crimson-dark);
 }
 
-.exp__rule {
+.experience__rule {
   height: 1px;
   background: var(--line);
   flex: 1;
 }
 
-.exp__dur,
-.exp__when,
-.edu__when,
+.experience__duration,
+.experience__dates,
+.education__dates,
 .award__year {
   color: var(--meta);
   font-family: var(--font-mono);
@@ -897,7 +897,7 @@ body:has(.hero) {
 }
 
 /* Timeline rail: the line sits under the dots, both centred on x = 3.5px */
-.exp__roles {
+.experience__roles {
   position: relative;
   display: grid;
   gap: 26px;
@@ -906,7 +906,7 @@ body:has(.hero) {
   list-style: none;
 }
 
-.exp__roles::before {
+.experience__roles::before {
   content: "";
   position: absolute;
   left: 3px;
@@ -916,11 +916,11 @@ body:has(.hero) {
   background: var(--line-strong);
 }
 
-.exp__role-item {
+.experience__role-item {
   position: relative;
 }
 
-.exp__role-item::before {
+.experience__role-item::before {
   content: "";
   position: absolute;
   left: -26px;
@@ -932,19 +932,19 @@ body:has(.hero) {
   border: 1px solid var(--line-strong);
 }
 
-.exp__role-item--current::before {
-  background: var(--grad);
+.experience__role-item--current::before {
+  background: var(--gradient);
   border-color: transparent;
   box-shadow: 0 0 0 3px rgba(242, 121, 43, 0.16);
 }
 
-.exp__role-head {
+.experience__role-head {
   display: flex;
   justify-content: space-between;
   gap: 18px;
 }
 
-.exp__role {
+.experience__role {
   font-family: var(--font-body);
   font-size: 16.5px;
   font-weight: 600;
@@ -952,13 +952,13 @@ body:has(.hero) {
   color: var(--ink);
 }
 
-.exp__when {
+.experience__dates {
   flex: 0 0 auto;
   padding-top: 3px;
   white-space: nowrap;
 }
 
-.exp__desc {
+.experience__description {
   margin-top: 5px;
   color: var(--muted);
   line-height: 1.65;
@@ -973,7 +973,7 @@ body:has(.hero) {
   background-image:
     repeating-linear-gradient(0deg, transparent 0 39px, var(--grid-line) 39px 40px),
     repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line) 39px 40px);
-  color: var(--mast-text);
+  color: var(--masthead-text);
   box-shadow: var(--shadow);
 }
 
@@ -984,7 +984,7 @@ body:has(.hero) {
   left: 0;
   right: 0;
   height: 3px;
-  background: var(--grad);
+  background: var(--gradient);
 }
 
 .patent__label {
@@ -1006,24 +1006,24 @@ body:has(.hero) {
   font-size: 12.5px;
   font-weight: 500;
   letter-spacing: 0.04em;
-  color: var(--mast-muted);
+  color: var(--masthead-muted);
 }
 
-.patent__desc {
+.patent__description {
   max-width: 62ch;
   margin-top: 16px;
-  color: var(--mast-muted);
+  color: var(--masthead-muted);
   line-height: 1.65;
 }
 
-.edu {
+.education {
   margin: 28px 0 0;
   padding: 0;
   list-style: none;
   border-top: 1px solid var(--line);
 }
 
-.edu__item {
+.education__item {
   display: grid;
   grid-template-columns: 136px minmax(0, 1fr);
   gap: 24px;
@@ -1032,14 +1032,14 @@ body:has(.hero) {
   border-bottom: 1px solid var(--line);
 }
 
-.edu__degree {
+.education__degree {
   font-size: 19px;
   font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.25;
 }
 
-.edu__school {
+.education__school {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1118,8 +1118,8 @@ body:has(.hero) {
    the grid reaches the top of the page and the header sits on it instead of on
    bare paper. The matching top padding holds the heading where it was. */
 .page-head {
-  margin-top: calc(var(--header-h) * -1);
-  padding-top: calc(64px + var(--header-h));
+  margin-top: calc(var(--header-height) * -1);
+  padding-top: calc(64px + var(--header-height));
   border-bottom: 1px solid var(--line);
 }
 
@@ -1152,7 +1152,7 @@ body:has(.hero) {
   padding-block: 24px 0;
 }
 
-.article__cat {
+.article__category {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1225,14 +1225,14 @@ body:has(.hero) {
 }
 
 .prose a:hover {
-  color: var(--crimson-d);
-  border-bottom-color: var(--crimson-d);
+  color: var(--crimson-dark);
+  border-bottom-color: var(--crimson-dark);
 }
 
 .prose code {
   font-family: var(--font-mono);
   font-size: 0.86em;
-  background: var(--code-bg);
+  background: var(--code-background);
   color: var(--code-accent);
   padding: 2px 6px;
   border-radius: 5px;
@@ -1240,7 +1240,7 @@ body:has(.hero) {
 
 .prose pre {
   overflow-x: auto;
-  background: var(--code-bg);
+  background: var(--code-background);
   color: var(--code-text);
   border-radius: var(--radius-code);
   padding: 16px;
@@ -1287,7 +1287,7 @@ body:has(.hero) {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-small);
   transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.3s, border-color 0.15s ease;
 }
 
@@ -1350,7 +1350,7 @@ body:has(.hero) {
   .hero__portrait-col {
     height: 300px;
     border-right: 0;
-    border-bottom: 1px solid var(--mast-line);
+    border-bottom: 1px solid var(--masthead-line);
   }
 
   .projects {
@@ -1406,12 +1406,12 @@ body:has(.hero) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .exp__role-head {
+  .experience__role-head {
     flex-direction: column;
     gap: 2px;
   }
 
-  .exp__when {
+  .experience__dates {
     padding-top: 0;
   }
 
@@ -1419,7 +1419,7 @@ body:has(.hero) {
     padding: 24px 20px 26px;
   }
 
-  .edu__item {
+  .education__item {
     grid-template-columns: 1fr;
     gap: 8px;
   }
@@ -1480,7 +1480,7 @@ body:has(.hero) {
   }
 
   /* No button ripple under reduced motion */
-  .hero__actions .btn::after {
+  .hero__actions .button::after {
     content: none !important;
     animation: none !important;
     opacity: 0 !important;
