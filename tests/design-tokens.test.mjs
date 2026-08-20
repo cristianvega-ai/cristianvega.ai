@@ -14,6 +14,7 @@ test("design tokens omit unused custom properties", () => {
     "--hairline-2:",
     "--muted-2:",
     "--grad-soft:",
+    "--gradient-soft:",
     "--code-chrome:",
     "--code-line:",
     "--code-gutter:",
@@ -23,6 +24,7 @@ test("design tokens omit unused custom properties", () => {
     "--seam:",
     /* The hero ticker was the only reader of this token. */
     "--mast-meta:",
+    "--masthead-meta:",
   ];
   for (const decl of dead) {
     assert.doesNotMatch(css, new RegExp(decl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
