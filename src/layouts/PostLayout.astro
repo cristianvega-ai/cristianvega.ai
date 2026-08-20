@@ -25,7 +25,7 @@ const modified = updated ?? published;
     <article class="section section--tight">
       <div class="wrap wrap--narrow">
         <header class="article__head">
-          <p class="article__cat">
+          <p class="article__category">
             <span class="marker__sig">§</span>
             {post.data.category}
           </p>
@@ -35,7 +35,7 @@ const modified = updated ?? published;
             {
               updated && (
                 <>
-                  <span class="sep">/</span>
+                  <span class="separator">/</span>
                   <span>
                     Updated{" "}
                     <time datetime={formatMachineDate(updated)}>{formatReadableDate(updated)}</time>
@@ -43,12 +43,12 @@ const modified = updated ?? published;
                 </>
               )
             }
-            <span class="sep">/</span>
+            <span class="separator">/</span>
             <span class="by">Cristian Vega</span>
             {
               post.data.tags.length > 0 && (
                 <>
-                  <span class="sep">/</span>
+                  <span class="separator">/</span>
                   <span>{post.data.tags.join(" · ")}</span>
                 </>
               )
