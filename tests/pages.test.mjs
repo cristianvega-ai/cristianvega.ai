@@ -27,8 +27,8 @@ test("homepage keeps the portfolio theme and links to the writing index", () => 
   const secondaryCta = findMotionAnchor(html, "secondary-action");
   assert.ok(primaryCta, "hero primary call to action required");
   assert.ok(secondaryCta, "hero secondary call to action required");
-  assert.match(primaryCta, /href="\/projects\/"/);
-  assert.match(secondaryCta, /href="\/writing\/"/);
+  assert.match(primaryCta, /href="\/contact\/"/);
+  assert.match(secondaryCta, /href="\/about\/"/);
   // Hero copy must remain in HTML. Pre-hide is gated on a head-stamped attribute
   // (not html.js), so no-JS never blanks the copy.
   assert.match(html, /class="[^"]*hero__name[^"]*"/);
@@ -58,17 +58,12 @@ test("post pages are generated from markdown content", () => {
   // The byline date must render in UTC, not the builder's local day.
   assert.match(html, /<time[^>]*datetime="2026-06-12"[^>]*>June 12, 2026<\/time>/);
 
-  // updatedDate is consumed: visible meta, Open Graph article times, sitemap lastmod
+  // updatedDate is consumed: visible meta and the Open Graph article times.
+  // The sitemap no longer carries it; see the withheld-routes test below.
   assert.match(html, /Updated\s*<time[^>]*datetime="2026-07-01"/);
   assert.match(html, /property="og:type"\s+content="article"/);
   assert.match(html, /property="article:published_time"\s+content="2026-06-12T/);
   assert.match(html, /property="article:modified_time"\s+content="2026-07-01T/);
-
-  const sitemap = readDistFile("sitemap-0.xml");
-  assert.match(
-    sitemap,
-    /posts\/from-bert-to-agents\/[\s\S]*?<lastmod>2026-07-01T/,
-  );
 });
 
 test("about page ships experience and education content", () => {
@@ -172,9 +167,9 @@ test("active navigation exposes aria-current=page", () => {
   const about = readDistFile("about", "index.html");
   assert.match(about, /href="\/about\/"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/about\/"/i);
 
-  const writing = readDistFile("writing", "index.html");
-  assert.match(writing, /href="\/writing\/"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/writing\/"/i);
-  assert.doesNotMatch(writing, /href="\/about\/"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/about\/"/i);
+  const contact = readDistFile("contact", "index.html");
+  assert.match(contact, /href="\/contact\/"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/contact\/"/i);
+  assert.doesNotMatch(contact, /href="\/about\/"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/about\/"/i);
 });
 
 // Every derivative below comes from one committed master through
