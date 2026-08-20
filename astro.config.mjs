@@ -36,6 +36,9 @@ export default defineConfig({
   trailingSlash: "always",
   integrations: [
     sitemap({
+      // Projects and writing are not linked or indexed while they are still in
+      // progress. They stay out of the sitemap until they go live again.
+      filter: (page) => !/\/(projects|writing|posts)\//.test(new URL(page).pathname),
       serialize(item) {
         const match = item.url.match(/\/posts\/([^/]+)\/?$/);
         if (match) {
