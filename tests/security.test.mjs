@@ -92,7 +92,9 @@ test("htaccess CSP denies inline scripts while allowing inline styles", () => {
       else if (name.endsWith(".html")) htmlFiles.push(path);
     }
   }
-  assert.ok(htmlFiles.length >= 9, "expected the static HTML pages");
+  // Home, 404, projects, writing, and the three posts. The guard exists so an
+  // empty or half-written dist/ cannot pass this scan by finding nothing.
+  assert.ok(htmlFiles.length >= 7, "expected the static HTML pages");
   const inlineDigests = new Set();
   const dataBlockTypes = new Set();
   for (const file of htmlFiles) {

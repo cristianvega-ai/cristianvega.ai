@@ -43,8 +43,6 @@ test("build emits the core static pages DreamHost will serve", () => {
   assertDistPath("index.html");
   assertDistPath("writing", "index.html");
   assertDistPath("projects", "index.html");
-  assertDistPath("about", "index.html");
-  assertDistPath("contact", "index.html");
   assertDistPath("sitemap-index.xml");
 });
 
@@ -91,15 +89,39 @@ test("withheld routes build but stay out of reach of crawlers and navigation", (
     );
   }
 
-  // The primary navigation is rendered on every page, so one public page proves
+  // The primary navigation is rendered on every page, so the home page proves
   // the links are gone everywhere.
-  const about = readDistFile("about", "index.html");
-  const nav = about.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
+  const home = readDistFile("index.html");
+  const nav = home.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
   assert.ok(nav, "primary navigation required");
   assert.doesNotMatch(nav, /href="\/projects\/"/, "projects must not be linked in the navigation");
   assert.doesNotMatch(nav, /href="\/writing\/"/, "writing must not be linked in the navigation");
-  assert.match(nav, /href="\/about\/"/);
-  assert.match(nav, /href="\/contact\/"/);
+});
+
+test("the navigation leaves the site, and every outbound link is safe", () => {
+  // The site is one page. The navigation carries the owner's profiles instead
+  // of internal routes, so each link opens a new tab and must not hand the
+  // opener or the referrer to the destination.
+  const home = readDistFile("index.html");
+  const nav = home.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
+  assert.ok(nav, "primary navigation required");
+
+  const anchors = [...nav.matchAll(/<a\b[^>]*>/gi)].map(([tag]) => tag);
+  assert.equal(anchors.length, 3, `navigation must hold three links: ${nav}`);
+
+  for (const host of ["linkedin.com", "x.com", "github.com"]) {
+    assert.ok(
+      anchors.some((tag) => tag.includes(host)),
+      `navigation must link ${host}`,
+    );
+  }
+
+  for (const tag of anchors) {
+    assert.match(tag, /href="https:\/\//, `navigation link must be absolute: ${tag}`);
+    assert.match(tag, /target="_blank"/, `navigation link must open a new tab: ${tag}`);
+    assert.match(tag, /rel="[^"]*noopener/, `navigation link needs noopener: ${tag}`);
+    assert.match(tag, /rel="[^"]*noreferrer/, `navigation link needs noreferrer: ${tag}`);
+  }
 });
 
 test("static ops assets ship with the build", () => {
