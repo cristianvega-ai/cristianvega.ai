@@ -39,6 +39,7 @@ edit, you are writing as an engineer.
 - `src/lib/`: typed content and project helpers.
 - `src/styles/global.css`: the site-wide design system and responsive behavior.
 - `public/`: static production assets copied into the build, including `.htaccess` and `robots.txt`.
+- `assets/`: build-time source files that must not copy into the static site.
 - `scripts/`: deterministic asset-generation scripts.
 - `tests/`: Node contract tests, one file per concern.
 - `tests/e2e/`: Playwright specs for computed layout and runtime behavior.
@@ -142,8 +143,13 @@ Adding focused tests for requested behavior does not require separate approval. 
 
 - Do not publish placeholder destinations or imply that private work is publicly available.
 - Keep post frontmatter aligned with `src/content.config.ts`.
-- Optimized portrait derivatives are intentionally committed because production deployment is static and deterministic.
-- Regenerate tracked derivatives with the provided scripts when their source changes.
+- Commit optimized image derivatives. Production deployment is static, so the
+  build must not depend on generating them at deploy time. That rule is about
+  git tracking, not about the static publish set.
+- Keep the portrait master out of `public/`. Files in `public/` copy into
+  `dist/`, and the deploy uploads them.
+- Run the provided scripts when the master changes, then commit the new
+  derivatives.
 - `dist/`, caches, reports, local tooling state, and internal planning artifacts must never be committed.
 
 ## Security and Privacy

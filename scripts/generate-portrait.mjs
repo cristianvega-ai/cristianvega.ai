@@ -1,4 +1,6 @@
 // Generates the Open Graph share card from the committed portrait master.
+// The master lives in assets/, not public/, so the static copy does not
+// publish the 800×800 source.
 //
 // Output:
 //   public/images/cristian-vega-og.jpg           (Open Graph / Twitter, 1200×630)
@@ -8,7 +10,7 @@ import sharp from "sharp";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
-const SRC = "public/images/cristian-vega.png";
+const SRC = "assets/cristian-vega.png";
 
 // summary_large_image / LinkedIn-Facebook share card. The master is 800×800;
 // letterbox it on the brand ink field so scrapers do not centre-crop the head.

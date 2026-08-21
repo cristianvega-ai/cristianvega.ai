@@ -3,7 +3,7 @@ import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { assertPageBasics, dist, readDistFile } from "./helpers.mjs";
+import { assertPageBasics, dist, readDistFile, root } from "./helpers.mjs";
 
 // Build output contract: the files the static deploy uploads must exist and be
 // complete. Page copy lives in tests/pages.test.mjs; this suite only asks
@@ -130,9 +130,13 @@ test("compiled css assets are emitted", () => {
   assert.match(css, /html\[data-hero-motion-pending\]/);
 });
 
-// The About-strip portrait files have no consumer. They must not copy into
-// dist/, because the deploy uploads everything in dist/.
-test("the unused portrait strip does not ship in the build", () => {
-  assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.webp")), false);
-  assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.avif")), false);
+// The portrait master is a generator source, not a page asset. Files in
+// public/ copy into dist/, and the deploy uploads dist/. Keep the master
+// outside public/ and keep dist/images to the URLs pages actually use.
+test("the portrait master stays out of the static publish set", () => {
+  assert.equal(existsSync(join(root, "assets", "cristian-vega.png")), true);
+  assert.deepEqual(readdirSync(join(dist, "images")).sort(), [
+    "apple-touch-icon.png",
+    "cristian-vega-og.jpg",
+  ]);
 });
