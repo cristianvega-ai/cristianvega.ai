@@ -1,6 +1,6 @@
 import { clamp, cubicPoint, FULL_TURN_RADIANS, progress, smoothstep, type Point } from "./easing";
 import type { CanvasLayer, Layout } from "./layout";
-import { drawSceneFrame, sceneFor, SIGNAL, STAR, type PortraitPrep } from "./star-chart";
+import { drawSceneFrame, sceneFor, SIGNAL, type PortraitPrep } from "./star-chart";
 import {
   TARGET_WINDOWS,
   TRANSFER_TRAVEL_DURATION,
