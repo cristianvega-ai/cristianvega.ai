@@ -114,4 +114,8 @@ Requires `sharp` (devDependency).
 # OG share card (1200×630 JPEG) from assets/cristian-vega.png
 # → public/images/cristian-vega-og.jpg
 npm run generate:portrait
+
+# Apple touch icon (180×180 PNG) from public/favicon.svg
+# → public/images/apple-touch-icon.png
+npm run generate:touch-icon
 ```
