@@ -25,6 +25,8 @@ test("design tokens omit unused custom properties", () => {
     /* The hero ticker was the only reader of this token. */
     "--mast-meta:",
     "--masthead-meta:",
+    /* The hero buttons were the only reader of this token. */
+    "--motion-reveal:",
   ];
   for (const decl of dead) {
     assert.doesNotMatch(css, new RegExp(decl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
