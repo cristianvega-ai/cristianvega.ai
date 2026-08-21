@@ -457,7 +457,7 @@ test.describe("hero structure and decorative layers", () => {
       await expect(target(page, kind)).toHaveCount(1);
     }
 
-    // Live hooks are the mode, the state, and the reveal custom property.
+    // Live hooks are the mode and the state. data-motion-active was write-only.
     await expect(page.locator("[data-motion-active]")).toHaveCount(0);
   });
 
