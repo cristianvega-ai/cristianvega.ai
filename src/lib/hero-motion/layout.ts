@@ -1,4 +1,4 @@
-export const MAX_PIXEL_RATIO = 2;
+const MAX_PIXEL_RATIO = 2;
 
 export type Rect = { left: number; top: number; width: number; height: number };
 
@@ -14,7 +14,7 @@ export type Layout = {
   copy: CanvasLayer;
 };
 
-export function sizeLayer(
+function sizeLayer(
   canvas: HTMLCanvasElement,
   hostRect: DOMRect,
   gridRect: DOMRect,

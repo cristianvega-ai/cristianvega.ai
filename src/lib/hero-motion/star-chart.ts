@@ -9,10 +9,10 @@ import {
 // Chart palette for the dark masthead
 export const STAR = "#E4E9F2";
 export const SIGNAL = "#D42A3C";
-export const EMBER = "#F2792B";
+const EMBER = "#F2792B";
 export const CHART_META = "#7C8595";
 
-export const TRANSFER_EDGE_FRACTION = 0.32;
+const TRANSFER_EDGE_FRACTION = 0.32;
 export const SATELLITE_PERIOD = 9000;
 export const SATELLITE_DURATION = 1500;
 export const SATELLITE_FIRST_PASS = 2600;
