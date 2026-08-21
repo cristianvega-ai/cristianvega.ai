@@ -9,7 +9,7 @@ import { assertPageBasics, dist, readDistFile } from "./helpers.mjs";
 // accessibility landmarks, SEO metadata, navigation state, and truthful links.
 // Hero motion belongs to tests/hero-motion.test.mjs, even on the homepage.
 
-test("homepage keeps the portfolio theme and links to the writing index", () => {
+test("homepage keeps the portfolio theme and the profile copy", () => {
   const html = readDistFile("index.html");
 
   assertPageBasics(html, { titleFragment: "Cristian Vega" });
