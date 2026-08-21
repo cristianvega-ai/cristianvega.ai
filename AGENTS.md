@@ -65,6 +65,7 @@ npm run test:e2e         # browser tests only; requires a current dist/
 npm run verify:deploy    # post-deploy: live security headers + real 404
 npm audit
 npm run generate:portrait
+npm run generate:touch-icon
 ```
 
 ## Testing Strategy
