@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { tabTo, VIEWPORTS } from "./fixtures.mjs";
+import { tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 /**
  * The hero entrance is a runtime contract: an animation clock, a sessionStorage
@@ -385,14 +385,9 @@ test.describe("the pre-hide gate never strands the hero copy", () => {
   });
 });
 
-/**
- * Both specs below set the preference with `page.emulateMedia`. The
- * `test.use({ reducedMotion })` fixture does not reach `matchMedia` here, and a
- * spec that silently runs unreduced would assert nothing.
- */
 test.describe("reduced motion", () => {
   test("the hero is readable at once and no entrance runs", async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: "reduce" });
+    await useReducedMotion(page);
     await recordMotionMarks(page);
     await page.goto("/");
 
@@ -410,13 +405,13 @@ test.describe("reduced motion", () => {
   });
 
   test("the preference set during the entrance stops the motion", async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await useReducedMotion(page, "no-preference");
     await recordMotionMarks(page);
     await page.goto("/");
     await expect(hero(page)).toHaveAttribute("data-motion-state", "playing");
 
     const changedAt = await pageClock(page);
-    await page.emulateMedia({ reducedMotion: "reduce" });
+    await useReducedMotion(page);
 
     await expect(hero(page)).toHaveAttribute("data-motion-state", "complete");
     await expect(hero(page)).not.toHaveAttribute("data-motion-mode");

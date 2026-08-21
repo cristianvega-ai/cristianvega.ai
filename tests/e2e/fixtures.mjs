@@ -34,7 +34,7 @@ export async function settle(page) {
 }
 
 /**
- * Turn on the reduced-motion preference for this page.
+ * Set the reduced-motion preference for this page.
  *
  * Always use this. `test.use({ reducedMotion: "reduce" })` is a silent no-op in
  * this project — under Playwright 1.62.1 the option never reaches the context,
@@ -42,25 +42,8 @@ export async function settle(page) {
  * test runs with motion fully enabled while appearing to assert the opposite.
  * It fails open, so nothing warns you. `page.emulateMedia` works correctly.
  */
-export async function useReducedMotion(page) {
-  await page.emulateMedia({ reducedMotion: "reduce" });
-}
-
-/** Track count of a grid, read off the resolved template rather than the rule. */
-export async function columnCount(page, selector) {
-  const template = await page
-    .locator(selector)
-    .evaluate((el) => getComputedStyle(el).gridTemplateColumns);
-
-  return template.split(/\s+/).filter(Boolean).length;
-}
-
-/**
- * The layout viewport, which a classic scrollbar narrows below the nominal
- * width. Full-bleed assertions must compare against this or they flap.
- */
-export function layoutWidth(page) {
-  return page.evaluate(() => document.documentElement.clientWidth);
+export async function useReducedMotion(page, reducedMotion = "reduce") {
+  await page.emulateMedia({ reducedMotion });
 }
 
 /** Tab forward until the target holds focus, so :focus-visible genuinely applies. */
