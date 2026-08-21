@@ -1,13 +1,11 @@
-// This file re-exports getPublishedPosts from published-posts.mjs and adds
-// the date helpers. The split exists so Node tests can import the selector
-// without the Astro content loader.
 import type { CollectionEntry } from "astro:content";
-import { getPublishedPosts as selectPublishedPosts } from "./published-posts.mjs";
 
 type Post = CollectionEntry<"posts">;
 
 export function getPublishedPosts(posts: Post[]): Post[] {
-  return selectPublishedPosts(posts);
+  return posts
+    .filter((post) => !post.data.draft)
+    .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 }
 
 export function getPostHref(post: Post): string {
