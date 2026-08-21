@@ -37,7 +37,6 @@ function clearTargetStyles(root: HTMLElement) {
   clearHeroMotionPending();
   root.querySelectorAll<HTMLElement>("[data-motion-target]").forEach((element) => {
     element.style.removeProperty("opacity");
-    element.style.removeProperty("--motion-reveal");
   });
 }
 

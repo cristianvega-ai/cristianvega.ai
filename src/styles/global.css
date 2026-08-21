@@ -405,8 +405,7 @@ body:has(.hero) {
 
 /* Cold-load pre-hide: only while the head script's pending flag is set.
    Reduced-motion users never get the attribute; the reduce branch also forces
-   opacity 1. Action targets use opacity (not --motion-reveal) here so buttons
-   stay fully gone until JS takes over with data-motion-state="playing". */
+   opacity 1. */
 @media (prefers-reduced-motion: no-preference) {
   html[data-hero-motion-pending] .hero [data-motion-target] {
     opacity: 0;
@@ -931,7 +930,6 @@ body:has(.hero) {
   .hero [data-motion-target] {
     opacity: 1 !important;
     transform: none !important;
-    --motion-reveal: 1;
   }
 }
 
