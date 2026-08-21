@@ -9,8 +9,8 @@ import {
   type TargetKind,
 } from "./timeline";
 
-export const MAX_TRANSFER_SOURCES = 96;
-export const MAX_COPY_PARTICLES = 2800;
+const MAX_TRANSFER_SOURCES = 96;
+const MAX_COPY_PARTICLES = 2800;
 
 export type CopyParticle = {
   x: number;
@@ -359,7 +359,7 @@ function drawCopyFrame(
 }
 
 /** Progressive per-target DOM handoff — no global finish() cross-fade. */
-export function updateDomReveal(elapsed: number, targets: TargetBinding[]): void {
+function updateDomReveal(elapsed: number, targets: TargetBinding[]): void {
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i];
     const coverage = progress(elapsed, target.window);

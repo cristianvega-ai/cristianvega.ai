@@ -31,7 +31,7 @@ export const TARGET_WINDOWS: Record<TargetKind, readonly [number, number]> = {
   subhead: WINDOWS.subhead,
 };
 
-export function hasPlayedThisSession(): boolean {
+function hasPlayedThisSession(): boolean {
   try {
     return sessionStorage.getItem(SESSION_KEY) === "1";
   } catch {
