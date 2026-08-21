@@ -111,7 +111,7 @@ Static operational assets:
 Requires `sharp` (devDependency).
 
 ```bash
-# OG share card (1200×630 JPEG)
+# OG share card (1200×630 JPEG) from assets/cristian-vega.png
 # → public/images/cristian-vega-og.jpg
 npm run generate:portrait
 ```
