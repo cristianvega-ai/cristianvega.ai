@@ -55,6 +55,16 @@ test("htaccess scopes immutable caching away from stable image URLs", () => {
     /ExpiresByType\s+image\/(webp|avif|png|svg\+xml)\s+"access plus 1 year"/,
     "image Expires must not keep a one-year freshness lifetime",
   );
+  assert.doesNotMatch(
+    htaccess,
+    /ExpiresByType\s+image\/webp/,
+    "the site does not ship WebP, so it must not set a WebP freshness lifetime",
+  );
+  assert.doesNotMatch(
+    htaccess,
+    /ExpiresByType\s+image\/avif/,
+    "the site does not ship AVIF, so it must not set an AVIF freshness lifetime",
+  );
 });
 
 test("htaccess CSP denies inline scripts while allowing inline styles", () => {
