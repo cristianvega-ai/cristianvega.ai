@@ -129,3 +129,10 @@ test("compiled css assets are emitted", () => {
   const css = cssFiles.map((file) => readFileSync(join(astroDir, file), "utf8")).join("\n");
   assert.match(css, /html\[data-hero-motion-pending\]/);
 });
+
+// The About-strip portrait files have no consumer. They must not copy into
+// dist/, because the deploy uploads everything in dist/.
+test("the unused portrait strip does not ship in the build", () => {
+  assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.webp")), false);
+  assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.avif")), false);
+});

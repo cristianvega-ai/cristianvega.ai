@@ -172,12 +172,12 @@ test("active navigation exposes aria-current=page", () => {
   assert.doesNotMatch(contact, /href="\/about\/"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/about\/"/i);
 });
 
-// Every derivative below comes from one committed master through
-// scripts/generate-portrait.mjs. The share card is the load-bearing one: the
-// og:image URL asserted above is a promise the build has to keep, and a missing
-// file there breaks link previews everywhere without breaking a page.
-test("generated image derivatives ship in the build", () => {
+// The share card is the load-bearing derivative: the og:image URL asserted
+// above is a promise the build has to keep. A missing file there breaks link
+// previews everywhere without breaking a page. The About-strip files have no
+// consumer and must not enter dist/.
+test("the share card ships and the unused portrait strip does not", () => {
   assert.equal(existsSync(join(dist, "images", "cristian-vega-og.jpg")), true);
-  assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.webp")), true);
-  assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.avif")), true);
+  assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.webp")), false);
+  assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.avif")), false);
 });
