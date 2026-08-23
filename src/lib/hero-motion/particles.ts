@@ -12,7 +12,7 @@ import {
 const MAX_TRANSFER_SOURCES = 96;
 const MAX_COPY_PARTICLES = 2800;
 
-export type CopyParticle = {
+type CopyParticle = {
   x: number;
   y: number;
   r: number;
@@ -21,7 +21,7 @@ export type CopyParticle = {
   target: TargetKind;
 };
 
-export type TransferParticle = {
+type TransferParticle = {
   start: Point;
   control1: Point;
   control2: Point;
