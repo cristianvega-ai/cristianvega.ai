@@ -172,6 +172,39 @@ test("active navigation exposes aria-current=page", () => {
   assert.doesNotMatch(contact, /href="\/about\/"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/about\/"/i);
 });
 
+test("every key page loads the self-hosted GoatCounter scripts", () => {
+  const pages = [
+    ["index.html"],
+    ["writing", "index.html"],
+    ["projects", "index.html"],
+    ["about", "index.html"],
+    ["contact", "index.html"],
+    ["posts", "from-bert-to-agents", "index.html"],
+    ["404.html"],
+  ];
+
+  for (const segments of pages) {
+    const html = readDistFile(...segments);
+    const name = segments.join("/");
+    const scriptTags = [...html.matchAll(/<script\b[^>]*>/gi)].map(([tag]) => tag);
+
+    const counter = scriptTags.find((tag) => tag.includes('src="/js/count.v5.js"'));
+    assert.ok(counter, `${name} must load the vendored count script from /js/`);
+    assert.match(
+      counter,
+      /data-goatcounter="https:\/\/cristianvegaai\.goatcounter\.com\/count"/,
+      `${name} must aim the beacon at the https GoatCounter count URL`,
+    );
+    assert.match(counter, /\basync\b/, `${name} must not block rendering on the count script`);
+
+    const swapCounter = scriptTags.find((tag) => tag.includes('src="/js/goatcounter.js"'));
+    assert.ok(swapCounter, `${name} must load the ClientRouter swap counter from /js/`);
+
+    // Self-hosted means self-hosted: no page may reference the GoatCounter CDN.
+    assert.doesNotMatch(html, /gc\.zgo\.at/, `${name} must not load the GoatCounter CDN`);
+  }
+});
+
 // Every derivative below comes from one committed master through
 // scripts/generate-portrait.mjs. The share card is the load-bearing one: the
 // og:image URL asserted above is a promise the build has to keep, and a missing
