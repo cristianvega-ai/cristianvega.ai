@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
@@ -113,6 +114,23 @@ test("static ops assets ship with the build", () => {
   const notFound = readDistFile("404.html");
   assertPageBasics(notFound, { titleFragment: "Page not found" });
   assert.match(notFound, /href="\/"/);
+});
+
+test("analytics scripts ship with the build and match the pinned release", () => {
+  assert.equal(existsSync(join(dist, "js", "goatcounter.js")), true);
+  assert.equal(existsSync(join(dist, "js", "count.v5.js")), true);
+
+  // The vendored file must stay byte-identical to the upstream release. The
+  // expected value is the SRI hash GoatCounter publishes for count.v5.js, so
+  // anyone can re-check the pin against https://gc.zgo.at/count.v5.js.
+  const digest = createHash("sha384")
+    .update(readFileSync(join(dist, "js", "count.v5.js")))
+    .digest("base64");
+  assert.equal(
+    `sha384-${digest}`,
+    "sha384-atnOLvQb9t+jTSipvd75X2yginT4PjVbqDdlJAmxMm+wYElFmeR6EmLP5bYeoRVQ",
+    "dist/js/count.v5.js must stay byte-identical to the pinned GoatCounter release",
+  );
 });
 
 test("compiled css assets are emitted", () => {
