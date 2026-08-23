@@ -77,6 +77,7 @@ The suite has two runners and one file per concern. Put each new test in the lay
 | Pages | `tests/pages.test.mjs` | Rendered HTML content, headings, metadata, and navigation state. |
 | Security | `tests/security.test.mjs` | `.htaccess` rules, the CSP, response headers, and the post-deploy gate. |
 | Design tokens | `tests/design-tokens.test.mjs` | Design-token hygiene in `global.css`. |
+| Selector hygiene | `tests/css-hygiene.test.mjs` | A class that is the subject of `:focus` or `:focus-visible` must be able to receive focus. |
 | CSS | `tests/motion-css.test.mjs` | Rules that must survive compilation, such as the reduced-motion contract. |
 | Behavior | `tests/e2e/*.spec.mjs` | Computed layout, sticky and responsive rules, focus, and runtime JavaScript. |
 
