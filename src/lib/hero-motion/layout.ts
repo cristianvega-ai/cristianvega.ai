@@ -1,6 +1,6 @@
 const MAX_PIXEL_RATIO = 2;
 
-export type Rect = { left: number; top: number; width: number; height: number };
+type Rect = { left: number; top: number; width: number; height: number };
 
 export type CanvasLayer = {
   canvas: HTMLCanvasElement;

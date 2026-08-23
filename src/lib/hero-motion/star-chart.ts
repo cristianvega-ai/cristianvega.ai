@@ -7,16 +7,16 @@ import {
 } from "./timeline";
 
 // Chart palette for the dark masthead
-export const STAR = "#E4E9F2";
+const STAR = "#E4E9F2";
 export const SIGNAL = "#D42A3C";
 const EMBER = "#F2792B";
-export const CHART_META = "#7C8595";
+const CHART_META = "#7C8595";
 
 const TRANSFER_EDGE_FRACTION = 0.32;
 export const SATELLITE_PERIOD = 9000;
 export const SATELLITE_DURATION = 1500;
 export const SATELLITE_FIRST_PASS = 2600;
-export const SATELLITE_TRAIL_LENGTH = 16;
+const SATELLITE_TRAIL_LENGTH = 16;
 // Ambient repaint budget (~15fps): the slow twinkle and Vega's breath read
 // identically at this cadence; satellite passes still draw every frame.
 export const AMBIENT_FRAME_INTERVAL_MS = 66;
