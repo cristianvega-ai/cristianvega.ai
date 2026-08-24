@@ -955,7 +955,7 @@ body:has(.hero) {
 @media (prefers-reduced-motion: no-preference) {
   /* HOME has no page-level entrance. The hero motion module owns that run. */
 
-  /* WRITING — the same calm rise as contact */
+  /* WRITING — a calm rise */
   [data-page="writing"] main {
     animation: riseIn 0.6s both ease-out;
   }
