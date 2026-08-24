@@ -6,17 +6,16 @@ export const SESSION_KEY = "cristianvega:hero-motion:v1";
 export const PORTRAIT_DOT_DURATION = 520;
 export const TRANSFER_TRAVEL_DURATION = 620;
 
-// Overlapping target windows (ms). The copy targets finish at 1950. The full
+// Overlapping target windows (ms). The copy targets finish at 1650. The full
 // clock runs to 2450, because the star chart settles on the same clock.
 export const WINDOWS = {
   transfer: [450, 1450],
   eyebrow: [720, 1320],
   name: [850, 1550],
   highlight: [1000, 1650],
-  subhead: [1100, 1950],
 } as const;
 
-export type TargetKind = "eyebrow" | "name" | "highlight" | "subhead";
+export type TargetKind = "eyebrow" | "name" | "highlight";
 
 export type TargetBinding = {
   element: HTMLElement;
@@ -28,7 +27,6 @@ export const TARGET_WINDOWS: Record<TargetKind, readonly [number, number]> = {
   eyebrow: WINDOWS.eyebrow,
   name: WINDOWS.name,
   highlight: WINDOWS.highlight,
-  subhead: WINDOWS.subhead,
 };
 
 function hasPlayedThisSession(): boolean {

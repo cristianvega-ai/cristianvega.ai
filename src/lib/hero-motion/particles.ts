@@ -171,7 +171,6 @@ function collectTextParticles(root: HTMLElement, layout: Layout): CopyParticle[]
   const eyebrow = root.querySelector<HTMLElement>('[data-motion-target="eyebrow"]');
   const name = root.querySelector<HTMLElement>('[data-motion-target="name"]');
   const highlight = root.querySelector<HTMLElement>('[data-motion-target="highlight"]');
-  const subhead = root.querySelector<HTMLElement>('[data-motion-target="subhead"]');
 
   if (eyebrow) sampleTextElement(eyebrow, hostRect, "eyebrow", copy, budget);
   if (name) sampleTextElement(name, hostRect, "name", copy, budget);
@@ -179,7 +178,6 @@ function collectTextParticles(root: HTMLElement, layout: Layout): CopyParticle[]
   if (highlight) {
     sampleTextElement(highlight, hostRect, "highlight", copy, budget, SIGNAL);
   }
-  if (subhead) sampleTextElement(subhead, hostRect, "subhead", copy, budget);
 
   if (offsetX !== 0 || offsetY !== 0) {
     for (let i = 0; i < copy.length; i++) {
@@ -384,7 +382,7 @@ export function drawFrame(
 }
 
 export function collectTargetBindings(root: HTMLElement): TargetBinding[] {
-  const kinds: TargetKind[] = ["eyebrow", "name", "highlight", "subhead"];
+  const kinds: TargetKind[] = ["eyebrow", "name", "highlight"];
   const bindings: TargetBinding[] = [];
   for (let i = 0; i < kinds.length; i++) {
     const kind = kinds[i];
