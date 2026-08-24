@@ -13,7 +13,6 @@ test("homepage keeps the portfolio theme and the profile copy", () => {
   const html = readDistFile("index.html");
 
   assertPageBasics(html, { titleFragment: "Cristian Vega" });
-  assert.match(html, /where mistakes are expensive/);
 
   // The profile is the page. It replaced a separate About page, so the words
   // must be in the served HTML, not assembled by script after load.
@@ -24,14 +23,15 @@ test("homepage keeps the portfolio theme and the profile copy", () => {
   assert.match(html, /45-person AI engineering organization/);
   assert.match(html, /BBVA/);
 
-  // The hero holds copy only now. A stray button would re-enter the motion
-  // choreography, which no longer has a window for one.
+  // The hero holds a name and the profile now. A stray button or subhead would
+  // re-enter the motion choreography, which no longer has a window for one.
   assert.doesNotMatch(html, /data-motion-target="(primary|secondary)-action"/);
   assert.doesNotMatch(html, /class="[^"]*hero__actions[^"]*"/);
+  assert.doesNotMatch(html, /data-motion-target="subhead"/);
+  assert.doesNotMatch(html, /class="[^"]*hero__sub[^"]*"/);
   // Hero copy must remain in HTML. Pre-hide is gated on a head-stamped attribute
   // (not html.js), so no-JS never blanks the copy.
   assert.match(html, /class="[^"]*hero__name[^"]*"/);
-  assert.match(html, /class="[^"]*hero__sub[^"]*"/);
   assert.doesNotMatch(html, /html\.js|classList\.add\(["']js["']\)/);
   assert.match(html, /data-hero-motion-pending/);
 });

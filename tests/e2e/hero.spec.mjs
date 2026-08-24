@@ -23,8 +23,8 @@ const MOTION_LAYER = "[data-hero-motion]";
 const PENDING = "data-hero-motion-pending";
 const SESSION_KEY = "cristianvega:hero-motion:v1";
 
-/** The four hero lines the entrance hides and then hands back to the DOM. */
-const TARGETS = ["eyebrow", "name", "highlight", "subhead"];
+/** The three hero lines the entrance hides and then hands back to the DOM. */
+const TARGETS = ["eyebrow", "name", "highlight"];
 
 /** Long enough for the full entrance plus the module failsafe, never longer. */
 const SETTLE_TIMEOUT = 6000;
@@ -108,16 +108,16 @@ function handoffReveal(page) {
     (limit) =>
       new Promise((resolve) => {
         const root = document.querySelector(".hero");
-        const action = document.querySelector('[data-motion-target="subhead"]');
+        const last = document.querySelector('[data-motion-target="highlight"]');
         const deadline = performance.now() + limit;
-        let last = null;
+        let arrived = null;
 
         const sample = () => {
           if (root.dataset.motionState === "complete" || performance.now() > deadline) {
-            resolve(last);
+            resolve(arrived);
             return;
           }
-          last = Number(getComputedStyle(action).opacity);
+          arrived = Number(getComputedStyle(last).opacity);
           requestAnimationFrame(sample);
         };
 
@@ -158,9 +158,6 @@ test.describe("the first visit plays the full entrance", () => {
 
     // The words themselves, not just the boxes that hold them.
     await expect(page.locator(".hero__name")).toHaveText("Cristian Vega");
-    await expect(target(page, "subhead")).toHaveText(
-      "I build agentic AI where mistakes are expensive, and lead the teams that ship it.",
-    );
 
     // Only a finished run claims the session.
     expect(await sessionFlag(page)).toBe("1");
@@ -172,7 +169,7 @@ test.describe("the first visit plays the full entrance", () => {
 
     const reveal = await handoffReveal(page);
 
-    // The subhead is the last window to close, so it owns the end of the copy
+    // The highlight is the last window to close, so it owns the end of the copy
     // run. A window that outlasted the clock would snap it into place.
     expect(reveal).toBeGreaterThan(0.9);
   });
@@ -432,9 +429,6 @@ test.describe("without javascript", () => {
     // Pre-hide is stamped by a script, so no script means no hidden copy.
     await expect(page.locator("html")).not.toHaveAttribute(PENDING);
     await expect(page.locator(".hero__name")).toHaveText("Cristian Vega");
-    await expect(target(page, "subhead")).toHaveText(
-      "I build agentic AI where mistakes are expensive, and lead the teams that ship it.",
-    );
 
     for (const kind of TARGETS) {
       await expect(target(page, kind)).toHaveCSS("opacity", "1");
