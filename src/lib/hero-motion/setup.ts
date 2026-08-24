@@ -62,7 +62,7 @@ function settleToStatic(
   options: { markSession?: boolean } = {},
 ) {
   if (layout) {
-    drawStaticScene(layout.portrait);
+    drawStaticScene(layout.sky, sceneFor(layout.sky, layout.chart));
     const { ctx, rect, dpr, canvas } = layout.copy;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, rect.width, rect.height);
@@ -129,7 +129,7 @@ export async function setup() {
     const next = measureLayout(root);
     if (!next) return false;
     layout = next;
-    drawStaticScene(next.portrait);
+    drawStaticScene(next.sky, sceneFor(next.sky, next.chart));
     return true;
   };
 
@@ -141,7 +141,7 @@ export async function setup() {
   const startAmbient = () => {
     if (motionQuery.matches || !layout) return;
     cancelAnimationFrame(ambientFrameId);
-    const scene = sceneFor(layout.portrait);
+    const scene = sceneFor(layout.sky, layout.chart);
     let start = 0;
     let lastDraw = -Infinity;
     const tick = (t: number) => {
@@ -155,7 +155,7 @@ export async function setup() {
         (ambientT - SATELLITE_FIRST_PASS) % SATELLITE_PERIOD < SATELLITE_DURATION;
       if (satellitePass || ambientT - lastDraw >= AMBIENT_FRAME_INTERVAL_MS) {
         lastDraw = ambientT;
-        drawStaticScene(layout.portrait, scene, ambientT);
+        drawStaticScene(layout.sky, scene, ambientT);
       }
       ambientFrameId = requestAnimationFrame(tick);
     };

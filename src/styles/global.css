@@ -18,7 +18,6 @@
   --meta: #586173;
   --meta-on-dark: #98A1B0;
   --masthead-text: #EAEDF2;
-  --masthead-line: rgba(255, 255, 255, 0.1);
   --grid-line: rgba(255, 255, 255, 0.028);
   --grid-line-light: rgba(20, 24, 31, 0.055);
   --tag-slate: #1D5FB0;
@@ -366,11 +365,11 @@ body:has(.hero) {
   pointer-events: none;
 }
 
-/* left column: the Lyra star chart — Vega is the surname — in light ink */
-.hero__portrait-col {
+/* Left column: empty in flow. It reserves the copy's measure and gives the
+   Lyra figure — Vega is the surname — a box to be anchored in. The star field
+   itself spans the whole masthead, so this column carries no divider. */
+.hero__chart-col {
   position: relative;
-  overflow: hidden;
-  border-right: 1px solid var(--masthead-line);
 }
 
 /* Decorative dual-canvas layer; real hero copy stays above (z-index) and visible */
@@ -381,7 +380,7 @@ body:has(.hero) {
   pointer-events: none;
 }
 
-.hero__portrait-canvas,
+.hero__sky-canvas,
 .hero__copy-canvas {
   position: absolute;
   display: block;
@@ -825,10 +824,8 @@ body:has(.hero) {
     grid-template-columns: 1fr;
   }
 
-  .hero__portrait-col {
+  .hero__chart-col {
     height: 300px;
-    border-right: 0;
-    border-bottom: 1px solid var(--masthead-line);
   }
 
   .projects {

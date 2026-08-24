@@ -1,6 +1,6 @@
 import { clamp, cubicPoint, FULL_TURN_RADIANS, progress, smoothstep, type Point } from "./easing";
 import type { CanvasLayer, Layout } from "./layout";
-import { drawSceneFrame, sceneFor, SIGNAL, type PortraitPrep } from "./star-chart";
+import { drawSceneFrame, sceneFor, SIGNAL, type SkyPrep } from "./star-chart";
 import {
   TARGET_WINDOWS,
   TRANSFER_TRAVEL_DURATION,
@@ -33,9 +33,11 @@ type TransferParticle = {
 };
 
 export type MotionPrep = {
-  portrait: PortraitPrep;
+  sky: SkyPrep;
   copy: CopyParticle[];
   transfers: TransferParticle[];
+  /** Field stars that actually shed a particle, indexed like the star arrays. */
+  sources: Uint8Array;
 };
 
 // Reused per frame — never allocate points inside the animation frame loop
@@ -190,44 +192,66 @@ function collectTextParticles(root: HTMLElement, layout: Layout): CopyParticle[]
 }
 
 /**
- * Pair right-band field stars with copy destinations; build cubic paths once.
- * Stars are fewer than destinations, so each source star emits several
- * staggered particles — starlight streaming across the seam into the copy.
- * Coordinates are grid-local (full-grid copy canvas).
+ * Pair field stars with copy destinations; build cubic paths once.
+ * Sources are drawn from right around the sky rather than one edge band, so the
+ * copy forms out of starlight arriving from every direction. Stars sitting on
+ * top of the copy are skipped: a transfer that travels no distance reads as a
+ * flicker, not as travel. Coordinates are grid-local, which both layers share.
  */
 function prepareTransferParticles(
-  portrait: PortraitPrep,
+  sky: SkyPrep,
   copy: CopyParticle[],
   layout: Layout,
-): TransferParticle[] {
-  if (!portrait.sourceIndices.length || !copy.length) return [];
-
-  // Portrait layer origin within the shared grid-sized copy canvas
-  const originX = layout.portrait.rect.left - layout.copy.rect.left;
-  const originY = layout.portrait.rect.top - layout.copy.rect.top;
+): { transfers: TransferParticle[]; sources: Uint8Array } {
+  const sources = new Uint8Array(sky.starCount);
+  if (!copy.length) return { transfers: [], sources };
 
   // Destinations ordered for stable pairing (top-to-bottom, then left-to-right)
   const destOrder = copy
     .map((_, i) => i)
     .sort((a, b) => copy[a].y - copy[b].y || copy[a].x - copy[b].x);
 
-  const sources = portrait.sourceIndices;
+  let centroidX = 0;
+  let centroidY = 0;
+  for (let i = 0; i < copy.length; i++) {
+    centroidX += copy[i].x;
+    centroidY += copy[i].y;
+  }
+  centroidX /= copy.length;
+  centroidY /= copy.length;
+
+  // Candidates far enough out that the journey reads, ordered by bearing so
+  // consecutive transfers set off from different parts of the sky.
+  const minTravel = Math.min(layout.sky.rect.width, layout.sky.rect.height) * 0.22;
+  const candidates: number[] = [];
+  for (let i = sky.fieldStart; i < sky.starCount; i++) {
+    if (Math.hypot(sky.screenX[i] - centroidX, sky.screenY[i] - centroidY) >= minTravel) {
+      candidates.push(i);
+    }
+  }
+  if (!candidates.length) {
+    for (let i = sky.fieldStart; i < sky.starCount; i++) candidates.push(i);
+  }
+  if (!candidates.length) return { transfers: [], sources };
+  candidates.sort(
+    (a, b) =>
+      Math.atan2(sky.screenY[a] - centroidY, sky.screenX[a] - centroidX) -
+      Math.atan2(sky.screenY[b] - centroidY, sky.screenX[b] - centroidX),
+  );
+
   const transfers: TransferParticle[] = [];
   const transferCount = Math.min(MAX_TRANSFER_SOURCES, destOrder.length);
 
   for (let i = 0; i < transferCount; i++) {
-    const sourceIndex = sources[i % sources.length];
+    const sourceIndex = candidates[i % candidates.length];
     const destinationIndex = destOrder[Math.floor((i / transferCount) * destOrder.length)];
     const dest = copy[destinationIndex];
 
-    const start: Point = {
-      x: originX + portrait.screenX[sourceIndex],
-      y: originY + portrait.screenY[sourceIndex],
-    };
+    const start: Point = { x: sky.screenX[sourceIndex], y: sky.screenY[sourceIndex] };
     const end: Point = { x: dest.x, y: dest.y };
     const deltaX = end.x - start.x;
     const deltaY = end.y - start.y;
-    // Mild arc perpendicular to travel — L→R desktop, T→B stacked both work
+    // Mild arc perpendicular to travel — works from any bearing
     const len = Math.hypot(deltaX, deltaY) || 1;
     const arc = (0.08 + (i % 5) * 0.02) * len * (i % 2 === 0 ? 1 : -1);
     const normalX = -deltaY / len;
@@ -242,20 +266,21 @@ function prepareTransferParticles(
       y: start.y + deltaY * 0.68 + normalY * arc * 0.55,
     };
 
+    sources[sourceIndex] = 1;
     // Stagger within transfer window 450–1450ms
     transfers.push({
       start,
       control1,
       control2,
       end,
-      r: Math.max(0.8, Math.min(portrait.starRadius[sourceIndex] + 0.6, dest.r)),
+      r: Math.max(0.8, Math.min(sky.starRadius[sourceIndex] + 0.6, dest.r)),
       color: dest.color,
       delay: WINDOWS.transfer[0] + (i / Math.max(1, transferCount - 1)) * 400 + Math.random() * 120,
       sourceIndex,
     });
   }
 
-  return transfers;
+  return { transfers, sources };
 }
 
 /**
@@ -263,16 +288,16 @@ function prepareTransferParticles(
  * Returns null if required targets produced no usable masks.
  */
 export function prepareMotion(root: HTMLElement, layout: Layout): MotionPrep | null {
-  const portrait = sceneFor(layout.portrait);
+  const sky = sceneFor(layout.sky, layout.chart);
   const copy = collectTextParticles(root, layout);
 
   // Require core copy masks; name/eyebrow text and Vega highlight glyphs both count
   const hasText = copy.some((particle) => particle.kind === "text" || particle.kind === "highlight");
   if (!hasText) return null;
 
-  const transfers = prepareTransferParticles(portrait, copy, layout);
+  const { transfers, sources } = prepareTransferParticles(sky, copy, layout);
 
-  return { portrait, copy, transfers };
+  return { sky, copy, transfers, sources };
 }
 
 /**
@@ -376,7 +401,7 @@ export function drawFrame(
   prep: MotionPrep,
   targets: TargetBinding[],
 ): void {
-  drawSceneFrame(elapsed, layout.portrait, prep.portrait, prep.transfers);
+  drawSceneFrame(elapsed, layout.sky, prep.sky, prep.transfers, prep.sources);
   drawCopyFrame(elapsed, layout.copy, prep);
   updateDomReveal(elapsed, targets);
 }

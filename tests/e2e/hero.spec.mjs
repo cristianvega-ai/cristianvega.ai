@@ -18,6 +18,7 @@ import { tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 const { desktop: DESKTOP, tablet: TABLET, mobile: MOBILE } = VIEWPORTS;
 
 const HERO = ".hero";
+const SKY_CANVAS = ".hero__sky-canvas";
 const COPY_CANVAS = ".hero__copy-canvas";
 const MOTION_LAYER = "[data-hero-motion]";
 const PENDING = "data-hero-motion-pending";
@@ -185,6 +186,7 @@ test.describe("the first visit plays the full entrance", () => {
       };
       return {
         grid: box(".hero__grid"),
+        sky: box(".hero__sky-canvas"),
         copy: box(".hero__copy-canvas"),
         main: box(".hero__main"),
       };
@@ -192,13 +194,16 @@ test.describe("the first visit plays the full entrance", () => {
 
     await expect(page.locator(COPY_CANVAS)).toHaveCSS("display", "block");
 
-    // Particles travel out of the portrait region into the copy region. A layer
-    // sized to the copy column alone would clip that journey at the seam.
-    expect(Math.abs(boxes.copy.x - boxes.grid.x)).toBeLessThanOrEqual(1);
-    expect(Math.abs(boxes.copy.y - boxes.grid.y)).toBeLessThanOrEqual(1);
-    expect(Math.abs(boxes.copy.width - boxes.grid.width)).toBeLessThanOrEqual(1);
-    expect(Math.abs(boxes.copy.height - boxes.grid.height)).toBeLessThanOrEqual(1);
-    expect(boxes.copy.width).toBeGreaterThan(boxes.main.width);
+    // Both layers cover the whole masthead: the sky so stars reach every
+    // corner, the copy so a transfer arriving from any bearing stays on canvas.
+    // A layer sized to one column would clip both at the seam.
+    for (const layer of ["sky", "copy"]) {
+      expect(Math.abs(boxes[layer].x - boxes.grid.x)).toBeLessThanOrEqual(1);
+      expect(Math.abs(boxes[layer].y - boxes.grid.y)).toBeLessThanOrEqual(1);
+      expect(Math.abs(boxes[layer].width - boxes.grid.width)).toBeLessThanOrEqual(1);
+      expect(Math.abs(boxes[layer].height - boxes.grid.height)).toBeLessThanOrEqual(1);
+      expect(boxes[layer].width).toBeGreaterThan(boxes.main.width);
+    }
   });
 
   test("a full run keeps the console clean", async ({ page }) => {
@@ -441,7 +446,7 @@ test.describe("hero structure and decorative layers", () => {
     await page.goto("/");
 
     await expect(page.locator(MOTION_LAYER)).toHaveCount(1);
-    await expect(page.locator(".hero__portrait-canvas")).toHaveCount(1);
+    await expect(page.locator(SKY_CANVAS)).toHaveCount(1);
     await expect(page.locator(COPY_CANVAS)).toHaveCount(1);
     // Two layers and no more: superseded canvases must not ship beside them.
     await expect(page.locator(`${HERO} canvas`)).toHaveCount(2);
@@ -455,6 +460,20 @@ test.describe("hero structure and decorative layers", () => {
     await expect(page.locator("[data-motion-active]")).toHaveCount(0);
   });
 
+  test("no divider splits the masthead at any width", async ({ page }) => {
+    // The star field spans the whole grid now, so a border on the chart column
+    // would draw a seam straight through it. The stacked layout used to carry
+    // the same rule as a bottom border, so both widths are proved.
+    for (const viewport of [DESKTOP, MOBILE]) {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+
+      const column = page.locator(".hero__chart-col");
+      await expect(column).toHaveCSS("border-right-width", "0px");
+      await expect(column).toHaveCSS("border-bottom-width", "0px");
+    }
+  });
+
   test("the canvas layers take no pointer input and hold no focus", async ({ page }) => {
     await page.addInitScript((key) => sessionStorage.setItem(key, "1"), SESSION_KEY);
     await page.goto("/");
@@ -462,7 +481,7 @@ test.describe("hero structure and decorative layers", () => {
 
     await expect(page.locator(MOTION_LAYER)).toHaveAttribute("aria-hidden", "true");
     await expect(page.locator(MOTION_LAYER)).toHaveCSS("pointer-events", "none");
-    await expect(page.locator(".hero__portrait-canvas")).toHaveCSS("pointer-events", "none");
+    await expect(page.locator(SKY_CANVAS)).toHaveCSS("pointer-events", "none");
     await expect(page.locator(COPY_CANVAS)).toHaveCSS("pointer-events", "none");
 
     await expect(page.locator(`${MOTION_LAYER} a, ${MOTION_LAYER} [tabindex]`)).toHaveCount(0);
