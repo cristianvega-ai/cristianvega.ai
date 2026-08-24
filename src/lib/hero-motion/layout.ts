@@ -1,6 +1,6 @@
 const MAX_PIXEL_RATIO = 2;
 
-type Rect = { left: number; top: number; width: number; height: number };
+export type Rect = { left: number; top: number; width: number; height: number };
 
 export type CanvasLayer = {
   canvas: HTMLCanvasElement;
@@ -10,8 +10,10 @@ export type CanvasLayer = {
 };
 
 export type Layout = {
-  portrait: CanvasLayer;
+  sky: CanvasLayer;
   copy: CanvasLayer;
+  /** Grid-local box the Lyra figure is anchored to. Stars fill the whole sky. */
+  chart: Rect;
 };
 
 function sizeLayer(
@@ -35,8 +37,8 @@ function sizeLayer(
   canvas.style.top = `${rect.top}px`;
   canvas.style.width = `${rect.width}px`;
   canvas.style.height = `${rect.height}px`;
-  // Chart stays visible; copy canvas display is managed by reveal/animation paths
-  if (canvas.classList.contains("hero__portrait-canvas")) {
+  // Sky stays visible; copy canvas display is managed by reveal/animation paths
+  if (canvas.classList.contains("hero__sky-canvas")) {
     canvas.style.display = "block";
   }
 
@@ -48,26 +50,33 @@ function sizeLayer(
 
 export function measureLayout(root: HTMLElement): Layout | null {
   const grid = root.querySelector<HTMLElement>(".hero__grid");
-  const portraitCol = root.querySelector<HTMLElement>(".hero__portrait-col");
+  const chartCol = root.querySelector<HTMLElement>(".hero__chart-col");
   const main = root.querySelector<HTMLElement>(".hero__main");
-  const portraitCanvas = root.querySelector<HTMLCanvasElement>(".hero__portrait-canvas");
+  const skyCanvas = root.querySelector<HTMLCanvasElement>(".hero__sky-canvas");
   const copyCanvas = root.querySelector<HTMLCanvasElement>(".hero__copy-canvas");
 
-  if (!grid || !portraitCol || !main || !portraitCanvas || !copyCanvas) return null;
+  if (!grid || !chartCol || !main || !skyCanvas || !copyCanvas) return null;
 
   const gridRect = grid.getBoundingClientRect();
-  const portraitHost = portraitCol.getBoundingClientRect();
+  const chartHost = chartCol.getBoundingClientRect();
   const mainHost = main.getBoundingClientRect();
 
   if (!gridRect.width || !gridRect.height) return null;
-  if (!portraitHost.width || !portraitHost.height) return null;
+  if (!chartHost.width || !chartHost.height) return null;
   if (!mainHost.width || !mainHost.height) return null;
 
-  const portrait = sizeLayer(portraitCanvas, portraitHost, gridRect);
-  // Full-grid copy canvas so transfer particles are visible from chart sources
-  // across the seam (not clipped to the left column alone).
+  // Both layers span the full grid: the star field covers the whole masthead,
+  // and transfer particles travel anywhere across it without clipping.
+  const sky = sizeLayer(skyCanvas, gridRect, gridRect);
   const copy = sizeLayer(copyCanvas, gridRect, gridRect);
-  if (!portrait || !copy) return null;
+  if (!sky || !copy) return null;
 
-  return { portrait, copy };
+  const chart: Rect = {
+    left: chartHost.left - gridRect.left,
+    top: chartHost.top - gridRect.top,
+    width: chartHost.width,
+    height: chartHost.height,
+  };
+
+  return { sky, copy, chart };
 }

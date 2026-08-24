@@ -1,5 +1,5 @@
 import { clamp, easeOutCubic, FULL_TURN_RADIANS, progress, smoothstep } from "./easing";
-import type { CanvasLayer } from "./layout";
+import type { CanvasLayer, Rect } from "./layout";
 import {
   PORTRAIT_DOT_DURATION,
   TRANSFER_TRAVEL_DURATION,
@@ -12,7 +12,6 @@ export const SIGNAL = "#D42A3C";
 const EMBER = "#F2792B";
 const CHART_META = "#7C8595";
 
-const TRANSFER_EDGE_FRACTION = 0.32;
 export const SATELLITE_PERIOD = 9000;
 export const SATELLITE_DURATION = 1500;
 export const SATELLITE_FIRST_PASS = 2600;
@@ -42,10 +41,34 @@ const LYRA_LINKS = [
   [4, 2],
 ] as const;
 const CHART_ROT = 0.15; // slight tilt so the parallelogram hangs below-left
-const FIELD_STARS = 44;
+
+/**
+ * Field stars are sown by area, so the whole masthead keeps one sky density.
+ * The figure is the density the left column carried: 44 stars over a 589x800
+ * column, which is what the sky looked like before it spread across the page.
+ */
+const AREA_PER_FIELD_STAR = 10700;
+const MIN_FIELD_STARS = 44;
+const MAX_FIELD_STARS = 240;
 // Fixed low-discrepancy offsets so the field layout is identical on every draw
 const FIELD_SEED_X = 0.1372;
 const FIELD_SEED_Y = 0.6289;
+
+/**
+ * Satellite lanes as fractions of the sky, so a pass can cross anywhere rather
+ * than always in the same third. One pass every SATELLITE_PERIOD walks the
+ * list, which takes a little over a minute to come back around.
+ */
+const LANE_FRACTIONS = [
+  [0.02, 0.22, 0.34, 0.06, -0.05],
+  [0.62, 0.08, 0.94, 0.3, -0.04],
+  [0.88, 0.44, 0.66, 0.78, -0.06],
+  [0.1, 0.58, 0.4, 0.86, 0.05],
+  [0.46, 0.94, 0.82, 0.7, 0.05],
+  [0.96, 0.62, 0.58, 0.42, 0.04],
+  [0.06, 0.86, 0.3, 0.52, -0.05],
+  [0.36, 0.3, 0.72, 0.16, 0.04],
+] as const;
 
 type ChartLabel = {
   chars: string[];
@@ -77,19 +100,24 @@ type ChartScene = {
   twinklePhase: Float32Array;
   baseAlpha: Float32Array;
   lanes: ChartLane[];
+  /** Where in the lane list this load starts, so the first pass is not always
+      the same crossing for a reader who never stays for a second one. */
+  laneOffset: number;
   trailColors: string[];
+  /** Everything in the sky that never changes, rasterised once per layout. */
+  backdrop: HTMLCanvasElement | null;
 };
 
-export type PortraitPrep = {
+export type SkyPrep = {
   starCount: number;
+  /** Index where the background field begins; everything below it is Lyra. */
+  fieldStart: number;
   chartX: Float32Array;
   chartY: Float32Array;
   starDelay: Float32Array;
   screenX: Float32Array;
   screenY: Float32Array;
   starRadius: Float32Array;
-  isSource: Uint8Array;
-  sourceIndices: number[];
   chart: ChartScene;
 };
 
@@ -140,30 +168,37 @@ function makeLabel(
 }
 
 /**
- * Lay out the Lyra chart for a canvas layer: principal stars first, then a
- * deterministic low-discrepancy background field, links, graticule, ticks,
- * labels, satellite lanes, and the prerendered Vega sprite.
+ * Lay out the sky for a canvas layer: the Lyra figure anchored inside chartRect,
+ * a deterministic low-discrepancy star field across the whole layer, links,
+ * graticule, ticks, labels, satellite lanes, and the prerendered Vega sprite.
  * Star arrays double as the fly-in particle set for the entrance.
  */
-function prepareScene(layer: CanvasLayer): PortraitPrep {
+function prepareScene(layer: CanvasLayer, chartRect: Rect): SkyPrep {
   const { ctx, rect, dpr } = layer;
   const canvasWidth = rect.width;
   const canvasHeight = rect.height;
   const smallerCanvasSide = Math.min(canvasWidth, canvasHeight);
-  const scale = smallerCanvasSide * 0.075; // px per chart degree
+
+  // Lyra keeps the scale and placement it had when it owned its own column.
+  const chartSide = Math.min(chartRect.width, chartRect.height);
+  const scale = chartSide * 0.075; // px per chart degree
   const starScale = Math.max(0.62, Math.min(1.1, scale / 46));
+  const chartCenterX = chartRect.left + chartRect.width * 0.45;
+  const chartCenterY = chartRect.top + chartRect.height * 0.44;
 
   const principalStarCount = LYRA.length;
-  const starCount = principalStarCount + FIELD_STARS;
+  const fieldStars = Math.round(
+    clamp((canvasWidth * canvasHeight) / AREA_PER_FIELD_STAR, MIN_FIELD_STARS, MAX_FIELD_STARS),
+  );
+  const starCount = principalStarCount + fieldStars;
   const chartX = new Float32Array(starCount);
   const chartY = new Float32Array(starCount);
   const starDelay = new Float32Array(starCount);
   const screenX = new Float32Array(starCount);
   const screenY = new Float32Array(starCount);
   const starRadius = new Float32Array(starCount);
-  const isSource = new Uint8Array(starCount);
 
-  // Principal stars: rotate the chart, center the figure slightly up-left
+  // Principal stars: rotate the chart, center the figure in the chart box
   const chartCosine = Math.cos(CHART_ROT);
   const chartSine = Math.sin(CHART_ROT);
   let minX = Infinity;
@@ -183,8 +218,8 @@ function prepareScene(layer: CanvasLayer): PortraitPrep {
   const figureCenterX = (minX + maxX) / 2;
   const figureCenterY = (minY + maxY) / 2;
   for (let i = 0; i < principalStarCount; i++) {
-    screenX[i] = canvasWidth * 0.45 + (screenX[i] - figureCenterX) * scale;
-    screenY[i] = canvasHeight * 0.44 + (screenY[i] - figureCenterY) * scale;
+    screenX[i] = chartCenterX + (screenX[i] - figureCenterX) * scale;
+    screenY[i] = chartCenterY + (screenY[i] - figureCenterY) * scale;
     starRadius[i] = (1.05 + 3.95 * Math.exp(-0.42 * LYRA[i].mag)) * starScale;
   }
 
@@ -193,7 +228,7 @@ function prepareScene(layer: CanvasLayer): PortraitPrep {
   for (let i = 0; i < principalStarCount; i++) starDelay[order[i]] = i * 55;
 
   // Background field: fixed R2 sequence so the sky is identical on every draw
-  for (let k = 0; k < FIELD_STARS; k++) {
+  for (let k = 0; k < fieldStars; k++) {
     const i = principalStarCount + k;
     let fieldX = ((FIELD_SEED_X + k * 0.7548776662) % 1) * canvasWidth * 0.96 + canvasWidth * 0.02;
     let fieldY = ((FIELD_SEED_Y + k * 0.569840291) % 1) * canvasHeight * 0.94 + canvasHeight * 0.03;
@@ -216,11 +251,11 @@ function prepareScene(layer: CanvasLayer): PortraitPrep {
     starDelay[i] = 90 + ((k * 13) % 10) * 14 + Math.random() * 80;
   }
 
-  // Fly-in scatter: gentle radial drift toward each star's resting place.
+  // Fly-in scatter. The Lyra stars drift radially out of the figure's centre;
+  // field stars take a short scatter in place, because a sky this wide would
+  // fling its far corners off-canvas on a radial drift.
   // Vega (index 0) fades in at rest, so it is deliberately left unscattered.
-  const chartCenterX = canvasWidth * 0.45;
-  const chartCenterY = canvasHeight * 0.44;
-  for (let i = 1; i < starCount; i++) {
+  for (let i = 1; i < principalStarCount; i++) {
     const distanceX = screenX[i] - chartCenterX;
     const distanceY = screenY[i] - chartCenterY;
     const distance = Math.hypot(distanceX, distanceY) || 1;
@@ -228,25 +263,11 @@ function prepareScene(layer: CanvasLayer): PortraitPrep {
     chartX[i] = (distanceX / distance) * drift + (Math.random() - 0.5) * 18;
     chartY[i] = (distanceY / distance) * drift + (Math.random() - 0.5) * 18;
   }
-
-  // Transfer sources: background stars in the chart's right band send
-  // starlight across the seam to form the hero copy.
-  let starMinX = Infinity;
-  let starMaxX = -Infinity;
-  for (let i = 0; i < starCount; i++) {
-    starMinX = Math.min(starMinX, screenX[i]);
-    starMaxX = Math.max(starMaxX, screenX[i]);
-  }
-  const edgeStartX = starMaxX - (starMaxX - starMinX) * TRANSFER_EDGE_FRACTION;
-  const edgeCandidates: number[] = [];
   for (let i = principalStarCount; i < starCount; i++) {
-    if (screenX[i] >= edgeStartX) edgeCandidates.push(i);
-  }
-  edgeCandidates.sort((a, b) => screenY[a] - screenY[b]);
-  const sourceIndices: number[] = [];
-  for (const idx of edgeCandidates) {
-    isSource[idx] = 1;
-    sourceIndices.push(idx);
+    const angle = Math.random() * FULL_TURN_RADIANS;
+    const drift = 8 + Math.random() * 22;
+    chartX[i] = Math.cos(angle) * drift;
+    chartY[i] = Math.sin(angle) * drift;
   }
 
   // Links trimmed so strokes stop short of the stars
@@ -296,7 +317,7 @@ function prepareScene(layer: CanvasLayer): PortraitPrep {
   const twinkleAmp = new Float32Array(starCount);
   const twinkleSpeed = new Float32Array(starCount);
   const twinklePhase = new Float32Array(starCount);
-  for (let k = 0; k < FIELD_STARS; k++) {
+  for (let k = 0; k < fieldStars; k++) {
     const i = principalStarCount + k;
     baseAlpha[i] = 0.13 + (((k * 5) % 7) / 7) * 0.25;
     if (k % 5 < 2) {
@@ -384,9 +405,13 @@ function prepareScene(layer: CanvasLayer): PortraitPrep {
     });
   }
 
-  // Satellite lanes: gentle quadratic arcs through open sky
+  // Satellite lanes: gentle quadratic arcs through open sky, spread everywhere
   const lanes: ChartLane[] = [];
-  const addLane = (startX: number, startY: number, endX: number, endY: number, bulge: number) => {
+  for (const [sx, sy, ex, ey, bulge] of LANE_FRACTIONS) {
+    const startX = canvasWidth * sx;
+    const startY = canvasHeight * sy;
+    const endX = canvasWidth * ex;
+    const endY = canvasHeight * ey;
     const midX = (startX + endX) / 2;
     const midY = (startY + endY) / 2;
     const laneDeltaX = endX - startX;
@@ -400,26 +425,22 @@ function prepareScene(layer: CanvasLayer): PortraitPrep {
       endX,
       endY,
     });
-  };
-  addLane(canvasWidth * 0.08, canvasHeight * 0.3, canvasWidth * 0.46, canvasHeight * 0.11, -0.05);
-  addLane(canvasWidth * 0.88, canvasHeight * 0.4, canvasWidth * 0.7, canvasHeight * 0.74, -0.06);
-  addLane(canvasWidth * 0.28, canvasHeight * 0.88, canvasWidth * 0.66, canvasHeight * 0.77, 0.05);
+  }
 
   const trailColors: string[] = [];
   for (let i = 0; i <= SATELLITE_TRAIL_LENGTH; i++) {
     trailColors.push(rgbString(mixRgb(ember, crimson, i / SATELLITE_TRAIL_LENGTH)));
   }
 
-  return {
+  const prep: SkyPrep = {
     starCount,
+    fieldStart: principalStarCount,
     chartX,
     chartY,
     starDelay,
     screenX,
     screenY,
     starRadius,
-    isSource,
-    sourceIndices,
     chart: {
       links,
       graticule,
@@ -432,9 +453,56 @@ function prepareScene(layer: CanvasLayer): PortraitPrep {
       twinklePhase,
       baseAlpha,
       lanes,
+      laneOffset: Math.floor(Math.random() * LANE_FRACTIONS.length),
       trailColors,
+      backdrop: null,
     },
   };
+  prep.chart.backdrop = renderBackdrop(layer, prep);
+  return prep;
+}
+
+/**
+ * Rasterise the unchanging sky once: apparatus, links, the field stars that do
+ * not twinkle, and the principal star discs. The ambient loop then repaints a
+ * full-masthead sky by blitting this and drawing only what actually moves.
+ * Returns null if the scratch context is unavailable; callers fall back to
+ * drawing every element live.
+ */
+function renderBackdrop(layer: CanvasLayer, prep: SkyPrep): HTMLCanvasElement | null {
+  const { rect, dpr } = layer;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(rect.width * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const scratch: CanvasLayer = { canvas, ctx, rect, dpr };
+  const chart = prep.chart;
+  drawChartApparatus(scratch, chart, 1);
+  drawLinks(scratch, chart, linkProgressFull);
+
+  ctx.fillStyle = STAR;
+  for (let i = prep.fieldStart; i < prep.starCount; i++) {
+    if (chart.twinkleAmp[i] > 0) continue; // twinklers are drawn live
+    ctx.globalAlpha = chart.baseAlpha[i];
+    ctx.beginPath();
+    ctx.arc(prep.screenX[i], prep.screenY[i], prep.starRadius[i], 0, FULL_TURN_RADIANS);
+    ctx.fill();
+  }
+  for (let i = 1; i < prep.fieldStart; i++) {
+    ctx.globalAlpha = 0.22;
+    ctx.beginPath();
+    ctx.arc(prep.screenX[i], prep.screenY[i], prep.starRadius[i] * 2.1, 0, FULL_TURN_RADIANS);
+    ctx.fill();
+    ctx.globalAlpha = 0.95;
+    ctx.beginPath();
+    ctx.arc(prep.screenX[i], prep.screenY[i], prep.starRadius[i], 0, FULL_TURN_RADIANS);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  return canvas;
 }
 
 /**
@@ -449,30 +517,34 @@ let sceneCache:
       width: number;
       height: number;
       dpr: number;
+      chartKey: string;
       fontsLoaded: boolean;
-      prep: PortraitPrep;
+      prep: SkyPrep;
     }
   | null = null;
 
-export function sceneFor(layer: CanvasLayer): PortraitPrep {
+export function sceneFor(layer: CanvasLayer, chartRect: Rect): SkyPrep {
   const { canvas, rect, dpr } = layer;
   const fontsLoaded = document.fonts?.status === "loaded";
+  const chartKey = `${chartRect.left}|${chartRect.top}|${chartRect.width}|${chartRect.height}`;
   if (
     sceneCache &&
     sceneCache.canvas === canvas &&
     sceneCache.width === rect.width &&
     sceneCache.height === rect.height &&
     sceneCache.dpr === dpr &&
+    sceneCache.chartKey === chartKey &&
     sceneCache.fontsLoaded === fontsLoaded
   ) {
     return sceneCache.prep;
   }
-  const prep = prepareScene(layer);
+  const prep = prepareScene(layer, chartRect);
   sceneCache = {
     canvas,
     width: rect.width,
     height: rect.height,
     dpr,
+    chartKey,
     fontsLoaded,
     prep,
   };
@@ -539,7 +611,7 @@ function drawLabels(layer: CanvasLayer, chart: ChartScene, alpha: number) {
   }
 }
 
-function drawVega(layer: CanvasLayer, prep: PortraitPrep, alpha: number, breathe: number) {
+function drawVega(layer: CanvasLayer, prep: SkyPrep, alpha: number, breathe: number) {
   const { ctx } = layer;
   const chart = prep.chart;
   const size = chart.vegaHalf * 2;
@@ -553,24 +625,78 @@ function drawVega(layer: CanvasLayer, prep: PortraitPrep, alpha: number, breathe
   );
 }
 
-/** Fully formed chart at rest: fallbacks, quick path, and the ambient base. */
-export function drawStaticScene(layer: CanvasLayer, scene?: PortraitPrep, ambientT = -1) {
-  const prep = scene ?? sceneFor(layer);
+/** The satellite pass for an ambient clock, or nothing outside a pass window. */
+function drawSatellite(layer: CanvasLayer, chart: ChartScene, ambientT: number) {
+  if (ambientT < SATELLITE_FIRST_PASS) return;
+  const cycle = Math.floor((ambientT - SATELLITE_FIRST_PASS) / SATELLITE_PERIOD);
+  const local = (ambientT - SATELLITE_FIRST_PASS) % SATELLITE_PERIOD;
+  if (local >= SATELLITE_DURATION) return;
+
+  const { ctx } = layer;
+  const lane = chart.lanes[(cycle + chart.laneOffset) % chart.lanes.length];
+  const head = smoothstep(0, 1, local / SATELLITE_DURATION);
+  for (let k = 0; k <= SATELLITE_TRAIL_LENGTH; k++) {
+    const t = head - k * 0.016;
+    if (t <= 0 || t >= 1) continue;
+    const oneMinusT = 1 - t;
+    const satelliteX =
+      oneMinusT * oneMinusT * lane.startX + 2 * oneMinusT * t * lane.controlX + t * t * lane.endX;
+    const satelliteY =
+      oneMinusT * oneMinusT * lane.startY + 2 * oneMinusT * t * lane.controlY + t * t * lane.endY;
+    const fade = 1 - k / SATELLITE_TRAIL_LENGTH;
+    ctx.globalAlpha = fade * 0.7 * Math.sin(Math.PI * Math.min(1, head * 1.05));
+    ctx.fillStyle = chart.trailColors[k];
+    ctx.beginPath();
+    ctx.arc(satelliteX, satelliteY, 0.7 + fade * 1.3, 0, FULL_TURN_RADIANS);
+    ctx.fill();
+  }
+  ctx.fillStyle = STAR;
+}
+
+/** Fully formed sky at rest: fallbacks, quick path, and the ambient base. */
+export function drawStaticScene(layer: CanvasLayer, scene: SkyPrep, ambientT = -1) {
+  const prep = scene;
   const { ctx, rect, dpr } = layer;
   const chart = prep.chart;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
 
-  drawChartApparatus(layer, chart, 1);
-  drawLinks(layer, chart, linkProgressFull);
+  const backdrop = chart.backdrop;
+  if (backdrop) {
+    ctx.globalAlpha = 1;
+    ctx.drawImage(backdrop, 0, 0, rect.width, rect.height);
+  } else {
+    // No scratch canvas: draw the unchanging sky live, at the same cost as before
+    drawChartApparatus(layer, chart, 1);
+    drawLinks(layer, chart, linkProgressFull);
+    ctx.fillStyle = STAR;
+    for (let i = prep.fieldStart; i < prep.starCount; i++) {
+      if (chart.twinkleAmp[i] > 0) continue;
+      ctx.globalAlpha = chart.baseAlpha[i];
+      ctx.beginPath();
+      ctx.arc(prep.screenX[i], prep.screenY[i], prep.starRadius[i], 0, FULL_TURN_RADIANS);
+      ctx.fill();
+    }
+    for (let i = 1; i < prep.fieldStart; i++) {
+      ctx.globalAlpha = 0.22;
+      ctx.beginPath();
+      ctx.arc(prep.screenX[i], prep.screenY[i], prep.starRadius[i] * 2.1, 0, FULL_TURN_RADIANS);
+      ctx.fill();
+      ctx.globalAlpha = 0.95;
+      ctx.beginPath();
+      ctx.arc(prep.screenX[i], prep.screenY[i], prep.starRadius[i], 0, FULL_TURN_RADIANS);
+      ctx.fill();
+    }
+  }
 
-  // Background field (twinkling when an ambient clock is supplied)
-  const principalStarCount = LYRA.length;
+  // The twinkling share of the field, live on the ambient clock
   ctx.fillStyle = STAR;
-  for (let i = principalStarCount; i < prep.starCount; i++) {
+  for (let i = prep.fieldStart; i < prep.starCount; i++) {
+    const amp = chart.twinkleAmp[i];
+    if (amp <= 0) continue;
     let alpha = chart.baseAlpha[i];
-    if (ambientT >= 0 && chart.twinkleAmp[i] > 0) {
-      alpha += chart.twinkleAmp[i] * Math.sin(chart.twinkleSpeed[i] * ambientT + chart.twinklePhase[i]);
+    if (ambientT >= 0) {
+      alpha += amp * Math.sin(chart.twinkleSpeed[i] * ambientT + chart.twinklePhase[i]);
     }
     ctx.globalAlpha = alpha;
     ctx.beginPath();
@@ -578,50 +704,12 @@ export function drawStaticScene(layer: CanvasLayer, scene?: PortraitPrep, ambien
     ctx.fill();
   }
 
-  // Principal stars: halo + core (Vega drawn as its sprite)
-  for (let i = 1; i < principalStarCount; i++) {
-    ctx.globalAlpha = 0.22;
-    ctx.beginPath();
-    ctx.arc(prep.screenX[i], prep.screenY[i], prep.starRadius[i] * 2.1, 0, FULL_TURN_RADIANS);
-    ctx.fill();
-    ctx.globalAlpha = 0.95;
-    ctx.beginPath();
-    ctx.arc(prep.screenX[i], prep.screenY[i], prep.starRadius[i], 0, FULL_TURN_RADIANS);
-    ctx.fill();
-  }
   const breathe = ambientT >= 0 ? Math.sin((ambientT / 7000) * FULL_TURN_RADIANS) : 0;
   drawVega(layer, prep, 1, breathe);
   drawLabels(layer, chart, 1);
 
   // Ambient satellite: a short crossing every ~9s trailing crimson→ember
-  if (ambientT >= SATELLITE_FIRST_PASS) {
-    const cycle = Math.floor((ambientT - SATELLITE_FIRST_PASS) / SATELLITE_PERIOD);
-    const local = (ambientT - SATELLITE_FIRST_PASS) % SATELLITE_PERIOD;
-    if (local < SATELLITE_DURATION) {
-      const lane = chart.lanes[cycle % chart.lanes.length];
-      const head = smoothstep(0, 1, local / SATELLITE_DURATION);
-      for (let k = 0; k <= SATELLITE_TRAIL_LENGTH; k++) {
-        const t = head - k * 0.016;
-        if (t <= 0 || t >= 1) continue;
-        const oneMinusT = 1 - t;
-        const satelliteX =
-          oneMinusT * oneMinusT * lane.startX +
-          2 * oneMinusT * t * lane.controlX +
-          t * t * lane.endX;
-        const satelliteY =
-          oneMinusT * oneMinusT * lane.startY +
-          2 * oneMinusT * t * lane.controlY +
-          t * t * lane.endY;
-        const fade = 1 - k / SATELLITE_TRAIL_LENGTH;
-        ctx.globalAlpha = fade * 0.7 * Math.sin(Math.PI * Math.min(1, head * 1.05));
-        ctx.fillStyle = chart.trailColors[k];
-        ctx.beginPath();
-        ctx.arc(satelliteX, satelliteY, 0.7 + fade * 1.3, 0, FULL_TURN_RADIANS);
-        ctx.fill();
-      }
-      ctx.fillStyle = STAR;
-    }
-  }
+  if (ambientT >= 0) drawSatellite(layer, chart, ambientT);
   ctx.globalAlpha = 1;
 }
 
@@ -634,11 +722,12 @@ export function drawStaticScene(layer: CanvasLayer, scene?: PortraitPrep, ambien
 export function drawSceneFrame(
   elapsed: number,
   layer: CanvasLayer,
-  portrait: PortraitPrep,
+  sky: SkyPrep,
   transfers: readonly { sourceIndex: number; delay: number }[],
+  sources: Uint8Array,
 ): void {
   const { ctx, rect, dpr } = layer;
-  const chart = portrait.chart;
+  const chart = sky.chart;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
 
@@ -646,8 +735,7 @@ export function drawSceneFrame(
   linkElapsed = elapsed;
   drawLinks(layer, chart, linkProgressEntrance);
 
-  const { starCount, chartX, chartY, starDelay, screenX, screenY, starRadius, isSource } = portrait;
-  const principalStarCount = LYRA.length;
+  const { starCount, fieldStart, chartX, chartY, starDelay, screenX, screenY, starRadius } = sky;
   ctx.fillStyle = STAR;
 
   for (let i = 0; i < starCount; i++) {
@@ -659,8 +747,8 @@ export function drawSceneFrame(
     const y = screenY[i] + chartY[i] * (1 - eased);
     let alpha = eased < 0.85 ? eased / 0.85 : 1;
 
-    // Edge sources: dip as transfer particles leave, reseal as the wave moves on
-    if (isSource[i]) {
+    // Sources: dip as transfer particles leave, reseal as the wave moves on
+    if (sources[i]) {
       let shed = 0;
       let found = false;
       for (let t = 0; t < transfers.length; t++) {
@@ -679,12 +767,12 @@ export function drawSceneFrame(
     }
 
     if (i === 0) {
-      drawVega(layer, portrait, alpha * eased, 0);
+      drawVega(layer, sky, alpha * eased, 0);
       ctx.fillStyle = STAR;
       continue;
     }
 
-    if (i < principalStarCount) {
+    if (i < fieldStart) {
       ctx.globalAlpha = alpha * 0.22;
       ctx.beginPath();
       ctx.arc(x, y, starRadius[i] * 2.1 * (0.4 + 0.6 * eased), 0, FULL_TURN_RADIANS);
