@@ -1439,13 +1439,10 @@ body:has(.hero) {
   }
 }
 
-/* Compact header: full brand + four nav labels overflow ~421–520px.
-   Hide the wordmark early enough that the 420–450 band stays usable. */
+/* Tight header below 520px: less padding and gap, smaller nav type.
+   Two labels (about, contact) fit beside the full brand at 320px, so this
+   block does not hide the wordmark. */
 @media (max-width: 520px) {
-  .brand span:last-child {
-    display: none;
-  }
-
   .site-header__inner {
     gap: 12px;
     padding-inline: 16px;
