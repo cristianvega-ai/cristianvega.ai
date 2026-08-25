@@ -91,24 +91,43 @@ test.describe("document structure", () => {
   }
 });
 
-test.describe("the footer is seated", () => {
+test.describe("the footer holds the foot of the viewport", () => {
   /* Deliberately taller than the shortest pages, so the slack is real. */
   test.use({ viewport: { width: 1440, height: 1200 } });
 
   for (const route of ROUTES) {
-    test(`${route} runs its footer to the foot of the viewport`, async ({ page }) => {
+    test(`${route} keeps its footer on screen, clear of the content`, async ({ page }) => {
       await page.goto(route);
       await settle(page);
 
-      const seated = await page.evaluate(() => {
+      // Seated at the foot on arrival. A short page used to end wherever its
+      // content did, leaving paper under the ink footer: 82px on a retired
+      // page, 402px on the 404.
+      const onArrival = await page.evaluate(() => {
         const footer = document.querySelector(".site-footer");
         return footer ? window.innerHeight - footer.getBoundingClientRect().bottom : null;
       });
+      expect(onArrival).not.toBeNull();
+      expect(onArrival).toBeLessThanOrEqual(1);
 
-      // A short page used to end wherever its content did, leaving paper under
-      // the ink footer: 82px on a retired page, 402px on the 404.
-      expect(seated).not.toBeNull();
-      expect(seated).toBeLessThanOrEqual(1);
+      // Still there at the bottom of the scroll. Position fixed makes the
+      // check above pass for free, so on its own it proves nothing.
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.waitForTimeout(120);
+
+      const afterScroll = await page.evaluate(() => {
+        const footer = document.querySelector(".site-footer");
+        const rect = footer.getBoundingClientRect();
+        const main = document.querySelector("#main-content");
+        const last = main.getBoundingClientRect().bottom;
+        return {
+          gap: window.innerHeight - rect.bottom,
+          // The bar must never cover the end of the page.
+          contentClear: rect.top - last,
+        };
+      });
+      expect(afterScroll.gap).toBeLessThanOrEqual(1);
+      expect(afterScroll.contentClear).toBeGreaterThanOrEqual(0);
     });
   }
 });

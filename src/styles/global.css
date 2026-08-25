@@ -36,6 +36,7 @@
   --font-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --header-height: 64px;
+  --footer-height: 46px;
   --container: 1180px;
   --gutter: max(32px, calc((100vw - var(--container)) / 2 + 32px));
   --radius: 14px;
@@ -73,6 +74,10 @@ body {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
+  /* The footer is fixed, so the page reserves its strip. The few extra pixels
+     keep the last line off the bar rather than exactly against it, and absorb
+     the fractional layout that would otherwise put them a hair underneath. */
+  padding-bottom: calc(var(--footer-height) + 8px);
 }
 
 /* The slot wrapper takes the slack, so the footer never rides up the page. */
@@ -336,8 +341,8 @@ body:has(.hero) {
 }
 
 .hero {
-  min-height: 100vh;
-  min-height: 100svh;
+  min-height: calc(100vh - var(--footer-height));
+  min-height: calc(100svh - var(--footer-height));
   margin-top: calc(var(--header-height) * -1);
   display: flex;
   flex-direction: column;
@@ -860,24 +865,41 @@ body:has(.hero) {
   color: inherit;
 }
 
+/* Fixed, so it reads as a status bar under the page rather than an end to it.
+   Body padding keeps the strip clear, so nothing is ever hidden behind it. */
 .site-footer {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 40;
+  height: var(--footer-height);
   background: var(--ink);
-  border-top: 1px solid #0C1017;
+  border-top: 1px solid var(--masthead-rule);
 }
 
 .site-footer__inner {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-block: 26px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  height: 100%;
+  padding-block: 0;
 }
 
 .site-footer__disclaimer,
 .site-footer__copyright {
   font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 11px;
+  line-height: 1.5;
   color: var(--meta-on-dark);
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .site-footer__disclaimer {
+    /* Only the copyright survives the narrow bar; the disclaimer is long. */
+    display: none;
+  }
+  .site-footer__inner { justify-content: center; }
 }
 
 @media (max-width: 960px) {
