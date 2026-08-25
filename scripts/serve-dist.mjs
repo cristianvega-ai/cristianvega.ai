@@ -4,8 +4,9 @@
 // `astro preview` daemonizes and returns immediately, so Playwright sees the
 // command exit and aborts the run. This serves the same directory in the
 // foreground and applies the rules DreamHost applies in production:
-// trailingSlash "always", a real 404 body with a 404 status, and gzip for
-// the text types listed in public/.htaccess.
+// trailingSlash "always", a real 404 body with a 404 status, gzip for
+// the text types listed in public/.htaccess, and the Cache-Control
+// lifetimes for /_astro/, /images/, /js/, and HTML.
 //
 // Usage:
 //   node scripts/serve-dist.mjs
@@ -62,8 +63,27 @@ function acceptsGzip(req) {
   return /\bgzip\b/i.test(value);
 }
 
+function cacheControlFor(pathname, contentType) {
+  if (mediaType(contentType) === "text/html") {
+    return "public, max-age=0, must-revalidate";
+  }
+  if (pathname.startsWith("/_astro/")) {
+    return "public, max-age=31536000, immutable";
+  }
+  if (pathname.startsWith("/images/")) {
+    return "public, max-age=604800, stale-while-revalidate=86400";
+  }
+  if (pathname.startsWith("/js/")) {
+    return "public, max-age=3600, stale-while-revalidate=86400";
+  }
+  return undefined;
+}
+
 function send(req, res, status, contentType, body) {
+  const pathname = new URL(req.url ?? "/", `http://localhost:${port}`).pathname;
   const headers = { "content-type": contentType };
+  const cache = cacheControlFor(pathname, contentType);
+  if (cache) headers["cache-control"] = cache;
   const compressible = COMPRESSIBLE_TYPES.has(mediaType(contentType));
   if (compressible) headers.vary = "Accept-Encoding";
   if (compressible && acceptsGzip(req)) {

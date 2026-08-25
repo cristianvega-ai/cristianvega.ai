@@ -49,9 +49,11 @@ Options -Indexes
 # Custom 404 (Astro emits 404.html for static hosts)
 ErrorDocument 404 /404.html
 
-# Caching: hashed /_astro/* is immutable; stable /images/* revalidates so
-# portrait regenerations are not pinned for a year. HTML always revalidates.
-# Path scoping uses Apache 2.4 <If> (LocationMatch is not valid in .htaccess).
+# Caching: hashed /_astro/* is immutable. Stable /images/* revalidates so
+# portrait regenerations are not pinned for a year. Stable /js/* uses a
+# one-hour lifetime so analytics updates are not pinned. HTML always
+# revalidates. Path scoping uses Apache 2.4 <If> (LocationMatch is not
+# valid in .htaccess).
 <IfModule mod_expires.c>
   ExpiresActive On
   ExpiresByType text/html "access plus 0 seconds"
@@ -80,6 +82,9 @@ ErrorDocument 404 /404.html
   </If>
   <If "%{REQUEST_URI} =~ m#^/images/#">
     Header set Cache-Control "public, max-age=604800, stale-while-revalidate=86400"
+  </If>
+  <If "%{REQUEST_URI} =~ m#^/js/#">
+    Header set Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
   </If>
   <FilesMatch "\.(html)$">
     Header set Cache-Control "public, max-age=0, must-revalidate"

@@ -70,6 +70,25 @@ test("htaccess scopes immutable caching away from stable image URLs", () => {
   );
 });
 
+test("htaccess gives /js/ a short cache and keeps /_astro/ immutable", () => {
+  const htaccess = readDistFile(".htaccess");
+  const jsBlock = htaccess.match(
+    /<If "%\{REQUEST_URI\} =~ m#\^\/js\/#">([\s\S]*?)<\/If>/,
+  )?.[1];
+  assert.ok(jsBlock, "/js/ must have its own Cache-Control rule");
+  assert.match(
+    jsBlock,
+    /max-age=3600,\s*stale-while-revalidate=86400/,
+    "stable /js/ URLs should revalidate after analytics updates",
+  );
+  assert.doesNotMatch(jsBlock, /immutable/, "/js/ must not receive immutable caching");
+  assert.match(
+    htaccess,
+    /REQUEST_URI\}\s*=~\s*m#\^\/_astro\/#[\s\S]*?max-age=31536000,\s*immutable/,
+    "hashed /_astro/ assets should remain immutable",
+  );
+});
+
 test("htaccess CSP denies inline scripts while allowing inline styles", () => {
   const htaccess = readDistFile(".htaccess");
   const csp = htaccess.match(/Header always set Content-Security-Policy "([^"]+)"/)?.[1];
@@ -196,6 +215,15 @@ test("post-deploy gate requires gzip on the router, hero, and analytics scripts"
   assert.match(script, /\/js\/goatcounter\.js/);
 });
 
+test("post-deploy gate requires a short cache on /js/ and an immutable cache on /_astro/", () => {
+  const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
+  assert.match(script, /cache-control/i);
+  assert.match(script, /max-age=3600/);
+  assert.match(script, /stale-while-revalidate=86400/);
+  assert.match(script, /max-age=31536000/);
+  assert.match(script, /immutable/);
+});
+
 function homepageScriptSrcs() {
   const html = readDistFile("index.html");
   return [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, src]) => src);
@@ -265,6 +293,73 @@ test("router, hero, and analytics scripts send Content-Encoding gzip", async () 
         /\bgzip\b/i,
         `${label} must send Content-Encoding: gzip, got ${encoding || "none"}`,
       );
+    }
+  } finally {
+    child.kill("SIGTERM");
+    await once(child, "exit").catch(() => {});
+  }
+});
+
+test("router and hero stay immutable; analytics scripts use a short cache", async () => {
+  const srcs = homepageScriptSrcs();
+  const scripts = [
+    [requireScriptSrc(srcs, /ClientRouter[^"]*\.js$/, "router"), "router", "immutable"],
+    [requireScriptSrc(srcs, /HeroMotion[^"]*\.js$/, "hero"), "hero", "immutable"],
+    [requireScriptSrc(srcs, /\/js\/count\.v5\.js$/, "analytics count"), "analytics count", "short"],
+    [requireScriptSrc(srcs, /\/js\/goatcounter\.js$/, "analytics swap"), "analytics swap", "short"],
+  ];
+
+  const child = spawn(process.execPath, ["scripts/serve-dist.mjs"], {
+    cwd: root,
+    env: { ...process.env, PORT: "4373" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("serve-dist did not start")), 10_000);
+      const onData = (chunk) => {
+        if (String(chunk).includes("serving dist/")) {
+          clearTimeout(timer);
+          child.stdout.off("data", onData);
+          resolve();
+        }
+      };
+      child.stdout.on("data", onData);
+      child.once("error", (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+      child.once("exit", (code) => {
+        clearTimeout(timer);
+        reject(new Error(`serve-dist exited ${code}`));
+      });
+    });
+
+    for (const [src, label, kind] of scripts) {
+      const response = await getResponse(`http://127.0.0.1:4373${src}`);
+      assert.equal(response.status, 200, `${label} must return HTTP 200`);
+      const cache = response.headers["cache-control"] ?? "";
+      if (kind === "immutable") {
+        assert.match(
+          cache,
+          /max-age=31536000/,
+          `${label} must keep a one-year cache, got ${cache || "none"}`,
+        );
+        assert.match(cache, /\bimmutable\b/, `${label} must stay immutable, got ${cache || "none"}`);
+      } else {
+        assert.match(
+          cache,
+          /max-age=3600/,
+          `${label} must use a one-hour cache, got ${cache || "none"}`,
+        );
+        assert.match(
+          cache,
+          /stale-while-revalidate=86400/,
+          `${label} must allow a one-day stale revalidate, got ${cache || "none"}`,
+        );
+        assert.doesNotMatch(cache, /\bimmutable\b/, `${label} must not be immutable, got ${cache}`);
+      }
     }
   } finally {
     child.kill("SIGTERM");
