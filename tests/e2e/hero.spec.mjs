@@ -29,6 +29,8 @@ const TARGETS = ["eyebrow", "name", "highlight"];
 
 /** Long enough for the full entrance plus the module failsafe, never longer. */
 const SETTLE_TIMEOUT = 6000;
+/** Head-script pre-hide gate is 1.2s. A 3s failsafe must not pass this wait. */
+const PREHIDE_TIMEOUT = 2000;
 
 test.use({ viewport: DESKTOP });
 
@@ -318,6 +320,7 @@ test.describe("the pre-hide gate never strands the hero copy", () => {
   test("a hero script that never loads pre-hides the copy and then reveals it", async ({
     page,
   }) => {
+    await recordMotionMarks(page);
     let blocked = 0;
     await page.route(/HeroMotion.*\.js$/, (route) => {
       blocked += 1;
@@ -333,11 +336,75 @@ test.describe("the pre-hide gate never strands the hero copy", () => {
       await expect(target(page, kind)).toHaveCSS("opacity", "0");
     }
 
-    // The head script's own timer releases the gate without any module help.
-    await expect(page.locator("html")).not.toHaveAttribute(PENDING, { timeout: SETTLE_TIMEOUT });
+    // The head script's own 1.2s timer releases the gate without any module help.
+    await expect(page.locator("html")).not.toHaveAttribute(PENDING, { timeout: PREHIDE_TIMEOUT });
     for (const kind of TARGETS) {
       await expect(target(page, kind)).toHaveCSS("opacity", "1");
     }
+
+    const releasedAt = markAt(await readMarks(page), PENDING, null);
+    expect(releasedAt, "the gate must record a release").not.toBeNull();
+    expect(releasedAt).toBeGreaterThan(900);
+    expect(releasedAt).toBeLessThan(1800);
+  });
+
+  test("a hero script that arrives after the gate leaves the copy readable", async ({
+    page,
+  }) => {
+    await recordMotionMarks(page);
+
+    let release = () => {};
+    const held = new Promise((resolve) => {
+      release = resolve;
+    });
+    let delayed = 0;
+    await page.route(/HeroMotion.*\.js$/, async (route) => {
+      delayed += 1;
+      await held;
+      await route.continue();
+    });
+
+    // Load waits for the held module, so assertions run against the committed
+    // document while the bundle is still in flight.
+    const navigation = page.goto("/");
+    try {
+      await expect.poll(() => delayed).toBeGreaterThan(0);
+      await expect(page.locator("html")).toHaveAttribute(PENDING);
+      for (const kind of TARGETS) {
+        await expect(target(page, kind)).toHaveCSS("opacity", "0");
+      }
+
+      await expect(page.locator("html")).not.toHaveAttribute(PENDING, {
+        timeout: PREHIDE_TIMEOUT,
+      });
+      for (const kind of TARGETS) {
+        await expect(target(page, kind)).toHaveCSS("opacity", "1");
+      }
+
+      await page.evaluate((kinds) => {
+        window.__heroRehide = false;
+        for (const kind of kinds) {
+          const node = document.querySelector(`.hero [data-motion-target="${kind}"]`);
+          if (!node) continue;
+          new MutationObserver(() => {
+            if (node.style.opacity === "0") window.__heroRehide = true;
+          }).observe(node, { attributes: true, attributeFilter: ["style"] });
+        }
+      }, TARGETS);
+    } finally {
+      release();
+    }
+    await navigation;
+
+    await expect(hero(page)).toHaveAttribute("data-motion-state", "complete", {
+      timeout: SETTLE_TIMEOUT,
+    });
+
+    expect(await page.evaluate(() => window.__heroRehide)).toBe(false);
+    expect(markAt(await readMarks(page), "data-motion-state", "playing")).toBeNull();
+    await expect(hero(page)).not.toHaveAttribute("data-motion-mode");
+    await expectHeroReadable(page);
+    expect(await sessionFlag(page)).toBeNull();
   });
 
   test("a stalled webfont reveals the copy without an entrance", async ({ page }) => {

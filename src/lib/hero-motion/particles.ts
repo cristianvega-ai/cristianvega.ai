@@ -2,6 +2,7 @@ import { clamp, cubicPoint, FULL_TURN_RADIANS, progress, smoothstep, type Point 
 import type { CanvasLayer, Layout } from "./layout";
 import { drawSceneFrame, sceneFor, SIGNAL, type SkyPrep } from "./star-chart";
 import {
+  PREHIDE_EXPIRED_ATTR,
   TARGET_WINDOWS,
   TRANSFER_TRAVEL_DURATION,
   WINDOWS,
@@ -418,6 +419,9 @@ export function collectTargetBindings(root: HTMLElement): TargetBinding[] {
 }
 
 export function hideMotionTargets(targets: TargetBinding[]): void {
+  // After the 1.2s pre-hide deadline the head script sets this flag. A late
+  // call must not write inline opacity 0, or the copy stays stranded.
+  if (document.documentElement.hasAttribute(PREHIDE_EXPIRED_ATTR)) return;
   for (let i = 0; i < targets.length; i++) {
     targets[i].element.style.opacity = "0";
   }
