@@ -123,10 +123,8 @@ async function main() {
   const html = await home.text();
   const scriptSrcs = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, src]) => src);
   const requiredScripts = [
-    ["ClientRouter", "router"],
     ["HeroMotion", "hero"],
     ["/js/count.v5.js", "analytics count"],
-    ["/js/goatcounter.js", "analytics swap"],
   ];
 
   for (const [needle, label] of requiredScripts) {

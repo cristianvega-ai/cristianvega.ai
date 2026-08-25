@@ -10,7 +10,6 @@
 <script>
   import { setup } from "../lib/hero-motion/setup";
 
-  document.addEventListener("astro:page-load", () => {
-    void setup();
-  });
+  // Module scripts are deferred, so the hero markup is in the document.
+  void setup();
 </script>

@@ -1,6 +1,5 @@
 ---
 import "../styles/global.css";
-import { ClientRouter } from "astro:transitions";
 import plexSans400 from "../assets/fonts/ibm-plex-sans-latin-400.woff2?url";
 import spaceGrotesk from "../assets/fonts/space-grotesk-latin-600-700.woff2?url";
 
@@ -126,17 +125,14 @@ const structuredData = {
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(structuredData)} />
-    {/* Self-hosted GoatCounter pageviews. count.v5.js counts the first full
-        load; goatcounter.js counts ClientRouter swaps. The beacon host is
-        allowed in connect-src only, so script-src stays 'self' plus the one
-        hero hash. */}
-    <script is:inline defer src="/js/goatcounter.js"></script>
+    {/* Self-hosted GoatCounter pageviews. count.v5.js counts each full page
+        load. The beacon host is allowed in connect-src only, so script-src
+        stays 'self' plus the one hero hash. */}
     <script
       is:inline
       async
       src="/js/count.v5.js"
       data-goatcounter="https://cristianvegaai.goatcounter.com/count"></script>
-    <ClientRouter />
   </head>
   <body data-page={active}>
     <a class="skip-link" href="#main-content">Skip to content</a>
