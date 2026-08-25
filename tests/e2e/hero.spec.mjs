@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { settle, tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 /**
  * The hero entrance is a runtime contract: an animation clock, a sessionStorage
@@ -570,6 +570,185 @@ test.describe("hero structure and decorative layers", () => {
     // The decorative layer sits above the copy, so keyboard order must ignore
     // it and carry on to the navigation.
     expect(await tabTo(page, 'nav[aria-label="Primary"] a[href*="linkedin.com"]')).toBe(true);
+  });
+});
+
+test.describe("hero canvas cost", () => {
+  const canvasBacking = (page, selector) =>
+    page.locator(selector).evaluate((canvas) => ({
+      width: canvas.width,
+      height: canvas.height,
+      pixels: canvas.width * canvas.height,
+      cssWidth: canvas.getBoundingClientRect().width,
+      cssHeight: canvas.getBoundingClientRect().height,
+    }));
+
+  /**
+   * Count rAF callbacks other than the sampler itself, so a frozen sky does
+   * not look busy just because the test is watching.
+   */
+  const countAnimationFrames = (page, sampleMs) =>
+    page.evaluate(
+      (ms) =>
+        new Promise((resolve) => {
+          let count = 0;
+          const original = window.requestAnimationFrame;
+          window.requestAnimationFrame = (cb) =>
+            original.call(window, (t) => {
+              count += 1;
+              cb(t);
+            });
+          const start = performance.now();
+          const watch = (t) => {
+            if (t - start >= ms) {
+              window.requestAnimationFrame = original;
+              resolve(count);
+              return;
+            }
+            original.call(window, watch);
+          };
+          original.call(window, watch);
+        }),
+      sampleMs,
+    );
+
+  async function sendHeroOffscreen(page) {
+    await page.evaluate(() => {
+      if (!document.querySelector("[data-scroll-pad='hero-offscreen']")) {
+        const pad = document.createElement("div");
+        pad.dataset.scrollPad = "hero-offscreen";
+        pad.style.height = "150vh";
+        document.body.append(pad);
+      }
+      const hero = document.querySelector(".hero");
+      const top = window.scrollY + hero.getBoundingClientRect().top;
+      window.scrollTo(0, top + hero.offsetHeight + 80);
+    });
+    await expect
+      .poll(() =>
+        page.locator(HERO).evaluate((el) => el.getBoundingClientRect().bottom <= 0),
+      )
+      .toBe(true);
+  }
+
+  test("the copy canvas drops its backing store after the entrance", async ({ page }) => {
+    await page.goto("/");
+    await expect(hero(page)).toHaveAttribute("data-motion-mode", "full");
+    await expect(page.locator(COPY_CANVAS)).toHaveCSS("display", "block");
+
+    const playing = await canvasBacking(page, COPY_CANVAS);
+    expect(playing.width).toBeGreaterThan(0);
+    expect(playing.height).toBeGreaterThan(0);
+    expect(playing.pixels).toBeLessThanOrEqual(700_000);
+
+    await expect(hero(page)).toHaveAttribute("data-motion-state", "complete", {
+      timeout: SETTLE_TIMEOUT,
+    });
+    await settle(page);
+
+    const settled = await canvasBacking(page, COPY_CANVAS);
+    expect(settled.width).toBe(0);
+    expect(settled.height).toBe(0);
+
+    const sky = await canvasBacking(page, SKY_CANVAS);
+    expect(sky.width).toBeGreaterThan(0);
+    expect(sky.height).toBeGreaterThan(0);
+  });
+
+  test("a later resize does not restore copy backing", async ({ page }) => {
+    await page.addInitScript((key) => sessionStorage.setItem(key, "1"), SESSION_KEY);
+    await page.goto("/");
+    await expect(hero(page)).toHaveAttribute("data-motion-state", "complete", { timeout: 2000 });
+    await settle(page);
+
+    expect((await canvasBacking(page, COPY_CANVAS)).width).toBe(0);
+
+    await page.setViewportSize(TABLET);
+    await expect
+      .poll(async () => (await canvasBacking(page, COPY_CANVAS)).width)
+      .toBe(0);
+    await expect
+      .poll(async () => (await canvasBacking(page, SKY_CANVAS)).width)
+      .toBeGreaterThan(0);
+  });
+
+  test("ambient sky motion stops after a short bound", async ({ page }) => {
+    await page.addInitScript((key) => sessionStorage.setItem(key, "1"), SESSION_KEY);
+    await page.goto("/");
+    await expect(hero(page)).toHaveAttribute("data-motion-state", "complete", { timeout: 2000 });
+    await settle(page);
+
+    await expect(hero(page)).toHaveAttribute("data-ambient", "running");
+    expect(await countAnimationFrames(page, 240)).toBeGreaterThan(2);
+
+    await expect(hero(page)).toHaveAttribute("data-ambient", "idle", { timeout: 12000 });
+    expect(await countAnimationFrames(page, 240)).toBe(0);
+    await expectHeroReadable(page);
+  });
+
+  test("ambient sky motion pauses when the hero is off-screen", async ({ page }) => {
+    await page.addInitScript((key) => sessionStorage.setItem(key, "1"), SESSION_KEY);
+    await page.goto("/");
+    await expect(hero(page)).toHaveAttribute("data-motion-state", "complete", { timeout: 2000 });
+    await settle(page);
+    await expect(hero(page)).toHaveAttribute("data-ambient", "running");
+
+    await sendHeroOffscreen(page);
+
+    await expect(hero(page)).toHaveAttribute("data-ambient", "paused");
+    expect(await countAnimationFrames(page, 240)).toBe(0);
+  });
+
+  test("ambient sky motion resumes only while the bound remains", async ({ page }) => {
+    await page.addInitScript((key) => sessionStorage.setItem(key, "1"), SESSION_KEY);
+    await page.goto("/");
+    await expect(hero(page)).toHaveAttribute("data-motion-state", "complete", { timeout: 2000 });
+    await settle(page);
+    await expect(hero(page)).toHaveAttribute("data-ambient", "running");
+
+    await sendHeroOffscreen(page);
+    await expect(hero(page)).toHaveAttribute("data-ambient", "paused");
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(hero(page)).toHaveAttribute("data-ambient", "running");
+    expect(await countAnimationFrames(page, 240)).toBeGreaterThan(2);
+  });
+
+  test("reduced motion never starts ambient motion", async ({ page }) => {
+    await useReducedMotion(page);
+    await page.goto("/");
+    await settle(page);
+
+    await expect(hero(page)).toHaveAttribute("data-motion-state", "complete");
+    await expect(hero(page)).not.toHaveAttribute("data-ambient");
+    await expectHeroReadable(page);
+
+    const copy = await canvasBacking(page, COPY_CANVAS);
+    expect(copy.width).toBe(0);
+    expect(copy.height).toBe(0);
+
+    expect(await countAnimationFrames(page, 240)).toBe(0);
+  });
+
+  test.describe("retina backing", () => {
+    test.use({ deviceScaleFactor: 3 });
+
+    test("the sky canvas stays under the area pixel budget", async ({ page }) => {
+      await page.addInitScript((key) => sessionStorage.setItem(key, "1"), SESSION_KEY);
+      await page.goto("/");
+      await expect(hero(page)).toHaveAttribute("data-motion-state", "complete", {
+        timeout: 2000,
+      });
+      await settle(page);
+
+      const sky = await canvasBacking(page, SKY_CANVAS);
+      const twoX = Math.round(sky.cssWidth * 2) * Math.round(sky.cssHeight * 2);
+
+      expect(sky.pixels).toBeGreaterThan(0);
+      expect(sky.pixels).toBeLessThan(twoX);
+      expect(sky.pixels).toBeLessThanOrEqual(2_100_000);
+      expect((await canvasBacking(page, COPY_CANVAS)).width).toBe(0);
+    });
   });
 });
 

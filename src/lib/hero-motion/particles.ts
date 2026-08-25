@@ -55,6 +55,16 @@ function transformGlyph(ch: string, textTransform: string): string {
 let glyphCanvas: HTMLCanvasElement | null = null;
 let glyphCtx: CanvasRenderingContext2D | null = null;
 
+/** Drop the glyph sampling canvas. Call after prep and on teardown. */
+export function clearGlyphScratch(): void {
+  if (glyphCanvas) {
+    glyphCanvas.width = 0;
+    glyphCanvas.height = 0;
+  }
+  glyphCanvas = null;
+  glyphCtx = null;
+}
+
 function glyphScratch(w: number, h: number): CanvasRenderingContext2D | null {
   let canvas = glyphCanvas;
   if (!canvas) {
@@ -297,6 +307,7 @@ export function prepareMotion(root: HTMLElement, layout: Layout): MotionPrep | n
   if (!hasText) return null;
 
   const { transfers, sources } = prepareTransferParticles(sky, copy, layout);
+  clearGlyphScratch();
 
   return { sky, copy, transfers, sources };
 }

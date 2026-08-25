@@ -1,6 +1,7 @@
 import { clamp, smoothstep } from "./easing";
-import { measureLayout, type Layout } from "./layout";
+import { measureLayout, type Layout, type MeasureOptions } from "./layout";
 import {
+  clearGlyphScratch,
   collectTargetBindings,
   drawFrame,
   hideMotionTargets,
@@ -8,7 +9,9 @@ import {
   type MotionPrep,
 } from "./particles";
 import {
+  AMBIENT_DURATION_MS,
   AMBIENT_FRAME_INTERVAL_MS,
+  clearSceneCache,
   drawStaticScene,
   SATELLITE_DURATION,
   SATELLITE_FIRST_PASS,
@@ -76,6 +79,8 @@ function clearTargetStyles(root: HTMLElement) {
 function hideCopyCanvas(root: HTMLElement) {
   root.querySelectorAll<HTMLCanvasElement>(".hero__copy-canvas").forEach((canvas) => {
     canvas.style.display = "none";
+    canvas.width = 0;
+    canvas.height = 0;
   });
 }
 
@@ -97,9 +102,13 @@ function settleToStatic(
   if (layout) {
     drawStaticScene(layout.sky, sceneFor(layout.sky, layout.chart));
     const { ctx, rect, dpr, canvas } = layout.copy;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, rect.width, rect.height);
+    if (canvas.width > 0 && canvas.height > 0) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, rect.width, rect.height);
+    }
     canvas.style.display = "none";
+    canvas.width = 0;
+    canvas.height = 0;
   } else {
     hideCopyCanvas(root);
   }
@@ -148,42 +157,91 @@ export async function setup() {
   let ambientFrameId = 0;
   let resizeTimer = 0;
   let failsafeTimer = 0;
+  let ambientStopTimer = 0;
   let layout: Layout | null = null;
   let prep: MotionPrep | null = null;
   let targets: TargetBinding[] = [];
   let playing = false;
+  let ambientOrigin = 0;
+  let ambientFrozen = false;
+  let heroVisible = true;
+  let visibilityObserver: IntersectionObserver | null = null;
 
   const cancelRuntime = () => {
     playing = false;
     cancelAnimationFrame(animationFrameId);
     cancelAnimationFrame(ambientFrameId);
+    ambientFrameId = 0;
     clearTimeout(resizeTimer);
     clearTimeout(failsafeTimer);
+    clearTimeout(ambientStopTimer);
+    ambientStopTimer = 0;
   };
 
-  const redrawStatic = (): boolean => {
-    const next = measureLayout(root);
+  const redrawStatic = (options: MeasureOptions = {}): boolean => {
+    const next = measureLayout(root, options);
     if (!next) return false;
     layout = next;
     drawStaticScene(next.sky, sceneFor(next.sky, next.chart));
     return true;
   };
 
+  const freezeAmbient = () => {
+    cancelAnimationFrame(ambientFrameId);
+    ambientFrameId = 0;
+    clearTimeout(ambientStopTimer);
+    ambientStopTimer = 0;
+    ambientFrozen = true;
+    if (layout) drawStaticScene(layout.sky, sceneFor(layout.sky, layout.chart));
+    root.dataset.ambient = "idle";
+  };
+
+  const pauseAmbient = () => {
+    cancelAnimationFrame(ambientFrameId);
+    ambientFrameId = 0;
+    if (!ambientFrozen) root.dataset.ambient = "paused";
+  };
+
   /**
-   * Ambient sky after the entrance settles: gentle field-star twinkle,
-   * Vega's glow breathing, and a satellite pass roughly every nine seconds.
-   * Never runs under reduced motion; canceled by cancelRuntime/dispose.
+   * Ambient sky after the entrance settles: field-star twinkle, Vega's glow,
+   * and one satellite pass. Stops after AMBIENT_DURATION_MS. Pauses when the
+   * hero is off-screen or the document is hidden. Never runs under reduced
+   * motion. Canceled by cancelRuntime/dispose.
    */
   const startAmbient = () => {
     if (motionQuery.matches || !layout) return;
+    if (!ambientOrigin) ambientOrigin = performance.now();
+    const elapsed = performance.now() - ambientOrigin;
+    if (ambientFrozen || elapsed >= AMBIENT_DURATION_MS) {
+      freezeAmbient();
+      return;
+    }
+    if (!heroVisible || document.hidden) {
+      pauseAmbient();
+      return;
+    }
+    if (ambientFrameId) return;
     cancelAnimationFrame(ambientFrameId);
+    clearTimeout(ambientStopTimer);
+    const remaining = AMBIENT_DURATION_MS - elapsed;
+    ambientStopTimer = window.setTimeout(() => {
+      if (gen !== setupGen) return;
+      freezeAmbient();
+    }, remaining);
     const scene = sceneFor(layout.sky, layout.chart);
-    let start = 0;
     let lastDraw = -Infinity;
+    root.dataset.ambient = "running";
     const tick = (t: number) => {
-      if (gen !== setupGen || !layout || motionQuery.matches) return;
-      if (!start) start = t;
-      const ambientT = t - start;
+      if (gen !== setupGen || !layout || motionQuery.matches || ambientFrozen) return;
+      if (!heroVisible || document.hidden) {
+        pauseAmbient();
+        return;
+      }
+      const ambientT = t - ambientOrigin;
+      if (ambientT >= AMBIENT_DURATION_MS) {
+        freezeAmbient();
+        return;
+      }
       // Repaint on the ambient budget; a satellite pass is the only motion
       // fast enough to need every frame, so it lifts the cap while it runs.
       const satellitePass =
@@ -216,6 +274,7 @@ export async function setup() {
       // Active motion: cancel and leave static without recording a successful play
       cancelAnimationFrame(animationFrameId);
       cancelAnimationFrame(ambientFrameId);
+      ambientFrameId = 0;
       if (playing) {
         cancelRuntime();
         settleToStatic(root, layout, { markSession: false });
@@ -247,7 +306,19 @@ export async function setup() {
     cancelRuntime();
     revealStaticHero(root);
     root.removeAttribute("data-motion-mode");
+    root.removeAttribute("data-ambient");
     redrawStatic();
+  };
+
+  const onVisibilityChange = () => {
+    if (root.dataset.motionState !== "complete") return;
+    startAmbient();
+  };
+
+  const onHeroIntersection = (entries: IntersectionObserverEntry[]) => {
+    heroVisible = entries.some((entry) => entry.isIntersecting);
+    if (root.dataset.motionState !== "complete") return;
+    startAmbient();
   };
 
   const installListeners = () => {
@@ -255,14 +326,23 @@ export async function setup() {
     window.addEventListener("orientationchange", onResize);
     root.addEventListener("focusin", onFocusIn);
     motionQuery.addEventListener("change", onReduceMotionChange);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    visibilityObserver = new IntersectionObserver(onHeroIntersection);
+    visibilityObserver.observe(root);
     dispose = () => {
       cancelRuntime();
       window.removeEventListener("resize", onResize);
       window.removeEventListener("orientationchange", onResize);
       root.removeEventListener("focusin", onFocusIn);
       motionQuery.removeEventListener("change", onReduceMotionChange);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      visibilityObserver?.disconnect();
+      visibilityObserver = null;
       clearTargetStyles(root);
       hideCopyCanvas(root);
+      clearSceneCache();
+      clearGlyphScratch();
+      root.removeAttribute("data-ambient");
       prep = null;
       targets = [];
     };
@@ -370,8 +450,9 @@ export async function setup() {
     return;
   }
 
-  // Remeasure after fonts so targets match final metrics
-  if (!redrawStatic() || !layout) {
+  // Remeasure after fonts so targets match final metrics. Copy backing is
+  // only needed for the full entrance; other paths leave it released.
+  if (!redrawStatic({ copyBacking: true }) || !layout) {
     revealStaticHero(root);
     return;
   }
