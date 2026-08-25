@@ -210,3 +210,35 @@ test("htaccess preserves production security headers and CSP", () => {
     );
   }
 });
+
+test("htaccess CSP allows the GoatCounter beacon in connect-src only", () => {
+  const htaccess = readDistFile(".htaccess");
+  const csp = htaccess.match(/Header always set Content-Security-Policy "([^"]+)"/)?.[1];
+  assert.ok(csp, "Content-Security-Policy header must be present");
+
+  // The self-hosted count script sends its pageview beacon with
+  // navigator.sendBeacon, which connect-src governs.
+  const connectSrc = csp.match(/connect-src\s+([^;]+)/)?.[1]?.trim();
+  assert.ok(connectSrc, "CSP must declare connect-src");
+  const tokens = connectSrc.split(/\s+/);
+  assert.ok(tokens.includes("'self'"), "connect-src must keep 'self'");
+  assert.ok(
+    tokens.includes("https://cristianvegaai.goatcounter.com"),
+    "connect-src must allow the GoatCounter count endpoint origin over https",
+  );
+  assert.deepEqual(
+    [...tokens].sort(),
+    ["'self'", "https://cristianvegaai.goatcounter.com"],
+    "connect-src must hold exactly 'self' and the GoatCounter origin",
+  );
+
+  // The count script is self-hosted, so no analytics host may reach
+  // script-src, and the GoatCounter CDN must stay out of the CSP entirely.
+  const scriptSrc = csp.match(/script-src\s+([^;]+)/)?.[1] ?? "";
+  assert.doesNotMatch(
+    scriptSrc,
+    /goatcounter\.com|zgo\.at/,
+    "script-src must not gain an analytics host",
+  );
+  assert.doesNotMatch(csp, /gc\.zgo\.at/, "the GoatCounter CDN must not appear in the CSP");
+});
