@@ -18,6 +18,7 @@
   --meta: #586173;
   --meta-on-dark: #98A1B0;
   --masthead-text: #EAEDF2;
+  --masthead-rule: rgba(255, 255, 255, 0.09);
   --grid-line: rgba(255, 255, 255, 0.028);
   --grid-line-light: rgba(20, 24, 31, 0.055);
   --tag-slate: #1D5FB0;
@@ -393,7 +394,8 @@ body:has(.hero) {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 72px var(--gutter) 72px clamp(40px, 5vw, 76px);
+  padding-block: clamp(40px, 7vh, 72px);
+  padding-inline: clamp(40px, 5vw, 76px) var(--gutter);
 }
 
 /* Hero text stays visible by default. A tiny home-only head script may stamp
@@ -412,7 +414,7 @@ body:has(.hero) {
 
 .hero__eyebrow {
   color: var(--ember);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .hero__name {
@@ -420,7 +422,7 @@ body:has(.hero) {
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.03;
-  margin-bottom: 22px;
+  margin-bottom: 16px;
 }
 
 /* Gradient underline on light surfaces; the hero upgrades it to gradient text */
@@ -443,23 +445,87 @@ body:has(.hero) {
 }
 
 .hero__profile {
-  margin-top: 14px;
+  margin-top: 22px;
   max-width: 62ch;
 }
 
-.hero__profile-title {
-  font-size: clamp(19px, 2.1vw, 23px);
-  font-weight: 600;
-  letter-spacing: -0.012em;
-  line-height: 1.3;
-  color: var(--masthead-text);
+/* A quiet line under the name, not a second headline competing with it. */
+.hero__lede {
+  font-family: var(--font-body);
+  text-wrap: balance;
+  font-size: clamp(14.5px, 1.15vw, 16px);
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.002em;
+  max-width: 46ch;
+  margin-top: 10px;
+  color: var(--meta-on-dark);
 }
 
 .hero__profile p {
-  margin-top: 14px;
+  text-wrap: pretty;
+  margin-top: 13px;
   font-size: 15px;
-  line-height: 1.68;
+  line-height: 1.62;
   color: color-mix(in srgb, var(--masthead-text) 82%, transparent);
+}
+
+/* The four working principles. Hairline rules and a gradient tick, so the list
+   reads as part of the masthead's chart apparatus rather than a bulleted list
+   dropped into it. */
+.hero__principles {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.hero__principles li {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 13px;
+  padding: 9px 0;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--masthead-text) 88%, transparent);
+}
+
+.hero__principles li + li {
+  border-top: 1px solid var(--masthead-rule);
+}
+
+.hero__principles li::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  transform: translateY(1px) rotate(45deg);
+  background: var(--gradient);
+}
+
+/* Above this width the copy runs in two measures, so the whole profile sits in
+   one screen instead of running past the fold. The chart keeps the left band. */
+@media (min-width: 1100px) {
+  .hero__grid {
+    grid-template-columns: 0.58fr 1.42fr;
+  }
+
+  .hero__profile {
+    max-width: none;
+    column-count: 2;
+    column-gap: 40px;
+    column-rule: 1px solid var(--masthead-rule);
+  }
+
+  /* A paragraph or the principle list split across the gutter reads as a bug. */
+  .hero__profile p,
+  .hero__principles {
+    break-inside: avoid;
+  }
+
+  .hero__profile > p:first-child {
+    margin-top: 0;
+  }
 }
 
 .projects {

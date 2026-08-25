@@ -17,11 +17,24 @@ test("homepage keeps the portfolio theme and the profile copy", () => {
   // The profile is the page. It replaced a separate About page, so the words
   // must be in the served HTML, not assembled by script after load.
   assert.match(html, /class="[^"]*hero__profile[^"]*"/);
-  assert.match(html, /Ten years building software, five building AI from the ground up/);
-  assert.match(html, /founded the AI engineering function/);
-  assert.match(html, /architected the Agent Platform/);
-  assert.match(html, /45-person AI engineering organization/);
+  assert.match(html, /Ten years building software\. The last five building production AI/);
+  assert.match(html, /never stopped building/);
+  assert.match(html, /governed system with contracts, evaluation, and a unit cost/);
+  assert.match(html, /12,000 documents and 400,000\+ data points/);
+  assert.match(html, /\$0\.20 per document/);
+  assert.match(html, /grew it to a peak of 100 people, and lead 45 engineers today/);
   assert.match(html, /BBVA/);
+  assert.match(html, /OpenCatalyst/);
+  assert.match(html, /U\.S\. Patent 12,639,972 B2/);
+
+  // The four working principles are a real list, served as markup. A styled
+  // run of paragraphs would look the same and mean nothing to a screen reader.
+  assert.match(html, /<ul class="hero__principles">/);
+  assert.equal((html.match(/<ul class="hero__principles">.*?<\/ul>/s)?.[0].match(/<li>/g) ?? []).length, 4);
+  assert.match(html, /Deterministic execution wherever it will do the job/);
+  assert.match(html, /Models only where reasoning is genuinely required/);
+  assert.match(html, /Reusable building blocks instead of one-off pipelines/);
+  assert.match(html, /Instrumentation on everything, so quality is a number/);
 
   // The hero holds a name and the profile now. A stray button or subhead would
   // re-enter the motion choreography, which no longer has a window for one.
