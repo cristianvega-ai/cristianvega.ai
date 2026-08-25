@@ -20,6 +20,8 @@ const SATELLITE_TRAIL_LENGTH = 16;
 // Ambient repaint budget (~15fps): the slow twinkle and Vega's breath read
 // identically at this cadence; satellite passes still draw every frame.
 export const AMBIENT_FRAME_INTERVAL_MS = 66;
+/** Wall-clock budget for ambient sky motion after the entrance. Then freeze. */
+export const AMBIENT_DURATION_MS = 8000;
 
 // The six principal stars of Lyra as flat-chart offsets from Vega in degrees
 // (screen x right, y down; RA deltas scaled by cos dec), from J2000 positions.
@@ -525,6 +527,23 @@ let sceneCache:
     }
   | null = null;
 
+function releaseSceneCanvases(prep: SkyPrep): void {
+  const { backdrop, vega } = prep.chart;
+  if (backdrop) {
+    backdrop.width = 0;
+    backdrop.height = 0;
+  }
+  vega.width = 0;
+  vega.height = 0;
+}
+
+/** Drop the cached scene and its offscreen canvases. Call on teardown. */
+export function clearSceneCache(): void {
+  if (!sceneCache) return;
+  releaseSceneCanvases(sceneCache.prep);
+  sceneCache = null;
+}
+
 export function sceneFor(layer: CanvasLayer, chartRect: Rect): SkyPrep {
   const { canvas, rect, dpr } = layer;
   const fontsLoaded = Boolean(
@@ -542,6 +561,7 @@ export function sceneFor(layer: CanvasLayer, chartRect: Rect): SkyPrep {
   ) {
     return sceneCache.prep;
   }
+  clearSceneCache();
   const prep = prepareScene(layer, chartRect);
   sceneCache = {
     canvas,
