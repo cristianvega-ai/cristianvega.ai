@@ -1,5 +1,8 @@
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { once } from "node:events";
 import { readdirSync, readFileSync, statSync } from "node:fs";
+import http from "node:http";
 import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -165,6 +168,108 @@ test("post-deploy gate script checks live headers and 404", () => {
   }
   assert.match(script, /__deploy-gate-missing-path__/);
   assert.match(script, /status !== 404|status === 404/);
+});
+
+test("htaccess compresses JavaScript as text/javascript and application/javascript", () => {
+  const htaccess = readDistFile(".htaccess");
+  const deflate = htaccess.match(/<IfModule mod_deflate\.c>([\s\S]*?)<\/IfModule>/)?.[1];
+  assert.ok(deflate, "mod_deflate block must be present");
+  assert.match(
+    deflate,
+    /AddOutputFilterByType DEFLATE text\/javascript/,
+    "DreamHost labels .js as text/javascript, so gzip must name that type",
+  );
+  assert.match(
+    deflate,
+    /AddOutputFilterByType DEFLATE application\/javascript/,
+    "keep application/javascript so a MIME change does not drop gzip",
+  );
+});
+
+test("post-deploy gate requires gzip on the router, hero, and analytics scripts", () => {
+  const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
+  assert.match(script, /content-encoding/i);
+  assert.match(script, /\bgzip\b/i);
+  assert.match(script, /ClientRouter/);
+  assert.match(script, /HeroMotion/);
+  assert.match(script, /\/js\/count\.v5\.js/);
+  assert.match(script, /\/js\/goatcounter\.js/);
+});
+
+function homepageScriptSrcs() {
+  const html = readDistFile("index.html");
+  return [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, src]) => src);
+}
+
+function requireScriptSrc(srcs, pattern, label) {
+  const src = srcs.find((value) => pattern.test(value));
+  assert.ok(src, `homepage must load the ${label} script`);
+  return src;
+}
+
+function getResponse(url) {
+  return new Promise((resolve, reject) => {
+    const req = http.get(url, { headers: { "accept-encoding": "gzip" } }, (res) => {
+      const result = { status: res.statusCode ?? 0, headers: res.headers };
+      res.resume();
+      res.on("end", () => resolve(result));
+    });
+    req.on("error", reject);
+  });
+}
+
+test("router, hero, and analytics scripts send Content-Encoding gzip", async () => {
+  const srcs = homepageScriptSrcs();
+  const scripts = [
+    [requireScriptSrc(srcs, /ClientRouter[^"]*\.js$/, "router"), "router"],
+    [requireScriptSrc(srcs, /HeroMotion[^"]*\.js$/, "hero"), "hero"],
+    [requireScriptSrc(srcs, /\/js\/count\.v5\.js$/, "analytics count"), "analytics count"],
+    [requireScriptSrc(srcs, /\/js\/goatcounter\.js$/, "analytics swap"), "analytics swap"],
+  ];
+
+  const child = spawn(process.execPath, ["scripts/serve-dist.mjs"], {
+    cwd: root,
+    env: { ...process.env, PORT: "4371" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("serve-dist did not start")), 10_000);
+      const onData = (chunk) => {
+        if (String(chunk).includes("serving dist/")) {
+          clearTimeout(timer);
+          child.stdout.off("data", onData);
+          resolve();
+        }
+      };
+      child.stdout.on("data", onData);
+      child.once("error", (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+      child.once("exit", (code) => {
+        clearTimeout(timer);
+        reject(new Error(`serve-dist exited ${code}`));
+      });
+    });
+
+    for (const [src, label] of scripts) {
+      const response = await getResponse(`http://127.0.0.1:4371${src}`);
+      assert.equal(response.status, 200, `${label} must return HTTP 200`);
+      const type = response.headers["content-type"] ?? "";
+      assert.match(type, /javascript/i, `${label} must be served as JavaScript, got ${type}`);
+      const encoding = response.headers["content-encoding"] ?? "";
+      assert.match(
+        encoding,
+        /\bgzip\b/i,
+        `${label} must send Content-Encoding: gzip, got ${encoding || "none"}`,
+      );
+    }
+  } finally {
+    child.kill("SIGTERM");
+    await once(child, "exit").catch(() => {});
+  }
 });
 
 test("htaccess preserves production security headers and CSP", () => {

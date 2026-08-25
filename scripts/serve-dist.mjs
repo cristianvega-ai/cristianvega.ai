@@ -3,8 +3,9 @@
 //
 // `astro preview` daemonizes and returns immediately, so Playwright sees the
 // command exit and aborts the run. This serves the same directory in the
-// foreground and applies the two rules DreamHost applies in production:
-// trailingSlash "always", and a real 404 body with a 404 status.
+// foreground and applies the rules DreamHost applies in production:
+// trailingSlash "always", a real 404 body with a 404 status, and gzip for
+// the text types listed in public/.htaccess.
 //
 // Usage:
 //   node scripts/serve-dist.mjs
@@ -14,6 +15,8 @@ import { createServer } from "node:http";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join, resolve, sep, extname } from "node:path";
+import { pipeline } from "node:stream/promises";
+import { createGzip } from "node:zlib";
 
 const port = Number(process.env.PORT ?? 4321);
 const distDir = resolve(process.cwd(), "dist");
@@ -35,6 +38,45 @@ const MIME = {
   ".ico": "image/x-icon",
   ".woff2": "font/woff2",
 };
+
+// Same types Apache compresses in public/.htaccess. The host labels .js as
+// text/javascript, so that type must stay here or every script misses gzip.
+const COMPRESSIBLE_TYPES = new Set([
+  "text/html",
+  "text/css",
+  "text/plain",
+  "text/xml",
+  "text/javascript",
+  "application/javascript",
+  "application/xml",
+  "image/svg+xml",
+]);
+
+function mediaType(contentType) {
+  return contentType.split(";")[0].trim().toLowerCase();
+}
+
+function acceptsGzip(req) {
+  const accept = req.headers["accept-encoding"];
+  const value = Array.isArray(accept) ? accept.join(",") : (accept ?? "");
+  return /\bgzip\b/i.test(value);
+}
+
+function send(req, res, status, contentType, body) {
+  const headers = { "content-type": contentType };
+  const compressible = COMPRESSIBLE_TYPES.has(mediaType(contentType));
+  if (compressible) headers.vary = "Accept-Encoding";
+  if (compressible && acceptsGzip(req)) {
+    headers["content-encoding"] = "gzip";
+    res.writeHead(status, headers);
+    pipeline(body, createGzip(), res).catch(() => {
+      if (!res.writableEnded) res.destroy();
+    });
+    return;
+  }
+  res.writeHead(status, headers);
+  body.pipe(res);
+}
 
 async function statFile(path) {
   try {
@@ -72,14 +114,22 @@ const server = createServer(async (req, res) => {
   if (!target) {
     const notFound = join(distDir, "404.html");
     const body = await statFile(notFound);
-    res.writeHead(404, { "content-type": MIME[".html"] });
-    if (body) createReadStream(notFound).pipe(res);
-    else res.end("404");
+    if (body) {
+      send(req, res, 404, MIME[".html"], createReadStream(notFound));
+    } else {
+      res.writeHead(404, { "content-type": MIME[".html"] });
+      res.end("404");
+    }
     return;
   }
 
-  res.writeHead(200, { "content-type": MIME[extname(target)] ?? "application/octet-stream" });
-  createReadStream(target).pipe(res);
+  send(
+    req,
+    res,
+    200,
+    MIME[extname(target)] ?? "application/octet-stream",
+    createReadStream(target),
+  );
 });
 
 if (!(await statFile(join(distDir, "index.html")))) {

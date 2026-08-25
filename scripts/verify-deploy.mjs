@@ -6,6 +6,9 @@
 //   npm run verify:deploy
 //   ORIGIN=https://cristianvega.ai npm run verify:deploy
 
+import http from "node:http";
+import https from "node:https";
+
 const origin = (process.env.ORIGIN ?? "https://cristianvega.ai").replace(/\/$/, "");
 
 const REQUIRED_HEADERS = [
@@ -20,6 +23,30 @@ const REQUIRED_HEADERS = [
 function fail(message) {
   console.error(`verify-deploy: ${message}`);
   process.exitCode = 1;
+}
+
+function headerValue(headers, name) {
+  const value = headers[name];
+  return Array.isArray(value) ? value.join(",") : (value ?? "");
+}
+
+function hasGzip(headers) {
+  return /\bgzip\b/i.test(headerValue(headers, "content-encoding"));
+}
+
+/** GET a URL and return status plus raw headers. fetch() strips Content-Encoding. */
+function requestHeaders(url, extraHeaders = {}) {
+  return new Promise((resolve, reject) => {
+    const target = new URL(url);
+    const lib = target.protocol === "https:" ? https : http;
+    const req = lib.request(target, { method: "GET", headers: extraHeaders }, (res) => {
+      const result = { status: res.statusCode ?? 0, headers: res.headers };
+      res.resume();
+      res.on("end", () => resolve(result));
+    });
+    req.on("error", reject);
+    req.end();
+  });
 }
 
 async function main() {
@@ -74,6 +101,43 @@ async function main() {
     );
   } else {
     console.log("verify-deploy: missing path returns HTTP 404");
+  }
+
+  const html = await home.text();
+  const scriptSrcs = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, src]) => src);
+  const requiredScripts = [
+    ["ClientRouter", "router"],
+    ["HeroMotion", "hero"],
+    ["/js/count.v5.js", "analytics count"],
+    ["/js/goatcounter.js", "analytics swap"],
+  ];
+
+  for (const [needle, label] of requiredScripts) {
+    const src = scriptSrcs.find((value) => value.includes(needle));
+    if (!src) {
+      fail(`homepage does not load the ${label} script`);
+      continue;
+    }
+
+    const url = new URL(src, `${origin}/`).href;
+    let script;
+    try {
+      script = await requestHeaders(url, { "accept-encoding": "gzip" });
+    } catch (error) {
+      fail(`could not reach ${url} (${error.cause?.code ?? error.message})`);
+      continue;
+    }
+
+    if (script.status !== 200) {
+      fail(`GET ${url} returned HTTP ${script.status} (${label})`);
+      continue;
+    }
+    if (!hasGzip(script.headers)) {
+      const encoding = headerValue(script.headers, "content-encoding") || "none";
+      fail(`${label} at ${url} is not gzip-compressed (Content-Encoding: ${encoding})`);
+      continue;
+    }
+    console.log(`verify-deploy: ${label} is gzip-compressed`);
   }
 
   if (process.exitCode) {
