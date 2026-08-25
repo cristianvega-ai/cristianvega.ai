@@ -10,7 +10,9 @@ import { tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
  *
  * Each spec asserts what the browser does. Fonts are same-origin hashed
  * files under /_astro/, so the suite does not stub a third-party font host.
- * The stalled-webfont spec hangs `document.fonts.ready` itself.
+ * The stalled-webfont spec hangs `document.fonts.load` itself. A hung
+ * `document.fonts.ready` must not skip the entrance: that waiter includes
+ * footer and brand faces the hero does not sample.
  */
 
 const { desktop: DESKTOP, tablet: TABLET, mobile: MOBILE } = VIEWPORTS;
@@ -341,11 +343,8 @@ test.describe("the pre-hide gate never strands the hero copy", () => {
   test("a stalled webfont reveals the copy without an entrance", async ({ page }) => {
     await recordMotionMarks(page);
     await page.addInitScript(() => {
-      // Fonts that never report ready: glyph metrics would shift under the run.
-      Object.defineProperty(document.fonts, "ready", {
-        configurable: true,
-        get: () => new Promise(() => {}),
-      });
+      // Faces that never load: glyph metrics would shift under the run.
+      document.fonts.load = () => new Promise(() => {});
     });
 
     await page.goto("/");
@@ -361,6 +360,30 @@ test.describe("the pre-hide gate never strands the hero copy", () => {
     await expect(page.locator("html")).not.toHaveAttribute(PENDING);
     await expectHeroReadable(page);
     expect(await sessionFlag(page)).toBeNull();
+  });
+
+  test("a hung FontFaceSet ready promise still plays the entrance", async ({ page }) => {
+    await recordMotionMarks(page);
+    await page.addInitScript(() => {
+      // ready waits for every face, including footer Mono 400 and brand
+      // Grotesk 700. The entrance must not sit on that promise.
+      Object.defineProperty(document.fonts, "ready", {
+        configurable: true,
+        get: () => new Promise(() => {}),
+      });
+    });
+
+    await page.goto("/");
+    await expect(hero(page)).toHaveAttribute("data-motion-mode", "full");
+    await expect(hero(page)).toHaveAttribute("data-motion-state", "playing");
+    await expect(hero(page)).toHaveAttribute("data-motion-state", "complete", {
+      timeout: SETTLE_TIMEOUT,
+    });
+
+    const marks = await readMarks(page);
+    expect(markAt(marks, "data-motion-state", "playing")).not.toBeNull();
+    expect(await sessionFlag(page)).toBe("1");
+    await expectHeroReadable(page);
   });
 
   test("pages other than the homepage never stamp the pending flag", async ({ page }) => {

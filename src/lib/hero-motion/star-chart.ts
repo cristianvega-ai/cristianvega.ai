@@ -1,6 +1,7 @@
 import { clamp, easeOutCubic, FULL_TURN_RADIANS, progress, smoothstep } from "./easing";
 import type { CanvasLayer, Rect } from "./layout";
 import {
+  HERO_FONT_SPECS,
   PORTRAIT_DOT_DURATION,
   TRANSFER_TRAVEL_DURATION,
   WINDOWS,
@@ -508,8 +509,9 @@ function renderBackdrop(layer: CanvasLayer, prep: SkyPrep): HTMLCanvasElement | 
 /**
  * One prepared scene per canvas geometry. prepareScene is deterministic for a
  * given size, so static redraws, the entrance and the ambient loop share a
- * single build. Font status is part of the key because label advances are
- * measured, so a scene built before webfonts resolve must be rebuilt after.
+ * single build. Hero-font status is part of the key because label advances
+ * are measured, so a scene built before those faces resolve must be rebuilt
+ * after. Footer and brand faces are not part of this key.
  */
 let sceneCache:
   | {
@@ -525,7 +527,9 @@ let sceneCache:
 
 export function sceneFor(layer: CanvasLayer, chartRect: Rect): SkyPrep {
   const { canvas, rect, dpr } = layer;
-  const fontsLoaded = document.fonts?.status === "loaded";
+  const fontsLoaded = Boolean(
+    document.fonts?.check && HERO_FONT_SPECS.every((spec) => document.fonts.check(spec)),
+  );
   const chartKey = `${chartRect.left}|${chartRect.top}|${chartRect.width}|${chartRect.height}`;
   if (
     sceneCache &&

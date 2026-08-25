@@ -19,6 +19,7 @@ import {
   FAILSAFE_DURATION,
   FONT_DEADLINE_MS,
   FULL_DURATION,
+  HERO_FONT_SPECS,
   markPlayedThisSession,
   plannedDuration,
   QUICK_DURATION,
@@ -75,17 +76,19 @@ function settleToStatic(
   if (options.markSession) markPlayedThisSession();
 }
 
-async function fontsReadyWithin(ms: number): Promise<boolean> {
-  if (!document.fonts?.ready) return true;
+async function heroFontsLoadedWithin(ms: number): Promise<boolean> {
+  if (!document.fonts?.load) return true;
   let timeoutId = 0;
   try {
-    const ready = await Promise.race([
-      document.fonts.ready.then(() => true as const),
+    const loaded = await Promise.race([
+      Promise.all(HERO_FONT_SPECS.map((spec) => document.fonts.load(spec))).then(
+        () => true as const,
+      ),
       new Promise<false>((resolve) => {
         timeoutId = window.setTimeout(() => resolve(false), ms);
       }),
     ]);
-    return ready;
+    return loaded;
   } catch {
     return true; // fonts API error: proceed with fallback metrics
   } finally {
@@ -292,8 +295,8 @@ export async function setup() {
   }
 
   // --- Full path: first visit this session ---
-  // Font deadline: skip full prep if fonts stall (glyph metrics may shift)
-  const fontsOk = await fontsReadyWithin(FONT_DEADLINE_MS);
+  // Load only the faces the entrance samples. Skip full prep if they stall.
+  const fontsOk = await heroFontsLoadedWithin(FONT_DEADLINE_MS);
   // Abort if a newer setup superseded this run during the await
   if (gen !== setupGen) return;
   if (document.body.dataset.page !== "home") {
