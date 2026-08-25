@@ -37,6 +37,9 @@
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --header-height: 64px;
   --footer-height: 46px;
+  /* The bar plus the gap that keeps the last line off it. One value, so the
+     hero and the page bottom cannot disagree about how much is reserved. */
+  --footer-reserve: 54px;
   --container: 1180px;
   --gutter: max(32px, calc((100vw - var(--container)) / 2 + 32px));
   --radius: 14px;
@@ -74,10 +77,10 @@ body {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
-  /* The footer is fixed, so the page reserves its strip. The few extra pixels
-     keep the last line off the bar rather than exactly against it, and absorb
-     the fractional layout that would otherwise put them a hair underneath. */
-  padding-bottom: calc(var(--footer-height) + 8px);
+  /* The footer is fixed, so the page reserves its strip. The gap above the bar
+     keeps the last line off it and absorbs the fractional layout that would
+     otherwise put that line a hair underneath. */
+  padding-bottom: var(--footer-reserve);
 }
 
 /* The slot wrapper takes the slack, so the footer never rides up the page. */
@@ -340,8 +343,8 @@ body:has(.hero) {
 }
 
 .hero {
-  min-height: calc(100vh - var(--footer-height));
-  min-height: calc(100svh - var(--footer-height));
+  min-height: calc(100vh - var(--footer-reserve));
+  min-height: calc(100svh - var(--footer-reserve));
   margin-top: calc(var(--header-height) * -1);
   display: flex;
   flex-direction: column;
@@ -511,7 +514,7 @@ body:has(.hero) {
    one screen instead of running past the fold. The chart keeps the left band. */
 @media (min-width: 1100px) {
   .hero__grid {
-    grid-template-columns: 0.58fr 1.42fr;
+    grid-template-columns: 0.5fr 1.5fr;
   }
 
   .hero__profile {
@@ -529,6 +532,16 @@ body:has(.hero) {
 
   .hero__profile > p:first-child {
     margin-top: 0;
+  }
+}
+
+/* Short laptop screens carry the same words in less height, so the copy comes
+   down half a point there. Wider screens keep the larger size. */
+@media (min-width: 1100px) and (max-width: 1359px) {
+  .hero__profile p {
+    font-size: 14.5px;
+    line-height: 1.55;
+    margin-top: 11px;
   }
 }
 
