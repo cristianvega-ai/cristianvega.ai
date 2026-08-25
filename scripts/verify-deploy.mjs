@@ -138,6 +138,31 @@ async function main() {
       continue;
     }
     console.log(`verify-deploy: ${label} is gzip-compressed`);
+
+    const cache = headerValue(script.headers, "cache-control");
+    if (needle.startsWith("/js/")) {
+      if (
+        !/\bmax-age=3600\b/.test(cache) ||
+        !/\bstale-while-revalidate=86400\b/.test(cache) ||
+        /\bimmutable\b/i.test(cache)
+      ) {
+        fail(
+          `${label} at ${url} Cache-Control is ${cache || "none"} (expected public, max-age=3600, stale-while-revalidate=86400)`,
+        );
+        continue;
+      }
+      console.log(`verify-deploy: ${label} cache is short-lived`);
+    } else if (
+      !/\bmax-age=31536000\b/.test(cache) ||
+      !/\bimmutable\b/i.test(cache)
+    ) {
+      fail(
+        `${label} at ${url} Cache-Control is ${cache || "none"} (expected public, max-age=31536000, immutable)`,
+      );
+      continue;
+    } else {
+      console.log(`verify-deploy: ${label} cache is immutable`);
+    }
   }
 
   if (process.exitCode) {
