@@ -132,6 +132,34 @@ test.describe("the footer holds the foot of the viewport", () => {
   }
 });
 
+test.describe("the compact header", () => {
+  // The 520px block used to hide the wordmark because four labels overflowed
+  // in the 421–520px band. The nav now has two (about, contact). Full brand
+  // plus those two still fit at 390 and 450, so the name must stay visible.
+  for (const width of [450, 390]) {
+    test(`keeps the wordmark beside the nav at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto("/");
+      await settle(page);
+
+      const state = await page.evaluate(() => {
+        const brand = document.querySelector(".brand");
+        const wordmark = document.querySelector(".brand span:last-child");
+        const nav = document.querySelector(".nav");
+        const brandBox = brand.getBoundingClientRect();
+        const navBox = nav.getBoundingClientRect();
+        return {
+          wordmarkShown: getComputedStyle(wordmark).display !== "none",
+          overlap: brandBox.right > navBox.left + 0.5,
+        };
+      });
+
+      expect(state.wordmarkShown).toBe(true);
+      expect(state.overlap).toBe(false);
+    });
+  }
+});
+
 /* Routes that open with a grid band. The homepage opens with the hero, and a
    post opens with its article head. */
 const HEAD_ROUTES = ["/projects/", "/writing/", "/no-such-page/"];

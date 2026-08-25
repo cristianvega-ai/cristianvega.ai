@@ -4,8 +4,9 @@ import { defineConfig, devices } from "@playwright/test";
  * Browser coverage for behavior the Node contract tests cannot reach: computed
  * layout, sticky positioning, and viewport-dependent rules.
  *
- * The suite runs against the real static build through `astro preview`, not the
- * dev server, so what it asserts is what DreamHost serves.
+ * The suite serves the static build with scripts/serve-dist.mjs. It does not
+ * use `astro preview` or the dev server. What it asserts is what DreamHost
+ * serves.
  */
 export default defineConfig({
   testDir: "tests/e2e",
