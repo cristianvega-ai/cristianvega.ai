@@ -228,7 +228,7 @@ test("the retired pages are gone from the build", () => {
   assert.match(htaccess, /RewriteRule \^contact\/\?\$ \/ \[L,R=301\]/);
 });
 
-test("every key page loads the self-hosted GoatCounter scripts", () => {
+test("every key page loads the self-hosted GoatCounter count script", () => {
   const pages = [
     ["index.html"],
     ["writing", "index.html"],
@@ -251,8 +251,16 @@ test("every key page loads the self-hosted GoatCounter scripts", () => {
     );
     assert.match(counter, /\basync\b/, `${name} must not block rendering on the count script`);
 
-    const swapCounter = scriptTags.find((tag) => tag.includes('src="/js/goatcounter.js"'));
-    assert.ok(swapCounter, `${name} must load the ClientRouter swap counter from /js/`);
+    assert.equal(
+      scriptTags.some((tag) => tag.includes('src="/js/goatcounter.js"')),
+      false,
+      `${name} must not load the retired ClientRouter swap counter`,
+    );
+    assert.equal(
+      scriptTags.some((tag) => /ClientRouter/i.test(tag)),
+      false,
+      `${name} must not load the ClientRouter`,
+    );
 
     // Self-hosted means self-hosted: no page may reference the GoatCounter CDN.
     assert.doesNotMatch(html, /gc\.zgo\.at/, `${name} must not load the GoatCounter CDN`);

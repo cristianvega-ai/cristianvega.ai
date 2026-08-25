@@ -212,14 +212,12 @@ test("htaccess compresses JavaScript as text/javascript and application/javascri
   );
 });
 
-test("post-deploy gate requires gzip on the router, hero, and analytics scripts", () => {
+test("post-deploy gate requires gzip on the hero and analytics scripts", () => {
   const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
   assert.match(script, /content-encoding/i);
   assert.match(script, /\bgzip\b/i);
-  assert.match(script, /ClientRouter/);
   assert.match(script, /HeroMotion/);
   assert.match(script, /\/js\/count\.v5\.js/);
-  assert.match(script, /\/js\/goatcounter\.js/);
 });
 
 test("post-deploy gate requires a short cache on /js/ and an immutable cache on /_astro/", () => {
@@ -253,13 +251,11 @@ function getResponse(url) {
   });
 }
 
-test("router, hero, and analytics scripts send Content-Encoding gzip", async () => {
+test("hero and analytics scripts send Content-Encoding gzip", async () => {
   const srcs = homepageScriptSrcs();
   const scripts = [
-    [requireScriptSrc(srcs, /ClientRouter[^"]*\.js$/, "router"), "router"],
     [requireScriptSrc(srcs, /HeroMotion[^"]*\.js$/, "hero"), "hero"],
     [requireScriptSrc(srcs, /\/js\/count\.v5\.js$/, "analytics count"), "analytics count"],
-    [requireScriptSrc(srcs, /\/js\/goatcounter\.js$/, "analytics swap"), "analytics swap"],
   ];
 
   const child = spawn(process.execPath, ["scripts/serve-dist.mjs"], {
@@ -307,13 +303,11 @@ test("router, hero, and analytics scripts send Content-Encoding gzip", async () 
   }
 });
 
-test("router and hero stay immutable; analytics scripts use a short cache", async () => {
+test("hero stays immutable; analytics scripts use a short cache", async () => {
   const srcs = homepageScriptSrcs();
   const scripts = [
-    [requireScriptSrc(srcs, /ClientRouter[^"]*\.js$/, "router"), "router", "immutable"],
     [requireScriptSrc(srcs, /HeroMotion[^"]*\.js$/, "hero"), "hero", "immutable"],
     [requireScriptSrc(srcs, /\/js\/count\.v5\.js$/, "analytics count"), "analytics count", "short"],
-    [requireScriptSrc(srcs, /\/js\/goatcounter\.js$/, "analytics swap"), "analytics swap", "short"],
   ];
 
   const child = spawn(process.execPath, ["scripts/serve-dist.mjs"], {

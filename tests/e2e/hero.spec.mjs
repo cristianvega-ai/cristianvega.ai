@@ -243,8 +243,8 @@ test.describe("a later visit in the same session", () => {
   test("arriving from another page runs the entrance again", async ({ page }) => {
     await page.goto("/writing/");
 
-    // The router swaps the document without a reload, so the entrance depends on
-    // the astro:page-load hook rather than on the page's own first parse.
+    // A full navigation loads the homepage again, so the motion module runs
+    // on parse. Session storage is empty because this visit never played.
     await page.locator('header a.brand[href="/"]').click();
     await page.waitForURL("**/");
 

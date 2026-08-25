@@ -139,7 +139,11 @@ test("static ops assets ship with the build", () => {
 });
 
 test("analytics scripts ship with the build and match the pinned release", () => {
-  assert.equal(existsSync(join(dist, "js", "goatcounter.js")), true);
+  assert.equal(
+    existsSync(join(dist, "js", "goatcounter.js")),
+    false,
+    "the ClientRouter swap counter must not ship",
+  );
   assert.equal(existsSync(join(dist, "js", "count.v5.js")), true);
 
   // The vendored file must stay byte-identical to the upstream release. The
@@ -152,6 +156,17 @@ test("analytics scripts ship with the build and match the pinned release", () =>
     `sha384-${digest}`,
     "sha384-atnOLvQb9t+jTSipvd75X2yginT4PjVbqDdlJAmxMm+wYElFmeR6EmLP5bYeoRVQ",
     "dist/js/count.v5.js must stay byte-identical to the pinned GoatCounter release",
+  );
+});
+
+test("the ClientRouter bundle does not ship", () => {
+  const astroDir = join(dist, "_astro");
+  assert.equal(existsSync(astroDir), true, "hashed assets required");
+  const jsFiles = readdirSync(astroDir).filter((file) => file.endsWith(".js"));
+  assert.equal(
+    jsFiles.some((file) => /ClientRouter/i.test(file)),
+    false,
+    "the ClientRouter bundle must not ship",
   );
 });
 
