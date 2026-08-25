@@ -74,6 +74,19 @@ async function main() {
     console.log("verify-deploy: all six security headers present");
   }
 
+  const hsts = home.headers.get("strict-transport-security") ?? "";
+  const maxAgeMatch = hsts.match(/(?:^|;\s*)max-age=(\d+)/i);
+  const maxAge = maxAgeMatch ? Number(maxAgeMatch[1]) : 0;
+  if (maxAge < 31536000) {
+    fail(
+      `HSTS max-age is ${maxAgeMatch ? maxAgeMatch[1] : "missing"} (expected at least 31536000)`,
+    );
+  } else if (/\bincludeSubDomains\b/i.test(hsts)) {
+    fail("live HSTS must not include includeSubDomains");
+  } else {
+    console.log(`verify-deploy: HSTS max-age=${maxAge} without includeSubDomains`);
+  }
+
   const csp = home.headers.get("content-security-policy") ?? "";
   for (const directive of [
     "default-src 'self'",
