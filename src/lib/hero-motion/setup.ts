@@ -22,6 +22,9 @@ import {
   HERO_FONT_SPECS,
   markPlayedThisSession,
   plannedDuration,
+  PREHIDE_DEADLINE_MS,
+  PREHIDE_EXPIRED_ATTR,
+  PREHIDE_PENDING_ATTR,
   QUICK_DURATION,
   type TargetBinding,
 } from "./timeline";
@@ -31,7 +34,36 @@ let dispose: (() => void) | null = null;
 let setupGen = 0;
 
 function clearHeroMotionPending() {
-  document.documentElement.removeAttribute("data-hero-motion-pending");
+  document.documentElement.removeAttribute(PREHIDE_PENDING_ATTR);
+}
+
+function prehideCancelled(): boolean {
+  return document.documentElement.hasAttribute(PREHIDE_EXPIRED_ATTR);
+}
+
+function markPrehideCancelled() {
+  document.documentElement.setAttribute(PREHIDE_EXPIRED_ATTR, "");
+  clearHeroMotionPending();
+}
+
+function clearPrehideExpired() {
+  document.documentElement.removeAttribute(PREHIDE_EXPIRED_ATTR);
+}
+
+/**
+ * Hide copy only while the 1.2s pre-hide gate is live. After the deadline
+ * the head script sets expired; a late call must not write inline opacity 0.
+ */
+function tryHideMotionTargets(targets: TargetBinding[]): boolean {
+  if (prehideCancelled()) return false;
+  hideMotionTargets(targets);
+  if (prehideCancelled()) {
+    for (let i = 0; i < targets.length; i++) {
+      targets[i].element.style.removeProperty("opacity");
+    }
+    return false;
+  }
+  return true;
 }
 
 function clearTargetStyles(root: HTMLElement) {
@@ -104,6 +136,7 @@ export async function setup() {
   const root = document.querySelector<HTMLElement>(".hero");
   if (!root || document.body.dataset.page !== "home") {
     clearHeroMotionPending();
+    clearPrehideExpired();
     return;
   }
 
@@ -256,6 +289,17 @@ export async function setup() {
 
   installListeners();
 
+  const abandonEntrance = () => {
+    revealStaticHero(root);
+    startAmbient();
+  };
+
+  // Deadline already fired before this module ran: leave readable copy alone.
+  if (prehideCancelled()) {
+    abandonEntrance();
+    return;
+  }
+
   // --- Quick path: later visits in the same session (~250ms settle) ---
   // Skip the font wait and the particle prep so the hero settles at once.
   if (duration <= QUICK_DURATION) {
@@ -267,9 +311,12 @@ export async function setup() {
     }
     if (gen !== setupGen) return;
 
+    if (!tryHideMotionTargets(targets)) {
+      abandonEntrance();
+      return;
+    }
     root.dataset.motionMode = "quick";
     root.dataset.motionState = "playing";
-    hideMotionTargets(targets);
     // Copy canvas unused on quick path; keep hidden
     activeLayout.copy.canvas.style.display = "none";
     playing = true;
@@ -295,15 +342,28 @@ export async function setup() {
   }
 
   // --- Full path: first visit this session ---
-  // Load only the faces the entrance samples. Skip full prep if they stall.
-  const fontsOk = await heroFontsLoadedWithin(FONT_DEADLINE_MS);
+  // Load only the faces the entrance samples. On a cold load, cap the wait
+  // so fonts cannot outlive the pre-hide gate.
+  let fontBudget = FONT_DEADLINE_MS;
+  if (document.documentElement.hasAttribute(PREHIDE_PENDING_ATTR)) {
+    const remaining = PREHIDE_DEADLINE_MS - performance.now();
+    if (remaining <= 0) {
+      markPrehideCancelled();
+      abandonEntrance();
+      return;
+    }
+    fontBudget = Math.min(FONT_DEADLINE_MS, remaining);
+  }
+
+  const fontsOk = await heroFontsLoadedWithin(fontBudget);
   // Abort if a newer setup superseded this run during the await
   if (gen !== setupGen) return;
   if (document.body.dataset.page !== "home") {
     clearHeroMotionPending();
+    clearPrehideExpired();
     return;
   }
-  if (!fontsOk) {
+  if (prehideCancelled() || !fontsOk) {
     revealStaticHero(root);
     redrawStatic();
     startAmbient();
@@ -341,11 +401,18 @@ export async function setup() {
   }
 
   if (gen !== setupGen) return;
+  if (prehideCancelled()) {
+    abandonEntrance();
+    return;
+  }
 
   // Prep succeeded — only now hide targets and start the shared clock
+  if (!tryHideMotionTargets(targets)) {
+    abandonEntrance();
+    return;
+  }
   root.dataset.motionMode = "full";
   root.dataset.motionState = "playing";
-  hideMotionTargets(targets);
   activeLayout.copy.canvas.style.display = "block";
   playing = true;
 

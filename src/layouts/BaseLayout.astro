@@ -69,9 +69,11 @@ const structuredData = {
     {
       active === "home" && (
         <script is:inline>
-          // Stamp before first paint so cold loads never flash readable hero copy
-          // then blank it after fonts. No-JS leaves the attribute unset. Must stay
-          // aligned with SESSION_KEY / FAILSAFE_DURATION in HeroMotion.astro.
+          // Stamp before first paint so cold loads never flash readable hero copy.
+          // Release at 1200 ms (PREHIDE_DEADLINE_MS). If the entrance has not
+          // started, mark expired so a late module cannot hide the copy.
+          // FAILSAFE_DURATION covers a playing run only. No-JS leaves both
+          // attributes unset.
           (function () {
             try {
               if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -79,7 +81,11 @@ const structuredData = {
               document.documentElement.setAttribute("data-hero-motion-pending", "");
               window.setTimeout(function () {
                 document.documentElement.removeAttribute("data-hero-motion-pending");
-              }, 3000);
+                var hero = document.querySelector(".hero");
+                if (!hero || hero.getAttribute("data-motion-state") !== "playing") {
+                  document.documentElement.setAttribute("data-hero-motion-expired", "");
+                }
+              }, 1200);
             } catch (_) {
               /* private mode / blocked storage: skip pre-hide */
             }

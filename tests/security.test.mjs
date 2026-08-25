@@ -149,7 +149,7 @@ test("htaccess CSP denies inline scripts while allowing inline styles", () => {
   }
   assert.deepEqual(
     [...inlineDigests],
-    ["XAmQDOZkZmpTCL+kRJn5V0l3aQGa2/ZQ/miN4MqFqnI="],
+    ["DarllRtSZBmSvCjf89jdetABo5/SYKGdWIWRem+vzIs="],
     "the hero pre-hide stamp is the only executable inline script the build may ship",
   );
   assert.deepEqual(

@@ -1,7 +1,15 @@
 export const FULL_DURATION = 2450;
 export const QUICK_DURATION = 250;
+/** Covers a playing run whose clock stalls. Not the CSS pre-hide gate. */
 export const FAILSAFE_DURATION = 3000;
-export const FONT_DEADLINE_MS = 1200;
+/**
+ * Head-script CSS hide, and the font wait on a cold load. After this, a
+ * module that has not started playing must leave the copy readable.
+ */
+export const PREHIDE_DEADLINE_MS = 1200;
+export const FONT_DEADLINE_MS = PREHIDE_DEADLINE_MS;
+export const PREHIDE_PENDING_ATTR = "data-hero-motion-pending";
+export const PREHIDE_EXPIRED_ATTR = "data-hero-motion-expired";
 /** Faces the entrance samples. Do not wait for footer Mono 400 or brand Grotesk 700. */
 export const HERO_FONT_SPECS = [
   '600 16px "Space Grotesk"',

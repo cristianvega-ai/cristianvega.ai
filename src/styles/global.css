@@ -456,12 +456,13 @@ body:has(.hero) {
 
 /* Hero text stays visible by default. A tiny home-only head script may stamp
    html[data-hero-motion-pending] before paint; CSS below hides targets only
-   then. Without that attribute (no-JS, reduced motion, session replay, or any
-   bail-out clearing it) the real copy stays accessible. */
+   then, for about 1.2s (PREHIDE_DEADLINE_MS). Without that attribute (no-JS,
+   reduced motion, session replay, deadline expiry, or any bail-out clearing
+   it) the real copy stays accessible. */
 
 /* Cold-load pre-hide: only while the head script's pending flag is set.
    Reduced-motion users never get the attribute; the reduce branch also forces
-   opacity 1. */
+   opacity 1. After the deadline the module must not set inline opacity 0. */
 @media (prefers-reduced-motion: no-preference) {
   html[data-hero-motion-pending] .hero [data-motion-target] {
     opacity: 0;
