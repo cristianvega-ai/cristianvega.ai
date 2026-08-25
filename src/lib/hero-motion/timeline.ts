@@ -2,6 +2,11 @@ export const FULL_DURATION = 2450;
 export const QUICK_DURATION = 250;
 export const FAILSAFE_DURATION = 3000;
 export const FONT_DEADLINE_MS = 1200;
+/** Faces the entrance samples. Do not wait for footer Mono 400 or brand Grotesk 700. */
+export const HERO_FONT_SPECS = [
+  '600 16px "Space Grotesk"',
+  '500 16px "IBM Plex Mono"',
+] as const;
 export const SESSION_KEY = "cristianvega:hero-motion:v1";
 export const PORTRAIT_DOT_DURATION = 520;
 export const TRANSFER_TRAVEL_DURATION = 620;
