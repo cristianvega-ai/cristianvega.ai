@@ -117,9 +117,10 @@ const structuredData = {
     <meta name="twitter:image" content={ogImageUrl} />
     <meta name="twitter:image:alt" content={ogImageAlt} />
     {/* Preload only the faces measurement showed on the critical path: IBM
-        Plex Sans 400 is the homepage LCP (profile copy), Space Grotesk 600
-        is the display heading. Mono 400/500 paint the footer and nav and
-        are left to CSS discovery. crossorigin is required for font preloads. */}
+        Plex Sans 400 roman is the homepage LCP (profile copy), Space Grotesk
+        600 is the display heading. Mono 400/500 and Plex Sans 400 italic
+        paint later and are left to CSS discovery. crossorigin is required
+        for font preloads. */}
     <link rel="preload" href={plexSans400} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={spaceGrotesk} as="font" type="font/woff2" crossorigin />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />

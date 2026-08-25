@@ -175,6 +175,7 @@ test("the build ships hashed self-hosted latin font files", () => {
   for (const file of [
     "space-grotesk-latin-600-700.woff2",
     "ibm-plex-sans-latin-400.woff2",
+    "ibm-plex-sans-latin-400-italic.woff2",
     "ibm-plex-mono-latin-400.woff2",
     "ibm-plex-mono-latin-500.woff2",
     "OFL-space-grotesk.txt",
@@ -187,8 +188,8 @@ test("the build ships hashed self-hosted latin font files", () => {
   const fonts = readdirSync(astroDir).filter((file) => file.endsWith(".woff2"));
   assert.equal(
     fonts.length,
-    4,
-    `expected four hashed woff2 files (Space Grotesk 600–700, Plex Sans 400, Plex Mono 400 and 500), got ${fonts.join(", ")}`,
+    5,
+    `expected five hashed woff2 files (Space Grotesk 600–700, Plex Sans 400 roman and italic, Plex Mono 400 and 500), got ${fonts.join(", ")}`,
   );
   for (const file of fonts) {
     assert.match(file, /[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.woff2/, `font must be content-hashed: ${file}`);
@@ -204,6 +205,12 @@ test("the build ships hashed self-hosted latin font files", () => {
   assert.match(css, /font-family:\s*"?IBM Plex Mono"?/);
   assert.match(css, /font-weight:\s*600 700/);
   assert.match(css, /ibm-plex-sans-latin-400\.[A-Za-z0-9_-]+\.woff2/);
+  assert.match(css, /ibm-plex-sans-latin-400-italic\.[A-Za-z0-9_-]+\.woff2/);
+  assert.match(
+    css,
+    /font-style:\s*italic;[^}]*ibm-plex-sans-latin-400-italic\.[A-Za-z0-9_-]+\.woff2/,
+    "Plex Sans italic 400 must ship as an italic @font-face, not a roman file",
+  );
   assert.match(css, /ibm-plex-mono-latin-400\.[A-Za-z0-9_-]+\.woff2/);
   assert.match(css, /ibm-plex-mono-latin-500\.[A-Za-z0-9_-]+\.woff2/);
   assert.match(css, /space-grotesk-latin-600-700\.[A-Za-z0-9_-]+\.woff2/);

@@ -208,6 +208,11 @@ test("pages preload only the measured critical font files", () => {
     assert.match(hrefs, /ibm-plex-sans-latin-400\./, `${name} must preload IBM Plex Sans 400 (LCP)`);
     assert.match(hrefs, /space-grotesk-latin-600-700\./, `${name} must preload Space Grotesk 600–700 (heading)`);
     assert.doesNotMatch(hrefs, /ibm-plex-mono/, `${name} must not preload mono; measurement did not mark it critical`);
+    assert.doesNotMatch(
+      hrefs,
+      /italic/,
+      `${name} must not preload italic; measurement did not mark it critical`,
+    );
   }
 });
 
