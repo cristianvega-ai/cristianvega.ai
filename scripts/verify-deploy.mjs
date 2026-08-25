@@ -80,10 +80,14 @@ async function main() {
     "base-uri 'self'",
     "object-src 'none'",
     "frame-ancestors 'none'",
+    "font-src 'self'",
   ]) {
     if (!csp.includes(directive)) {
       fail(`CSP missing required directive: ${directive}`);
     }
+  }
+  if (/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(csp)) {
+    fail("CSP still names a Google Fonts host");
   }
 
   const missingPath = `${origin}/__deploy-gate-missing-path__/`;

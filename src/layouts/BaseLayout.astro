@@ -1,6 +1,8 @@
 ---
 import "../styles/global.css";
 import { ClientRouter } from "astro:transitions";
+import plexSans400 from "../assets/fonts/ibm-plex-sans-latin-400.woff2?url";
+import spaceGrotesk from "../assets/fonts/space-grotesk-latin-600-700.woff2?url";
 
 interface Props {
   title?: string;
@@ -114,12 +116,12 @@ const structuredData = {
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content={ogImageUrl} />
     <meta name="twitter:image:alt" content={ogImageAlt} />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
+    {/* Preload only the faces measurement showed on the critical path: IBM
+        Plex Sans 400 is the homepage LCP (profile copy), Space Grotesk 600
+        is the display heading. Mono 400/500 paint the footer and nav and
+        are left to CSS discovery. crossorigin is required for font preloads. */}
+    <link rel="preload" href={plexSans400} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={spaceGrotesk} as="font" type="font/woff2" crossorigin />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(structuredData)} />

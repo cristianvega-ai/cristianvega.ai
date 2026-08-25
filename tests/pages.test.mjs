@@ -155,6 +155,62 @@ test("key pages share accessibility and SEO basics", () => {
   }
 });
 
+test("pages do not load fonts from Google", () => {
+  const pages = [
+    ["index.html"],
+    ["writing", "index.html"],
+    ["projects", "index.html"],
+    ["posts", "from-bert-to-agents", "index.html"],
+    ["404.html"],
+  ];
+
+  for (const segments of pages) {
+    const html = readDistFile(...segments);
+    const name = segments.join("/");
+    assert.doesNotMatch(
+      html,
+      /fonts\.googleapis\.com|fonts\.gstatic\.com/,
+      `${name} must not request Google Fonts`,
+    );
+    assert.doesNotMatch(
+      html,
+      /preconnect[^>]+fonts\./i,
+      `${name} must not preconnect to a font CDN`,
+    );
+  }
+});
+
+test("pages preload only the measured critical font files", () => {
+  const pages = [
+    ["index.html"],
+    ["writing", "index.html"],
+    ["projects", "index.html"],
+    ["posts", "from-bert-to-agents", "index.html"],
+    ["404.html"],
+  ];
+
+  for (const segments of pages) {
+    const html = readDistFile(...segments);
+    const name = segments.join("/");
+    const preloads = [...html.matchAll(/<link\b[^>]*rel="preload"[^>]*>/gi)].map(([tag]) => tag);
+    const fontPreloads = preloads.filter((tag) => /\bas="font"/.test(tag));
+    assert.equal(
+      fontPreloads.length,
+      2,
+      `${name} must preload exactly two fonts (LCP body + display heading), got ${fontPreloads.join(" ")}`,
+    );
+    for (const tag of fontPreloads) {
+      assert.match(tag, /type="font\/woff2"/, `${name} font preload must declare woff2: ${tag}`);
+      assert.match(tag, /\bcrossorigin\b/, `${name} font preload needs crossorigin: ${tag}`);
+      assert.match(tag, /href="\/_astro\/[^"]+\.woff2"/, `${name} font preload must be a hashed /_astro/ file: ${tag}`);
+    }
+    const hrefs = fontPreloads.map((tag) => tag.match(/href="([^"]+)"/)?.[1] ?? "").join(" ");
+    assert.match(hrefs, /ibm-plex-sans-latin-400\./, `${name} must preload IBM Plex Sans 400 (LCP)`);
+    assert.match(hrefs, /space-grotesk-latin-600-700\./, `${name} must preload Space Grotesk 600–700 (heading)`);
+    assert.doesNotMatch(hrefs, /ibm-plex-mono/, `${name} must not preload mono; measurement did not mark it critical`);
+  }
+});
+
 test("the retired pages are gone from the build", () => {
   // About and contact were public and indexed. The build must not emit them,
   // and .htaccess must send both URLs to the home page. A stale page in dist/

@@ -442,3 +442,34 @@ test("htaccess CSP allows the GoatCounter beacon in connect-src only", () => {
   );
   assert.doesNotMatch(csp, /gc\.zgo\.at/, "the GoatCounter CDN must not appear in the CSP");
 });
+
+test("htaccess CSP hosts fonts and styles from this origin only", () => {
+  const htaccess = readDistFile(".htaccess");
+  const csp = htaccess.match(/Header always set Content-Security-Policy "([^"]+)"/)?.[1];
+  assert.ok(csp, "Content-Security-Policy header must be present");
+
+  const fontSrc = csp.match(/font-src\s+([^;]+)/)?.[1]?.trim();
+  assert.ok(fontSrc, "CSP must declare font-src");
+  assert.deepEqual(
+    fontSrc.split(/\s+/),
+    ["'self'"],
+    "font-src must be 'self' after fonts are self-hosted",
+  );
+
+  const styleSrc = csp.match(/style-src\s+([^;]+)/)?.[1]?.trim();
+  assert.ok(styleSrc, "CSP must declare style-src");
+  const styleTokens = styleSrc.split(/\s+/);
+  assert.ok(styleTokens.includes("'self'"), "style-src must keep 'self'");
+  assert.ok(styleTokens.includes("'unsafe-inline'"), "style-src keeps unsafe-inline for Astro CSS");
+  assert.equal(
+    styleTokens.some((token) => /googleapis|gstatic|fonts\./i.test(token)),
+    false,
+    "style-src must not list a Google Fonts host",
+  );
+
+  assert.doesNotMatch(
+    csp,
+    /fonts\.googleapis\.com|fonts\.gstatic\.com/,
+    "the CSP must not name Google Fonts hosts",
+  );
+});

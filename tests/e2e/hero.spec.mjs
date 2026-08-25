@@ -8,11 +8,9 @@ import { tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
  * until the motion takes over. All of it is behavior, not markup, so none of it
  * is reachable from the Node contract tests in tests/*.test.mjs.
  *
- * Each spec asserts what the browser does. The one thing this file controls is
- * the network: `beforeEach` serves the webfont stylesheet locally, because the
- * full entrance is gated on `document.fonts.ready` behind a 1.2s deadline. A
- * slow or offline network would quietly select the fallback path and make every
- * timing assertion flake.
+ * Each spec asserts what the browser does. Fonts are same-origin hashed
+ * files under /_astro/, so the suite does not stub a third-party font host.
+ * The stalled-webfont spec hangs `document.fonts.ready` itself.
  */
 
 const { desktop: DESKTOP, tablet: TABLET, mobile: MOBILE } = VIEWPORTS;
@@ -31,13 +29,6 @@ const TARGETS = ["eyebrow", "name", "highlight"];
 const SETTLE_TIMEOUT = 6000;
 
 test.use({ viewport: DESKTOP });
-
-test.beforeEach(async ({ page }) => {
-  await page.route(/fonts\.googleapis\.com/, (route) =>
-    route.fulfill({ status: 200, contentType: "text/css", body: "" }),
-  );
-  await page.route(/fonts\.gstatic\.com/, (route) => route.fulfill({ status: 200, body: "" }));
-});
 
 const hero = (page) => page.locator(HERO);
 const target = (page, kind) => page.locator(`${HERO} [data-motion-target="${kind}"]`);
