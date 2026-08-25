@@ -159,17 +159,17 @@ test("htaccess CSP denies inline scripts while allowing inline styles", () => {
   );
 });
 
-test("htaccess ships bootstrap HSTS until HTTPS is confirmed", () => {
+test("htaccess ships a one-year HSTS policy without includeSubDomains", () => {
   const htaccess = readDistFile(".htaccess");
   assert.match(
     htaccess,
-    /Header always set Strict-Transport-Security "max-age=300"/,
-    "first-deploy HSTS must stay short and reversible",
+    /Header always set Strict-Transport-Security "max-age=31536000"/,
+    "HSTS max-age must be at least one year",
   );
   assert.doesNotMatch(
     htaccess,
     /Strict-Transport-Security "[^"]*includeSubDomains/,
-    "do not pin includeSubDomains before a live SAN audit",
+    "do not pin includeSubDomains while ftp.cristianvega.ai lacks a valid certificate",
   );
 });
 
@@ -187,6 +187,13 @@ test("post-deploy gate script checks live headers and 404", () => {
   }
   assert.match(script, /__deploy-gate-missing-path__/);
   assert.match(script, /status !== 404|status === 404/);
+});
+
+test("post-deploy gate requires a one-year HSTS max-age without includeSubDomains", () => {
+  const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
+  assert.match(script, /strict-transport-security/i);
+  assert.match(script, /expected at least 31536000/);
+  assert.match(script, /live HSTS must not include includeSubDomains/);
 });
 
 test("htaccess compresses JavaScript as text/javascript and application/javascript", () => {
@@ -377,8 +384,8 @@ test("htaccess preserves production security headers and CSP", () => {
     htaccess,
     /Header always set Permissions-Policy "camera=\(\), microphone=\(\), geolocation=\(\)"/,
   );
-  // Presence and shape only: the exact bootstrap value is pinned by
-  // "htaccess ships bootstrap HSTS until HTTPS is confirmed".
+  // Presence and shape only: the exact value is pinned by
+  // "htaccess ships a one-year HSTS policy without includeSubDomains".
   assert.match(htaccess, /Header always set Strict-Transport-Security "max-age=\d+/);
   assert.match(htaccess, /ErrorDocument 404 \/404\.html/);
 

@@ -31,9 +31,9 @@ Options -Indexes
   Header always set X-Frame-Options "DENY"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
-  # HSTS bootstrap: short, reversible, apex-only. After HTTPS and the cert SAN
-  # list are confirmed on the live origin, raise to max-age=31536000; includeSubDomains.
-  Header always set Strict-Transport-Security "max-age=300"
+  # One-year HSTS on this host only. Omit includeSubDomains: ftp.cristianvega.ai
+  # is live and does not present a valid HTTPS certificate.
+  Header always set Strict-Transport-Security "max-age=31536000"
   # CSP matched to current static build: self-hosted assets, data: favicon.
   # Fonts are hashed files under /_astro/, so font-src stays 'self'. Bundled
   # scripts are external same-origin modules; the one inline script (the
