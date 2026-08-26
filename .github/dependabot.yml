@@ -1,0 +1,10 @@
+# Weekly pull requests that move the commit-SHA pins in .github/workflows
+# forward. Each one is still reviewed: a changed SHA is a changed program.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore"
