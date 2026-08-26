@@ -10,8 +10,9 @@
     "check": "astro check",
     "test:run": "node --test tests/*.test.mjs",
     "test:e2e": "playwright test",
-    "test": "npm run build && npm run test:run",
-    "verify": "npm run build && npm run check && npm run test:run && npm run test:e2e",
+    "test:receiver": "python3 scripts/test_deploy_receiver.py",
+    "test": "npm run build && npm run test:run && npm run test:receiver",
+    "verify": "npm run build && npm run check && npm run test:run && npm run test:receiver && npm run test:e2e",
     "verify:deploy": "node scripts/verify-deploy.mjs",
     "generate:portrait": "node scripts/generate-portrait.mjs",
     "generate:touch-icon": "node scripts/generate-touch-icon.mjs"

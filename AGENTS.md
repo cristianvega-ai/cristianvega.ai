@@ -62,6 +62,7 @@ npm run check
 npm test                 # builds, then runs tests (use this or verify — not bare node --test)
 npm run test:run         # Node tests only; requires a current dist/
 npm run test:e2e         # browser tests only; requires a current dist/
+npm run test:receiver    # deploy receiver tests (Python); needs python3
 npm run verify:deploy    # post-deploy: live security headers + real 404
 npm audit
 npm run generate:portrait
@@ -82,12 +83,14 @@ The suite has two runners and one file per concern. Put each new test in the lay
 | Selector hygiene | `tests/css-hygiene.test.mjs` | A class that is the subject of `:focus` or `:focus-visible` must be able to receive focus. |
 | CSS | `tests/motion-css.test.mjs` | Rules that must survive compilation, such as the reduced-motion contract. |
 | Behavior | `tests/e2e/*.spec.mjs` | Computed layout, sticky and responsive rules, focus, and runtime JavaScript. |
+| Receiver | `scripts/test_deploy_receiver.py` | The deploy receiver: every reject case, publish and restore, the lock, the log, and the exact success line. |
 
 To choose a layer, ask what the test must look at:
 
 1. A pure function — use the unit layer.
 2. A string that must appear in `dist/` — use the matching contract layer.
 3. Anything a browser must compute or execute — use the browser layer.
+4. The deploy receiver — use the receiver layer. It is Python, like the receiver.
 
 ### Rules
 
@@ -97,7 +100,8 @@ To choose a layer, ask what the test must look at:
 - Browser specs must be deterministic. Use Playwright's auto-waiting or `expect.poll`. Never use a fixed sleep.
 - Wait for the page entrance animation before you measure geometry. Use `settle(page)` from the fixtures. Geometry read during the animation is the animation's, not the layout's.
 - Prove a new assertion can fail. Break the behavior, watch the test fail, then restore it. An assertion that never fails is not coverage.
-- `npm run verify` runs both runners. The browser layer needs Chromium. Run `npx playwright install chromium` once per machine.
+- The deploy receiver is Python, so its tests are Python and live beside it in `scripts/`. `npm run test:receiver` runs them. Do not add receiver tests to the Node runners, and do not split them between languages.
+- `npm run verify` runs all three runners. The browser layer needs Chromium. Run `npx playwright install chromium` once per machine. The receiver layer needs `python3` 3.8 or newer on the path.
 
 ## Working Workflow
 
