@@ -247,3 +247,50 @@ test("the portrait master stays out of the static publish set", () => {
     "cristian-vega-og.jpg",
   ]);
 });
+
+// The deploy receiver on the host accepts only these suffixes, refuses hidden
+// names other than the root .htaccess, and refuses any name whose later
+// dot-components could reach an interpreter. Mirror its policy here so a new
+// file type fails in Verify, not at the door. Keep this in step with
+// scripts/deploy-receiver.py and the host's config.json.
+const DEPLOY_SUFFIXES = new Set(["html", "css", "js", "jpg", "png", "svg", "txt", "xml", "woff2"]);
+const DEPLOY_FORBIDDEN_COMPONENTS = new Set([
+  "php", "php3", "php4", "php5", "php7", "php8", "phtml", "phar", "phps", "pht",
+  "cgi", "fcgi", "pl", "py", "rb", "sh", "bash", "zsh",
+  "shtml", "shtm", "stm", "inc", "ini", "user",
+  "htaccess", "htpasswd", "htgroups", "asp", "aspx", "jsp", "cfm",
+  "exe", "dll", "so",
+]);
+
+function listDistFiles(dir = dist, prefix = "") {
+  const files = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const rel = `${prefix}${entry.name}`;
+    if (entry.isDirectory()) files.push(...listDistFiles(join(dir, entry.name), `${rel}/`));
+    else files.push(rel);
+  }
+  return files.sort();
+}
+
+test("every build file passes the deploy receiver's name policy", () => {
+  const files = listDistFiles();
+  assert.ok(files.length >= 20, "expected the full static build");
+  for (const rel of files) {
+    if (rel === ".htaccess") continue;
+    const parts = rel.split("/");
+    for (const part of parts) {
+      assert.ok(!part.startsWith("."), `${rel}: the receiver refuses hidden names`);
+    }
+    const pieces = parts.at(-1).split(".");
+    assert.ok(pieces.length >= 2, `${rel}: the receiver refuses a file with no suffix`);
+    assert.ok(DEPLOY_SUFFIXES.has(pieces.at(-1)), `${rel}: .${pieces.at(-1)} is not in the receiver's allowlist`);
+    for (const piece of pieces.slice(1)) {
+      assert.ok(!DEPLOY_FORBIDDEN_COMPONENTS.has(piece.toLowerCase()), `${rel}: the receiver refuses the suffix component .${piece}`);
+    }
+    // The package is ustar; a plain ustar name holds 100 bytes.
+    assert.ok(rel.length <= 100, `${rel}: longer than a ustar name (100); switch the package to --format=posix`);
+  }
+  for (const required of [".htaccess", "index.html", "404.html", "robots.txt", "sitemap-index.xml"]) {
+    assertDistPath(required);
+  }
+});
