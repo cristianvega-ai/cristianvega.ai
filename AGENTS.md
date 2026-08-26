@@ -40,7 +40,8 @@ edit, you are writing as an engineer.
 - `src/styles/global.css`: the site-wide design system and responsive behavior.
 - `public/`: static production assets copied into the build, including `.htaccess` and `robots.txt`.
 - `assets/`: build-time source files that must not copy into the static site.
-- `scripts/`: deterministic asset-generation scripts.
+- `scripts/`: deterministic asset-generation scripts, the post-deploy gate, and the deployment receiver with its Python tests.
+- `.github/`: the verify-and-deploy workflow and the Dependabot policy that keeps its action pins current.
 - `tests/`: Node contract tests, one file per concern.
 - `tests/e2e/`: Playwright specs for computed layout and runtime behavior.
 
@@ -161,6 +162,8 @@ Adding focused tests for requested behavior does not require separate approval. 
 ## Security and Privacy
 
 - Never commit credentials, tokens, local environment files, personal browser state, or private machine configuration.
+- The deployment key exists only as the `DEPLOY_SSH_PRIVATE_KEY` secret of the GitHub `production` environment. The host, user, and port stay in that environment's secrets and in the untracked `.claude/deploy-target.local`. Never write them into a tracked file, a log, or a chat.
+- The receiver on the host is the security boundary for deploys. A change to `scripts/deploy-receiver.py` is a security-sensitive change: it needs the owner's approval, its tests, and a fresh install on the host.
 - External links opened in a new tab must use `noopener` and `noreferrer` where appropriate.
 - Preserve the production security headers and content security policy unless a reviewed deployment change requires otherwise.
 - Run `npm audit` before production publication when dependencies changed.
@@ -203,18 +206,25 @@ Adding focused tests for requested behavior does not require separate approval. 
 
 All future changes to `main` should arrive through a pull request. The repository's initial publication is the only bootstrap exception unless the owner explicitly approves another.
 
-One further exception covers the automated webmaster. An agent that runs
-unattended may commit a small content or copy change, merge it to `main` as a
-fast-forward, push it, and deploy it. "Small" means words on the site and
-nothing else. Every other change from that agent goes to a branch and a pull
-request, and waits for the owner. That includes code, tests, configuration,
-dependencies, layout, navigation, deployment behavior, and any change over
-about five files.
+The `main` ruleset enforces this: it requires a pull request and a green
+`Verify` check, and it has no bypass. A push straight to `main` is refused.
 
-The agent must never deploy uncommitted work. `dist/` is built from the disk,
-not from a commit, so a deploy from a dirty tree puts words on the live site
-that no commit records. Check `git status --short` first, and report the commit
-hash that went out.
+The automated webmaster is not an exception, but it does not have to wait.
+An agent that runs unattended may commit a small content or copy change to a
+branch, open a pull request, and enable auto-merge with
+`gh pr merge --auto --squash`. The pull request merges when `Verify` passes,
+and GitHub Actions deploys it. "Small" means words on the site and nothing
+else. Every other change from that agent goes to a pull request that waits
+for the owner. That includes code, tests, configuration, dependencies,
+layout, navigation, deployment behavior, and any change over about five
+files.
+
+No agent deploys from a laptop in the normal path. GitHub builds the merged
+commit, so the live site always matches a commit on `main`. Report the merged
+commit hash and the workflow run. A manual deploy through the receiver, which
+the deploy skill describes, exists for the case where GitHub Actions cannot
+run; it must start from a clean tree on `main`, because `dist/` is built from
+the disk, not from a commit.
 
 Before opening a pull request:
 

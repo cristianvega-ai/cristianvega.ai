@@ -38,62 +38,99 @@ npm test          # builds, then runs tests against that dist/
 
 Or run the full gate with `npm run verify` (one build + type-check + tests). Prefer `verify` or `test` over bare `node --test` so contract tests never read a missing or stale `dist/`.
 
-## Deploy to DreamHost
+## Deploy
 
-The site is static, so a deploy is one rsync of `dist/` to the document root,
-then a check against the live origin.
+Every merge to `main` deploys. GitHub Actions builds and verifies the commit,
+packs `dist/` into one archive, and hands it to a receiver on the web host
+over SSH. The receiver accepts static site files only, and the key GitHub
+holds can run nothing else. `.github/workflows/deploy.yml` is the workflow,
+`scripts/deploy-receiver.py` is the receiver, and
+`scripts/test_deploy_receiver.py` proves what it refuses.
 
-The host, account, document root, and key path are not in this repository,
-because it is public. They live in `.claude/deploy-target.local`, which is
-untracked. Create it once from the DreamHost panel values:
+### The path a change takes
+
+1. A pull request runs the `Verify` job: `npm ci`, `npm audit`, the complete
+   `npm run verify` gate, then a package of `dist/`. The job has no secrets.
+2. A merge to `main` runs `Verify` again and stores the package as the run
+   artifact `production-site-<sha>`, with a `SHA256SUMS` manifest.
+3. `Deploy production` runs only for the current commit on `main`, only when
+   the repository variable `PRODUCTION_DEPLOY_ENABLED` is `true`, and only
+   inside the `production` environment that holds the SSH secrets. It first
+   asks the host for the installed receiver's hash and stops if it differs
+   from `scripts/deploy-receiver.py`. Then it sends the package and expects
+   `DEPLOY_OK <package sha256> <receiver sha256>` back.
+4. The receiver checks the command, the size, every path, every suffix, the
+   `.htaccess` against the copies approved on the host, and the required
+   files. It snapshots the live site, publishes assets before HTML, checks the
+   live origin, and restores the snapshot if that check fails.
+5. The workflow runs `scripts/verify-deploy.mjs` against the live origin and
+   compares the live homepage with the packaged one.
+
+The `main` ruleset requires a pull request and a green `Verify`, so nothing
+reaches the host that did not pass the gate.
+
+### Turning deploys off
+
+Set `PRODUCTION_DEPLOY_ENABLED` to `false` in the repository's Actions
+variables. `Verify` keeps running; nothing reaches the host. To revoke the key,
+delete the `github-actions-production` line from `~/.ssh/authorized_keys` on
+the host and replace the `DEPLOY_SSH_PRIVATE_KEY` secret with a new key.
+
+### What lives on the host
+
+All of it is private, outside the document root, mode `0700` or `0600`:
+
+| Path | Purpose |
+| --- | --- |
+| `~/.local/libexec/cristianvega-deploy-receiver` | The installed receiver. The only program the GitHub key can run. |
+| `~/.config/cristianvega-deploy/config.json` | Document root, state paths, limits, allowed suffixes, the origin to check. |
+| `~/.local/share/cristianvega-deploy/approved.d/` | Approved `.htaccess` copies. A package's `.htaccess` must match one byte for byte. |
+| `~/.local/state/cristianvega-deploy/` | `deploy.lock`, `deploy.log`, `staging/`, and the three newest `snapshots/`. |
+
+The GitHub key's line in `~/.ssh/authorized_keys` starts with
+`restrict,command="…"`, so it gets no shell, no forwarding, and no other
+program. The receiver's allowlist of suffixes is also in `config.json` on the
+host and in the build test in `tests/build.test.mjs`; change both together.
+
+### Changing `.htaccess`
+
+The receiver refuses a `.htaccess` that is not in `approved.d/`. To change it:
+
+1. Change `public/.htaccess` in a pull request and let `Verify` pass.
+2. Copy the new file into `approved.d/` on the host under a new name, with
+   your own key. Keep the old copy.
+3. Merge. The deploy passes because the new file matches.
+4. Delete the old copy from `approved.d/`.
+
+### Updating the receiver
+
+The workflow refuses to deploy while the installed receiver differs from
+`scripts/deploy-receiver.py`. After a change merges, copy the new file to
+`~/.local/libexec/cristianvega-deploy-receiver` with your own key and keep
+mode `0700`. The next run confirms the hash.
+
+### Deploying from a laptop
+
+`.claude/skills/deploy/SKILL.md` describes a manual deploy through the same
+receiver, for the case where GitHub Actions cannot run. It needs
+`.claude/deploy-target.local`, which is untracked because it names the host:
 
 ```bash
 HOST=<shared host>.dreamhost.com
 USER=<shell user>
 PORT=22
 DOC_ROOT=/home/<shell user>/cristianvega.ai/
-SSH_KEY=~/.ssh/dreamhost_cristianvega
+SSH_KEY=~/.ssh/dreamhost_cristianvega            # your own key: admin work only
+DEPLOY_KEY=~/.ssh/cristianvega-deploy-laptop     # restricted: can only run the receiver
 ORIGIN=https://cristianvega.ai
 ```
 
-Deploys authenticate with an SSH key, not the account password. Generate one
-and add the public half through the DreamHost panel, or with `ssh-copy-id`:
+Nothing deploys with `rsync` any more. The receiver is the only path into the
+document root.
 
-```bash
-ssh-keygen -t ed25519 -f ~/.ssh/dreamhost_cristianvega -C "cristianvega.ai deploy"
-```
+### Live checks
 
-Then load the target and run the deploy:
-
-```bash
-set -a; . .claude/deploy-target.local; set +a
-
-npm run verify && npm run build
-
-rsync -avzn --delete --exclude '.dh-diag' \
-  -e "ssh -i $SSH_KEY -p $PORT" dist/ "$USER@$HOST:$DOC_ROOT"   # dry run first
-
-rsync -avz --delete --exclude '.dh-diag' \
-  -e "ssh -i $SSH_KEY -p $PORT" dist/ "$USER@$HOST:$DOC_ROOT"
-
-npm run verify:deploy
-```
-
-Four things that matter:
-
-- Upload the contents of `dist/`, not the `dist` directory itself. The trailing
-  slash on `dist/` is what does that.
-- Read the dry run before the real run. `--delete` removes anything in the
-  document root that is not in `dist/`, so an unexpected deletion means the
-  destination path is wrong.
-- Keep `--exclude '.dh-diag'`. That is a DreamHost diagnostic symlink owned by
-  root, and `--delete` would otherwise try to remove it.
-- Confirm `dist/.htaccess` exists before uploading. It carries the production
-  security headers, and a deploy without it drops all of them silently.
-
-`.claude/skills/deploy/SKILL.md` holds the same procedure for coding agents.
-
-The build copies production Apache config from `public/.htaccess` (single-hop HTTPS + www→apex redirects, security headers including CSP, custom 404, cache rules), plus `public/robots.txt`. Headers live inside `<IfModule mod_headers.c>`, so a host without `mod_headers` drops CSP/HSTS/frame protections silently — build-time tests cannot see that. After every deploy, run `npm run verify:deploy` against the live origin (override with `ORIGIN=...` if needed). It requires all six security header names on `GET /`, checks core CSP directives, requires HTTP 404 for a deliberately missing path, and requires live HSTS of at least `max-age=31536000` without `includeSubDomains`. HSTS is a one-year policy on the apex host. It omits `includeSubDomains` because `ftp.cristianvega.ai` is live and does not present a valid HTTPS certificate. Do not add `includeSubDomains` until every subdomain of `cristianvega.ai` presents a valid certificate.
+The build copies production Apache config from `public/.htaccess` (single-hop HTTPS + www→apex redirects, security headers including CSP, custom 404, cache rules), plus `public/robots.txt`. Headers live inside `<IfModule mod_headers.c>`, so a host without `mod_headers` drops CSP/HSTS/frame protections silently — build-time tests cannot see that. The workflow runs `npm run verify:deploy` against the live origin after every deploy; run it by hand to re-check (override with `ORIGIN=...` if needed). It requires all six security header names on `GET /`, checks core CSP directives, requires HTTP 404 for a deliberately missing path, and requires live HSTS of at least `max-age=31536000` without `includeSubDomains`. HSTS is a one-year policy on the apex host. It omits `includeSubDomains` because `ftp.cristianvega.ai` is live and does not present a valid HTTPS certificate. Do not add `includeSubDomains` until every subdomain of `cristianvega.ai` presents a valid certificate.
 
 **www DNS:** Publish a `www` CNAME (or A record) to the same host as the apex, and ensure the TLS certificate SAN includes `www.cristianvega.ai`. Without that record, `www` fails at DNS and the apex redirect never runs.
 
@@ -104,7 +141,9 @@ Static operational assets:
 | `robots.txt` | `public/robots.txt` | Crawl policy + sitemap URL |
 | `404.html` | `src/pages/404.astro` | Custom not-found page |
 | `.htaccess` | `public/.htaccess` | HTTPS, security headers + CSP, ErrorDocument, caching |
-| `verify:deploy` | `scripts/verify-deploy.mjs` | Live header + 404 gate after rsync |
+| `verify:deploy` | `scripts/verify-deploy.mjs` | Live header + 404 gate after each deploy |
+| workflow | `.github/workflows/deploy.yml` | `Verify` on every change; `Deploy production` for `main` |
+| receiver | `scripts/deploy-receiver.py` | The one program the deploy key may run on the host |
 
 ## Image derivatives
 
