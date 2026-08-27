@@ -34,15 +34,31 @@ function hasGzip(headers) {
   return /\bgzip\b/i.test(headerValue(headers, "content-encoding"));
 }
 
-/** GET a URL and return status plus raw headers. fetch() strips Content-Encoding. */
+/**
+ * GET a URL and return status, raw headers, and the first bytes of the body.
+ * fetch() strips Content-Encoding, so this uses node:http directly. The body
+ * sample is for the failure message: a 403 page names its origin.
+ */
 function requestHeaders(url, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const target = new URL(url);
     const lib = target.protocol === "https:" ? https : http;
     const req = lib.request(target, { method: "GET", headers: extraHeaders }, (res) => {
-      const result = { status: res.statusCode ?? 0, headers: res.headers };
-      res.resume();
-      res.on("end", () => resolve(result));
+      const chunks = [];
+      let size = 0;
+      res.on("data", (chunk) => {
+        if (size < 240) {
+          chunks.push(chunk.subarray(0, 240 - size));
+          size += chunk.length;
+        }
+      });
+      res.on("end", () =>
+        resolve({
+          status: res.statusCode ?? 0,
+          headers: res.headers,
+          sample: Buffer.concat(chunks).toString("latin1").replace(/\s+/g, " ").trim(),
+        }),
+      );
     });
     req.on("error", reject);
     req.end();
@@ -144,7 +160,8 @@ async function main() {
     }
 
     if (script.status !== 200) {
-      fail(`GET ${url} returned HTTP ${script.status} (${label})`);
+      const server = headerValue(script.headers, "server") || "unknown server";
+      fail(`GET ${url} returned HTTP ${script.status} (${label}); ${server}; body: ${script.sample || "(empty)"}`);
       continue;
     }
     if (!hasGzip(script.headers)) {
