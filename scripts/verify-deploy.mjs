@@ -11,6 +11,11 @@ import https from "node:https";
 
 const origin = (process.env.ORIGIN ?? "https://cristianvega.ai").replace(/\/$/, "");
 
+// Every request names itself. The host's web application firewall answers
+// 403 to a request with no User-Agent from some address ranges, including
+// GitHub-hosted runners; a real client always sends one.
+const USER_AGENT = "cristianvega-verify-deploy (+https://cristianvega.ai)";
+
 const REQUIRED_HEADERS = [
   "x-content-type-options",
   "x-frame-options",
@@ -43,7 +48,8 @@ function requestHeaders(url, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const target = new URL(url);
     const lib = target.protocol === "https:" ? https : http;
-    const req = lib.request(target, { method: "GET", headers: extraHeaders }, (res) => {
+    const headers = { "user-agent": USER_AGENT, accept: "*/*", ...extraHeaders };
+    const req = lib.request(target, { method: "GET", headers }, (res) => {
       const chunks = [];
       let size = 0;
       res.on("data", (chunk) => {
@@ -70,7 +76,7 @@ async function main() {
 
   let home;
   try {
-    home = await fetch(`${origin}/`, { redirect: "follow" });
+    home = await fetch(`${origin}/`, { redirect: "follow", headers: { "user-agent": USER_AGENT } });
   } catch (error) {
     fail(`could not reach ${origin}/ (${error.cause?.code ?? error.message})`);
     fail("publish DNS for the apex (and www if used), then redeploy before re-running");
@@ -122,7 +128,7 @@ async function main() {
   const missingPath = `${origin}/__deploy-gate-missing-path__/`;
   let notFound;
   try {
-    notFound = await fetch(missingPath, { redirect: "manual" });
+    notFound = await fetch(missingPath, { redirect: "manual", headers: { "user-agent": USER_AGENT } });
   } catch (error) {
     fail(`could not probe missing path (${error.cause?.code ?? error.message})`);
     return;
