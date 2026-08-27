@@ -301,19 +301,34 @@ jobs:
 
           artifact_dir="${RUNNER_TEMP}/deploy-artifact"
 
-          node "$artifact_dir/verify-deploy.mjs"
+          # The host has answered 403 for a freshly replaced file in the
+          # seconds after a publish. Three attempts twenty seconds apart ride
+          # that out. A failure that lasts still fails the job.
+          gate() {
+            node "$artifact_dir/verify-deploy.mjs" || return 1
+            curl \
+              --fail \
+              --silent \
+              --show-error \
+              --proto '=https' \
+              --tlsv1.2 \
+              --max-time 30 \
+              --header 'Accept-Encoding: identity' \
+              --header 'Cache-Control: no-cache' \
+              "$ORIGIN/" \
+              --output "${RUNNER_TEMP}/live-index.html" || return 1
+            cmp "$artifact_dir/expected-index.html" "${RUNNER_TEMP}/live-index.html" || return 1
+          }
 
-          curl \
-            --fail \
-            --silent \
-            --show-error \
-            --proto '=https' \
-            --tlsv1.2 \
-            --max-time 30 \
-            --header 'Accept-Encoding: identity' \
-            --header 'Cache-Control: no-cache' \
-            "$ORIGIN/" \
-            --output "${RUNNER_TEMP}/live-index.html"
-
-          cmp "$artifact_dir/expected-index.html" "${RUNNER_TEMP}/live-index.html"
-          echo "The live homepage matches the deployed package."
+          for attempt in 1 2 3; do
+            if gate; then
+              echo "The live homepage matches the deployed package (attempt $attempt)."
+              exit 0
+            fi
+            if [[ "$attempt" -lt 3 ]]; then
+              echo "Live gate attempt $attempt failed; next attempt in 20 seconds." >&2
+              sleep 20
+            fi
+          done
+          echo "The live gate failed on three attempts." >&2
+          exit 1
