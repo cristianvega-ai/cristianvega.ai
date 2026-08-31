@@ -41,7 +41,10 @@ Thumbs.db
 # agent state, including deploy-target.local, which names a live host.
 !.claude/skills/
 .codex/
-.cursor/
+# The Cloud Agent environment config is tracked so the setup follows branches
+# and pull requests. Everything else under .cursor/ is local agent state.
+.cursor/*
+!.cursor/environment.json
 .gemini/
 .playwright-mcp/
 .serena/
