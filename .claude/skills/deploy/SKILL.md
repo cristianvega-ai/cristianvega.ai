@@ -79,16 +79,6 @@ copy in `approved.d/` on the host. `scripts/deploy-receiver.py` holds the
 rules and `scripts/test_deploy_receiver.py` proves them. README.md explains
 how to change `.htaccess` and how to update the receiver.
 
-## Withheld pages
-
-`/projects/`, `/writing/`, and `/posts/*` build and upload, but they are held
-back on purpose: no navigation link, a `noindex` robots tag, and no sitemap
-entry. That is the intended state. Do not treat their absence from the sitemap
-as a defect, and do not link to them unless the owner asks.
-
-The `withheld routes build but stay out of reach of crawlers and navigation`
-test in `tests/build.test.mjs` guards this. If it fails, the hiding broke.
-
 ## Report
 
 Say which commit went out, which workflow run deployed it (or that you used
