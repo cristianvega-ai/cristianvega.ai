@@ -42,16 +42,8 @@ test("dist build is present for contract tests", () => {
 
 test("build emits the core static pages DreamHost will serve", () => {
   assertDistPath("index.html");
-  assertDistPath("writing", "index.html");
-  assertDistPath("projects", "index.html");
   assertDistPath("sitemap-index.xml");
 });
-
-// Projects, writing, and the posts under it still build, so the owner can open
-// them directly, but nothing links to them and no crawler should list them.
-// Both halves of that promise are asserted: withheld from the sitemap here, and
-// marked noindex in the test below.
-const WITHHELD_ROUTE = /^\/(projects|writing|posts)\//;
 
 test("sitemap enumerates every public route the build produces", () => {
   // robots.txt points crawlers at the index, so an index that references a
@@ -62,41 +54,14 @@ test("sitemap enumerates every public route the build produces", () => {
   assert.equal(existsSync(join(dist, child)), true, `${child} is referenced but missing`);
 
   const locations = [...readDistFile(child).matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, loc]) => loc);
-  const built = listBuiltRoutes();
-  const withheld = built.filter((route) => WITHHELD_ROUTE.test(route));
-  const expected = built
-    .filter((route) => !WITHHELD_ROUTE.test(route))
-    .map((route) => `https://cristianvega.ai${route}`);
+  const expected = listBuiltRoutes().map((route) => `https://cristianvega.ai${route}`);
 
   assert.ok(expected.length > 0, "build must emit public routes to enumerate");
-  assert.ok(withheld.length > 0, "the withheld routes must still be built");
   assert.deepEqual(
     [...locations].sort(),
     [...expected].sort(),
     "sitemap must list exactly the public built routes, absolute and trailing-slashed",
   );
-});
-
-test("withheld routes build but stay out of reach of crawlers and navigation", () => {
-  const withheld = listBuiltRoutes().filter((route) => WITHHELD_ROUTE.test(route));
-  assert.ok(withheld.length >= 3, `expected the withheld routes to build, got ${withheld.length}`);
-
-  for (const route of withheld) {
-    const html = readDistFile(...route.split("/").filter(Boolean), "index.html");
-    assert.match(
-      html,
-      /<meta\b[^>]*name="robots"[^>]*content="noindex/i,
-      `${route} must carry a noindex robots tag while it is withheld`,
-    );
-  }
-
-  // The primary navigation is rendered on every page, so the home page proves
-  // the links are gone everywhere.
-  const home = readDistFile("index.html");
-  const nav = home.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
-  assert.ok(nav, "primary navigation required");
-  assert.doesNotMatch(nav, /href="\/projects\/"/, "projects must not be linked in the navigation");
-  assert.doesNotMatch(nav, /href="\/writing\/"/, "writing must not be linked in the navigation");
 });
 
 test("the navigation leaves the site, and every outbound link is safe", () => {
@@ -274,7 +239,7 @@ function listDistFiles(dir = dist, prefix = "") {
 
 test("every build file passes the deploy receiver's name policy", () => {
   const files = listDistFiles();
-  assert.ok(files.length >= 20, "expected the full static build");
+  assert.ok(files.length >= 15, "expected the full static build");
   for (const rel of files) {
     if (rel === ".htaccess") continue;
     const parts = rel.split("/");

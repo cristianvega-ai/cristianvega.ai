@@ -49,88 +49,10 @@ test("homepage keeps the portfolio theme and the profile copy", () => {
   assert.match(html, /data-hero-motion-pending/);
 });
 
-test("writing index includes generated post links", () => {
-  const html = readDistFile("writing", "index.html");
-
-  assertPageBasics(html);
-  assert.match(html, /From BERT to agents/);
-  assert.match(html, /href="\/posts\/from-bert-to-agents\/"/);
-  // Machine and human dates are both rendered, zero-padded and UTC-pinned.
-  assert.match(html, /<time[^>]*datetime="2026-02-27"[^>]*>2026\.02<\/time>/);
-});
-
-test("post pages are generated from markdown content", () => {
-  const html = readDistFile("posts", "from-bert-to-agents", "index.html");
-
-  assertPageBasics(html);
-  assert.match(html, /From BERT to agents/);
-  assert.match(html, /400K\+ data points/);
-  assert.match(html, /Cristian Vega/);
-
-  // The byline date must render in UTC, not the builder's local day.
-  assert.match(html, /<time[^>]*datetime="2026-06-12"[^>]*>June 12, 2026<\/time>/);
-
-  // updatedDate is consumed: visible meta and the Open Graph article times.
-  // The sitemap no longer carries it; see the withheld-routes test below.
-  assert.match(html, /Updated\s*<time[^>]*datetime="2026-07-01"/);
-  assert.match(html, /property="og:type"\s+content="article"/);
-  assert.match(html, /property="article:published_time"\s+content="2026-06-12T/);
-  assert.match(html, /property="article:modified_time"\s+content="2026-07-01T/);
-});
-
-test("projects page lists portfolio work with truthful destinations", () => {
-  const html = readDistFile("projects", "index.html");
-
-  assertPageBasics(html, { titleFragment: "Projects" });
-  assert.match(html, /DocSieve/);
-  assert.match(html, /PromptRunner/);
-  assert.match(html, /Ledgerbot/);
-
-  // Cards are the page's top-level sections: h1 then h2 (no skipped level).
-  assert.match(html, /<h1\b[^>]*class="[^"]*page-title/);
-  assert.match(html, /<h2\b[^>]*class="[^"]*project__name/);
-  assert.doesNotMatch(html, /<h3\b/i);
-
-  // Unavailable work is labeled explicitly rather than omitted.
-  assert.match(html, /project__availability/);
-  assert.match(html, /Private demo|not public yet|no public write-up/i);
-
-  // "Read the build" must not be a stand-in for the generic writing archive.
-  const readBuildToWriting =
-    /Read the build[\s\S]{0,80}href="\/writing\/"|href="\/writing\/"[\s\S]{0,80}Read the build/i;
-  assert.doesNotMatch(html, readBuildToWriting);
-
-  // Scan the rendered cards themselves, so the guard runs against real markup
-  // instead of a class name no card currently emits. Every card must either
-  // carry a credible destination or say in words that there is none.
-  const cards = [...html.matchAll(/<article\b[^>]*class="[^"]*\bproject\b[^"]*"[^>]*>([\s\S]*?)<\/article>/gi)];
-  assert.ok(cards.length >= 3, `expected rendered project cards, found ${cards.length}`);
-
-  const fakeDestinations = new Set(["/", "/writing/", "#", ""]);
-  for (const [, card] of cards) {
-    const anchors = [...card.matchAll(/<a\b[^>]*>/gi)].map(([tag]) => tag);
-    assert.ok(
-      anchors.length > 0 || /class="[^"]*project__availability[^"]*"/i.test(card),
-      "a card without a destination must state availability in words",
-    );
-
-    for (const tag of anchors) {
-      const href = tag.match(/\bhref="([^"]*)"/i)?.[1]?.trim();
-      assert.ok(href, `project link missing href: ${tag}`);
-      assert.ok(
-        !fakeDestinations.has(href),
-        `project cards must not use ${href} as a fake case-study destination: ${tag}`,
-      );
-    }
-  }
-});
-
 test("key pages share accessibility and SEO basics", () => {
   const pages = [
     ["index.html"],
-    ["writing", "index.html"],
-    ["projects", "index.html"],
-    ["posts", "from-bert-to-agents", "index.html"],
+    ["404.html"],
   ];
 
   for (const segments of pages) {
@@ -158,9 +80,6 @@ test("key pages share accessibility and SEO basics", () => {
 test("pages do not load fonts from Google", () => {
   const pages = [
     ["index.html"],
-    ["writing", "index.html"],
-    ["projects", "index.html"],
-    ["posts", "from-bert-to-agents", "index.html"],
     ["404.html"],
   ];
 
@@ -183,9 +102,6 @@ test("pages do not load fonts from Google", () => {
 test("pages preload only the measured critical font files", () => {
   const pages = [
     ["index.html"],
-    ["writing", "index.html"],
-    ["projects", "index.html"],
-    ["posts", "from-bert-to-agents", "index.html"],
     ["404.html"],
   ];
 
@@ -226,14 +142,18 @@ test("the retired pages are gone from the build", () => {
   const htaccess = readDistFile(".htaccess");
   assert.match(htaccess, /RewriteRule \^about\/\?\$ \/ \[L,R=301\]/);
   assert.match(htaccess, /RewriteRule \^contact\/\?\$ \/ \[L,R=301\]/);
+
+  // Projects, writing, and the posts held placeholder content. Nothing links to
+  // them, so they return the 404 page. The deploy receiver deletes live files
+  // that a package does not hold, so the build must not emit them.
+  for (const route of ["projects", "writing", "posts"]) {
+    assert.equal(existsSync(join(dist, route)), false, `${route}/ must not be built`);
+  }
 });
 
 test("every key page loads the self-hosted GoatCounter count script", () => {
   const pages = [
     ["index.html"],
-    ["writing", "index.html"],
-    ["projects", "index.html"],
-    ["posts", "from-bert-to-agents", "index.html"],
     ["404.html"],
   ];
 
