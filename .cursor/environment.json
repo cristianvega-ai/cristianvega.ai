@@ -1,0 +1,17 @@
+{
+  "name": "cristianvega.ai",
+  "install": "export NVM_DIR=\"$HOME/.nvm\"; . \"$NVM_DIR/nvm.sh\"; nvm install 24.15.0 && nvm alias default 24.15.0 && export PATH=\"$NVM_DIR/versions/node/v24.15.0/bin:$PATH\" && npm ci && npx playwright install chromium",
+  "terminals": [
+    {
+      "name": "dev",
+      "command": "npm run dev",
+      "description": "Astro dev server on http://localhost:4321/. Live-reloads src/ on change."
+    }
+  ],
+  "ports": [
+    {
+      "name": "astro-dev",
+      "port": 4321
+    }
+  ]
+}
