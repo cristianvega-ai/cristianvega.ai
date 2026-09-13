@@ -22,8 +22,9 @@ test("homepage keeps the portfolio theme and the profile copy", () => {
   assert.match(html, /governed system with contracts, evaluation, and a unit cost/);
   assert.match(html, /12,000 documents and 400,000\+ data points/);
   assert.match(html, /\$0\.20 per document/);
-  assert.match(html, /grew it to a peak of 100 people, and lead 45 engineers today/);
+  assert.match(html, /grew it to a peak of 100 people, and owned the budget down to the cost of a single policy check/);
   assert.match(html, /BBVA/);
+  assert.match(html, /Now I'm at Vertafore\./);
   assert.match(html, /OpenCatalyst/);
   assert.match(html, /U\.S\. Patent 12,639,972 B2/);
 
@@ -275,4 +276,21 @@ test("the share card ships and the unused portrait strip does not", () => {
   assert.equal(existsSync(join(dist, "images", "cristian-vega-og.jpg")), true);
   assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.webp")), false);
   assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.avif")), false);
+});
+
+// Search engines and link previews take the role from the page title and the
+// structured data, not from the profile. When the role changes, both change.
+test("the homepage title and structured data name the current role", () => {
+  const html = readDistFile("index.html");
+
+  assert.match(html, /<title>Cristian Vega · AI Engineering Leader<\/title>/);
+
+  const json = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(json, "the homepage must ship JSON-LD structured data");
+  const person = JSON.parse(json)["@graph"].find((node) => node["@type"] === "Person");
+  assert.ok(person, "the structured data must describe a person");
+  assert.deepEqual(
+    { jobTitle: person.jobTitle, worksFor: person.worksFor },
+    { jobTitle: "AI Engineering Leader", worksFor: { "@type": "Organization", name: "Vertafore" } },
+  );
 });
