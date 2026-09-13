@@ -18,12 +18,11 @@ export const VIEWPORTS = {
 };
 
 /**
- * Wait out the per-page entrance animation before measuring.
+ * Wait out any entrance animation in main before measuring.
  *
- * Every route runs one (writing uses riseIn, projects animates the page head
- * itself), and geometry read while it is mid-flight is the animation's
- * transform, not the layout's. Resolves immediately under reduced motion, where
- * the animation never applies.
+ * Geometry read while an animation is mid-flight is the animation's transform,
+ * not the layout's. Resolves at once when nothing animates, as under reduced
+ * motion.
  */
 export async function settle(page) {
   await page

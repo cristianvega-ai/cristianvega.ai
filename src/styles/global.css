@@ -52,35 +52,20 @@
   --ink: #14181F;
   --ink-2: #1D232E;
   --paper: #F1F3F6;
-  --surface: #FFFFFF;
   --line: #DEE2E9;
-  --line-strong: #C6CDD8;
-  --hairline: #E8EBF1;
   --muted: #586173;
   /* Accents tuned for WCAG AA on 12–15px text:
-     crimson on paper ~4.6; white on crimson ~5.0; meta on paper ~5.6.
+     crimson on paper ~4.6; white on crimson ~5.0.
      Ember is reserved for dark surfaces (~6.4 on ink) and decoration. */
   --crimson: #D42A3C;
   --crimson-dark: #B21F2F;
   --ember: #F2792B;
   --gradient: linear-gradient(102deg, #D42A3C 0%, #F2792B 100%);
-  --meta: #586173;
   --meta-on-dark: #98A1B0;
   --masthead-text: #EAEDF2;
   --masthead-rule: rgba(255, 255, 255, 0.09);
   --grid-line: rgba(255, 255, 255, 0.028);
   --grid-line-light: rgba(20, 24, 31, 0.055);
-  --tag-slate: #1D5FB0;
-  --tag-slate-background: #E9F1FB;
-  --tag-slate-border: #C6DBF3;
-  --tag-muted: #41485A;
-  --tag-muted-background: #EEF0F4;
-  --tag-muted-border: #D6DBE3;
-  --code-background: #14181F;
-  --code-text: #C9D1DC;
-  --code-accent: #F2CDBB;
-  --shadow-small: 0 1px 2px rgba(20, 24, 31, 0.05), 0 1px 1px rgba(20, 24, 31, 0.04);
-  --shadow: 0 6px 24px -12px rgba(20, 24, 31, 0.22), 0 2px 6px -3px rgba(20, 24, 31, 0.1);
   --font-display: "Space Grotesk", system-ui, sans-serif;
   --font-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
@@ -91,10 +76,7 @@
   --footer-reserve: 54px;
   --container: 1180px;
   --gutter: max(32px, calc((100vw - var(--container)) / 2 + 32px));
-  --radius: 14px;
   --radius-small: 9px;
-  --radius-extra-small: 6px;
-  --radius-code: 10px;
 }
 
 *,
@@ -363,29 +345,6 @@ body:has(.hero) .site-header :focus-visible {
   background: var(--crimson-dark);
 }
 
-.tag {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  padding: 3px 9px;
-  border-radius: var(--radius-extra-small);
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
-
-.tag--slate {
-  color: var(--tag-slate);
-  background: var(--tag-slate-background);
-  border-color: var(--tag-slate-border);
-}
-
-.tag--muted {
-  color: var(--tag-muted);
-  background: var(--tag-muted-background);
-  border-color: var(--tag-muted-border);
-}
-
 /* Home is one full dark masthead; ink extends past the short stacked hero */
 body:has(.hero) {
   background: var(--ink);
@@ -595,193 +554,6 @@ body:has(.hero) {
   }
 }
 
-.projects {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
-}
-
-.project {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: var(--shadow-small);
-  transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.3s, border-color 0.15s ease;
-}
-
-.project::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--gradient);
-  z-index: 1;
-}
-
-.project:hover {
-  transform: translateY(-3px);
-  border-color: var(--line-strong);
-  box-shadow: var(--shadow);
-}
-
-.project__preview {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  aspect-ratio: 16 / 10;
-  background-color: var(--ink);
-  background-image:
-    repeating-linear-gradient(0deg, transparent 0 17px, rgba(255, 255, 255, 0.05) 17px 18px),
-    repeating-linear-gradient(90deg, transparent 0 17px, rgba(255, 255, 255, 0.05) 17px 18px);
-}
-
-.project__mark {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 34px;
-  letter-spacing: -0.03em;
-  color: var(--masthead-text);
-  opacity: 0.92;
-}
-
-.project__status {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  color: var(--code-accent);
-  border: 1px solid rgba(242, 121, 43, 0.4);
-  background: rgba(242, 121, 43, 0.08);
-  padding: 3px 9px;
-  border-radius: 100px;
-}
-
-.project__status--wip {
-  color: #A8B0BD;
-  border-color: rgba(255, 255, 255, 0.28);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.project__body {
-  flex: 1;
-  padding: 20px 20px 4px;
-}
-
-.project__name {
-  font-size: 19px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.project__description {
-  margin-top: 8px;
-  font-size: 15px;
-  line-height: 1.55;
-  color: var(--muted);
-}
-
-.project__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  margin-top: 16px;
-}
-
-.project__links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  padding: 16px 20px 18px;
-  border-top: 1px solid var(--hairline);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.project__availability {
-  color: var(--muted);
-  font-style: normal;
-}
-
-/* Linked projects get the prose-link treatment; the muted availability colour
-   would otherwise give a real destination no affordance. */
-.project__site {
-  color: var(--crimson);
-  border-bottom: 1px solid rgba(212, 42, 60, 0.35);
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.project__site:hover {
-  color: var(--crimson-dark);
-  border-bottom-color: var(--crimson-dark);
-}
-
-.posts {
-  border-top: 1px solid var(--line);
-}
-
-.posts--archive {
-  margin-top: -24px;
-}
-
-.post {
-  display: grid;
-  grid-template-columns: 94px minmax(0, 1fr) auto;
-  gap: 24px;
-  align-items: start;
-  padding: 24px 0;
-  border-bottom: 1px solid var(--line);
-  transition: color 0.15s ease, padding-left 0.15s ease;
-}
-
-.post:hover {
-  color: var(--crimson);
-  padding-left: 8px;
-}
-
-.post__date {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--meta);
-  padding-top: 3px;
-}
-
-.post__title {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 21px;
-  font-weight: 600;
-  line-height: 1.22;
-  letter-spacing: -0.015em;
-  color: var(--ink);
-}
-
-.post:hover .post__title {
-  color: var(--crimson);
-}
-
-.post__description {
-  display: block;
-  margin-top: 6px;
-  color: var(--muted);
-  max-width: 70ch;
-}
-
-.post__tag {
-  justify-self: end;
-}
-
 /* Slide the band up behind the transparent header, the way the hero does, so
    the grid reaches the top of the page and the header sits on it instead of on
    bare paper. The matching top padding holds the heading where it was. */
@@ -789,10 +561,6 @@ body:has(.hero) {
   margin-top: calc(var(--header-height) * -1);
   padding-top: calc(64px + var(--header-height));
   border-bottom: 1px solid var(--line);
-}
-
-.page-head + .section {
-  padding-top: 44px;
 }
 
 .page-title {
@@ -817,114 +585,6 @@ body:has(.hero) {
   flex-wrap: wrap;
   gap: 14px;
   margin-top: 28px;
-}
-
-.article__head {
-  padding-block: 24px 0;
-}
-
-.article__category {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 20px;
-}
-
-.article__title {
-  font-size: clamp(34px, 6vw, 50px);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.06;
-  margin-bottom: 22px;
-}
-
-.article__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: center;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--meta);
-  padding-bottom: 26px;
-  border-bottom: 1px solid var(--hairline);
-}
-
-.article__meta .by {
-  color: var(--muted);
-}
-
-.prose {
-  padding-block: 36px 0;
-}
-
-.prose > * + * {
-  margin-top: 22px;
-}
-
-.prose p,
-.prose li {
-  font-size: 18px;
-  line-height: 1.72;
-  color: var(--ink-2);
-}
-
-.prose h2 {
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: -0.018em;
-  line-height: 1.14;
-  margin-top: 44px;
-}
-
-.prose ul,
-.prose ol {
-  padding-left: 1.3rem;
-}
-
-.prose a {
-  color: var(--crimson);
-  border-bottom: 1px solid rgba(212, 42, 60, 0.35);
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.prose a:hover {
-  color: var(--crimson-dark);
-  border-bottom-color: var(--crimson-dark);
-}
-
-.prose code {
-  font-family: var(--font-mono);
-  font-size: 0.86em;
-  background: var(--code-background);
-  color: var(--code-accent);
-  padding: 2px 6px;
-  border-radius: 5px;
-}
-
-.prose pre {
-  overflow-x: auto;
-  background: var(--code-background);
-  color: var(--code-text);
-  border-radius: var(--radius-code);
-  padding: 16px;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.75;
-  box-shadow: var(--shadow);
-}
-
-.prose pre code {
-  padding: 0;
-  background: transparent;
-  color: inherit;
 }
 
 /* Fixed, so it reads as a status bar under the page rather than an end to it.
@@ -978,10 +638,6 @@ body:has(.hero) {
     height: 300px;
   }
 
-  .projects {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .hero__main {
     padding: 48px 32px 52px;
   }
@@ -1004,28 +660,10 @@ body:has(.hero) {
     padding-block: 44px;
   }
 
-  .projects {
-    grid-template-columns: 1fr;
-  }
-
   .nav {
     gap: 14px;
     flex-wrap: wrap;
     justify-content: flex-end;
-  }
-
-  .post {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .post__tag {
-    justify-self: start;
-  }
-
-  .prose p,
-  .prose li {
-    font-size: 17px;
   }
 }
 
@@ -1064,37 +702,4 @@ body:has(.hero) {
     opacity: 1 !important;
     transform: none !important;
   }
-}
-
-/* ============================================================
-   Page entrances — each destination has its own animation.
-   ============================================================ */
-@keyframes riseIn {
-  from { opacity: 0; transform: translateY(18px); }
-  to { opacity: 1; transform: none; }
-}
-
-@keyframes popIn {
-  from { opacity: 0; transform: translateY(26px) scale(0.96); }
-  to { opacity: 1; transform: none; }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  /* HOME has no page-level entrance. The hero motion module owns that run. */
-
-  /* WRITING — a calm rise */
-  [data-page="writing"] main {
-    animation: riseIn 0.6s both ease-out;
-  }
-
-  /* PROJECTS — header rises, then the cards deal in with a stagger.
-     The tail is clamped so no card is held at opacity 0 for more than 300ms,
-     and any card past the third joins that tail instead of leading the deal. */
-  [data-page="projects"] .page-head { animation: riseIn 0.5s both ease-out; }
-  [data-page="projects"] .project { animation: popIn 0.55s both cubic-bezier(0.22, 1, 0.36, 1); }
-  [data-page="projects"] .project:nth-child(1) { animation-delay: 0.06s; }
-  [data-page="projects"] .project:nth-child(2) { animation-delay: 0.14s; }
-  [data-page="projects"] .project:nth-child(3) { animation-delay: 0.22s; }
-  [data-page="projects"] .project:nth-child(n + 4) { animation-delay: 0.3s; }
-
 }

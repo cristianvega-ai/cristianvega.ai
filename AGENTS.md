@@ -1,6 +1,6 @@
 # Repository Instructions
 
-This repository contains Cristian Vega's static personal site. It is built with Astro 7, TypeScript, content collections, and hand-written CSS. Optimize for correctness, clarity, accessibility, and minimal surprise.
+This repository contains Cristian Vega's static personal site. It is built with Astro 7, TypeScript, and hand-written CSS. Optimize for correctness, clarity, accessibility, and minimal surprise.
 
 ## Language
 
@@ -13,8 +13,7 @@ file and the README. Write short sentences. Use active voice. Give one idea per
 sentence. Choose the plain word over the long one.
 
 **Do not apply Simplified Technical English to what the site publishes.** Page
-copy, headlines, posts in `src/content/`, project descriptions in
-`src/lib/projects.ts`, and the meta descriptions that quote them are the owner's
+copy, headlines, and the meta descriptions that quote them are the owner's
 voice. Match the voice already on the page. Keep the figurative lines, because
 they are deliberate: the homepage says "I build agentic AI where mistakes are
 expensive", and Simplified Technical English would reject that sentence.
@@ -32,11 +31,10 @@ edit, you are writing as an engineer.
 
 ## Project Map
 
-- `src/pages/`: Astro routes, including the homepage, portfolio pages, posts, and the custom 404 page.
+- `src/pages/`: the homepage and the custom 404 page.
 - `src/components/`: reusable presentation and motion components.
-- `src/layouts/`: shared document, navigation, metadata, and article layouts.
-- `src/content/`: Markdown posts validated by `src/content.config.ts`.
-- `src/lib/`: typed content and project helpers.
+- `src/layouts/`: the shared document layout, with navigation and metadata.
+- `src/lib/`: the hero motion modules.
 - `src/styles/global.css`: the site-wide design system and responsive behavior.
 - `public/`: static production assets copied into the build, including `.htaccess` and `robots.txt`.
 - `assets/`: build-time source files that must not copy into the static site.
@@ -149,7 +147,6 @@ Adding focused tests for requested behavior does not require separate approval. 
 ## Content and Assets
 
 - Do not publish placeholder destinations or imply that private work is publicly available.
-- Keep post frontmatter aligned with `src/content.config.ts`.
 - Commit optimized image derivatives. Production deployment is static, so the
   build must not depend on generating them at deploy time. That rule is about
   git tracking, not about the static publish set.

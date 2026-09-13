@@ -16,9 +16,6 @@ import { settle, VIEWPORTS } from "./fixtures.mjs";
 
 const ROUTES = [
   "/",
-  "/projects/",
-  "/writing/",
-  "/posts/from-bert-to-agents/",
   /* Any unknown path: the static host serves 404.html for it. */
   "/no-such-page/",
 ];
@@ -160,9 +157,8 @@ test.describe("the compact header", () => {
   }
 });
 
-/* Routes that open with a grid band. The homepage opens with the hero, and a
-   post opens with its article head. */
-const HEAD_ROUTES = ["/projects/", "/writing/", "/no-such-page/"];
+/* Routes that open with a grid band. The homepage opens with the hero. */
+const HEAD_ROUTES = ["/no-such-page/"];
 
 test.describe("the grid runs to the top", () => {
   test.use({ viewport: VIEWPORTS.desktop });
