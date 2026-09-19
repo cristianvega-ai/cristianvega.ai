@@ -36,9 +36,9 @@ edit, you are writing as an engineer.
 - `src/layouts/`: the shared document layout, with navigation and metadata.
 - `src/lib/`: the hero motion modules.
 - `src/styles/global.css`: the site-wide design system and responsive behavior.
-- `public/`: static production assets copied into the build, including `.htaccess` and `robots.txt`.
+- `public/`: static production assets copied into the build, including `_headers`, `_redirects`, and `robots.txt`.
 - `assets/`: build-time source files that must not copy into the static site.
-- `scripts/`: deterministic asset-generation scripts, the post-deploy gate, and the deployment receiver with its Python tests.
+- `scripts/`: deterministic asset-generation scripts and the post-deploy gate.
 - `.github/`: the verify-and-deploy workflow and the Dependabot policy that keeps its action pins current.
 - `tests/`: Node contract tests, one file per concern.
 - `tests/e2e/`: Playwright specs for computed layout and runtime behavior.
@@ -61,7 +61,6 @@ npm run check
 npm test                 # builds, then runs tests (use this or verify — not bare node --test)
 npm run test:run         # Node tests only; requires a current dist/
 npm run test:e2e         # browser tests only; requires a current dist/
-npm run test:receiver    # deploy receiver tests (Python); needs python3
 npm run verify:deploy    # post-deploy: live security headers + real 404
 npm audit
 npm run generate:portrait
@@ -77,19 +76,18 @@ The suite has two runners and one file per concern. Put each new test in the lay
 | Unit | `tests/lib.test.mjs` | Pure helpers in `src/lib/`. No DOM, no build output. |
 | Build | `tests/build.test.mjs` | The build emits every expected route, asset, feed, and sitemap entry. |
 | Pages | `tests/pages.test.mjs` | Rendered HTML content, headings, metadata, and navigation state. |
-| Security | `tests/security.test.mjs` | `.htaccess` rules, the CSP, response headers, and the post-deploy gate. |
+| Security | `tests/security.test.mjs` | Cloudflare header rules, the CSP, and the post-deploy gate. |
+| Deployment | `tests/deploy-gate.test.mjs` | The live gate accepts the verified build and rejects broken responses. |
 | Design tokens | `tests/design-tokens.test.mjs` | Design-token hygiene in `global.css`. |
 | Selector hygiene | `tests/css-hygiene.test.mjs` | A class that is the subject of `:focus` or `:focus-visible` must be able to receive focus. |
 | CSS | `tests/motion-css.test.mjs` | Rules that must survive compilation, such as the reduced-motion contract. |
 | Behavior | `tests/e2e/*.spec.mjs` | Computed layout, sticky and responsive rules, focus, and runtime JavaScript. |
-| Receiver | `scripts/test_deploy_receiver.py` | The deploy receiver: every reject case, publish and restore, the lock, the log, and the exact success line. |
 
 To choose a layer, ask what the test must look at:
 
 1. A pure function — use the unit layer.
 2. A string that must appear in `dist/` — use the matching contract layer.
 3. Anything a browser must compute or execute — use the browser layer.
-4. The deploy receiver — use the receiver layer. It is Python, like the receiver.
 
 ### Rules
 
@@ -99,8 +97,7 @@ To choose a layer, ask what the test must look at:
 - Browser specs must be deterministic. Use Playwright's auto-waiting or `expect.poll`. Never use a fixed sleep.
 - Wait for the page entrance animation before you measure geometry. Use `settle(page)` from the fixtures. Geometry read during the animation is the animation's, not the layout's.
 - Prove a new assertion can fail. Break the behavior, watch the test fail, then restore it. An assertion that never fails is not coverage.
-- The deploy receiver is Python, so its tests are Python and live beside it in `scripts/`. `npm run test:receiver` runs them. Do not add receiver tests to the Node runners, and do not split them between languages.
-- `npm run verify` runs all three runners. The browser layer needs Chromium. Run `npx playwright install chromium` once per machine. The receiver layer needs `python3` 3.8 or newer on the path.
+- `npm run verify` runs both test runners. The browser layer uses the local Cloudflare runtime and needs Chromium. Run `npx playwright install chromium` once per machine.
 
 ## Working Workflow
 
@@ -159,8 +156,8 @@ Adding focused tests for requested behavior does not require separate approval. 
 ## Security and Privacy
 
 - Never commit credentials, tokens, local environment files, personal browser state, or private machine configuration.
-- The deployment key exists only as the `DEPLOY_SSH_PRIVATE_KEY` secret of the GitHub `production` environment. The host, user, and port stay in that environment's secrets and in the untracked `.claude/deploy-target.local`. Never write them into a tracked file, a log, or a chat.
-- The receiver on the host is the security boundary for deploys. A change to `scripts/deploy-receiver.py` is a security-sensitive change: it needs the owner's approval, its tests, and a fresh install on the host.
+- Store `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the GitHub `production` environment. Give the token only the required account access. Never write token values or private account details into tracked files, logs, or chat. Keep old host connection details private during the migration.
+- Deploy only the verified build through GitHub Actions. Keep secrets out of the `Verify` job. A change to the workflow, Cloudflare policy, or domain routes needs the owner's approval.
 - External links opened in a new tab must use `noopener` and `noreferrer` where appropriate.
 - Preserve the production security headers and content security policy unless a reviewed deployment change requires otherwise.
 - Run `npm audit` before production publication when dependencies changed.
@@ -218,10 +215,10 @@ files.
 
 No agent deploys from a laptop in the normal path. GitHub builds the merged
 commit, so the live site always matches a commit on `main`. Report the merged
-commit hash and the workflow run. A manual deploy through the receiver, which
-the deploy skill describes, exists for the case where GitHub Actions cannot
-run; it must start from a clean tree on `main`, because `dist/` is built from
-the disk, not from a commit.
+commit hash and the workflow run. A manual GitHub workflow run must also
+build and verify the current `main` commit. The first Cloudflare deployment
+uses `workers.dev`. Follow README.md for the later domain switch. Enable
+`CLOUDFLARE_PRODUCTION_READY` only after that switch passes the live checks.
 
 Before opening a pull request:
 

@@ -4,6 +4,7 @@ dist/
 .astro/
 .vite/
 .cache/
+.wrangler/
 coverage/
 .nyc_output/
 playwright-report/

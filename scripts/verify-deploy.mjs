@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Post-deploy gate: prove the live origin emits security headers and a real 404.
-// Build-time checks cannot see Apache response headers (mod_headers is IfModule-guarded).
+// Check the Cloudflare response and, when supplied, the exact build output.
 //
 // Usage:
 //   npm run verify:deploy
@@ -8,6 +8,7 @@
 
 import http from "node:http";
 import https from "node:https";
+import { readFile } from "node:fs/promises";
 
 const origin = (process.env.ORIGIN ?? "https://cristianvega.ai").replace(/\/$/, "");
 
@@ -67,6 +68,7 @@ function requestHeaders(url, extraHeaders = {}) {
       );
     });
     req.on("error", reject);
+    req.setTimeout(15_000, () => req.destroy(new Error("request timed out")));
     req.end();
   });
 }
@@ -76,21 +78,25 @@ async function main() {
 
   let home;
   try {
-    home = await fetch(`${origin}/`, { redirect: "follow", headers: { "user-agent": USER_AGENT } });
+    home = await fetch(`${origin}/`, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
+      headers: { "user-agent": USER_AGENT, "cache-control": "no-cache" },
+    });
   } catch (error) {
     fail(`could not reach ${origin}/ (${error.cause?.code ?? error.message})`);
     fail("publish DNS for the apex (and www if used), then redeploy before re-running");
     return;
   }
 
-  if (!home.ok) {
+  if (home.status !== 200) {
     fail(`GET ${origin}/ returned HTTP ${home.status}`);
   }
 
   const missingHeaders = REQUIRED_HEADERS.filter((name) => !home.headers.get(name));
   if (missingHeaders.length) {
     fail(
-      `missing response headers: ${missingHeaders.join(", ")} — mod_headers may be off or .htaccess was not deployed`,
+      `missing response headers: ${missingHeaders.join(", ")} — check the deployed _headers file`,
     );
   } else {
     console.log("verify-deploy: all six security headers present");
@@ -128,7 +134,11 @@ async function main() {
   const missingPath = `${origin}/__deploy-gate-missing-path__/`;
   let notFound;
   try {
-    notFound = await fetch(missingPath, { redirect: "manual", headers: { "user-agent": USER_AGENT } });
+    notFound = await fetch(missingPath, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
+      headers: { "user-agent": USER_AGENT },
+    });
   } catch (error) {
     fail(`could not probe missing path (${error.cause?.code ?? error.message})`);
     return;
@@ -136,13 +146,49 @@ async function main() {
 
   if (notFound.status !== 404) {
     fail(
-      `GET ${missingPath} returned HTTP ${notFound.status}, expected 404 (ErrorDocument / soft-404 check)`,
+      `GET ${missingPath} returned HTTP ${notFound.status}, expected 404`,
     );
   } else {
     console.log("verify-deploy: missing path returns HTTP 404");
   }
 
   const html = await home.text();
+  if (process.env.EXPECTED_INDEX) {
+    const expected = await readFile(process.env.EXPECTED_INDEX);
+    if (!expected.equals(Buffer.from(html))) {
+      fail("the live homepage does not match the verified build");
+    } else {
+      console.log("verify-deploy: the live homepage matches the verified build");
+    }
+  }
+
+  for (const path of ["/about", "/about/", "/contact", "/contact/"]) {
+    const response = await fetch(`${origin}${path}`, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
+      headers: { "user-agent": USER_AGENT },
+    });
+    const location = response.headers.get("location");
+    if (response.status !== 301 || !location || new URL(location, origin).href !== `${origin}/`) {
+      fail(`${path} must redirect to the homepage with HTTP 301`);
+    }
+    await response.body?.cancel();
+  }
+
+  if (process.env.CHECK_CANONICAL_REDIRECTS === "true") {
+    const path = "/__canonical-check__/?from=deploy";
+    for (const base of ["http://cristianvega.ai", "http://www.cristianvega.ai", "https://www.cristianvega.ai"]) {
+      const response = await fetch(`${base}${path}`, {
+        redirect: "manual",
+        signal: AbortSignal.timeout(15_000),
+        headers: { "user-agent": USER_AGENT },
+      });
+      if (response.status !== 301 || response.headers.get("location") !== `https://cristianvega.ai${path}`) {
+        fail(`${base} must redirect to HTTPS on the apex in one step`);
+      }
+      await response.body?.cancel();
+    }
+  }
   const scriptSrcs = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, src]) => src);
   const requiredScripts = [
     ["HeroMotion", "hero"],
