@@ -8,7 +8,7 @@ import { assertPageBasics, dist, readDistFile, root } from "./helpers.mjs";
 
 // Build output contract: the files the static deploy uploads must exist and be
 // complete. Page copy lives in tests/pages.test.mjs; this suite only asks
-// whether the build emitted the artefacts DreamHost serves.
+// whether the build emitted the files Cloudflare serves.
 
 function assertDistPath(...segments) {
   const path = join(dist, ...segments);
@@ -40,7 +40,7 @@ test("dist build is present for contract tests", () => {
   assertDistPath("index.html");
 });
 
-test("build emits the core static pages DreamHost will serve", () => {
+test("build emits the core static pages Cloudflare will serve", () => {
   assertDistPath("index.html");
   assertDistPath("sitemap-index.xml");
 });
@@ -93,7 +93,9 @@ test("the navigation leaves the site, and every outbound link is safe", () => {
 test("static ops assets ship with the build", () => {
   assert.equal(existsSync(join(dist, "robots.txt")), true);
   assert.equal(existsSync(join(dist, "404.html")), true);
-  assert.equal(existsSync(join(dist, ".htaccess")), true);
+  assert.equal(existsSync(join(dist, "_headers")), true);
+  assert.equal(existsSync(join(dist, "_redirects")), true);
+  assert.equal(existsSync(join(dist, ".htaccess")), false);
 
   const robots = readDistFile("robots.txt");
   assert.match(robots, /Sitemap:\s*https:\/\/cristianvega\.ai\/sitemap-index\.xml/);
@@ -213,11 +215,7 @@ test("the portrait master stays out of the static publish set", () => {
   ]);
 });
 
-// The deploy receiver on the host accepts only these suffixes, refuses hidden
-// names other than the root .htaccess, and refuses any name whose later
-// dot-components could reach an interpreter. Mirror its policy here so a new
-// file type fails in Verify, not at the door. Keep this in step with
-// scripts/deploy-receiver.py and the host's config.json.
+// Publish static assets and the two Cloudflare rule files only.
 const DEPLOY_SUFFIXES = new Set(["html", "css", "js", "jpg", "png", "svg", "txt", "xml", "woff2"]);
 const DEPLOY_FORBIDDEN_COMPONENTS = new Set([
   "php", "php3", "php4", "php5", "php7", "php8", "phtml", "phar", "phps", "pht",
@@ -237,25 +235,25 @@ function listDistFiles(dir = dist, prefix = "") {
   return files.sort();
 }
 
-test("every build file passes the deploy receiver's name policy", () => {
+test("the build contains only approved static files and Cloudflare rules", () => {
   const files = listDistFiles();
   assert.ok(files.length >= 15, "expected the full static build");
   for (const rel of files) {
-    if (rel === ".htaccess") continue;
+    if (["_headers", "_redirects"].includes(rel)) continue;
     const parts = rel.split("/");
     for (const part of parts) {
-      assert.ok(!part.startsWith("."), `${rel}: the receiver refuses hidden names`);
+      assert.ok(!part.startsWith("."), `${rel}: hidden names must not be published`);
     }
     const pieces = parts.at(-1).split(".");
-    assert.ok(pieces.length >= 2, `${rel}: the receiver refuses a file with no suffix`);
-    assert.ok(DEPLOY_SUFFIXES.has(pieces.at(-1)), `${rel}: .${pieces.at(-1)} is not in the receiver's allowlist`);
+    assert.ok(pieces.length >= 2, `${rel}: static files must have a suffix`);
+    assert.ok(DEPLOY_SUFFIXES.has(pieces.at(-1)), `${rel}: .${pieces.at(-1)} is not an approved static type`);
     for (const piece of pieces.slice(1)) {
-      assert.ok(!DEPLOY_FORBIDDEN_COMPONENTS.has(piece.toLowerCase()), `${rel}: the receiver refuses the suffix component .${piece}`);
+      assert.ok(!DEPLOY_FORBIDDEN_COMPONENTS.has(piece.toLowerCase()), `${rel}: do not publish the suffix component .${piece}`);
     }
     // The package is ustar; a plain ustar name holds 100 bytes.
     assert.ok(rel.length <= 100, `${rel}: longer than a ustar name (100); switch the package to --format=posix`);
   }
-  for (const required of [".htaccess", "index.html", "404.html", "robots.txt", "sitemap-index.xml"]) {
+  for (const required of ["_headers", "_redirects", "index.html", "404.html", "robots.txt", "sitemap-index.xml"]) {
     assertDistPath(required);
   }
 });

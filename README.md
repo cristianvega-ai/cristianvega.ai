@@ -22,110 +22,108 @@ Or run the full gate with `npm run verify` (one build + type-check + tests). Pre
 
 ## Deploy
 
-Every merge to `main` deploys. GitHub Actions builds and verifies the commit,
-packs `dist/` into one archive, and hands it to a receiver on the web host
-over SSH. The receiver accepts static site files only, and the key GitHub
-holds can run nothing else. `.github/workflows/deploy.yml` is the workflow,
-`scripts/deploy-receiver.py` is the receiver, and
-`scripts/test_deploy_receiver.py` proves what it refuses.
+GitHub Actions is the default deploy path. Every merge to `main` runs
+`Verify`, then uploads that verified static build to Cloudflare Workers.
+Cloudflare serves the files. The site has no Worker script or server adapter.
+Keep Cloudflare's separate Git build integration disabled.
 
-### The path a change takes
+### Verification and publication
 
-1. A pull request runs the `Verify` job: `npm ci`, `npm audit`, the complete
-   `npm run verify` gate, then a package of `dist/`. The job has no secrets.
-2. A merge to `main` runs `Verify` again and stores the package as the run
-   artifact `production-site-<sha>`, with a `SHA256SUMS` manifest.
-3. `Deploy production` runs only for the current commit on `main`, only when
-   the repository variable `PRODUCTION_DEPLOY_ENABLED` is `true`, and only
-   inside the `production` environment that holds the SSH secrets. It first
-   asks the host for the installed receiver's hash and stops if it differs
-   from `scripts/deploy-receiver.py`. Then it sends the package and expects
-   `DEPLOY_OK <package sha256> <receiver sha256>` back.
-4. The receiver checks the command, the size, every path, every suffix, the
-   `.htaccess` against the copies approved on the host, and the required
-   files. It snapshots the live site, publishes assets before HTML, checks the
-   live origin, and restores the snapshot if that check fails.
-5. The workflow runs `scripts/verify-deploy.mjs` against the live origin and
-   compares the live homepage with the packaged one.
+1. `Verify` installs locked dependencies, audits them, checks signatures, and
+   runs `npm run verify`. Pull requests have no deployment secrets.
+2. The job packages `dist/`, the live verifier, the Wrangler configuration,
+   and the dependency files. It records the package and manifest hashes.
+3. `Deploy production` runs only for the current `main` commit. It requires
+   `PRODUCTION_DEPLOY_ENABLED=true` and the GitHub `production` environment.
+4. The deploy job checks both hashes. It installs locked tooling without
+   install scripts, then runs Wrangler on the verified files. It does not
+   check out source or build the site again.
+5. The live gate checks the Worker address. It requires an exact homepage
+   match, security headers, a real 404, permanent redirects for retired
+   pages, gzip for scripts, and the specified cache lifetimes.
+6. After the domain switch, `CLOUDFLARE_PRODUCTION_READY=true` also requires
+   those checks on `https://cristianvega.ai`. It checks HTTP and `www`
+   redirects with their path and query intact.
 
-The `main` ruleset requires a pull request and a green `Verify`, so nothing
-reaches the host that did not pass the gate.
+Every action and the Wrangler version are pinned. Dependabot updates action
+pins. The `production` environment holds these secrets:
 
-### Turning deploys off
-
-Set `PRODUCTION_DEPLOY_ENABLED` to `false` in the repository's Actions
-variables. `Verify` keeps running; nothing reaches the host. To revoke the key,
-delete the `github-actions-production` line from `~/.ssh/authorized_keys` on
-the host and replace the `DEPLOY_SSH_PRIVATE_KEY` secret with a new key.
-
-### What lives on the host
-
-All of it is private, outside the document root, mode `0700` or `0600`:
-
-| Path | Purpose |
+| Secret | Purpose |
 | --- | --- |
-| `~/.local/libexec/cristianvega-deploy-receiver` | The installed receiver. The only program the GitHub key can run. |
-| `~/.config/cristianvega-deploy/config.json` | Document root, state paths, limits, allowed suffixes, the origin to check. |
-| `~/.local/share/cristianvega-deploy/approved.d/` | Approved `.htaccess` copies. A package's `.htaccess` must match one byte for byte. |
-| `~/.local/state/cristianvega-deploy/` | `deploy.lock`, `deploy.log`, `staging/`, and the three newest `snapshots/`. |
+| `CLOUDFLARE_API_TOKEN` | Publish Workers in the selected account. |
+| `CLOUDFLARE_ACCOUNT_ID` | Select the account that owns the site. |
 
-The GitHub key's line in `~/.ssh/authorized_keys` starts with
-`restrict,command="…"`, so it gets no shell, no forwarding, and no other
-program. The receiver's allowlist of suffixes is also in `config.json` on the
-host and in the build test in `tests/build.test.mjs`; change both together.
+A manual GitHub workflow run rebuilds and verifies the current `main` commit.
+Use this to retry a deployment. Do not deploy from a laptop.
 
-### Changing `.htaccess`
+### First deployment and domain switch
 
-The receiver refuses a `.htaccess` that is not in `approved.d/`. To change it:
+The initial configuration enables `workers.dev` and declares no custom
+domains. The first deployment leaves the public domain on its existing host.
+The workflow summary gives the Cloudflare test address and the commit.
+The test address sends `X-Robots-Tag: noindex`.
 
-1. Change `public/.htaccess` in a pull request and let `Verify` pass.
-2. Copy the new file into `approved.d/` on the host under a new name, with
-   your own key. Keep the old copy.
-3. Merge. The deploy passes because the new file matches.
-4. Delete the old copy from `approved.d/`.
+1. Merge the migration pull request after `Verify` passes. Confirm that the
+   deployment and live checks pass on the Cloudflare test address.
+2. Check the homepage and 404 page at desktop, tablet, and mobile widths.
+   Check motion, reduced motion, keyboard access, and the browser console.
+3. Save the current web DNS records for rollback. Keep those values private.
+   Preserve mail records. Prepare the domain change in a reviewed follow-up
+   pull request: add `cristianvega.ai` and `www.cristianvega.ai` as custom
+   domains in `wrangler.jsonc`. Update the initial-deployment test with it.
+   Remove conflicting web DNS records only when ready to switch.
+4. In Cloudflare, create a Single Redirect rule for these hosts when the
+   scheme is HTTP or the host is `www.cristianvega.ai`. Use HTTP 301. Set the
+   destination to `concat("https://cristianvega.ai", http.request.uri.path)`
+   and enable **Preserve query string**. This makes the scheme and host
+   change in one step. Confirm that both hosts have valid certificates.
+5. Set **Browser Cache TTL** to **Respect Existing Headers**. Disable
+   automatic Web Analytics script injection for the site. The homepage also
+   sends `no-transform` so its HTML can match the verified build.
+6. Merge the domain change. Run the live gate with
+   `CHECK_CANONICAL_REDIRECTS=true npm run verify:deploy`. Set the repository
+   variable `CLOUDFLARE_PRODUCTION_READY` to `true`, then run the GitHub
+   workflow again. Both addresses must match the same verified homepage.
+7. After the production run passes, remove the old `DEPLOY_*` GitHub secrets
+   and revoke the old deployment key. Retire the old hosting service only
+   after the owner confirms that it has no other required services.
 
-### Updating the receiver
+Do not set `CLOUDFLARE_PRODUCTION_READY` before the domain switch. The old
+host still serves a different build until that switch completes.
 
-The workflow refuses to deploy while the installed receiver differs from
-`scripts/deploy-receiver.py`. After a change merges, copy the new file to
-`~/.local/libexec/cristianvega-deploy-receiver` with your own key and keep
-mode `0700`. The next run confirms the hash.
+### Stop and roll back
 
-### Deploying from a laptop
+Set `PRODUCTION_DEPLOY_ENABLED=false` to stop publication. Verification
+continues. Do not work around this switch.
 
-`.claude/skills/deploy/SKILL.md` describes a manual deploy through the same
-receiver, for the case where GitHub Actions cannot run. It needs
-`.claude/deploy-target.local`, which is untracked because it names the host:
+A live check failure marks the workflow as failed. It does not automatically
+restore an older Cloudflare version. Use the Worker's deployment history to
+restore the last known good version, then revert the defect through a pull
+request. A failed first domain switch can also be reversed with the saved
+web DNS records while the old host remains available. Disable publication
+before an emergency rollback so another run does not replace it.
 
-```bash
-HOST=<shared host>.dreamhost.com
-USER=<shell user>
-PORT=22
-DOC_ROOT=/home/<shell user>/cristianvega.ai/
-SSH_KEY=~/.ssh/dreamhost_cristianvega            # your own key: admin work only
-DEPLOY_KEY=~/.ssh/cristianvega-deploy-laptop     # restricted: can only run the receiver
-ORIGIN=https://cristianvega.ai
-```
+### Hosting rules and local checks
 
-Nothing deploys with `rsync` any more. The receiver is the only path into the
-document root.
+`public/_headers` preserves the six security headers and CSP. It gives
+hashed `/_astro/` assets a one-year immutable cache. Stable images use one
+week. The analytics script uses one hour. HTML revalidates. HSTS applies to
+the current host only. Do not add `includeSubDomains` until all subdomains
+support valid HTTPS.
 
-### Live checks
+`public/_redirects` sends `/about` and `/contact`, with or without a trailing
+slash, to the homepage. Cloudflare domain rules handle HTTPS and `www`.
+`wrangler.jsonc` enables trailing slashes and serves `404.html` with HTTP 404
+for a missing path. Cloudflare does not apply Apache `.htaccess` files.
 
-The build copies production Apache config from `public/.htaccess` (single-hop HTTPS + www→apex redirects, security headers including CSP, custom 404, cache rules), plus `public/robots.txt`. Headers live inside `<IfModule mod_headers.c>`, so a host without `mod_headers` drops CSP/HSTS/frame protections silently — build-time tests cannot see that. The workflow runs `npm run verify:deploy` against the live origin after every deploy; run it by hand to re-check (override with `ORIGIN=...` if needed). It requires all six security header names on `GET /`, checks core CSP directives, requires HTTP 404 for a deliberately missing path, and requires live HSTS of at least `max-age=31536000` without `includeSubDomains`. HSTS is a one-year policy on the apex host. It omits `includeSubDomains` because `ftp.cristianvega.ai` is live and does not present a valid HTTPS certificate. Do not add `includeSubDomains` until every subdomain of `cristianvega.ai` presents a valid certificate.
+Run `npm run build`, then `npm run preview` to serve the build with Wrangler.
+The browser suite uses the same local Cloudflare runtime. It checks headers,
+redirects, compression, caching, and the page flows without account access.
 
-**www DNS:** Publish a `www` CNAME (or A record) to the same host as the apex, and ensure the TLS certificate SAN includes `www.cristianvega.ai`. Without that record, `www` fails at DNS and the apex redirect never runs.
-
-Static operational assets:
-
-| Asset | Source | Purpose |
-| --- | --- | --- |
-| `robots.txt` | `public/robots.txt` | Crawl policy + sitemap URL |
-| `404.html` | `src/pages/404.astro` | Custom not-found page |
-| `.htaccess` | `public/.htaccess` | HTTPS, security headers + CSP, ErrorDocument, caching |
-| `verify:deploy` | `scripts/verify-deploy.mjs` | Live header + 404 gate after each deploy |
-| workflow | `.github/workflows/deploy.yml` | `Verify` on every change; `Deploy production` for `main` |
-| receiver | `scripts/deploy-receiver.py` | The one program the deploy key may run on the host |
+Run `npm run verify:deploy` to check the public site. Set `ORIGIN` to check
+the Cloudflare test address. Set `EXPECTED_INDEX=dist/index.html` only when
+that local build is the exact build deployed by GitHub. A different build
+must fail the comparison.
 
 ## Image derivatives
 
