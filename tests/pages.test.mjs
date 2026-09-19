@@ -134,19 +134,16 @@ test("pages preload only the measured critical font files", () => {
 });
 
 test("the retired pages are gone from the build", () => {
-  // About and contact were public and indexed. The build must not emit them,
-  // and .htaccess must send both URLs to the home page. A stale page in dist/
-  // would be uploaded and would outrank the redirect.
+  // About and contact were public. Keep their redirects in the build.
   assert.equal(existsSync(join(dist, "about", "index.html")), false, "about page must be gone");
   assert.equal(existsSync(join(dist, "contact", "index.html")), false, "contact page must be gone");
 
-  const htaccess = readDistFile(".htaccess");
-  assert.match(htaccess, /RewriteRule \^about\/\?\$ \/ \[L,R=301\]/);
-  assert.match(htaccess, /RewriteRule \^contact\/\?\$ \/ \[L,R=301\]/);
+  const redirects = readDistFile("_redirects");
+  for (const path of ["/about", "/about/", "/contact", "/contact/"]) {
+    assert.ok(redirects.split("\n").includes(`${path} / 301`));
+  }
 
-  // Projects, writing, and the posts held placeholder content. Nothing links to
-  // them, so they return the 404 page. The deploy receiver deletes live files
-  // that a package does not hold, so the build must not emit them.
+  // These routes held placeholder content. Cloudflare must serve the 404 page.
   for (const route of ["projects", "writing", "posts"]) {
     assert.equal(existsSync(join(dist, route)), false, `${route}/ must not be built`);
   }
