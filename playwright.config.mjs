@@ -29,7 +29,8 @@ export default defineConfig({
 
   /* Use a dedicated port. Never test a server from another checkout. */
   webServer: {
-    command: "npx --no-install wrangler dev --local --port 4323 --inspector-port 0 --show-interactive-dev-session false",
+    /* The test environment keeps each request's hostname for header checks. */
+    command: "npx --no-install wrangler dev --local --env test --port 4323 --inspector-port 0 --show-interactive-dev-session false",
     url: "http://localhost:4323/",
     reuseExistingServer: false,
     env: { WRANGLER_SEND_METRICS: "false" },

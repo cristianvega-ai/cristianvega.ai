@@ -216,8 +216,8 @@ files.
 No agent deploys from a laptop in the normal path. GitHub builds the merged
 commit, so the live site always matches a commit on `main`. Report the merged
 commit hash and the workflow run. A manual GitHub workflow run must also
-build and verify the current `main` commit. The first Cloudflare deployment
-uses `workers.dev`. Follow README.md for the later domain switch. Enable
+build and verify the current `main` commit. Cloudflare domain routes live in
+`wrangler.jsonc`. Follow README.md before changing those routes. Enable
 `CLOUDFLARE_PRODUCTION_READY` only after that switch passes the live checks.
 
 Before opening a pull request:

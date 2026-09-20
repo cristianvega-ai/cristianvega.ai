@@ -4,6 +4,13 @@
   "compatibility_date": "2026-09-19",
   "workers_dev": true,
   "preview_urls": false,
+  "routes": [
+    { "pattern": "cristianvega.ai", "custom_domain": true },
+    { "pattern": "www.cristianvega.ai", "custom_domain": true }
+  ],
+  "env": {
+    "test": { "routes": [] }
+  },
   "assets": {
     "directory": "./dist",
     "html_handling": "force-trailing-slash",
