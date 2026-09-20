@@ -192,7 +192,7 @@ async function main() {
   const scriptSrcs = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, src]) => src);
   const requiredScripts = [
     ["HeroMotion", "hero"],
-    ["/js/count.v5.js", "analytics count"],
+    ["CloudflareAnalytics", "analytics loader"],
   ];
 
   for (const [needle, label] of requiredScripts) {
@@ -224,19 +224,7 @@ async function main() {
     console.log(`verify-deploy: ${label} is gzip-compressed`);
 
     const cache = headerValue(script.headers, "cache-control");
-    if (needle.startsWith("/js/")) {
-      if (
-        !/\bmax-age=3600\b/.test(cache) ||
-        !/\bstale-while-revalidate=86400\b/.test(cache) ||
-        /\bimmutable\b/i.test(cache)
-      ) {
-        fail(
-          `${label} at ${url} Cache-Control is ${cache || "none"} (expected public, max-age=3600, stale-while-revalidate=86400)`,
-        );
-        continue;
-      }
-      console.log(`verify-deploy: ${label} cache is short-lived`);
-    } else if (
+    if (
       !/\bmax-age=31536000\b/.test(cache) ||
       !/\bimmutable\b/i.test(cache)
     ) {

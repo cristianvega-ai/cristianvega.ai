@@ -1,0 +1,11 @@
+<script>
+  // Count visits on the public site. Skip local and preview addresses.
+  if (window.location.hostname === "cristianvega.ai") {
+    const beacon = document.createElement("script");
+    beacon.type = "module";
+    beacon.src = "https://static.cloudflareinsights.com/beacon.min.js";
+    // This public site identifier is not an API credential.
+    beacon.dataset.cfBeacon = JSON.stringify({ token: "4de814b85a2343b0a5ccfea91d96fc4f" });
+    document.body.append(beacon);
+  }
+</script>
