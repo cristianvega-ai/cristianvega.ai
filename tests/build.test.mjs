@@ -142,12 +142,13 @@ test("compiled css assets are emitted", () => {
 test("the build ships hashed self-hosted latin font files", () => {
   const fontDir = join(root, "src", "assets", "fonts");
   for (const file of [
-    "space-grotesk-latin-600-700.woff2",
+    "geist-latin-600.woff2",
     "ibm-plex-sans-latin-400.woff2",
     "ibm-plex-sans-latin-400-italic.woff2",
     "ibm-plex-mono-latin-400.woff2",
     "ibm-plex-mono-latin-500.woff2",
-    "OFL-space-grotesk.txt",
+    "ibm-plex-mono-latin-600.woff2",
+    "OFL-geist.txt",
     "OFL-ibm-plex.txt",
   ]) {
     assert.equal(existsSync(join(fontDir, file)), true, `missing font source: ${file}`);
@@ -157,8 +158,8 @@ test("the build ships hashed self-hosted latin font files", () => {
   const fonts = readdirSync(astroDir).filter((file) => file.endsWith(".woff2"));
   assert.equal(
     fonts.length,
-    5,
-    `expected five hashed woff2 files (Space Grotesk 600–700, Plex Sans 400 roman and italic, Plex Mono 400 and 500), got ${fonts.join(", ")}`,
+    6,
+    `expected six hashed woff2 files (Geist 600, Plex Sans 400 roman and italic, Plex Mono 400, 500 and 600), got ${fonts.join(", ")}`,
   );
   for (const file of fonts) {
     assert.match(file, /[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.woff2/, `font must be content-hashed: ${file}`);
@@ -169,10 +170,13 @@ test("the build ships hashed self-hosted latin font files", () => {
     .filter((file) => file.endsWith(".css"))
     .map((file) => readFileSync(join(astroDir, file), "utf8"))
     .join("\n");
-  assert.match(css, /font-family:\s*"?Space Grotesk"?/);
+  assert.match(css, /font-family:\s*"?Geist"?/);
   assert.match(css, /font-family:\s*"?IBM Plex Sans"?/);
   assert.match(css, /font-family:\s*"?IBM Plex Mono"?/);
-  assert.match(css, /font-weight:\s*600 700/);
+  // Geist ships one weight, so the measured fallback face holds the display
+  // metrics until the file arrives. Without it the headline reflows.
+  assert.match(css, /font-family:\s*"?Geist Fallback"?/);
+  assert.match(css, /size-adjust:\s*127\.74%/);
   assert.match(css, /ibm-plex-sans-latin-400\.[A-Za-z0-9_-]+\.woff2/);
   assert.match(css, /ibm-plex-sans-latin-400-italic\.[A-Za-z0-9_-]+\.woff2/);
   assert.match(
@@ -182,7 +186,8 @@ test("the build ships hashed self-hosted latin font files", () => {
   );
   assert.match(css, /ibm-plex-mono-latin-400\.[A-Za-z0-9_-]+\.woff2/);
   assert.match(css, /ibm-plex-mono-latin-500\.[A-Za-z0-9_-]+\.woff2/);
-  assert.match(css, /space-grotesk-latin-600-700\.[A-Za-z0-9_-]+\.woff2/);
+  assert.match(css, /ibm-plex-mono-latin-600\.[A-Za-z0-9_-]+\.woff2/);
+  assert.match(css, /geist-latin-600\.[A-Za-z0-9_-]+\.woff2/);
   assert.doesNotMatch(css, /fonts\.googleapis\.com|fonts\.gstatic\.com/);
   assert.equal(
     existsSync(join(dist, "fonts")),
