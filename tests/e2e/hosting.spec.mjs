@@ -47,15 +47,17 @@ test("only the Cloudflare test address sends noindex", async ({ request }) => {
   }
 });
 
-test("Cloudflare keeps static scripts compressed and sets separate cache lifetimes", async ({ request }) => {
+test("Cloudflare compresses built scripts and gives them an immutable cache", async ({ request }) => {
   const home = await request.get("/");
   const html = await home.text();
   const sources = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, src]) => src);
   const hero = sources.find((src) => src.includes("HeroMotion"));
+  const analytics = sources.find((src) => src.includes("CloudflareAnalytics"));
   expect(hero).toBeTruthy();
+  expect(analytics).toBeTruthy();
   const paths = [
     [hero, "public, max-age=31536000, immutable"],
-    ["/js/count.v5.js", "public, max-age=3600, stale-while-revalidate=86400"],
+    [analytics, "public, max-age=31536000, immutable"],
   ];
   for (const [path, cache] of paths) {
     const response = await request.get(path, { headers: { "accept-encoding": "gzip" } });
@@ -88,7 +90,8 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     await page.goto("/");
     await settle(page);
     await page.evaluate(() => document.fonts.ready);
-    await expect.poll(() => page.evaluate(() => typeof window.goatcounter?.count)).toBe("function");
+    await expect(page.locator('script[src*="CloudflareAnalytics"]')).toHaveCount(1);
+    await expect(page.locator('script[data-cf-beacon], script[data-goatcounter]')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 }

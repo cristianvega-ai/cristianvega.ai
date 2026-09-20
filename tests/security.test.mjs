@@ -34,9 +34,7 @@ test("Cloudflare keeps the security headers on all static paths", () => {
 test("Cloudflare keeps each cache policy on its own paths", () => {
   assert.match(headerBlock("/_astro/*"), /Cache-Control: public, max-age=31536000, immutable/);
   assert.match(headerBlock("/images/*"), /Cache-Control: public, max-age=604800, stale-while-revalidate=86400/);
-  assert.match(headerBlock("/js/*"), /Cache-Control: public, max-age=3600, stale-while-revalidate=86400/);
   assert.doesNotMatch(headerBlock("/images/*"), /immutable/);
-  assert.doesNotMatch(headerBlock("/js/*"), /immutable/);
   assert.doesNotMatch(headerBlock("/*"), /Cache-Control:/);
   assert.match(headerBlock("/"), /Cache-Control: public, max-age=0, must-revalidate, no-transform/);
 });
@@ -55,7 +53,11 @@ test("Cloudflare CSP denies inline scripts while allowing inline styles", () => 
   assert.match(scriptSrc, /'self'/, "bundled scripts stay same-origin");
   assert.doesNotMatch(scriptSrc, /unsafe-inline|unsafe-eval/);
   for (const token of scriptSrc.split(/\s+/)) {
-    assert.ok(token === "'self'" || /^'sha256-[A-Za-z0-9+/=]+'$/.test(token), `unexpected script source ${token}`);
+    assert.ok(
+      token === "'self'" || /^'sha256-[A-Za-z0-9+/=]+'$/.test(token) ||
+      token === "https://static.cloudflareinsights.com/beacon.min.js",
+      `unexpected script source ${token}`,
+    );
   }
 
   const styleSrc = csp.match(/style-src\s+([^;]+)/)?.[1] ?? "";
@@ -141,53 +143,47 @@ test("post-deploy gate requires a one-year HSTS max-age without includeSubDomain
   assert.match(script, /live HSTS must not include includeSubDomains/);
 });
 
-test("post-deploy gate requires gzip on the hero and analytics scripts", () => {
+test("the live gate checks compression for the hero and analytics loader", () => {
   const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
   assert.match(script, /content-encoding/i);
   assert.match(script, /\bgzip\b/i);
   assert.match(script, /HeroMotion/);
-  assert.match(script, /\/js\/count\.v5\.js/);
+  assert.match(script, /CloudflareAnalytics/);
 });
 
-test("post-deploy gate requires a short cache on /js/ and an immutable cache on /_astro/", () => {
+test("the live gate requires an immutable cache for built scripts", () => {
   const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
   assert.match(script, /cache-control/i);
-  assert.match(script, /max-age=3600/);
-  assert.match(script, /stale-while-revalidate=86400/);
   assert.match(script, /max-age=31536000/);
   assert.match(script, /immutable/);
 });
 
-test("Cloudflare CSP allows the GoatCounter beacon in connect-src only", () => {
+test("the security policy allows the Cloudflare script and beacon endpoint", () => {
   const headers = readDistFile("_headers");
   const csp = headers.match(/Content-Security-Policy: ([^\n]+)/)?.[1];
   assert.ok(csp, "Content-Security-Policy header must be present");
 
-  // The self-hosted count script sends its pageview beacon with
-  // navigator.sendBeacon, which connect-src governs.
   const connectSrc = csp.match(/connect-src\s+([^;]+)/)?.[1]?.trim();
   assert.ok(connectSrc, "CSP must declare connect-src");
   const tokens = connectSrc.split(/\s+/);
   assert.ok(tokens.includes("'self'"), "connect-src must keep 'self'");
   assert.ok(
-    tokens.includes("https://cristianvegaai.goatcounter.com"),
-    "connect-src must allow the GoatCounter count endpoint origin over https",
+    tokens.includes("https://cloudflareinsights.com"),
+    "connect-src must allow the Cloudflare beacon endpoint over HTTPS",
   );
   assert.deepEqual(
     [...tokens].sort(),
-    ["'self'", "https://cristianvegaai.goatcounter.com"],
-    "connect-src must hold exactly 'self' and the GoatCounter origin",
+    ["'self'", "https://cloudflareinsights.com"],
+    "connect-src must allow only this site and Cloudflare Web Analytics",
   );
 
-  // The count script is self-hosted, so no analytics host may reach
-  // script-src, and the GoatCounter CDN must stay out of the CSP entirely.
   const scriptSrc = csp.match(/script-src\s+([^;]+)/)?.[1] ?? "";
-  assert.doesNotMatch(
-    scriptSrc,
-    /goatcounter\.com|zgo\.at/,
-    "script-src must not gain an analytics host",
+  assert.deepEqual(
+    scriptSrc.trim().split(/\s+/).filter((source) => source.startsWith("https:")),
+    ["https://static.cloudflareinsights.com/beacon.min.js"],
+    "allow only the Cloudflare beacon script URL as an external script",
   );
-  assert.doesNotMatch(csp, /gc\.zgo\.at/, "the GoatCounter CDN must not appear in the CSP");
+  assert.doesNotMatch(csp, /goatcounter|zgo\.at/, "remove the GoatCounter origins");
 });
 
 test("Cloudflare CSP hosts fonts and styles from this origin only", () => {

@@ -87,9 +87,10 @@ domain change. Do not assume that Wrangler will replace them.
    HTTPS and `www` redirects after Apache stops serving the site.
 4. In the domain's **Caching > Configuration**, set **Browser Cache TTL** to
    **Respect Existing Headers**. In **Web Analytics > Manage site** for
-   `cristianvega.ai`, set automatic setup to **Disable**. The site keeps its
-   own GoatCounter analytics. The homepage also sends `no-transform` so its
-   HTML can match the verified build.
+   `cristianvega.ai`, select **Enable with JS Snippet installation**. The
+   GitHub build adds Cloudflare Web Analytics. Automatic script injection
+   must stay off. The homepage also sends `no-transform` so its HTML can
+   match the verified build.
 5. Merge the domain change after owner approval. If Cloudflare reports
    existing DNS records, follow the steps below. Then run the GitHub
    workflow again.
@@ -181,7 +182,7 @@ a pull request before enabling publication again.
 
 `public/_headers` preserves the six security headers and CSP. It gives
 hashed `/_astro/` assets a one-year immutable cache. Stable images use one
-week. The analytics script uses one hour. HTML revalidates. HSTS applies to
+week. HTML revalidates. HSTS applies to
 the current host only. Do not add `includeSubDomains` until all subdomains
 support valid HTTPS.
 
@@ -200,6 +201,32 @@ Run `npm run verify:deploy` to check the public site. Set `ORIGIN` to check
 the Cloudflare test address. Set `EXPECTED_INDEX=dist/index.html` only when
 that local build is the exact build deployed by GitHub. A different build
 must fail the comparison.
+
+### Web analytics
+
+`CloudflareAnalytics.astro` loads Cloudflare Web Analytics on
+`cristianvega.ai`. It skips local and Worker preview addresses. The public
+site identifier is part of the client code. It is not an API credential.
+The site no longer loads GoatCounter.
+
+In Cloudflare **Web Analytics > Manage site**, keep **Enable with JS Snippet
+installation** selected. GitHub supplies the script. Automatic injection
+can add another script to error pages and cause a security policy error.
+
+The CSP allows the exact Cloudflare beacon script URL and its HTTPS reporting
+origin. The local loader has a content hash and uses the static asset cache.
+The build keeps scripts in files so the CSP does not need new inline hashes.
+Cloudflare updates its external beacon script. It does not support a fixed
+version or a stable integrity hash for manual installation.
+
+Browser tests use a local probe to check the production hostname, site
+identifier, script loading, and CSP. They send no measurements to Cloudflare.
+After deployment, check that the real script sends a successful request to
+`https://cloudflareinsights.com/cdn-cgi/rum`. Also check the homepage and 404
+page when the script is blocked. The content and navigation must still work.
+
+See Cloudflare's [installation guide](https://developers.cloudflare.com/web-analytics/get-started/)
+and [security policy guidance](https://developers.cloudflare.com/web-analytics/faq/#what-do-i-need-to-add-to-my-content-security-policy-csp).
 
 ## Image derivatives
 

@@ -149,7 +149,7 @@ test("the retired pages are gone from the build", () => {
   }
 });
 
-test("every key page loads the self-hosted GoatCounter count script", () => {
+test("each page loads one Cloudflare analytics loader", () => {
   const pages = [
     ["index.html"],
     ["404.html"],
@@ -160,14 +160,9 @@ test("every key page loads the self-hosted GoatCounter count script", () => {
     const name = segments.join("/");
     const scriptTags = [...html.matchAll(/<script\b[^>]*>/gi)].map(([tag]) => tag);
 
-    const counter = scriptTags.find((tag) => tag.includes('src="/js/count.v5.js"'));
-    assert.ok(counter, `${name} must load the vendored count script from /js/`);
-    assert.match(
-      counter,
-      /data-goatcounter="https:\/\/cristianvegaai\.goatcounter\.com\/count"/,
-      `${name} must aim the beacon at the https GoatCounter count URL`,
-    );
-    assert.match(counter, /\basync\b/, `${name} must not block rendering on the count script`);
+    const loaders = scriptTags.filter((tag) => /src="\/_astro\/CloudflareAnalytics\.[^"]+\.js"/.test(tag));
+    assert.equal(loaders.length, 1, `${name} must load analytics once`);
+    assert.match(loaders[0], /type="module"/, `${name} must defer the analytics loader`);
 
     assert.equal(
       scriptTags.some((tag) => tag.includes('src="/js/goatcounter.js"')),
@@ -180,8 +175,7 @@ test("every key page loads the self-hosted GoatCounter count script", () => {
       `${name} must not load the ClientRouter`,
     );
 
-    // Self-hosted means self-hosted: no page may reference the GoatCounter CDN.
-    assert.doesNotMatch(html, /gc\.zgo\.at/, `${name} must not load the GoatCounter CDN`);
+    assert.doesNotMatch(html, /goatcounter|count\.v5|gc\.zgo\.at/i, `${name} must not load GoatCounter`);
   }
 });
 
