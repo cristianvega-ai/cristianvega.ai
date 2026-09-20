@@ -432,8 +432,8 @@ test.describe("the pre-hide gate never strands the hero copy", () => {
   test("a hung FontFaceSet ready promise still plays the entrance", async ({ page }) => {
     await recordMotionMarks(page);
     await page.addInitScript(() => {
-      // ready waits for every face, including footer Mono 400 and brand
-      // Grotesk 700. The entrance must not sit on that promise.
+      // ready waits for every face, including footer Mono 400 and the
+      // italic lede. The entrance must not sit on that promise.
       Object.defineProperty(document.fonts, "ready", {
         configurable: true,
         get: () => new Promise(() => {}),

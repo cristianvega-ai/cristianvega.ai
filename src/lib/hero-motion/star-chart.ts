@@ -9,8 +9,8 @@ import {
 
 // Chart palette for the dark masthead
 const STAR = "#E4E9F2";
-export const SIGNAL = "#D42A3C";
-const EMBER = "#F2792B";
+export const AZURE = "#0369A1";
+const SKY = "#38BDF8";
 const CHART_META = "#7C8595";
 
 export const SATELLITE_PERIOD = 9000;
@@ -330,10 +330,10 @@ function prepareScene(layer: CanvasLayer, chartRect: Rect): SkyPrep {
     }
   }
 
-  // Vega sprite: ember glow + 4 fine diffraction spikes + core, prerendered at DPR
-  const ember = hexToRgb(EMBER);
+  // Vega sprite: sky glow + 4 fine diffraction spikes + core, prerendered at DPR
+  const sky = hexToRgb(SKY);
   const star = hexToRgb(STAR);
-  const crimson = hexToRgb(SIGNAL);
+  const azure = hexToRgb(AZURE);
   const spikeV = 30 * starScale;
   const spikeH = 23 * starScale;
   const glowR = 30 * starScale;
@@ -345,14 +345,14 @@ function prepareScene(layer: CanvasLayer, chartRect: Rect): SkyPrep {
   if (vegaContext) {
     vegaContext.scale(dpr, dpr);
     const glow = vegaContext.createRadialGradient(vegaHalf, vegaHalf, 0, vegaHalf, vegaHalf, glowR);
-    glow.addColorStop(0, rgbString(ember, 0.5));
-    glow.addColorStop(0.35, rgbString(ember, 0.16));
-    glow.addColorStop(1, rgbString(ember, 0));
+    glow.addColorStop(0, rgbString(sky, 0.5));
+    glow.addColorStop(0.35, rgbString(sky, 0.16));
+    glow.addColorStop(1, rgbString(sky, 0));
     vegaContext.fillStyle = glow;
     vegaContext.beginPath();
     vegaContext.arc(vegaHalf, vegaHalf, glowR, 0, FULL_TURN_RADIANS);
     vegaContext.fill();
-    const spikeColor = mixRgb(ember, star, 0.55);
+    const spikeColor = mixRgb(sky, star, 0.55);
     vegaContext.lineWidth = 1;
     const dirs = [
       [0, -1, spikeV],
@@ -375,11 +375,11 @@ function prepareScene(layer: CanvasLayer, chartRect: Rect): SkyPrep {
       vegaContext.lineTo(vegaHalf + spikeX * len, vegaHalf + spikeY * len);
       vegaContext.stroke();
     }
-    vegaContext.fillStyle = rgbString(ember);
+    vegaContext.fillStyle = rgbString(sky);
     vegaContext.beginPath();
     vegaContext.arc(vegaHalf, vegaHalf, starRadius[0], 0, FULL_TURN_RADIANS);
     vegaContext.fill();
-    vegaContext.fillStyle = rgbString(mixRgb(ember, star, 0.72));
+    vegaContext.fillStyle = rgbString(mixRgb(sky, star, 0.72));
     vegaContext.beginPath();
     vegaContext.arc(vegaHalf, vegaHalf, starRadius[0] * 0.45, 0, FULL_TURN_RADIANS);
     vegaContext.fill();
@@ -432,7 +432,7 @@ function prepareScene(layer: CanvasLayer, chartRect: Rect): SkyPrep {
 
   const trailColors: string[] = [];
   for (let i = 0; i <= SATELLITE_TRAIL_LENGTH; i++) {
-    trailColors.push(rgbString(mixRgb(ember, crimson, i / SATELLITE_TRAIL_LENGTH)));
+    trailColors.push(rgbString(mixRgb(sky, azure, i / SATELLITE_TRAIL_LENGTH)));
   }
 
   const prep: SkyPrep = {
@@ -732,7 +732,7 @@ export function drawStaticScene(layer: CanvasLayer, scene: SkyPrep, ambientT = -
   drawVega(layer, prep, 1, breathe);
   drawLabels(layer, chart, 1);
 
-  // Ambient satellite: a short crossing every ~9s trailing crimson→ember
+  // Ambient satellite: a short crossing every ~9s trailing azure→sky
   if (ambientT >= 0) drawSatellite(layer, chart, ambientT);
   ctx.globalAlpha = 1;
 }

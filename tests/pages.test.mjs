@@ -123,7 +123,7 @@ test("pages preload only the measured critical font files", () => {
     }
     const hrefs = fontPreloads.map((tag) => tag.match(/href="([^"]+)"/)?.[1] ?? "").join(" ");
     assert.match(hrefs, /ibm-plex-sans-latin-400\./, `${name} must preload IBM Plex Sans 400 (LCP)`);
-    assert.match(hrefs, /space-grotesk-latin-600-700\./, `${name} must preload Space Grotesk 600–700 (heading)`);
+    assert.match(hrefs, /geist-latin-600\./, `${name} must preload Geist 600 (heading)`);
     assert.doesNotMatch(hrefs, /ibm-plex-mono/, `${name} must not preload mono; measurement did not mark it critical`);
     assert.doesNotMatch(
       hrefs,
