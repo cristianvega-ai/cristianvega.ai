@@ -216,7 +216,7 @@ jobs:
           set -euo pipefail
           : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is missing}"
           : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID is missing}"
-          npx --no-install wrangler deploy --config wrangler.jsonc --no-autoconfig --message "$GITHUB_SHA"
+          npx --no-install wrangler deploy --config wrangler.jsonc --no-autoconfig --env "" --message "$GITHUB_SHA"
           node --input-type=module <<'NODE'
           import { appendFileSync, readFileSync } from "node:fs";
           const records = readFileSync(process.env.WRANGLER_OUTPUT_FILE_PATH, "utf8")

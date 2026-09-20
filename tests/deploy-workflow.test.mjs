@@ -145,7 +145,7 @@ test("Deploy production never checks out the repository and runs the verifier fr
 
 test("Cloudflare receives the verified artifact and only the deploy step receives its token", () => {
   assert.match(deploy, /run: npm ci --ignore-scripts/);
-  assert.match(deploy, /npx --no-install wrangler deploy --config wrangler.jsonc --no-autoconfig/);
+  assert.match(deploy, /npx --no-install wrangler deploy --config wrangler.jsonc --no-autoconfig --env ""/);
   assert.doesNotMatch(deploy, /npm run build|astro build|DEPLOY_SSH|ssh-keyscan/);
   for (const secret of ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]) {
     assert.ok(deploy.includes(secret + ": ${{ secrets." + secret + " }}"));
@@ -163,7 +163,10 @@ test("production checks run only after the domain switch is confirmed", () => {
   const config = JSON.parse(readFileSync(join(root, "wrangler.jsonc"), "utf8"));
   assert.equal(config.workers_dev, true);
   assert.equal(config.main, undefined, "the site must remain static");
-  assert.equal(config.routes, undefined, "the first deploy must not change domain routes");
+  assert.deepEqual(config.routes, [
+    { pattern: "cristianvega.ai", custom_domain: true },
+    { pattern: "www.cristianvega.ai", custom_domain: true },
+  ], "both public hosts must use Cloudflare as their origin");
   assert.equal(config.assets.directory, "./dist");
   assert.equal(config.assets.not_found_handling, "404-page");
   assert.equal(config.assets.html_handling, "force-trailing-slash");
