@@ -36,8 +36,9 @@ Keep Cloudflare's separate Git build integration disabled.
 3. `Deploy production` runs only for the current `main` commit. It requires
    `PRODUCTION_DEPLOY_ENABLED=true` and the GitHub `production` environment.
 4. The deploy job checks both hashes. It installs locked tooling without
-   install scripts, then runs Wrangler on the verified files. It does not
-   check out source or build the site again.
+   install scripts, then runs Wrangler on the verified files. It selects the
+   default Wrangler environment. It does not check out source or build the
+   site again.
 5. The live gate checks the Worker address. It requires an exact homepage
    match, security headers, a real 404, permanent redirects for retired
    pages, gzip for scripts, and the specified cache lifetimes.
@@ -56,40 +57,76 @@ pins. The `production` environment holds these secrets:
 A manual GitHub workflow run rebuilds and verifies the current `main` commit.
 Use this to retry a deployment. Do not deploy from a laptop.
 
-### First deployment and domain switch
+### Account setup
 
-The initial configuration enables `workers.dev` and declares no custom
-domains. The first deployment leaves the public domain on its existing host.
-The workflow summary gives the Cloudflare test address and the commit.
-The test address sends `X-Robots-Tag: noindex`.
+Register a `workers.dev` subdomain in the Cloudflare account before the first
+upload. GitHub Actions cannot answer the first-time setup prompt. Use
+**Workers & Pages** in the dashboard to complete account setup. If that setup
+creates a starter Worker, the site workflow still uses the name
+`cristianvega-ai` from `wrangler.jsonc`.
 
-1. Merge the migration pull request after `Verify` passes. Confirm that the
-   deployment and live checks pass on the Cloudflare test address.
-2. Check the homepage and 404 page at desktop, tablet, and mobile widths.
-   Check motion, reduced motion, keyboard access, and the browser console.
-3. Save the current web DNS records for rollback. Keep those values private.
-   Preserve mail records. Prepare the domain change in a reviewed follow-up
-   pull request: add `cristianvega.ai` and `www.cristianvega.ai` as custom
-   domains in `wrangler.jsonc`. Update the initial-deployment test with it.
-   Remove conflicting web DNS records only when ready to switch.
-4. In Cloudflare, create a Single Redirect rule for these hosts when the
-   scheme is HTTP or the host is `www.cristianvega.ai`. Use HTTP 301. Set the
-   destination to `concat("https://cristianvega.ai", http.request.uri.path)`
-   and enable **Preserve query string**. This makes the scheme and host
-   change in one step. Confirm that both hosts have valid certificates.
-5. Set **Browser Cache TTL** to **Respect Existing Headers**. Disable
-   automatic Web Analytics script injection for the site. The homepage also
-   sends `no-transform` so its HTML can match the verified build.
-6. Merge the domain change. Run the live gate with
+### Domain switch
+
+`wrangler.jsonc` declares `cristianvega.ai` and `www.cristianvega.ai` as
+custom domains. Cloudflare will serve both from the Worker and manage their
+certificates. The `workers.dev` test address stays enabled with
+`X-Robots-Tag: noindex`. The workflow summary gives that address and the
+deployed commit.
+
+Adding these domain routes is the switch to the new host. Wrangler can
+replace conflicting web DNS records when it runs in GitHub Actions. Save
+the old records before merging the domain change.
+
+1. Confirm that the deployment and live checks pass on the Cloudflare test
+   address. Check the homepage and 404 page at desktop, tablet, and mobile
+   widths. Check motion, reduced motion, keyboard access, and the console.
+2. Save the current apex and `www` DNS records for rollback. Include their
+   type, value, proxy setting, and TTL. Keep this copy private. Preserve mail
+   records. Keep the old host available until the switch passes.
+3. Set the Single Redirect rule below before the domain change. It preserves
+   HTTPS and `www` redirects after Apache stops serving the site.
+4. In the domain's **Caching > Configuration**, set **Browser Cache TTL** to
+   **Respect Existing Headers**. In **Web Analytics > Manage site** for
+   `cristianvega.ai`, set automatic setup to **Disable**. The site keeps its
+   own GoatCounter analytics. The homepage also sends `no-transform` so its
+   HTML can match the verified build.
+5. Merge the domain change after owner approval. Confirm that both custom
+   domains are active and have valid certificates. Run the live gate with
    `CHECK_CANONICAL_REDIRECTS=true npm run verify:deploy`. Set the repository
    variable `CLOUDFLARE_PRODUCTION_READY` to `true`, then run the GitHub
    workflow again. Both addresses must match the same verified homepage.
-7. After the production run passes, remove the old `DEPLOY_*` GitHub secrets
+6. After the production run passes, remove the old `DEPLOY_*` GitHub secrets
    and revoke the old deployment key. Retire the old hosting service only
    after the owner confirms that it has no other required services.
 
 Do not set `CLOUDFLARE_PRODUCTION_READY` before the domain switch. The old
 host still serves a different build until that switch completes.
+
+### Domain redirect rule
+
+In the `cristianvega.ai` domain, open **Rules > Overview > Create rule >
+Redirect Rule**. Name the rule **Canonical HTTPS domain**. Select **Custom
+filter expression** and enter:
+
+```text
+(http.host in {"cristianvega.ai" "www.cristianvega.ai"} and (not ssl or http.host eq "www.cristianvega.ai"))
+```
+
+For the URL redirect, select **Dynamic** and enter:
+
+```text
+concat("https://cristianvega.ai", http.request.uri.path)
+```
+
+Set the status to **301**, enable **Preserve query string**, and deploy the
+rule. It must run before any rule that redirects these hosts to another URL.
+The rule leaves HTTPS on the apex unchanged. It redirects the other three
+host and scheme combinations in one step.
+
+Cloudflare documents the [redirect controls](https://developers.cloudflare.com/rules/url-forwarding/single-redirects/create-dashboard/),
+the [TLS field](https://developers.cloudflare.com/ruleset-engine/rules-language/fields/reference/ssl/),
+the [browser cache setting](https://developers.cloudflare.com/cache/how-to/edge-browser-cache-ttl/set-browser-ttl/),
+and the [analytics setting](https://developers.cloudflare.com/web-analytics/get-started/).
 
 ### Stop and roll back
 
@@ -99,9 +136,13 @@ continues. Do not work around this switch.
 A live check failure marks the workflow as failed. It does not automatically
 restore an older Cloudflare version. Use the Worker's deployment history to
 restore the last known good version, then revert the defect through a pull
-request. A failed first domain switch can also be reversed with the saved
-web DNS records while the old host remains available. Disable publication
-before an emergency rollback so another run does not replace it.
+request. Disable publication before a rollback so another run does not
+replace it.
+
+A failed first domain switch can also be reversed while the old host remains
+available. Disable publication first. Remove the Worker's custom domains in
+Cloudflare, then restore the saved web DNS records. Revert the routes through
+a pull request before enabling publication again.
 
 ### Hosting rules and local checks
 
@@ -119,6 +160,8 @@ for a missing path. Cloudflare does not apply Apache `.htaccess` files.
 Run `npm run build`, then `npm run preview` to serve the build with Wrangler.
 The browser suite uses the same local Cloudflare runtime. It checks headers,
 redirects, compression, caching, and the page flows without account access.
+It selects the `test` environment, which clears local domain routes. This
+keeps each request's hostname so the suite can check host-specific headers.
 
 Run `npm run verify:deploy` to check the public site. Set `ORIGIN` to check
 the Cloudflare test address. Set `EXPECTED_INDEX=dist/index.html` only when

@@ -22,9 +22,9 @@ If deployment is skipped because `PRODUCTION_DEPLOY_ENABLED` is not `true`,
 report that state. Do not work around it. Use a manual GitHub workflow run
 to retry the current `main` commit. Do not deploy from a laptop.
 
-The first Cloudflare deployment has no custom domains. A successful test
-address does not prove that the public domain has moved. Follow the domain
-switch steps in README.md before calling the migration complete.
+A successful test address does not prove that the public domain has moved.
+Domain routes live in `wrangler.jsonc`. Follow the domain switch steps in
+README.md before calling the migration complete.
 
 Report the merged commit, workflow run, deployed address, and live check
 result. Report any incomplete domain or account step.
