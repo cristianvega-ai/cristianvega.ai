@@ -73,9 +73,9 @@ certificates. The `workers.dev` test address stays enabled with
 `X-Robots-Tag: noindex`. The workflow summary gives that address and the
 deployed commit.
 
-Adding these domain routes is the switch to the new host. Wrangler can
-replace conflicting web DNS records when it runs in GitHub Actions. Save
-the old records before merging the domain change.
+Adding these domain routes is the switch to the new host. Existing web DNS
+records can block the connection. Save the old records before merging the
+domain change. Do not assume that Wrangler will replace them.
 
 1. Confirm that the deployment and live checks pass on the Cloudflare test
    address. Check the homepage and 404 page at desktop, tablet, and mobile
@@ -90,17 +90,50 @@ the old records before merging the domain change.
    `cristianvega.ai`, set automatic setup to **Disable**. The site keeps its
    own GoatCounter analytics. The homepage also sends `no-transform` so its
    HTML can match the verified build.
-5. Merge the domain change after owner approval. Confirm that both custom
-   domains are active and have valid certificates. Run the live gate with
+5. Merge the domain change after owner approval. If Cloudflare reports
+   existing DNS records, follow the steps below. Then run the GitHub
+   workflow again.
+6. Confirm that both custom domains are active and have valid certificates.
+   Run the live gate with
    `CHECK_CANONICAL_REDIRECTS=true npm run verify:deploy`. Set the repository
    variable `CLOUDFLARE_PRODUCTION_READY` to `true`, then run the GitHub
-   workflow again. Both addresses must match the same verified homepage.
-6. After the production run passes, remove the old `DEPLOY_*` GitHub secrets
+   workflow again. The test address and the production domain must match
+   the same verified homepage.
+7. After the production run passes, remove the old `DEPLOY_*` GitHub secrets
    and revoke the old deployment key. Retire the old hosting service only
    after the owner confirms that it has no other required services.
 
 Do not set `CLOUDFLARE_PRODUCTION_READY` before the domain switch. The old
 host still serves a different build until that switch completes.
+
+### Resolve a DNS record conflict
+
+Cloudflare error `100117` means that an existing DNS record blocks a custom
+domain. Connect one address at a time. The address can be unavailable between
+record removal and connection.
+
+1. Open the domain's **DNS > Records** in one tab. Use **Export** to save a
+   private backup if you have not saved one.
+2. In a second tab, open **Workers & Pages > cristianvega-ai > Domains**.
+   Some dashboard layouts use **Settings > Domains & Routes**. Use the
+   Worker name with the hyphen. GitHub deploys to that Worker.
+3. Select **Add Domain**, then select `cristianvega.ai`. Keep the form open.
+4. In the DNS tab, delete only the old web record for the address you are
+   connecting. For this migration, the old records are type **A**. Preserve
+   MX, TXT, CAA, and records for other addresses.
+5. Return to the Worker form. Use the value below, then select **Add domain**.
+   Wait until the address appears in the Worker's domain list.
+6. Repeat for the other address. Select `cristianvega.ai` in both cases.
+
+| Address | Subdomain field |
+| --- | --- |
+| `cristianvega.ai` | Leave empty. |
+| `www.cristianvega.ai` | Enter `www`. |
+
+Cloudflare adds the DNS records for the custom domains. The `www` form field
+adds `.cristianvega.ai` to the value you enter. Follow Cloudflare's
+[custom domain instructions](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)
+if the dashboard layout changes.
 
 ### Domain redirect rule
 
