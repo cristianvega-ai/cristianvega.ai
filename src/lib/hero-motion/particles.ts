@@ -1,6 +1,6 @@
 import { clamp, cubicPoint, FULL_TURN_RADIANS, progress, smoothstep, type Point } from "./easing";
 import type { CanvasLayer, Layout } from "./layout";
-import { drawSceneFrame, sceneFor, SIGNAL, type SkyPrep } from "./star-chart";
+import { drawSceneFrame, sceneFor, AZURE, type SkyPrep } from "./star-chart";
 import {
   PREHIDE_EXPIRED_ATTR,
   TARGET_WINDOWS,
@@ -86,7 +86,7 @@ function glyphScratch(w: number, h: number): CanvasRenderingContext2D | null {
 /**
  * Sample glyph ink from real DOM text into host-local particles (once).
  * Skips nested motion targets so parent/child targets do not double-sample.
- * Optional colorOverride paints highlight glyphs in crimson.
+ * Optional colorOverride paints highlight glyphs in azure.
  */
 function sampleTextElement(
   el: Element,
@@ -187,9 +187,9 @@ function collectTextParticles(root: HTMLElement, layout: Layout): CopyParticle[]
 
   if (eyebrow) sampleTextElement(eyebrow, hostRect, "eyebrow", copy, budget);
   if (name) sampleTextElement(name, hostRect, "name", copy, budget);
-  // Vega forms from crimson glyph dots; the DOM reveal supplies the gradient fill
+  // Vega forms from azure glyph dots; the DOM reveal supplies the gradient fill
   if (highlight) {
-    sampleTextElement(highlight, hostRect, "highlight", copy, budget, SIGNAL);
+    sampleTextElement(highlight, hostRect, "highlight", copy, budget, AZURE);
   }
 
   if (offsetX !== 0 || offsetY !== 0) {

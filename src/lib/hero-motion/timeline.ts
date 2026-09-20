@@ -10,10 +10,11 @@ export const PREHIDE_DEADLINE_MS = 1200;
 export const FONT_DEADLINE_MS = PREHIDE_DEADLINE_MS;
 export const PREHIDE_PENDING_ATTR = "data-hero-motion-pending";
 export const PREHIDE_EXPIRED_ATTR = "data-hero-motion-expired";
-/** Faces the entrance samples. Do not wait for footer Mono 400 or brand Grotesk 700. */
+/** Faces the entrance samples: the Geist headline and the Mono 600 eyebrow.
+    Do not wait for footer Mono 400 or the italic lede. */
 export const HERO_FONT_SPECS = [
-  '600 16px "Space Grotesk"',
-  '500 16px "IBM Plex Mono"',
+  '600 16px "Geist"',
+  '600 16px "IBM Plex Mono"',
 ] as const;
 export const SESSION_KEY = "cristianvega:hero-motion:v1";
 export const PORTRAIT_DOT_DURATION = 520;

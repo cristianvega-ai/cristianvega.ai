@@ -2,7 +2,7 @@
 import "../styles/global.css";
 import CloudflareAnalytics from "../components/CloudflareAnalytics.astro";
 import plexSans400 from "../assets/fonts/ibm-plex-sans-latin-400.woff2?url";
-import spaceGrotesk from "../assets/fonts/space-grotesk-latin-600-700.woff2?url";
+import geist from "../assets/fonts/geist-latin-600.woff2?url";
 
 interface Props {
   title?: string;
@@ -107,12 +107,12 @@ const structuredData = {
     <meta name="twitter:image" content={ogImageUrl} />
     <meta name="twitter:image:alt" content={ogImageAlt} />
     {/* Preload only the faces measurement showed on the critical path: IBM
-        Plex Sans 400 roman is the homepage LCP (profile copy), Space Grotesk
-        600 is the display heading. Mono 400/500 and Plex Sans 400 italic
-        paint later and are left to CSS discovery. crossorigin is required
-        for font preloads. */}
+        Plex Sans 400 roman is the homepage LCP (profile copy), Geist 600 is
+        the display heading. Mono 400/500/600 and Plex Sans 400 italic paint
+        later and are left to CSS discovery. crossorigin is required for font
+        preloads. */}
     <link rel="preload" href={plexSans400} as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href={spaceGrotesk} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={geist} as="font" type="font/woff2" crossorigin />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(structuredData)} />
@@ -122,16 +122,8 @@ const structuredData = {
     <header class="site-header">
       <div class="site-header__inner">
         <a class="brand" href="/" aria-label="Cristian Vega home">
-          <span class="brand__mark">
-            <svg viewBox="0 0 32 32" aria-hidden="true">
-              <g transform="rotate(-24 16 16)">
-                <ellipse cx="16" cy="16" rx="12.5" ry="5.2" fill="none" stroke="#828C9C" stroke-width="1.6"></ellipse>
-                <circle cx="28.5" cy="16" r="2.5" fill="#F2792B"></circle>
-              </g>
-              <circle cx="16" cy="16" r="3.3" fill="#F1F3F6"></circle>
-            </svg>
-          </span>
-          <span>Cristian Vega</span>
+          <span class="brand__mark" aria-hidden="true"><i></i><i></i></span>
+          <span class="brand__word"><i>Cristian</i>Vega</span>
         </a>
 
         <nav class="nav" aria-label="Primary">
