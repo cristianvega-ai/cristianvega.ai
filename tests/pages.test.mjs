@@ -22,8 +22,9 @@ test("homepage keeps the portfolio theme and the profile copy", () => {
   assert.match(html, /governed system with contracts, evaluation, and a unit cost/);
   assert.match(html, /12,000 documents and 400,000\+ data points/);
   assert.match(html, /\$0\.20 per document/);
-  assert.match(html, /grew it to a peak of 100 people, and lead 45 engineers today/);
+  assert.match(html, /grew it to a peak of 100 people, and owned the budget down to the cost of a single policy check/);
   assert.match(html, /BBVA/);
+  assert.match(html, /Now I'm at Vertafore\./);
   assert.match(html, /OpenCatalyst/);
   assert.match(html, /U\.S\. Patent 12,639,972 B2/);
 
@@ -49,88 +50,10 @@ test("homepage keeps the portfolio theme and the profile copy", () => {
   assert.match(html, /data-hero-motion-pending/);
 });
 
-test("writing index includes generated post links", () => {
-  const html = readDistFile("writing", "index.html");
-
-  assertPageBasics(html);
-  assert.match(html, /From BERT to agents/);
-  assert.match(html, /href="\/posts\/from-bert-to-agents\/"/);
-  // Machine and human dates are both rendered, zero-padded and UTC-pinned.
-  assert.match(html, /<time[^>]*datetime="2026-02-27"[^>]*>2026\.02<\/time>/);
-});
-
-test("post pages are generated from markdown content", () => {
-  const html = readDistFile("posts", "from-bert-to-agents", "index.html");
-
-  assertPageBasics(html);
-  assert.match(html, /From BERT to agents/);
-  assert.match(html, /400K\+ data points/);
-  assert.match(html, /Cristian Vega/);
-
-  // The byline date must render in UTC, not the builder's local day.
-  assert.match(html, /<time[^>]*datetime="2026-06-12"[^>]*>June 12, 2026<\/time>/);
-
-  // updatedDate is consumed: visible meta and the Open Graph article times.
-  // The sitemap no longer carries it; see the withheld-routes test below.
-  assert.match(html, /Updated\s*<time[^>]*datetime="2026-07-01"/);
-  assert.match(html, /property="og:type"\s+content="article"/);
-  assert.match(html, /property="article:published_time"\s+content="2026-06-12T/);
-  assert.match(html, /property="article:modified_time"\s+content="2026-07-01T/);
-});
-
-test("projects page lists portfolio work with truthful destinations", () => {
-  const html = readDistFile("projects", "index.html");
-
-  assertPageBasics(html, { titleFragment: "Projects" });
-  assert.match(html, /DocSieve/);
-  assert.match(html, /PromptRunner/);
-  assert.match(html, /Ledgerbot/);
-
-  // Cards are the page's top-level sections: h1 then h2 (no skipped level).
-  assert.match(html, /<h1\b[^>]*class="[^"]*page-title/);
-  assert.match(html, /<h2\b[^>]*class="[^"]*project__name/);
-  assert.doesNotMatch(html, /<h3\b/i);
-
-  // Unavailable work is labeled explicitly rather than omitted.
-  assert.match(html, /project__availability/);
-  assert.match(html, /Private demo|not public yet|no public write-up/i);
-
-  // "Read the build" must not be a stand-in for the generic writing archive.
-  const readBuildToWriting =
-    /Read the build[\s\S]{0,80}href="\/writing\/"|href="\/writing\/"[\s\S]{0,80}Read the build/i;
-  assert.doesNotMatch(html, readBuildToWriting);
-
-  // Scan the rendered cards themselves, so the guard runs against real markup
-  // instead of a class name no card currently emits. Every card must either
-  // carry a credible destination or say in words that there is none.
-  const cards = [...html.matchAll(/<article\b[^>]*class="[^"]*\bproject\b[^"]*"[^>]*>([\s\S]*?)<\/article>/gi)];
-  assert.ok(cards.length >= 3, `expected rendered project cards, found ${cards.length}`);
-
-  const fakeDestinations = new Set(["/", "/writing/", "#", ""]);
-  for (const [, card] of cards) {
-    const anchors = [...card.matchAll(/<a\b[^>]*>/gi)].map(([tag]) => tag);
-    assert.ok(
-      anchors.length > 0 || /class="[^"]*project__availability[^"]*"/i.test(card),
-      "a card without a destination must state availability in words",
-    );
-
-    for (const tag of anchors) {
-      const href = tag.match(/\bhref="([^"]*)"/i)?.[1]?.trim();
-      assert.ok(href, `project link missing href: ${tag}`);
-      assert.ok(
-        !fakeDestinations.has(href),
-        `project cards must not use ${href} as a fake case-study destination: ${tag}`,
-      );
-    }
-  }
-});
-
 test("key pages share accessibility and SEO basics", () => {
   const pages = [
     ["index.html"],
-    ["writing", "index.html"],
-    ["projects", "index.html"],
-    ["posts", "from-bert-to-agents", "index.html"],
+    ["404.html"],
   ];
 
   for (const segments of pages) {
@@ -158,9 +81,6 @@ test("key pages share accessibility and SEO basics", () => {
 test("pages do not load fonts from Google", () => {
   const pages = [
     ["index.html"],
-    ["writing", "index.html"],
-    ["projects", "index.html"],
-    ["posts", "from-bert-to-agents", "index.html"],
     ["404.html"],
   ];
 
@@ -183,9 +103,6 @@ test("pages do not load fonts from Google", () => {
 test("pages preload only the measured critical font files", () => {
   const pages = [
     ["index.html"],
-    ["writing", "index.html"],
-    ["projects", "index.html"],
-    ["posts", "from-bert-to-agents", "index.html"],
     ["404.html"],
   ];
 
@@ -206,7 +123,7 @@ test("pages preload only the measured critical font files", () => {
     }
     const hrefs = fontPreloads.map((tag) => tag.match(/href="([^"]+)"/)?.[1] ?? "").join(" ");
     assert.match(hrefs, /ibm-plex-sans-latin-400\./, `${name} must preload IBM Plex Sans 400 (LCP)`);
-    assert.match(hrefs, /space-grotesk-latin-600-700\./, `${name} must preload Space Grotesk 600–700 (heading)`);
+    assert.match(hrefs, /geist-latin-600\./, `${name} must preload Geist 600 (heading)`);
     assert.doesNotMatch(hrefs, /ibm-plex-mono/, `${name} must not preload mono; measurement did not mark it critical`);
     assert.doesNotMatch(
       hrefs,
@@ -217,23 +134,24 @@ test("pages preload only the measured critical font files", () => {
 });
 
 test("the retired pages are gone from the build", () => {
-  // About and contact were public and indexed. The build must not emit them,
-  // and .htaccess must send both URLs to the home page. A stale page in dist/
-  // would be uploaded and would outrank the redirect.
+  // About and contact were public. Keep their redirects in the build.
   assert.equal(existsSync(join(dist, "about", "index.html")), false, "about page must be gone");
   assert.equal(existsSync(join(dist, "contact", "index.html")), false, "contact page must be gone");
 
-  const htaccess = readDistFile(".htaccess");
-  assert.match(htaccess, /RewriteRule \^about\/\?\$ \/ \[L,R=301\]/);
-  assert.match(htaccess, /RewriteRule \^contact\/\?\$ \/ \[L,R=301\]/);
+  const redirects = readDistFile("_redirects");
+  for (const path of ["/about", "/about/", "/contact", "/contact/"]) {
+    assert.ok(redirects.split("\n").includes(`${path} / 301`));
+  }
+
+  // These routes held placeholder content. Cloudflare must serve the 404 page.
+  for (const route of ["projects", "writing", "posts"]) {
+    assert.equal(existsSync(join(dist, route)), false, `${route}/ must not be built`);
+  }
 });
 
-test("every key page loads the self-hosted GoatCounter count script", () => {
+test("each page loads one Cloudflare analytics loader", () => {
   const pages = [
     ["index.html"],
-    ["writing", "index.html"],
-    ["projects", "index.html"],
-    ["posts", "from-bert-to-agents", "index.html"],
     ["404.html"],
   ];
 
@@ -242,14 +160,9 @@ test("every key page loads the self-hosted GoatCounter count script", () => {
     const name = segments.join("/");
     const scriptTags = [...html.matchAll(/<script\b[^>]*>/gi)].map(([tag]) => tag);
 
-    const counter = scriptTags.find((tag) => tag.includes('src="/js/count.v5.js"'));
-    assert.ok(counter, `${name} must load the vendored count script from /js/`);
-    assert.match(
-      counter,
-      /data-goatcounter="https:\/\/cristianvegaai\.goatcounter\.com\/count"/,
-      `${name} must aim the beacon at the https GoatCounter count URL`,
-    );
-    assert.match(counter, /\basync\b/, `${name} must not block rendering on the count script`);
+    const loaders = scriptTags.filter((tag) => /src="\/_astro\/CloudflareAnalytics\.[^"]+\.js"/.test(tag));
+    assert.equal(loaders.length, 1, `${name} must load analytics once`);
+    assert.match(loaders[0], /type="module"/, `${name} must defer the analytics loader`);
 
     assert.equal(
       scriptTags.some((tag) => tag.includes('src="/js/goatcounter.js"')),
@@ -262,8 +175,7 @@ test("every key page loads the self-hosted GoatCounter count script", () => {
       `${name} must not load the ClientRouter`,
     );
 
-    // Self-hosted means self-hosted: no page may reference the GoatCounter CDN.
-    assert.doesNotMatch(html, /gc\.zgo\.at/, `${name} must not load the GoatCounter CDN`);
+    assert.doesNotMatch(html, /goatcounter|count\.v5|gc\.zgo\.at/i, `${name} must not load GoatCounter`);
   }
 });
 
@@ -275,4 +187,21 @@ test("the share card ships and the unused portrait strip does not", () => {
   assert.equal(existsSync(join(dist, "images", "cristian-vega-og.jpg")), true);
   assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.webp")), false);
   assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.avif")), false);
+});
+
+// Search engines and link previews take the role from the page title and the
+// structured data, not from the profile. When the role changes, both change.
+test("the homepage title and structured data name the current role", () => {
+  const html = readDistFile("index.html");
+
+  assert.match(html, /<title>Cristian Vega · AI Engineering Leader<\/title>/);
+
+  const json = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(json, "the homepage must ship JSON-LD structured data");
+  const person = JSON.parse(json)["@graph"].find((node) => node["@type"] === "Person");
+  assert.ok(person, "the structured data must describe a person");
+  assert.deepEqual(
+    { jobTitle: person.jobTitle, worksFor: person.worksFor },
+    { jobTitle: "AI Engineering Leader", worksFor: { "@type": "Organization", name: "Vertafore" } },
+  );
 });

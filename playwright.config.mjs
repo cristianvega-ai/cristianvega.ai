@@ -4,9 +4,8 @@ import { defineConfig, devices } from "@playwright/test";
  * Browser coverage for behavior the Node contract tests cannot reach: computed
  * layout, sticky positioning, and viewport-dependent rules.
  *
- * The suite serves the static build with scripts/serve-dist.mjs. It does not
- * use `astro preview` or the dev server. What it asserts is what DreamHost
- * serves.
+ * Wrangler serves the build with the same headers, redirects, and asset
+ * rules as Cloudflare. The tests do not need a Cloudflare account.
  */
 export default defineConfig({
   testDir: "tests/e2e",
@@ -28,14 +27,13 @@ export default defineConfig({
     },
   ],
 
-  /* Not `astro preview`: it daemonizes, so Playwright sees the command exit.
-     Deliberately not 4321. reuseExistingServer adopts whatever already answers
-     on the port, so sharing one with `astro dev` would silently run the whole
-     suite against the dev server and report green for a build it never saw. */
+  /* Use a dedicated port. Never test a server from another checkout. */
   webServer: {
-    command: "PORT=4323 node scripts/serve-dist.mjs",
+    /* The test environment keeps each request's hostname for header checks. */
+    command: "npx --no-install wrangler dev --local --env test --port 4323 --inspector-port 0 --show-interactive-dev-session false",
     url: "http://localhost:4323/",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
+    env: { WRANGLER_SEND_METRICS: "false" },
     timeout: 60_000,
   },
 });

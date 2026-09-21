@@ -1,14 +1,6 @@
-# Verify every change, and deploy main to production through the receiver.
-#
-# Verify runs on every pull request and on every push to main. It has no
-# secrets. It builds the site, runs the complete gate, and packs dist/ into
-# one archive. Deploy production runs only for the current commit on main,
-# only when the PRODUCTION_DEPLOY_ENABLED variable is "true", and only through
-# the restricted SSH key held by the production environment. That key can run
-# nothing on the host but the receiver, which accepts static files only.
-#
-# Every action is pinned to a full commit SHA. Dependabot proposes updates.
-# README.md and scripts/deploy-receiver.py describe the whole path.
+# Verify each change. Deploy the verified main build to Cloudflare.
+# Production secrets are available only in the deploy job.
+# The first deploy uses workers.dev. README.md describes the domain switch.
 
 name: Verify and deploy
 
@@ -31,7 +23,7 @@ jobs:
     timeout-minutes: 25
     outputs:
       package_sha256: ${{ steps.package.outputs.package_sha256 }}
-      receiver_sha256: ${{ steps.package.outputs.receiver_sha256 }}
+      manifest_sha256: ${{ steps.package.outputs.manifest_sha256 }}
 
     steps:
       - name: Check out the commit
@@ -66,7 +58,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          for name in .htaccess index.html 404.html robots.txt sitemap-index.xml; do
+          for name in _headers _redirects index.html 404.html robots.txt sitemap-index.xml; do
             if [[ ! -f "dist/$name" ]]; then
               echo "dist/$name is missing" >&2
               exit 1
@@ -93,18 +85,18 @@ jobs:
             --directory dist \
             .
 
-          cp scripts/verify-deploy.mjs "$package_dir/verify-deploy.mjs"
+          cp scripts/verify-deploy.mjs wrangler.jsonc package.json package-lock.json "$package_dir/"
           (
             cd "$package_dir"
-            sha256sum site.tar.gz verify-deploy.mjs > SHA256SUMS
+            sha256sum site.tar.gz verify-deploy.mjs wrangler.jsonc package.json package-lock.json > SHA256SUMS
           )
 
           package_sha256="$(sha256sum "$package_dir/site.tar.gz" | awk '{ print $1 }')"
-          receiver_sha256="$(sha256sum scripts/deploy-receiver.py | awk '{ print $1 }')"
+          manifest_sha256="$(sha256sum "$package_dir/SHA256SUMS" | awk '{ print $1 }')"
           echo "package_sha256=$package_sha256" >> "$GITHUB_OUTPUT"
-          echo "receiver_sha256=$receiver_sha256" >> "$GITHUB_OUTPUT"
+          echo "manifest_sha256=$manifest_sha256" >> "$GITHUB_OUTPUT"
           echo "package sha256:  $package_sha256"
-          echo "receiver sha256: $receiver_sha256"
+          echo "manifest sha256: $manifest_sha256"
 
       - name: Store the verified package
         if: github.event_name != 'pull_request'
@@ -130,7 +122,7 @@ jobs:
 
     environment:
       name: production
-      url: https://cristianvega.ai
+      url: ${{ steps.publish.outputs.origin }}
 
     concurrency:
       group: cristianvega-ai-production
@@ -176,12 +168,18 @@ jobs:
         shell: bash
         env:
           EXPECTED_PACKAGE_SHA256: ${{ needs.verify.outputs.package_sha256 }}
+          EXPECTED_MANIFEST_SHA256: ${{ needs.verify.outputs.manifest_sha256 }}
         run: |
           set -euo pipefail
 
           artifact_dir="${RUNNER_TEMP}/deploy-artifact"
           cd "$artifact_dir"
 
+          manifest="$(sha256sum SHA256SUMS | awk '{ print $1 }')"
+          if [[ "$manifest" != "$EXPECTED_MANIFEST_SHA256" ]]; then
+            echo "The manifest does not match the hash Verify recorded." >&2
+            exit 1
+          fi
           sha256sum --check SHA256SUMS
 
           actual="$(sha256sum site.tar.gz | awk '{ print $1 }')"
@@ -190,145 +188,72 @@ jobs:
             exit 1
           fi
 
-          tar --list --gzip --file site.tar.gz > /dev/null
-          tar --extract --to-stdout --gzip --file site.tar.gz ./index.html \
-            > expected-index.html
+          mkdir dist
+          tar --extract --gzip --file site.tar.gz --directory dist
 
-      - name: Send the package to the production receiver
-        if: steps.current.outputs.deploy == 'true'
-        shell: bash
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
-          EXPECTED_PACKAGE_SHA256: ${{ needs.verify.outputs.package_sha256 }}
-          EXPECTED_RECEIVER_SHA256: ${{ needs.verify.outputs.receiver_sha256 }}
-        run: |
-          set -euo pipefail
-
-          : "${DEPLOY_HOST:?DEPLOY_HOST is missing}"
-          : "${DEPLOY_USER:?DEPLOY_USER is missing}"
-          : "${DEPLOY_PORT:?DEPLOY_PORT is missing}"
-          : "${DEPLOY_SSH_PRIVATE_KEY:?DEPLOY_SSH_PRIVATE_KEY is missing}"
-          : "${DEPLOY_SSH_KNOWN_HOSTS:?DEPLOY_SSH_KNOWN_HOSTS is missing}"
-          : "${EXPECTED_PACKAGE_SHA256:?the package hash is missing}"
-          : "${EXPECTED_RECEIVER_SHA256:?the receiver hash is missing}"
-
-          [[ "$DEPLOY_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]
-          [[ "$DEPLOY_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]
-          [[ "$DEPLOY_PORT" =~ ^[0-9]{1,5}$ ]]
-          port_number=$((10#$DEPLOY_PORT))
-          ((port_number >= 1 && port_number <= 65535))
-
-          key_file="${RUNNER_TEMP}/production_deploy_key"
-          known_hosts_file="${RUNNER_TEMP}/production_known_hosts"
-
-          cleanup() {
-            rm -f "$key_file" "$known_hosts_file"
-          }
-          trap cleanup EXIT
-
-          umask 077
-          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | tr -d '\r' > "$key_file"
-          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" | tr -d '\r' > "$known_hosts_file"
-          chmod 0600 "$key_file" "$known_hosts_file"
-          ssh-keygen -y -P "" -f "$key_file" > /dev/null
-
-          lookup="$DEPLOY_HOST"
-          if [[ "$DEPLOY_PORT" != "22" ]]; then
-            lookup="[$DEPLOY_HOST]:$DEPLOY_PORT"
-          fi
-          ssh-keygen -F "$lookup" -f "$known_hosts_file" > /dev/null
-
-          artifact="${RUNNER_TEMP}/deploy-artifact/site.tar.gz"
-
-          ssh_options=(
-            -F /dev/null
-            -T
-            -i "$key_file"
-            -p "$DEPLOY_PORT"
-            -o BatchMode=yes
-            -o IdentitiesOnly=yes
-            -o PasswordAuthentication=no
-            -o KbdInteractiveAuthentication=no
-            -o StrictHostKeyChecking=yes
-            -o "UserKnownHostsFile=$known_hosts_file"
-            -o GlobalKnownHostsFile=/dev/null
-            -o HostKeyAlgorithms=ssh-ed25519
-            -o ClearAllForwardings=yes
-            -o ForwardAgent=no
-            -o ConnectTimeout=15
-            -o ServerAliveInterval=15
-            -o ServerAliveCountMax=2
-            -o LogLevel=ERROR
-          )
-
-          installed="$(
-            ssh "${ssh_options[@]}" "$DEPLOY_USER@$DEPLOY_HOST" version < /dev/null
-          )"
-          if [[ "$installed" != "RECEIVER $EXPECTED_RECEIVER_SHA256" ]]; then
-            echo "The receiver on the host is not the reviewed scripts/deploy-receiver.py." >&2
-            echo "Install the current file on the host, then run this workflow again." >&2
-            exit 1
-          fi
-
-          result="$(
-            ssh "${ssh_options[@]}" "$DEPLOY_USER@$DEPLOY_HOST" deploy < "$artifact"
-          )"
-          if [[ "$result" != "DEPLOY_OK $EXPECTED_PACKAGE_SHA256 $EXPECTED_RECEIVER_SHA256" ]]; then
-            echo "The receiver did not confirm the expected package." >&2
-            exit 1
-          fi
-
-          echo "Deployed package $EXPECTED_PACKAGE_SHA256"
-          echo "Receiver $EXPECTED_RECEIVER_SHA256"
-
-      - name: Install Node.js for the live gate
+      - name: Install Node.js for deployment
         if: steps.current.outputs.deploy == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24.15.0
 
-      - name: Verify production
+      - name: Install locked deployment tooling
         if: steps.current.outputs.deploy == 'true'
+        working-directory: ${{ runner.temp }}/deploy-artifact
+        run: npm ci --ignore-scripts
+
+      - name: Publish the verified build to Cloudflare
+        id: publish
+        if: steps.current.outputs.deploy == 'true'
+        working-directory: ${{ runner.temp }}/deploy-artifact
         shell: bash
         env:
-          ORIGIN: https://cristianvega.ai
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: 'false'
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-deploy.jsonl
         run: |
           set -euo pipefail
+          : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is missing}"
+          : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID is missing}"
+          npx --no-install wrangler deploy --config wrangler.jsonc --no-autoconfig --env "" --message "$GITHUB_SHA"
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from "node:fs";
+          const records = readFileSync(process.env.WRANGLER_OUTPUT_FILE_PATH, "utf8")
+            .trim().split("\n").map((line) => JSON.parse(line));
+          const deployment = records.findLast((record) => record.type === "deploy");
+          const origin = deployment?.targets?.find((target) =>
+            /^https:\/\/cristianvega-ai\.[a-z0-9-]+\.workers\.dev$/.test(target));
+          if (!origin) throw new Error("Wrangler did not report the expected workers.dev address");
+          appendFileSync(process.env.GITHUB_OUTPUT, `origin=${origin}\n`);
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            `Cloudflare build: ${origin}\n\nCommit: ${process.env.GITHUB_SHA}\n`);
+          NODE
 
-          artifact_dir="${RUNNER_TEMP}/deploy-artifact"
-
-          # The host has answered 403 for a freshly replaced file in the
-          # seconds after a publish. Three attempts twenty seconds apart ride
-          # that out. A failure that lasts still fails the job.
-          gate() {
-            node "$artifact_dir/verify-deploy.mjs" || return 1
-            curl \
-              --fail \
-              --silent \
-              --show-error \
-              --proto '=https' \
-              --tlsv1.2 \
-              --max-time 30 \
-              --header 'Accept-Encoding: identity' \
-              --header 'Cache-Control: no-cache' \
-              "$ORIGIN/" \
-              --output "${RUNNER_TEMP}/live-index.html" || return 1
-            cmp "$artifact_dir/expected-index.html" "${RUNNER_TEMP}/live-index.html" || return 1
-          }
-
+      - name: Verify the Cloudflare deployment
+        if: steps.current.outputs.deploy == 'true'
+        working-directory: ${{ runner.temp }}/deploy-artifact
+        shell: bash
+        env:
+          ORIGIN: ${{ steps.publish.outputs.origin }}
+          EXPECTED_INDEX: dist/index.html
+        run: |
+          set -euo pipefail
           for attempt in 1 2 3; do
-            if gate; then
-              echo "The live homepage matches the deployed package (attempt $attempt)."
+            if node verify-deploy.mjs; then
               exit 0
             fi
             if [[ "$attempt" -lt 3 ]]; then
-              echo "Live gate attempt $attempt failed; next attempt in 20 seconds." >&2
-              sleep 20
+              sleep 10
             fi
           done
-          echo "The live gate failed on three attempts." >&2
           exit 1
+
+      - name: Verify the production domain after cutover
+        if: steps.current.outputs.deploy == 'true' && vars.CLOUDFLARE_PRODUCTION_READY == 'true'
+        working-directory: ${{ runner.temp }}/deploy-artifact
+        env:
+          ORIGIN: https://cristianvega.ai
+          EXPECTED_INDEX: dist/index.html
+          CHECK_CANONICAL_REDIRECTS: 'true'
+        run: node verify-deploy.mjs

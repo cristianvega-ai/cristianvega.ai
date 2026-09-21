@@ -1,106 +1,68 @@
-import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { once } from "node:events";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import http from "node:http";
 import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { dist, readDistFile, root } from "./helpers.mjs";
+import { dist, permissionsPolicy, readDistFile, root } from "./helpers.mjs";
 
-// The production edge contract: the .htaccess DreamHost applies — canonical
-// host, cache lifetimes, security headers, CSP, HSTS — and the post-deploy gate
-// that confirms the live server sends what the build shipped.
+// Check the compiled policy. Browser tests check Cloudflare's response.
+const headerRules = readDistFile("_headers");
 
-test("htaccess canonicalises www to https apex in one hop", () => {
-  const htaccess = readDistFile(".htaccess");
-  const wwwIdx = htaccess.search(
-    /RewriteCond %\{HTTP_HOST\} \^www\\\.cristianvega\\\.ai\$[\s\S]*?RewriteRule \^ https:\/\/cristianvega\.ai%\{REQUEST_URI\}/,
-  );
-  const httpsIdx = htaccess.search(
-    /RewriteCond %\{HTTPS\} !=on[\s\S]*?RewriteRule \^ https:\/\/cristianvega\.ai%\{REQUEST_URI\}/,
-  );
+function headerBlock(path) {
+  const blocks = headerRules.split(/\n(?=\S)/);
+  const block = blocks.find((value) => value.startsWith(`${path}\n`));
+  assert.ok(block, `missing header rule for ${path}`);
+  return block;
+}
 
-  assert.ok(wwwIdx >= 0, "www→apex rule must rewrite scheme and host together");
-  assert.ok(httpsIdx >= 0, "HTTPS-forcing rule must remain for non-www http");
-  assert.ok(
-    wwwIdx < httpsIdx,
-    "www host canonicalisation must run before HTTPS-on-current-host to avoid a two-hop chain",
-  );
-  assert.doesNotMatch(
-    htaccess,
-    /RewriteRule \^ https:\/\/%\{HTTP_HOST\}%\{REQUEST_URI\}/,
-    "no redirect target may reflect the request Host header",
-  );
+test("Cloudflare keeps the security headers on all static paths", () => {
+  const block = headerBlock("/*");
+  for (const line of [
+    "X-Content-Type-Options: nosniff",
+    "X-Frame-Options: DENY",
+    "Referrer-Policy: strict-origin-when-cross-origin",
+    `Permissions-Policy: ${permissionsPolicy}`,
+    "Strict-Transport-Security: max-age=31536000",
+  ]) assert.ok(block.includes(line), `missing ${line}`);
+  assert.doesNotMatch(block, /includeSubDomains/);
+  for (const directive of ["default-src 'self'", "base-uri 'self'", "object-src 'none'", "frame-ancestors 'none'", "form-action 'self'"]) {
+    assert.ok(block.includes(directive), `missing ${directive}`);
+  }
 });
 
-test("htaccess scopes immutable caching away from stable image URLs", () => {
-  const htaccess = readDistFile(".htaccess");
-
-  assert.match(
-    htaccess,
-    /REQUEST_URI\}\s*=~\s*m#\^\/_astro\/#[\s\S]*?max-age=31536000,\s*immutable/,
-    "hashed /_astro/ assets should remain immutable",
-  );
-  assert.match(
-    htaccess,
-    /REQUEST_URI\}\s*=~\s*m#\^\/images\/#[\s\S]*?max-age=604800,\s*stale-while-revalidate=86400/,
-    "stable /images/ URLs should revalidate after portrait regenerations",
-  );
-  assert.doesNotMatch(
-    htaccess,
-    /FilesMatch\s+"\\\.\(css\|js\|webp\|avif\|png\|svg\)\$"/,
-    "extension-wide immutable FilesMatch must not cover public images",
-  );
-  assert.doesNotMatch(
-    htaccess,
-    /ExpiresByType\s+image\/(webp|avif|png|svg\+xml)\s+"access plus 1 year"/,
-    "image Expires must not keep a one-year freshness lifetime",
-  );
-  assert.doesNotMatch(
-    htaccess,
-    /ExpiresByType\s+image\/webp/,
-    "the site does not ship WebP, so it must not set a WebP freshness lifetime",
-  );
-  assert.doesNotMatch(
-    htaccess,
-    /ExpiresByType\s+image\/avif/,
-    "the site does not ship AVIF, so it must not set an AVIF freshness lifetime",
-  );
+test("Cloudflare keeps each cache policy on its own paths", () => {
+  assert.match(headerBlock("/_astro/*"), /Cache-Control: public, max-age=31536000, immutable/);
+  assert.match(headerBlock("/images/*"), /Cache-Control: public, max-age=604800, stale-while-revalidate=86400/);
+  assert.doesNotMatch(headerBlock("/images/*"), /immutable/);
+  assert.doesNotMatch(headerBlock("/*"), /Cache-Control:/);
+  assert.match(headerBlock("/"), /Cache-Control: public, max-age=0, must-revalidate, no-transform/);
 });
 
-test("htaccess gives /js/ a short cache and keeps /_astro/ immutable", () => {
-  const htaccess = readDistFile(".htaccess");
-  const jsBlock = htaccess.match(
-    /<If "%\{REQUEST_URI\} =~ m#\^\/js\/#">([\s\S]*?)<\/If>/,
-  )?.[1];
-  assert.ok(jsBlock, "/js/ must have its own Cache-Control rule");
-  assert.match(
-    jsBlock,
-    /max-age=3600,\s*stale-while-revalidate=86400/,
-    "stable /js/ URLs should revalidate after analytics updates",
-  );
-  assert.doesNotMatch(jsBlock, /immutable/, "/js/ must not receive immutable caching");
-  assert.match(
-    htaccess,
-    /REQUEST_URI\}\s*=~\s*m#\^\/_astro\/#[\s\S]*?max-age=31536000,\s*immutable/,
-    "hashed /_astro/ assets should remain immutable",
-  );
+test("Cloudflare test addresses stay out of search results", () => {
+  assert.match(headerBlock("https://:worker.:account.workers.dev/*"), /X-Robots-Tag: noindex/);
 });
 
-test("htaccess CSP denies inline scripts while allowing inline styles", () => {
-  const htaccess = readDistFile(".htaccess");
-  const csp = htaccess.match(/Header always set Content-Security-Policy "([^"]+)"/)?.[1];
+test("Cloudflare CSP blocks unapproved inline scripts and styles", () => {
+  const headers = readDistFile("_headers");
+  const csp = headers.match(/Content-Security-Policy: ([^\n]+)/)?.[1];
   assert.ok(csp, "CSP header must be present");
 
   const scriptSrc = csp.match(/script-src\s+([^;]+)/)?.[1]?.trim();
   assert.ok(scriptSrc, "script-src directive must be present");
   assert.match(scriptSrc, /'self'/, "bundled scripts stay same-origin");
   assert.doesNotMatch(scriptSrc, /unsafe-inline|unsafe-eval/);
+  for (const token of scriptSrc.split(/\s+/)) {
+    assert.ok(
+      token === "'self'" || /^'sha256-[A-Za-z0-9+/=]+'$/.test(token) ||
+      token === "https://static.cloudflareinsights.com/beacon.min.js",
+      `unexpected script source ${token}`,
+    );
+  }
 
   const styleSrc = csp.match(/style-src\s+([^;]+)/)?.[1] ?? "";
-  assert.match(styleSrc, /'unsafe-inline'/, "style-src keeps unsafe-inline for Astro CSS");
+  assert.equal(styleSrc.trim(), "'self'", "stylesheets must come from this site");
+  assert.match(csp, /(?:^|;)\s*style-src-attr 'none'(?:;|$)/);
 
   // Every *executable* inline script the build ships must be allow-listed by
   // hash, so no page can quietly require 'unsafe-inline' back. Script elements
@@ -124,15 +86,16 @@ test("htaccess CSP denies inline scripts while allowing inline styles", () => {
       else if (name.endsWith(".html")) htmlFiles.push(path);
     }
   }
-  // Home, 404, projects, writing, and the three posts. The guard exists so an
-  // empty or half-written dist/ cannot pass this scan by finding nothing.
-  assert.ok(htmlFiles.length >= 7, "expected the static HTML pages");
+  // Home and 404. The guard exists so an empty or half-written dist/ cannot
+  // pass this scan by finding nothing.
+  assert.ok(htmlFiles.length >= 2, "expected the static HTML pages");
   const inlineDigests = new Set();
   const dataBlockTypes = new Set();
   for (const file of htmlFiles) {
     const html = readFileSync(file, "utf8");
+    assert.doesNotMatch(html, /<style\b|<[^>]+\sstyle\s*=/i, `${file} must not contain inline styles`);
     for (const [, attributes, body] of html.matchAll(
-      /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/gi,
+      /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi,
     )) {
       const type = (attributes.match(/\btype=["']([^"']*)["']/i)?.[1] ?? "").toLowerCase().trim();
       if (!executableTypes.has(type)) {
@@ -159,20 +122,6 @@ test("htaccess CSP denies inline scripts while allowing inline styles", () => {
   );
 });
 
-test("htaccess ships a one-year HSTS policy without includeSubDomains", () => {
-  const htaccess = readDistFile(".htaccess");
-  assert.match(
-    htaccess,
-    /Header always set Strict-Transport-Security "max-age=31536000"/,
-    "HSTS max-age must be at least one year",
-  );
-  assert.doesNotMatch(
-    htaccess,
-    /Strict-Transport-Security "[^"]*includeSubDomains/,
-    "do not pin includeSubDomains while ftp.cristianvega.ai lacks a valid certificate",
-  );
-});
-
 test("post-deploy gate script checks live headers and 404", () => {
   const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
   for (const header of [
@@ -196,257 +145,47 @@ test("post-deploy gate requires a one-year HSTS max-age without includeSubDomain
   assert.match(script, /live HSTS must not include includeSubDomains/);
 });
 
-test("htaccess compresses JavaScript as text/javascript and application/javascript", () => {
-  const htaccess = readDistFile(".htaccess");
-  const deflate = htaccess.match(/<IfModule mod_deflate\.c>([\s\S]*?)<\/IfModule>/)?.[1];
-  assert.ok(deflate, "mod_deflate block must be present");
-  assert.match(
-    deflate,
-    /AddOutputFilterByType DEFLATE text\/javascript/,
-    "DreamHost labels .js as text/javascript, so gzip must name that type",
-  );
-  assert.match(
-    deflate,
-    /AddOutputFilterByType DEFLATE application\/javascript/,
-    "keep application/javascript so a MIME change does not drop gzip",
-  );
-});
-
-test("post-deploy gate requires gzip on the hero and analytics scripts", () => {
+test("the live gate checks compression for the hero and analytics loader", () => {
   const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
   assert.match(script, /content-encoding/i);
   assert.match(script, /\bgzip\b/i);
   assert.match(script, /HeroMotion/);
-  assert.match(script, /\/js\/count\.v5\.js/);
+  assert.match(script, /CloudflareAnalytics/);
 });
 
-test("post-deploy gate requires a short cache on /js/ and an immutable cache on /_astro/", () => {
+test("the live gate requires an immutable cache for built scripts", () => {
   const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
   assert.match(script, /cache-control/i);
-  assert.match(script, /max-age=3600/);
-  assert.match(script, /stale-while-revalidate=86400/);
   assert.match(script, /max-age=31536000/);
   assert.match(script, /immutable/);
 });
 
-function homepageScriptSrcs() {
-  const html = readDistFile("index.html");
-  return [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, src]) => src);
-}
-
-function requireScriptSrc(srcs, pattern, label) {
-  const src = srcs.find((value) => pattern.test(value));
-  assert.ok(src, `homepage must load the ${label} script`);
-  return src;
-}
-
-function getResponse(url) {
-  return new Promise((resolve, reject) => {
-    const req = http.get(url, { headers: { "accept-encoding": "gzip" } }, (res) => {
-      const result = { status: res.statusCode ?? 0, headers: res.headers };
-      res.resume();
-      res.on("end", () => resolve(result));
-    });
-    req.on("error", reject);
-  });
-}
-
-test("hero and analytics scripts send Content-Encoding gzip", async () => {
-  const srcs = homepageScriptSrcs();
-  const scripts = [
-    [requireScriptSrc(srcs, /HeroMotion[^"]*\.js$/, "hero"), "hero"],
-    [requireScriptSrc(srcs, /\/js\/count\.v5\.js$/, "analytics count"), "analytics count"],
-  ];
-
-  const child = spawn(process.execPath, ["scripts/serve-dist.mjs"], {
-    cwd: root,
-    env: { ...process.env, PORT: "4371" },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-
-  try {
-    await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("serve-dist did not start")), 10_000);
-      const onData = (chunk) => {
-        if (String(chunk).includes("serving dist/")) {
-          clearTimeout(timer);
-          child.stdout.off("data", onData);
-          resolve();
-        }
-      };
-      child.stdout.on("data", onData);
-      child.once("error", (error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-      child.once("exit", (code) => {
-        clearTimeout(timer);
-        reject(new Error(`serve-dist exited ${code}`));
-      });
-    });
-
-    for (const [src, label] of scripts) {
-      const response = await getResponse(`http://127.0.0.1:4371${src}`);
-      assert.equal(response.status, 200, `${label} must return HTTP 200`);
-      const type = response.headers["content-type"] ?? "";
-      assert.match(type, /javascript/i, `${label} must be served as JavaScript, got ${type}`);
-      const encoding = response.headers["content-encoding"] ?? "";
-      assert.match(
-        encoding,
-        /\bgzip\b/i,
-        `${label} must send Content-Encoding: gzip, got ${encoding || "none"}`,
-      );
-    }
-  } finally {
-    child.kill("SIGTERM");
-    await once(child, "exit").catch(() => {});
-  }
-});
-
-test("hero stays immutable; analytics scripts use a short cache", async () => {
-  const srcs = homepageScriptSrcs();
-  const scripts = [
-    [requireScriptSrc(srcs, /HeroMotion[^"]*\.js$/, "hero"), "hero", "immutable"],
-    [requireScriptSrc(srcs, /\/js\/count\.v5\.js$/, "analytics count"), "analytics count", "short"],
-  ];
-
-  const child = spawn(process.execPath, ["scripts/serve-dist.mjs"], {
-    cwd: root,
-    env: { ...process.env, PORT: "4373" },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-
-  try {
-    await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("serve-dist did not start")), 10_000);
-      const onData = (chunk) => {
-        if (String(chunk).includes("serving dist/")) {
-          clearTimeout(timer);
-          child.stdout.off("data", onData);
-          resolve();
-        }
-      };
-      child.stdout.on("data", onData);
-      child.once("error", (error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-      child.once("exit", (code) => {
-        clearTimeout(timer);
-        reject(new Error(`serve-dist exited ${code}`));
-      });
-    });
-
-    for (const [src, label, kind] of scripts) {
-      const response = await getResponse(`http://127.0.0.1:4373${src}`);
-      assert.equal(response.status, 200, `${label} must return HTTP 200`);
-      const cache = response.headers["cache-control"] ?? "";
-      if (kind === "immutable") {
-        assert.match(
-          cache,
-          /max-age=31536000/,
-          `${label} must keep a one-year cache, got ${cache || "none"}`,
-        );
-        assert.match(cache, /\bimmutable\b/, `${label} must stay immutable, got ${cache || "none"}`);
-      } else {
-        assert.match(
-          cache,
-          /max-age=3600/,
-          `${label} must use a one-hour cache, got ${cache || "none"}`,
-        );
-        assert.match(
-          cache,
-          /stale-while-revalidate=86400/,
-          `${label} must allow a one-day stale revalidate, got ${cache || "none"}`,
-        );
-        assert.doesNotMatch(cache, /\bimmutable\b/, `${label} must not be immutable, got ${cache}`);
-      }
-    }
-  } finally {
-    child.kill("SIGTERM");
-    await once(child, "exit").catch(() => {});
-  }
-});
-
-test("htaccess preserves production security headers and CSP", () => {
-  const htaccess = readDistFile(".htaccess");
-
-  assert.match(htaccess, /Header always set X-Content-Type-Options "nosniff"/);
-  assert.match(htaccess, /Header always set X-Frame-Options "DENY"/);
-  assert.match(htaccess, /Header always set Referrer-Policy "strict-origin-when-cross-origin"/);
-  assert.match(
-    htaccess,
-    /Header always set Permissions-Policy "camera=\(\), microphone=\(\), geolocation=\(\)"/,
-  );
-  // Presence and shape only: the exact value is pinned by
-  // "htaccess ships a one-year HSTS policy without includeSubDomains".
-  assert.match(htaccess, /Header always set Strict-Transport-Security "max-age=\d+/);
-  assert.match(htaccess, /ErrorDocument 404 \/404\.html/);
-
-  const cspMatch = htaccess.match(/Header always set Content-Security-Policy "([^"]+)"/);
-  assert.ok(cspMatch, "Content-Security-Policy header must be present");
-  const csp = cspMatch[1];
-
-  for (const directive of [
-    "default-src 'self'",
-    "base-uri 'self'",
-    "object-src 'none'",
-    "frame-ancestors 'none'",
-  ]) {
-    assert.match(
-      csp,
-      new RegExp(directive.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
-      `CSP must keep ${directive}`,
-    );
-  }
-
-  const scriptSrc = csp.match(/script-src\s+([^;]+)/)?.[1]?.trim();
-  assert.ok(scriptSrc, "CSP must declare script-src");
-  assert.doesNotMatch(scriptSrc, /unsafe-eval/, "script-src must not allow unsafe-eval");
-  assert.doesNotMatch(scriptSrc, /unsafe-inline/, "script-src must not allow unsafe-inline");
-  for (const token of scriptSrc.split(/\s+/)) {
-    assert.ok(
-      token === "'self'" || /^'sha256-[A-Za-z0-9+/=]+'$/.test(token),
-      `script-src must not widen beyond 'self' and per-script hashes (found ${token})`,
-    );
-  }
-});
-
-test("htaccess CSP allows the GoatCounter beacon in connect-src only", () => {
-  const htaccess = readDistFile(".htaccess");
-  const csp = htaccess.match(/Header always set Content-Security-Policy "([^"]+)"/)?.[1];
+test("the security policy allows the Cloudflare script and beacon endpoint", () => {
+  const headers = readDistFile("_headers");
+  const csp = headers.match(/Content-Security-Policy: ([^\n]+)/)?.[1];
   assert.ok(csp, "Content-Security-Policy header must be present");
 
-  // The self-hosted count script sends its pageview beacon with
-  // navigator.sendBeacon, which connect-src governs.
   const connectSrc = csp.match(/connect-src\s+([^;]+)/)?.[1]?.trim();
   assert.ok(connectSrc, "CSP must declare connect-src");
   const tokens = connectSrc.split(/\s+/);
-  assert.ok(tokens.includes("'self'"), "connect-src must keep 'self'");
-  assert.ok(
-    tokens.includes("https://cristianvegaai.goatcounter.com"),
-    "connect-src must allow the GoatCounter count endpoint origin over https",
-  );
   assert.deepEqual(
     [...tokens].sort(),
-    ["'self'", "https://cristianvegaai.goatcounter.com"],
-    "connect-src must hold exactly 'self' and the GoatCounter origin",
+    ["'self'", "https://cloudflareinsights.com"],
+    "connect-src must allow only this site and Cloudflare Web Analytics",
   );
 
-  // The count script is self-hosted, so no analytics host may reach
-  // script-src, and the GoatCounter CDN must stay out of the CSP entirely.
   const scriptSrc = csp.match(/script-src\s+([^;]+)/)?.[1] ?? "";
-  assert.doesNotMatch(
-    scriptSrc,
-    /goatcounter\.com|zgo\.at/,
-    "script-src must not gain an analytics host",
+  assert.deepEqual(
+    scriptSrc.trim().split(/\s+/).filter((source) => source.startsWith("https:")),
+    ["https://static.cloudflareinsights.com/beacon.min.js"],
+    "allow only the Cloudflare beacon script URL as an external script",
   );
-  assert.doesNotMatch(csp, /gc\.zgo\.at/, "the GoatCounter CDN must not appear in the CSP");
+  assert.doesNotMatch(csp, /goatcounter|zgo\.at/, "remove the GoatCounter origins");
 });
 
-test("htaccess CSP hosts fonts and styles from this origin only", () => {
-  const htaccess = readDistFile(".htaccess");
-  const csp = htaccess.match(/Header always set Content-Security-Policy "([^"]+)"/)?.[1];
+test("Cloudflare CSP hosts fonts and styles from this origin only", () => {
+  const headers = readDistFile("_headers");
+  const csp = headers.match(/Content-Security-Policy: ([^\n]+)/)?.[1];
   assert.ok(csp, "Content-Security-Policy header must be present");
 
   const fontSrc = csp.match(/font-src\s+([^;]+)/)?.[1]?.trim();
@@ -460,8 +199,7 @@ test("htaccess CSP hosts fonts and styles from this origin only", () => {
   const styleSrc = csp.match(/style-src\s+([^;]+)/)?.[1]?.trim();
   assert.ok(styleSrc, "CSP must declare style-src");
   const styleTokens = styleSrc.split(/\s+/);
-  assert.ok(styleTokens.includes("'self'"), "style-src must keep 'self'");
-  assert.ok(styleTokens.includes("'unsafe-inline'"), "style-src keeps unsafe-inline for Astro CSS");
+  assert.deepEqual(styleTokens, ["'self'"], "stylesheets must come from this site");
   assert.equal(
     styleTokens.some((token) => /googleapis|gstatic|fonts\./i.test(token)),
     false,
@@ -473,4 +211,14 @@ test("htaccess CSP hosts fonts and styles from this origin only", () => {
     /fonts\.googleapis\.com|fonts\.gstatic\.com/,
     "the CSP must not name Google Fonts hosts",
   );
+});
+
+test("security.txt gives a private report contact and a valid expiry date", () => {
+  const record = readDistFile(".well-known", "security.txt");
+  assert.match(record, /^Contact: https:\/\/github\.com\/cristianvega-ai\/cristianvega\.ai\/security\/advisories\/new$/m);
+  assert.match(record, /^Canonical: https:\/\/cristianvega\.ai\/\.well-known\/security\.txt$/m);
+  assert.match(record, /^Policy: https:\/\/github\.com\/cristianvega-ai\/cristianvega\.ai\/security\/policy$/m);
+  const expires = Date.parse(record.match(/^Expires: (.+)$/m)?.[1] ?? "");
+  assert.ok(expires > Date.now(), "security.txt must not be expired");
+  assert.ok(expires < Date.now() + 366 * 24 * 60 * 60 * 1000, "renew security.txt within one year");
 });

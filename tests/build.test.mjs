@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
@@ -8,7 +7,7 @@ import { assertPageBasics, dist, readDistFile, root } from "./helpers.mjs";
 
 // Build output contract: the files the static deploy uploads must exist and be
 // complete. Page copy lives in tests/pages.test.mjs; this suite only asks
-// whether the build emitted the artefacts DreamHost serves.
+// whether the build emitted the files Cloudflare serves.
 
 function assertDistPath(...segments) {
   const path = join(dist, ...segments);
@@ -40,18 +39,10 @@ test("dist build is present for contract tests", () => {
   assertDistPath("index.html");
 });
 
-test("build emits the core static pages DreamHost will serve", () => {
+test("build emits the core static pages Cloudflare will serve", () => {
   assertDistPath("index.html");
-  assertDistPath("writing", "index.html");
-  assertDistPath("projects", "index.html");
   assertDistPath("sitemap-index.xml");
 });
-
-// Projects, writing, and the posts under it still build, so the owner can open
-// them directly, but nothing links to them and no crawler should list them.
-// Both halves of that promise are asserted: withheld from the sitemap here, and
-// marked noindex in the test below.
-const WITHHELD_ROUTE = /^\/(projects|writing|posts)\//;
 
 test("sitemap enumerates every public route the build produces", () => {
   // robots.txt points crawlers at the index, so an index that references a
@@ -62,41 +53,14 @@ test("sitemap enumerates every public route the build produces", () => {
   assert.equal(existsSync(join(dist, child)), true, `${child} is referenced but missing`);
 
   const locations = [...readDistFile(child).matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, loc]) => loc);
-  const built = listBuiltRoutes();
-  const withheld = built.filter((route) => WITHHELD_ROUTE.test(route));
-  const expected = built
-    .filter((route) => !WITHHELD_ROUTE.test(route))
-    .map((route) => `https://cristianvega.ai${route}`);
+  const expected = listBuiltRoutes().map((route) => `https://cristianvega.ai${route}`);
 
   assert.ok(expected.length > 0, "build must emit public routes to enumerate");
-  assert.ok(withheld.length > 0, "the withheld routes must still be built");
   assert.deepEqual(
     [...locations].sort(),
     [...expected].sort(),
     "sitemap must list exactly the public built routes, absolute and trailing-slashed",
   );
-});
-
-test("withheld routes build but stay out of reach of crawlers and navigation", () => {
-  const withheld = listBuiltRoutes().filter((route) => WITHHELD_ROUTE.test(route));
-  assert.ok(withheld.length >= 3, `expected the withheld routes to build, got ${withheld.length}`);
-
-  for (const route of withheld) {
-    const html = readDistFile(...route.split("/").filter(Boolean), "index.html");
-    assert.match(
-      html,
-      /<meta\b[^>]*name="robots"[^>]*content="noindex/i,
-      `${route} must carry a noindex robots tag while it is withheld`,
-    );
-  }
-
-  // The primary navigation is rendered on every page, so the home page proves
-  // the links are gone everywhere.
-  const home = readDistFile("index.html");
-  const nav = home.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
-  assert.ok(nav, "primary navigation required");
-  assert.doesNotMatch(nav, /href="\/projects\/"/, "projects must not be linked in the navigation");
-  assert.doesNotMatch(nav, /href="\/writing\/"/, "writing must not be linked in the navigation");
 });
 
 test("the navigation leaves the site, and every outbound link is safe", () => {
@@ -128,7 +92,9 @@ test("the navigation leaves the site, and every outbound link is safe", () => {
 test("static ops assets ship with the build", () => {
   assert.equal(existsSync(join(dist, "robots.txt")), true);
   assert.equal(existsSync(join(dist, "404.html")), true);
-  assert.equal(existsSync(join(dist, ".htaccess")), true);
+  assert.equal(existsSync(join(dist, "_headers")), true);
+  assert.equal(existsSync(join(dist, "_redirects")), true);
+  assert.equal(existsSync(join(dist, ".htaccess")), false);
 
   const robots = readDistFile("robots.txt");
   assert.match(robots, /Sitemap:\s*https:\/\/cristianvega\.ai\/sitemap-index\.xml/);
@@ -138,25 +104,13 @@ test("static ops assets ship with the build", () => {
   assert.match(notFound, /href="\/"/);
 });
 
-test("analytics scripts ship with the build and match the pinned release", () => {
+test("the build removes the GoatCounter scripts", () => {
   assert.equal(
     existsSync(join(dist, "js", "goatcounter.js")),
     false,
     "the ClientRouter swap counter must not ship",
   );
-  assert.equal(existsSync(join(dist, "js", "count.v5.js")), true);
-
-  // The vendored file must stay byte-identical to the upstream release. The
-  // expected value is the SRI hash GoatCounter publishes for count.v5.js, so
-  // anyone can re-check the pin against https://gc.zgo.at/count.v5.js.
-  const digest = createHash("sha384")
-    .update(readFileSync(join(dist, "js", "count.v5.js")))
-    .digest("base64");
-  assert.equal(
-    `sha384-${digest}`,
-    "sha384-atnOLvQb9t+jTSipvd75X2yginT4PjVbqDdlJAmxMm+wYElFmeR6EmLP5bYeoRVQ",
-    "dist/js/count.v5.js must stay byte-identical to the pinned GoatCounter release",
-  );
+  assert.equal(existsSync(join(dist, "js", "count.v5.js")), false);
 });
 
 test("the ClientRouter bundle does not ship", () => {
@@ -188,12 +142,13 @@ test("compiled css assets are emitted", () => {
 test("the build ships hashed self-hosted latin font files", () => {
   const fontDir = join(root, "src", "assets", "fonts");
   for (const file of [
-    "space-grotesk-latin-600-700.woff2",
+    "geist-latin-600.woff2",
     "ibm-plex-sans-latin-400.woff2",
     "ibm-plex-sans-latin-400-italic.woff2",
     "ibm-plex-mono-latin-400.woff2",
     "ibm-plex-mono-latin-500.woff2",
-    "OFL-space-grotesk.txt",
+    "ibm-plex-mono-latin-600.woff2",
+    "OFL-geist.txt",
     "OFL-ibm-plex.txt",
   ]) {
     assert.equal(existsSync(join(fontDir, file)), true, `missing font source: ${file}`);
@@ -203,8 +158,8 @@ test("the build ships hashed self-hosted latin font files", () => {
   const fonts = readdirSync(astroDir).filter((file) => file.endsWith(".woff2"));
   assert.equal(
     fonts.length,
-    5,
-    `expected five hashed woff2 files (Space Grotesk 600–700, Plex Sans 400 roman and italic, Plex Mono 400 and 500), got ${fonts.join(", ")}`,
+    6,
+    `expected six hashed woff2 files (Geist 600, Plex Sans 400 roman and italic, Plex Mono 400, 500 and 600), got ${fonts.join(", ")}`,
   );
   for (const file of fonts) {
     assert.match(file, /[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.woff2/, `font must be content-hashed: ${file}`);
@@ -215,10 +170,13 @@ test("the build ships hashed self-hosted latin font files", () => {
     .filter((file) => file.endsWith(".css"))
     .map((file) => readFileSync(join(astroDir, file), "utf8"))
     .join("\n");
-  assert.match(css, /font-family:\s*"?Space Grotesk"?/);
+  assert.match(css, /font-family:\s*"?Geist"?/);
   assert.match(css, /font-family:\s*"?IBM Plex Sans"?/);
   assert.match(css, /font-family:\s*"?IBM Plex Mono"?/);
-  assert.match(css, /font-weight:\s*600 700/);
+  // Geist ships one weight, so the measured fallback face holds the display
+  // metrics until the file arrives. Without it the headline reflows.
+  assert.match(css, /font-family:\s*"?Geist Fallback"?/);
+  assert.match(css, /size-adjust:\s*127\.74%/);
   assert.match(css, /ibm-plex-sans-latin-400\.[A-Za-z0-9_-]+\.woff2/);
   assert.match(css, /ibm-plex-sans-latin-400-italic\.[A-Za-z0-9_-]+\.woff2/);
   assert.match(
@@ -228,7 +186,8 @@ test("the build ships hashed self-hosted latin font files", () => {
   );
   assert.match(css, /ibm-plex-mono-latin-400\.[A-Za-z0-9_-]+\.woff2/);
   assert.match(css, /ibm-plex-mono-latin-500\.[A-Za-z0-9_-]+\.woff2/);
-  assert.match(css, /space-grotesk-latin-600-700\.[A-Za-z0-9_-]+\.woff2/);
+  assert.match(css, /ibm-plex-mono-latin-600\.[A-Za-z0-9_-]+\.woff2/);
+  assert.match(css, /geist-latin-600\.[A-Za-z0-9_-]+\.woff2/);
   assert.doesNotMatch(css, /fonts\.googleapis\.com|fonts\.gstatic\.com/);
   assert.equal(
     existsSync(join(dist, "fonts")),
@@ -248,11 +207,7 @@ test("the portrait master stays out of the static publish set", () => {
   ]);
 });
 
-// The deploy receiver on the host accepts only these suffixes, refuses hidden
-// names other than the root .htaccess, and refuses any name whose later
-// dot-components could reach an interpreter. Mirror its policy here so a new
-// file type fails in Verify, not at the door. Keep this in step with
-// scripts/deploy-receiver.py and the host's config.json.
+// Publish static assets and the two Cloudflare rule files only.
 const DEPLOY_SUFFIXES = new Set(["html", "css", "js", "jpg", "png", "svg", "txt", "xml", "woff2"]);
 const DEPLOY_FORBIDDEN_COMPONENTS = new Set([
   "php", "php3", "php4", "php5", "php7", "php8", "phtml", "phar", "phps", "pht",
@@ -272,25 +227,25 @@ function listDistFiles(dir = dist, prefix = "") {
   return files.sort();
 }
 
-test("every build file passes the deploy receiver's name policy", () => {
+test("the build contains only approved static files and Cloudflare rules", () => {
   const files = listDistFiles();
-  assert.ok(files.length >= 20, "expected the full static build");
+  assert.ok(files.length >= 15, "expected the full static build");
   for (const rel of files) {
-    if (rel === ".htaccess") continue;
+    if (["_headers", "_redirects", ".well-known/security.txt"].includes(rel)) continue;
     const parts = rel.split("/");
     for (const part of parts) {
-      assert.ok(!part.startsWith("."), `${rel}: the receiver refuses hidden names`);
+      assert.ok(!part.startsWith("."), `${rel}: hidden names must not be published`);
     }
     const pieces = parts.at(-1).split(".");
-    assert.ok(pieces.length >= 2, `${rel}: the receiver refuses a file with no suffix`);
-    assert.ok(DEPLOY_SUFFIXES.has(pieces.at(-1)), `${rel}: .${pieces.at(-1)} is not in the receiver's allowlist`);
+    assert.ok(pieces.length >= 2, `${rel}: static files must have a suffix`);
+    assert.ok(DEPLOY_SUFFIXES.has(pieces.at(-1)), `${rel}: .${pieces.at(-1)} is not an approved static type`);
     for (const piece of pieces.slice(1)) {
-      assert.ok(!DEPLOY_FORBIDDEN_COMPONENTS.has(piece.toLowerCase()), `${rel}: the receiver refuses the suffix component .${piece}`);
+      assert.ok(!DEPLOY_FORBIDDEN_COMPONENTS.has(piece.toLowerCase()), `${rel}: do not publish the suffix component .${piece}`);
     }
     // The package is ustar; a plain ustar name holds 100 bytes.
     assert.ok(rel.length <= 100, `${rel}: longer than a ustar name (100); switch the package to --format=posix`);
   }
-  for (const required of [".htaccess", "index.html", "404.html", "robots.txt", "sitemap-index.xml"]) {
+  for (const required of ["_headers", "_redirects", ".well-known/security.txt", "index.html", "404.html", "robots.txt", "sitemap-index.xml"]) {
     assertDistPath(required);
   }
 });

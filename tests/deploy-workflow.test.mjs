@@ -8,8 +8,8 @@ import { root } from "./helpers.mjs";
 // The deployment workflow cannot run on a laptop, so this suite holds it to
 // its shape instead: which events run it, that every action is pinned to a
 // commit, that Verify never sees a secret, that Deploy production runs only
-// for the current main commit with the kill switch on, and that the SSH leg
-// stays strict. Each test reads the block for one job, not the whole file, so
+// for the current main commit with the kill switch on, and that Cloudflare
+// receives the verified build. Each test reads the block for one job, not the whole file, so
 // a rule about one job cannot be satisfied by text in the other.
 
 const workflowPath = join(root, ".github", "workflows", "deploy.yml");
@@ -101,16 +101,16 @@ test("Verify installs from the lockfile, audits, and runs the complete gate", ()
   }
 });
 
-test("Verify packs the required files and the live verifier, and records both hashes", () => {
-  for (const name of [".htaccess", "index.html", "404.html", "robots.txt", "sitemap-index.xml"]) {
+test("Verify packs the required files and the live verifier, and records the package and manifest hashes", () => {
+  for (const name of ["_headers", "_redirects", "index.html", "404.html", "robots.txt", "sitemap-index.xml"]) {
     assert.ok(verify.includes(name), `Verify must require dist/${name} before packing`);
   }
   assert.match(verify, /--format=ustar/);
   assert.match(verify, /cp scripts\/verify-deploy\.mjs/);
-  assert.match(verify, /sha256sum site\.tar\.gz verify-deploy\.mjs > SHA256SUMS/);
+  assert.match(verify, /sha256sum site\.tar\.gz verify-deploy\.mjs wrangler\.jsonc package\.json package-lock\.json > SHA256SUMS/);
   assert.match(verify, /package_sha256=.*>> "\$GITHUB_OUTPUT"/);
-  assert.match(verify, /sha256sum scripts\/deploy-receiver\.py/);
-  assert.match(verify, /receiver_sha256=.*>> "\$GITHUB_OUTPUT"/);
+  assert.match(verify, /sha256sum "\$package_dir\/SHA256SUMS"/);
+  assert.match(verify, /manifest_sha256=.*>> "\$GITHUB_OUTPUT"/);
   assert.match(verify, /^\s+if: github\.event_name != 'pull_request'$/m, "pull requests must not store a production package");
 });
 
@@ -134,34 +134,44 @@ test("Deploy production runs only for the current main commit with the kill swit
 
 test("Deploy production never checks out the repository and runs the verifier from the package", () => {
   assert.doesNotMatch(deploy, /actions\/checkout/);
-  assert.match(deploy, /node "\$artifact_dir\/verify-deploy\.mjs"/);
+  assert.match(deploy, /node verify-deploy\.mjs/);
   assert.doesNotMatch(deploy, /scripts\/verify-deploy\.mjs/);
   assert.match(deploy, /sha256sum --check SHA256SUMS/);
   assert.match(deploy, /EXPECTED_PACKAGE_SHA256: \$\{\{ needs\.verify\.outputs\.package_sha256 \}\}/);
-  assert.match(deploy, /cmp "\$artifact_dir\/expected-index\.html"/);
+  assert.match(deploy, /EXPECTED_INDEX: dist\/index\.html/);
+  assert.match(deploy, /EXPECTED_MANIFEST_SHA256: \$\{\{ needs\.verify\.outputs\.manifest_sha256 \}\}/);
+  assert.match(deploy, /"\$manifest" != "\$EXPECTED_MANIFEST_SHA256"/);
 });
 
-test("the SSH leg is strict and checks the installed receiver before sending", () => {
-  for (const option of [
-    "BatchMode=yes",
-    "IdentitiesOnly=yes",
-    "PasswordAuthentication=no",
-    "StrictHostKeyChecking=yes",
-    "GlobalKnownHostsFile=/dev/null",
-    "HostKeyAlgorithms=ssh-ed25519",
-    "ClearAllForwardings=yes",
-    "ForwardAgent=no",
-  ]) {
-    assert.ok(deploy.includes(option), `ssh must set ${option}`);
+test("Cloudflare receives the verified artifact and only the deploy step receives its token", () => {
+  assert.match(deploy, /run: npm ci --ignore-scripts/);
+  assert.match(deploy, /npx --no-install wrangler deploy --config wrangler.jsonc --no-autoconfig --env ""/);
+  assert.doesNotMatch(deploy, /npm run build|astro build|DEPLOY_SSH|ssh-keyscan/);
+  for (const secret of ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]) {
+    assert.ok(deploy.includes(secret + ": ${{ secrets." + secret + " }}"));
   }
-  assert.doesNotMatch(workflow, /ssh-keyscan/, "host keys come from the environment secret, never from the network");
-  assert.doesNotMatch(workflow, /StrictHostKeyChecking=no|StrictHostKeyChecking=accept-new/);
-  assert.match(deploy, /"RECEIVER \$EXPECTED_RECEIVER_SHA256"/, "the installed receiver must match the reviewed one");
-  assert.match(deploy, /"DEPLOY_OK \$EXPECTED_PACKAGE_SHA256 \$EXPECTED_RECEIVER_SHA256"/);
-  assert.match(deploy, /trap cleanup EXIT/, "the key file must be removed when the step ends");
-  for (const secret of ["DEPLOY_HOST", "DEPLOY_USER", "DEPLOY_PORT", "DEPLOY_SSH_PRIVATE_KEY", "DEPLOY_SSH_KNOWN_HOSTS"]) {
-    assert.match(deploy, new RegExp(`${secret}: \\$\\{\\{ secrets\\.${secret} \\}\\}`), `${secret} must come from the environment`);
-  }
+  assert.equal([...deploy.matchAll(/secrets\.CLOUDFLARE_API_TOKEN/g)].length, 1);
+  assert.match(deploy, /WRANGLER_OUTPUT_FILE_PATH:/);
+  assert.match(deploy, /record.type === "deploy"/);
+  assert.match(deploy, /ORIGIN: \$\{\{ steps\.publish\.outputs\.origin \}\}/);
+});
+
+test("production checks run only after the domain switch is confirmed", () => {
+  assert.match(deploy, /vars\.CLOUDFLARE_PRODUCTION_READY == 'true'/);
+  assert.match(deploy, /CHECK_CANONICAL_REDIRECTS: 'true'/);
+  assert.match(deploy, /ORIGIN: https:\/\/cristianvega\.ai/);
+  const config = JSON.parse(readFileSync(join(root, "wrangler.jsonc"), "utf8"));
+  assert.equal(config.workers_dev, true);
+  assert.equal(config.main, undefined, "the site must remain static");
+  assert.deepEqual(config.routes, [
+    { pattern: "cristianvega.ai", custom_domain: true },
+    { pattern: "www.cristianvega.ai", custom_domain: true },
+  ], "both public hosts must use Cloudflare as their origin");
+  assert.equal(config.assets.directory, "./dist");
+  assert.equal(config.assets.not_found_handling, "404-page");
+  assert.equal(config.assets.html_handling, "force-trailing-slash");
+  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  assert.match(pkg.devDependencies.wrangler, /^\d+\.\d+\.\d+$/);
 });
 
 test("Node is pinned to one exact version everywhere", () => {

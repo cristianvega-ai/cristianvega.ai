@@ -1,0 +1,5 @@
+Contact: https://github.com/cristianvega-ai/cristianvega.ai/security/advisories/new
+Expires: 2027-08-31T23:59:59Z
+Canonical: https://cristianvega.ai/.well-known/security.txt
+Policy: https://github.com/cristianvega-ai/cristianvega.ai/security/policy
+Preferred-Languages: en

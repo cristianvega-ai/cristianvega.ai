@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Post-deploy gate: prove the live origin emits security headers and a real 404.
-// Build-time checks cannot see Apache response headers (mod_headers is IfModule-guarded).
+// Check the Cloudflare response and, when supplied, the exact build output.
 //
 // Usage:
 //   npm run verify:deploy
@@ -8,6 +8,7 @@
 
 import http from "node:http";
 import https from "node:https";
+import { readFile } from "node:fs/promises";
 
 const origin = (process.env.ORIGIN ?? "https://cristianvega.ai").replace(/\/$/, "");
 
@@ -67,6 +68,7 @@ function requestHeaders(url, extraHeaders = {}) {
       );
     });
     req.on("error", reject);
+    req.setTimeout(15_000, () => req.destroy(new Error("request timed out")));
     req.end();
   });
 }
@@ -76,21 +78,25 @@ async function main() {
 
   let home;
   try {
-    home = await fetch(`${origin}/`, { redirect: "follow", headers: { "user-agent": USER_AGENT } });
+    home = await fetch(`${origin}/`, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
+      headers: { "user-agent": USER_AGENT, "cache-control": "no-cache" },
+    });
   } catch (error) {
     fail(`could not reach ${origin}/ (${error.cause?.code ?? error.message})`);
     fail("publish DNS for the apex (and www if used), then redeploy before re-running");
     return;
   }
 
-  if (!home.ok) {
+  if (home.status !== 200) {
     fail(`GET ${origin}/ returned HTTP ${home.status}`);
   }
 
   const missingHeaders = REQUIRED_HEADERS.filter((name) => !home.headers.get(name));
   if (missingHeaders.length) {
     fail(
-      `missing response headers: ${missingHeaders.join(", ")} — mod_headers may be off or .htaccess was not deployed`,
+      `missing response headers: ${missingHeaders.join(", ")} — check the deployed _headers file`,
     );
   } else {
     console.log("verify-deploy: all six security headers present");
@@ -124,11 +130,31 @@ async function main() {
   if (/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(csp)) {
     fail("CSP still names a Google Fonts host");
   }
+  const directives = new Map(csp.split(";").map((part) => {
+    const [name, ...sources] = part.trim().split(/\s+/);
+    return [name, sources.join(" ")];
+  }));
+  if (directives.get("style-src") !== "'self'" || directives.get("style-src-attr") !== "'none'") {
+    fail("CSP must block inline styles and use only same-origin stylesheets");
+  }
+  const permissions = (home.headers.get("permissions-policy") ?? "").split(",").map((part) => part.trim());
+  for (const feature of [
+    "accelerometer", "autoplay", "camera", "display-capture", "encrypted-media",
+    "fullscreen", "geolocation", "gyroscope", "magnetometer", "microphone",
+    "midi", "payment", "picture-in-picture", "screen-wake-lock", "usb",
+    "xr-spatial-tracking",
+  ]) {
+    if (!permissions.includes(`${feature}=()`)) fail(`Permissions-Policy must deny ${feature}`);
+  }
 
   const missingPath = `${origin}/__deploy-gate-missing-path__/`;
   let notFound;
   try {
-    notFound = await fetch(missingPath, { redirect: "manual", headers: { "user-agent": USER_AGENT } });
+    notFound = await fetch(missingPath, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
+      headers: { "user-agent": USER_AGENT },
+    });
   } catch (error) {
     fail(`could not probe missing path (${error.cause?.code ?? error.message})`);
     return;
@@ -136,17 +162,83 @@ async function main() {
 
   if (notFound.status !== 404) {
     fail(
-      `GET ${missingPath} returned HTTP ${notFound.status}, expected 404 (ErrorDocument / soft-404 check)`,
+      `GET ${missingPath} returned HTTP ${notFound.status}, expected 404`,
     );
   } else {
     console.log("verify-deploy: missing path returns HTTP 404");
   }
+  for (const name of REQUIRED_HEADERS) {
+    if (notFound.headers.get(name) !== home.headers.get(name)) {
+      fail(`404 response must keep the homepage ${name} header`);
+    }
+  }
+  await notFound.body?.cancel();
+
+  const post = await fetch(`${origin}/`, {
+    method: "POST",
+    redirect: "manual",
+    signal: AbortSignal.timeout(15_000),
+    headers: { "user-agent": USER_AGENT },
+  });
+  if (post.status !== 405) fail("the static homepage must reject POST with HTTP 405");
+  await post.body?.cancel();
+
+  const security = await fetch(`${origin}/.well-known/security.txt`, {
+    redirect: "manual",
+    signal: AbortSignal.timeout(15_000),
+    headers: { "user-agent": USER_AGENT },
+  });
+  const record = await security.text();
+  const expires = Date.parse(record.match(/^Expires: (.+)$/m)?.[1] ?? "");
+  if (security.status !== 200 || !/^text\/plain(?:;|$)/.test(security.headers.get("content-type") ?? "")) {
+    fail("security.txt must return HTTP 200 as plain text");
+  }
+  if (!/^Contact: https:\/\/github\.com\/cristianvega-ai\/cristianvega\.ai\/security\/advisories\/new$/m.test(record)) {
+    fail("security.txt must give the private report contact");
+  }
+  if (!(expires > Date.now())) fail("security.txt must have a future expiry date");
 
   const html = await home.text();
+  if (process.env.EXPECTED_INDEX) {
+    const expected = await readFile(process.env.EXPECTED_INDEX);
+    if (!expected.equals(Buffer.from(html))) {
+      fail("the live homepage does not match the verified build");
+    } else {
+      console.log("verify-deploy: the live homepage matches the verified build");
+    }
+  }
+
+  for (const path of ["/about", "/about/", "/contact", "/contact/"]) {
+    const response = await fetch(`${origin}${path}`, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
+      headers: { "user-agent": USER_AGENT },
+    });
+    const location = response.headers.get("location");
+    if (response.status !== 301 || !location || new URL(location, origin).href !== `${origin}/`) {
+      fail(`${path} must redirect to the homepage with HTTP 301`);
+    }
+    await response.body?.cancel();
+  }
+
+  if (process.env.CHECK_CANONICAL_REDIRECTS === "true") {
+    const path = "/__canonical-check__/?from=deploy";
+    for (const base of ["http://cristianvega.ai", "http://www.cristianvega.ai", "https://www.cristianvega.ai"]) {
+      const response = await fetch(`${base}${path}`, {
+        redirect: "manual",
+        signal: AbortSignal.timeout(15_000),
+        headers: { "user-agent": USER_AGENT },
+      });
+      if (response.status !== 301 || response.headers.get("location") !== `https://cristianvega.ai${path}`) {
+        fail(`${base} must redirect to HTTPS on the apex in one step`);
+      }
+      await response.body?.cancel();
+    }
+  }
   const scriptSrcs = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, src]) => src);
   const requiredScripts = [
     ["HeroMotion", "hero"],
-    ["/js/count.v5.js", "analytics count"],
+    ["CloudflareAnalytics", "analytics loader"],
   ];
 
   for (const [needle, label] of requiredScripts) {
@@ -178,19 +270,7 @@ async function main() {
     console.log(`verify-deploy: ${label} is gzip-compressed`);
 
     const cache = headerValue(script.headers, "cache-control");
-    if (needle.startsWith("/js/")) {
-      if (
-        !/\bmax-age=3600\b/.test(cache) ||
-        !/\bstale-while-revalidate=86400\b/.test(cache) ||
-        /\bimmutable\b/i.test(cache)
-      ) {
-        fail(
-          `${label} at ${url} Cache-Control is ${cache || "none"} (expected public, max-age=3600, stale-while-revalidate=86400)`,
-        );
-        continue;
-      }
-      console.log(`verify-deploy: ${label} cache is short-lived`);
-    } else if (
+    if (
       !/\bmax-age=31536000\b/.test(cache) ||
       !/\bimmutable\b/i.test(cache)
     ) {

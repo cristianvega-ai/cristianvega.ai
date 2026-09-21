@@ -6,25 +6,25 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview",
+    "preview": "wrangler dev --local",
     "check": "astro check",
     "test:run": "node --test tests/*.test.mjs",
     "test:e2e": "playwright test",
-    "test:receiver": "python3 scripts/test_deploy_receiver.py",
-    "test": "npm run build && npm run test:run && npm run test:receiver",
-    "verify": "npm run build && npm run check && npm run test:run && npm run test:receiver && npm run test:e2e",
+    "test": "npm run build && npm run test:run",
+    "verify": "npm run build && npm run check && npm run test:run && npm run test:e2e",
     "verify:deploy": "node scripts/verify-deploy.mjs",
     "generate:portrait": "node scripts/generate-portrait.mjs",
     "generate:touch-icon": "node scripts/generate-touch-icon.mjs"
   },
   "dependencies": {
-    "@astrojs/sitemap": "^3.7.3",
-    "astro": "^7.0.5"
+    "@astrojs/sitemap": "^3.7.4",
+    "astro": "^7.3.3"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.6",
-    "@playwright/test": "^1.62.1",
+    "@astrojs/check": "^0.9.10",
+    "@playwright/test": "^1.63.0",
     "sharp": "^0.35.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "wrangler": "4.135.0"
   }
 }

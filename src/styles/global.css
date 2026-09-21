@@ -1,15 +1,27 @@
 /* This file is the source of truth for the design tokens of the site. */
 
-/* Self-hosted latin subsets. Space Grotesk 600–700 is one variable file.
-   IBM Plex Sans ships 400 roman and 400 italic; IBM Plex Mono ships 400
-   and 500. OFL licenses live next to the woff2 files in src/assets/fonts/. */
+/* Self-hosted latin subsets. Geist carries the display face at weight 600.
+   IBM Plex Sans ships 400 roman and 400 italic; IBM Plex Mono ships 400, 500
+   and 600. OFL licenses live next to the woff2 files in src/assets/fonts/. */
 @font-face {
-  font-family: "Space Grotesk";
+  font-family: "Geist";
   font-style: normal;
-  font-weight: 600 700;
+  font-weight: 600;
   font-display: swap;
-  src: url("../assets/fonts/space-grotesk-latin-600-700.woff2") format("woff2");
+  src: url("../assets/fonts/geist-latin-600.woff2") format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Measured fallback face. It holds the display metrics until Geist arrives, so
+   the headline does not reflow. The values are the design system's, measured
+   with fontTools against Helvetica Neue (design-system/fonts/README.md). */
+@font-face {
+  font-family: "Geist Fallback";
+  src: local("Helvetica Neue");
+  size-adjust: 127.74%;
+  ascent-override: 78.68%;
+  descent-override: 23.09%;
+  line-gap-override: 0.00%;
 }
 
 @font-face {
@@ -48,42 +60,53 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/* The eyebrow and the wordmark are mono 600. */
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../assets/fonts/ibm-plex-mono-latin-600.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* The names and the values come from the design system. The site brings only
+   the tokens a rule below reads; tests/design-tokens.test.mjs rejects the rest. */
 :root {
+  /* grounds */
   --ink: #14181F;
-  --ink-2: #1D232E;
-  --paper: #F1F3F6;
-  --surface: #FFFFFF;
-  --line: #DEE2E9;
-  --line-strong: #C6CDD8;
-  --hairline: #E8EBF1;
+  --ink-2: #1A2029;
+  --surface-well: #F1F3F6;
+  /* text and lines on surface */
+  --fg: #14181F;
   --muted: #586173;
-  /* Accents tuned for WCAG AA on 12–15px text:
-     crimson on paper ~4.6; white on crimson ~5.0; meta on paper ~5.6.
-     Ember is reserved for dark surfaces (~6.4 on ink) and decoration. */
-  --crimson: #D42A3C;
-  --crimson-dark: #B21F2F;
-  --ember: #F2792B;
-  --gradient: linear-gradient(102deg, #D42A3C 0%, #F2792B 100%);
-  --meta: #586173;
-  --meta-on-dark: #98A1B0;
-  --masthead-text: #EAEDF2;
-  --masthead-rule: rgba(255, 255, 255, 0.09);
+  --line: #DEE2E9;
+  --mark2-surface: rgba(20, 24, 31, 0.4);
+  /* text and lines on ink */
+  --mast-text: #EAEDF2;
+  --mast-meta: #98A1B0;
+  --mast-line: rgba(255, 255, 255, 0.1);
+  --mark2-ink: rgba(255, 255, 255, 0.42);
   --grid-line: rgba(255, 255, 255, 0.028);
-  --grid-line-light: rgba(20, 24, 31, 0.055);
-  --tag-slate: #1D5FB0;
-  --tag-slate-background: #E9F1FB;
-  --tag-slate-border: #C6DBF3;
-  --tag-muted: #41485A;
-  --tag-muted-background: #EEF0F4;
-  --tag-muted-border: #D6DBE3;
-  --code-background: #14181F;
-  --code-text: #C9D1DC;
-  --code-accent: #F2CDBB;
-  --shadow-small: 0 1px 2px rgba(20, 24, 31, 0.05), 0 1px 1px rgba(20, 24, 31, 0.04);
-  --shadow: 0 6px 24px -12px rgba(20, 24, 31, 0.22), 0 2px 6px -3px rgba(20, 24, 31, 0.1);
-  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --grid-line-surface: rgba(20, 24, 31, 0.055);
+  /* brand. Azure is the accent on surface: 5.34 on the well, 5.93 for white
+     on azure. Sky is the bright end, for ink grounds (8.31 on ink). */
+  --azure: #0369A1;
+  --azure-dark: #075985;
+  --sky: #38BDF8;
+  --grad: linear-gradient(102deg, #0369A1 0%, #38BDF8 100%);
+  /* faces */
+  --font-display: "Geist", "Geist Fallback", system-ui, -apple-system, sans-serif;
   --font-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  /* type scale */
+  --fs-display-xl: clamp(38px, 4.9vw, 60px);
+  --fs-lede: 17px;
+  --lh-display: 1.1;
+  --lh-body: 1.6;
+  --track-display-xl: -0.028em;
+  --track-caps-wide: 0.16em;
+  /* fixed sizes */
   --header-height: 64px;
   --footer-height: 46px;
   /* The bar plus the gap that keeps the last line off it. One value, so the
@@ -91,10 +114,7 @@
   --footer-reserve: 54px;
   --container: 1180px;
   --gutter: max(32px, calc((100vw - var(--container)) / 2 + 32px));
-  --radius: 14px;
-  --radius-small: 9px;
-  --radius-extra-small: 6px;
-  --radius-code: 10px;
+  --radius-md: 8px;
 }
 
 *,
@@ -119,8 +139,8 @@ body {
   font-family: var(--font-body);
   font-size: 16.5px;
   line-height: 1.62;
-  color: var(--ink);
-  background: var(--paper);
+  color: var(--fg);
+  background: var(--surface-well);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   min-height: 100svh;
@@ -153,25 +173,31 @@ h2,
 h3 {
   font-family: var(--font-display);
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: var(--lh-display);
   font-weight: 600;
 }
 
+/* The one display line on a page. Both H1s on this site use it. */
+h1 {
+  font-size: var(--fs-display-xl);
+  letter-spacing: var(--track-display-xl);
+}
+
 ::selection {
-  background: var(--crimson);
+  background: var(--azure);
   color: #fff;
 }
 
 :focus-visible {
-  outline: 2px solid var(--crimson);
+  outline: 2px solid var(--azure);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-/* Ember outlines on dark surfaces, where crimson lacks contrast */
+/* Sky outlines on dark surfaces, where azure lacks contrast */
 .hero :focus-visible,
 .site-footer :focus-visible {
-  outline: 3px solid var(--ember);
+  outline: 3px solid var(--sky);
   outline-offset: 2px;
 }
 
@@ -186,21 +212,21 @@ h3 {
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 500;
-  border-radius: 0 0 var(--radius-small) var(--radius-small);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
   transform: translateY(-120%);
   transition: transform 0.15s ease;
 }
 
 /* The ring is offset onto the page behind the chip, so it follows that ground:
-   crimson on paper (4.50), ember on the dark home masthead (6.39) */
+   azure on the well (5.34), sky on the dark home masthead (8.31) */
 .skip-link:focus {
   transform: translateY(0);
-  outline: 2px solid var(--crimson);
+  outline: 2px solid var(--azure);
   outline-offset: 2px;
 }
 
 body:has(.hero) .skip-link:focus {
-  outline-color: var(--ember);
+  outline-color: var(--sky);
 }
 
 .wrap {
@@ -224,8 +250,8 @@ body:has(.hero) .skip-link:focus {
 /* Faint blueprint grid on light page heads — the masthead motif, in daylight */
 .dotgrid {
   background-image:
-    repeating-linear-gradient(0deg, transparent 0 39px, var(--grid-line-light) 39px 40px),
-    repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line-light) 39px 40px);
+    repeating-linear-gradient(0deg, transparent 0 39px, var(--grid-line-surface) 39px 40px),
+    repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line-surface) 39px 40px);
 }
 
 .marker,
@@ -233,17 +259,31 @@ body:has(.hero) .skip-link:focus {
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.16em;
+  letter-spacing: var(--track-caps-wide);
   text-transform: uppercase;
   color: var(--muted);
 }
 
 .eyebrow {
-  letter-spacing: 0.18em;
+  font-weight: 600;
+}
+
+/* The gradient dash that opens every eyebrow in the system. It rides in the
+   text flow rather than beside it, so a label that wraps keeps the dash on the
+   first line instead of centring it in the gap between the two. */
+.eyebrow::before {
+  content: "";
+  display: inline-block;
+  vertical-align: middle;
+  width: 24px;
+  height: 3px;
+  margin-right: 8px;
+  border-radius: 2px;
+  background: var(--grad);
 }
 
 .marker__sig {
-  color: var(--crimson);
+  color: var(--azure);
 }
 
 .site-header {
@@ -263,34 +303,52 @@ body:has(.hero) .skip-link:focus {
 .brand {
   display: flex;
   align-items: center;
-  gap: 11px;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: -0.01em;
-  color: var(--ink);
+  gap: 10px;
+  color: var(--fg);
   white-space: nowrap;
 }
 
+/* Two 16px rings on a diagonal. The first pins to the top left of the box and
+   the second to the bottom right, so the 25x24 box supplies the offset. The
+   first ring is sky on every ground; the second takes the ground's own tone. */
 .brand__mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  background: var(--ink);
-  display: grid;
-  place-items: center;
-  overflow: hidden;
+  position: relative;
+  width: 25px;
+  height: 24px;
   flex: 0 0 auto;
 }
 
-.brand__mark svg {
-  width: 19px;
-  height: 19px;
-  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+.brand__mark i {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  border: 1.8px solid var(--sky);
+  border-radius: 50%;
 }
 
-.brand:hover .brand__mark svg {
-  transform: rotate(-24deg);
+.brand__mark i:last-child {
+  top: auto;
+  left: auto;
+  right: 0;
+  bottom: 0;
+  border-color: var(--mark2-surface);
+}
+
+/* The two names join with no space, and tone marks the join: the given name
+   takes the meta grey, the family name takes the ground's foreground. */
+.brand__word {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.brand__word i {
+  font-style: normal;
+  color: var(--muted);
 }
 
 .nav {
@@ -312,16 +370,20 @@ body:has(.hero) .skip-link:focus {
 }
 
 .nav__link:hover {
-  color: var(--ink);
+  color: var(--fg);
 }
 
 /* Home is a dark masthead page; the transparent header inverts to light */
 body:has(.hero) .brand {
-  color: var(--masthead-text);
+  color: var(--mast-text);
 }
 
-body:has(.hero) .brand__mark {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+body:has(.hero) .brand__mark i:last-child {
+  border-color: var(--mark2-ink);
+}
+
+body:has(.hero) .brand__word i {
+  color: var(--mast-meta);
 }
 
 body:has(.hero) .nav {
@@ -333,10 +395,10 @@ body:has(.hero) .nav__link:hover {
 }
 
 body:has(.hero) .site-header :focus-visible {
-  outline-color: var(--ember);
+  outline-color: var(--sky);
 }
 
-.button {
+.btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -344,46 +406,23 @@ body:has(.hero) .site-header :focus-visible {
   font-weight: 600;
   font-size: 15px;
   padding: 12px 22px;
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-md);
   border: 1px solid transparent;
   cursor: pointer;
   transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-.button:active {
+.btn:active {
   transform: translateY(1px);
 }
 
-.button--signal {
-  background: var(--crimson);
+.btn--signal {
+  background: var(--azure);
   color: #fff;
 }
 
-.button--signal:hover {
-  background: var(--crimson-dark);
-}
-
-.tag {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  padding: 3px 9px;
-  border-radius: var(--radius-extra-small);
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
-
-.tag--slate {
-  color: var(--tag-slate);
-  background: var(--tag-slate-background);
-  border-color: var(--tag-slate-border);
-}
-
-.tag--muted {
-  color: var(--tag-muted);
-  background: var(--tag-muted-background);
-  border-color: var(--tag-muted-border);
+.btn--signal:hover {
+  background: var(--azure-dark);
 }
 
 /* Home is one full dark masthead; ink extends past the short stacked hero */
@@ -398,7 +437,7 @@ body:has(.hero) {
   display: flex;
   flex-direction: column;
   background: var(--ink);
-  color: var(--masthead-text);
+  color: var(--mast-text);
 }
 
 .hero__grid {
@@ -470,21 +509,17 @@ body:has(.hero) {
 }
 
 .hero__eyebrow {
-  color: var(--ember);
+  color: var(--sky);
   margin-bottom: 16px;
 }
 
 .hero__name {
-  font-size: clamp(42px, 5.6vw, 66px);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.03;
   margin-bottom: 16px;
 }
 
 /* Gradient underline on light surfaces; the hero upgrades it to gradient text */
 .highlight {
-  background-image: var(--gradient);
+  background-image: var(--grad);
   background-repeat: no-repeat;
   background-position: 0 92%;
   background-size: 100% 0.16em;
@@ -493,7 +528,7 @@ body:has(.hero) {
 
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .hero__name .highlight {
-    background: var(--gradient);
+    background: var(--grad);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -517,7 +552,7 @@ body:has(.hero) {
   letter-spacing: 0.002em;
   max-width: 46ch;
   margin-top: 10px;
-  color: var(--meta-on-dark);
+  color: var(--mast-meta);
 }
 
 .hero__profile p {
@@ -525,7 +560,7 @@ body:has(.hero) {
   margin-top: 13px;
   font-size: 15px;
   line-height: 1.62;
-  color: color-mix(in srgb, var(--masthead-text) 82%, transparent);
+  color: color-mix(in srgb, var(--mast-text) 82%, transparent);
 }
 
 /* The four working principles. Hairline rules and a gradient tick, so the list
@@ -545,11 +580,11 @@ body:has(.hero) {
   padding: 9px 0;
   font-size: 14.5px;
   line-height: 1.5;
-  color: color-mix(in srgb, var(--masthead-text) 88%, transparent);
+  color: color-mix(in srgb, var(--mast-text) 88%, transparent);
 }
 
 .hero__principles li + li {
-  border-top: 1px solid var(--masthead-rule);
+  border-top: 1px solid var(--mast-line);
 }
 
 .hero__principles li::before {
@@ -557,7 +592,7 @@ body:has(.hero) {
   width: 7px;
   height: 7px;
   transform: translateY(1px) rotate(45deg);
-  background: var(--gradient);
+  background: var(--grad);
 }
 
 /* Above this width the copy runs in two measures, so the whole profile sits in
@@ -571,7 +606,7 @@ body:has(.hero) {
     max-width: none;
     column-count: 2;
     column-gap: 40px;
-    column-rule: 1px solid var(--masthead-rule);
+    column-rule: 1px solid var(--mast-line);
   }
 
   /* A paragraph or the principle list split across the gutter reads as a bug. */
@@ -595,193 +630,6 @@ body:has(.hero) {
   }
 }
 
-.projects {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
-}
-
-.project {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: var(--shadow-small);
-  transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.3s, border-color 0.15s ease;
-}
-
-.project::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--gradient);
-  z-index: 1;
-}
-
-.project:hover {
-  transform: translateY(-3px);
-  border-color: var(--line-strong);
-  box-shadow: var(--shadow);
-}
-
-.project__preview {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  aspect-ratio: 16 / 10;
-  background-color: var(--ink);
-  background-image:
-    repeating-linear-gradient(0deg, transparent 0 17px, rgba(255, 255, 255, 0.05) 17px 18px),
-    repeating-linear-gradient(90deg, transparent 0 17px, rgba(255, 255, 255, 0.05) 17px 18px);
-}
-
-.project__mark {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 34px;
-  letter-spacing: -0.03em;
-  color: var(--masthead-text);
-  opacity: 0.92;
-}
-
-.project__status {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  color: var(--code-accent);
-  border: 1px solid rgba(242, 121, 43, 0.4);
-  background: rgba(242, 121, 43, 0.08);
-  padding: 3px 9px;
-  border-radius: 100px;
-}
-
-.project__status--wip {
-  color: #A8B0BD;
-  border-color: rgba(255, 255, 255, 0.28);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.project__body {
-  flex: 1;
-  padding: 20px 20px 4px;
-}
-
-.project__name {
-  font-size: 19px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.project__description {
-  margin-top: 8px;
-  font-size: 15px;
-  line-height: 1.55;
-  color: var(--muted);
-}
-
-.project__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  margin-top: 16px;
-}
-
-.project__links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  padding: 16px 20px 18px;
-  border-top: 1px solid var(--hairline);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.project__availability {
-  color: var(--muted);
-  font-style: normal;
-}
-
-/* Linked projects get the prose-link treatment; the muted availability colour
-   would otherwise give a real destination no affordance. */
-.project__site {
-  color: var(--crimson);
-  border-bottom: 1px solid rgba(212, 42, 60, 0.35);
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.project__site:hover {
-  color: var(--crimson-dark);
-  border-bottom-color: var(--crimson-dark);
-}
-
-.posts {
-  border-top: 1px solid var(--line);
-}
-
-.posts--archive {
-  margin-top: -24px;
-}
-
-.post {
-  display: grid;
-  grid-template-columns: 94px minmax(0, 1fr) auto;
-  gap: 24px;
-  align-items: start;
-  padding: 24px 0;
-  border-bottom: 1px solid var(--line);
-  transition: color 0.15s ease, padding-left 0.15s ease;
-}
-
-.post:hover {
-  color: var(--crimson);
-  padding-left: 8px;
-}
-
-.post__date {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--meta);
-  padding-top: 3px;
-}
-
-.post__title {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 21px;
-  font-weight: 600;
-  line-height: 1.22;
-  letter-spacing: -0.015em;
-  color: var(--ink);
-}
-
-.post:hover .post__title {
-  color: var(--crimson);
-}
-
-.post__description {
-  display: block;
-  margin-top: 6px;
-  color: var(--muted);
-  max-width: 70ch;
-}
-
-.post__tag {
-  justify-self: end;
-}
-
 /* Slide the band up behind the transparent header, the way the hero does, so
    the grid reaches the top of the page and the header sits on it instead of on
    bare paper. The matching top padding holds the heading where it was. */
@@ -791,24 +639,16 @@ body:has(.hero) {
   border-bottom: 1px solid var(--line);
 }
 
-.page-head + .section {
-  padding-top: 44px;
-}
-
 .page-title {
   max-width: 18ch;
   margin-top: 18px;
-  font-size: clamp(36px, 7vw, 60px);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.03;
 }
 
 .page-lede {
   max-width: 64ch;
   margin-top: 24px;
-  font-size: 18px;
-  line-height: 1.62;
+  font-size: var(--fs-lede);
+  line-height: var(--lh-body);
   color: var(--ink-2);
 }
 
@@ -819,114 +659,6 @@ body:has(.hero) {
   margin-top: 28px;
 }
 
-.article__head {
-  padding-block: 24px 0;
-}
-
-.article__category {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 20px;
-}
-
-.article__title {
-  font-size: clamp(34px, 6vw, 50px);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.06;
-  margin-bottom: 22px;
-}
-
-.article__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: center;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--meta);
-  padding-bottom: 26px;
-  border-bottom: 1px solid var(--hairline);
-}
-
-.article__meta .by {
-  color: var(--muted);
-}
-
-.prose {
-  padding-block: 36px 0;
-}
-
-.prose > * + * {
-  margin-top: 22px;
-}
-
-.prose p,
-.prose li {
-  font-size: 18px;
-  line-height: 1.72;
-  color: var(--ink-2);
-}
-
-.prose h2 {
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: -0.018em;
-  line-height: 1.14;
-  margin-top: 44px;
-}
-
-.prose ul,
-.prose ol {
-  padding-left: 1.3rem;
-}
-
-.prose a {
-  color: var(--crimson);
-  border-bottom: 1px solid rgba(212, 42, 60, 0.35);
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.prose a:hover {
-  color: var(--crimson-dark);
-  border-bottom-color: var(--crimson-dark);
-}
-
-.prose code {
-  font-family: var(--font-mono);
-  font-size: 0.86em;
-  background: var(--code-background);
-  color: var(--code-accent);
-  padding: 2px 6px;
-  border-radius: 5px;
-}
-
-.prose pre {
-  overflow-x: auto;
-  background: var(--code-background);
-  color: var(--code-text);
-  border-radius: var(--radius-code);
-  padding: 16px;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.75;
-  box-shadow: var(--shadow);
-}
-
-.prose pre code {
-  padding: 0;
-  background: transparent;
-  color: inherit;
-}
-
 /* Fixed, so it reads as a status bar under the page rather than an end to it.
    Body padding keeps the strip clear, so nothing is ever hidden behind it. */
 .site-footer {
@@ -935,7 +667,7 @@ body:has(.hero) {
   z-index: 40;
   height: var(--footer-height);
   background: var(--ink);
-  border-top: 1px solid var(--masthead-rule);
+  border-top: 1px solid var(--mast-line);
 }
 
 .site-footer__inner {
@@ -952,7 +684,7 @@ body:has(.hero) {
   font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.5;
-  color: var(--meta-on-dark);
+  color: var(--mast-meta);
   margin: 0;
 }
 
@@ -978,10 +710,6 @@ body:has(.hero) {
     height: 300px;
   }
 
-  .projects {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .hero__main {
     padding: 48px 32px 52px;
   }
@@ -1004,28 +732,10 @@ body:has(.hero) {
     padding-block: 44px;
   }
 
-  .projects {
-    grid-template-columns: 1fr;
-  }
-
   .nav {
     gap: 14px;
     flex-wrap: wrap;
     justify-content: flex-end;
-  }
-
-  .post {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .post__tag {
-    justify-self: start;
-  }
-
-  .prose p,
-  .prose li {
-    font-size: 17px;
   }
 }
 
@@ -1064,37 +774,4 @@ body:has(.hero) {
     opacity: 1 !important;
     transform: none !important;
   }
-}
-
-/* ============================================================
-   Page entrances — each destination has its own animation.
-   ============================================================ */
-@keyframes riseIn {
-  from { opacity: 0; transform: translateY(18px); }
-  to { opacity: 1; transform: none; }
-}
-
-@keyframes popIn {
-  from { opacity: 0; transform: translateY(26px) scale(0.96); }
-  to { opacity: 1; transform: none; }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  /* HOME has no page-level entrance. The hero motion module owns that run. */
-
-  /* WRITING — a calm rise */
-  [data-page="writing"] main {
-    animation: riseIn 0.6s both ease-out;
-  }
-
-  /* PROJECTS — header rises, then the cards deal in with a stagger.
-     The tail is clamped so no card is held at opacity 0 for more than 300ms,
-     and any card past the third joins that tail instead of leading the deal. */
-  [data-page="projects"] .page-head { animation: riseIn 0.5s both ease-out; }
-  [data-page="projects"] .project { animation: popIn 0.55s both cubic-bezier(0.22, 1, 0.36, 1); }
-  [data-page="projects"] .project:nth-child(1) { animation-delay: 0.06s; }
-  [data-page="projects"] .project:nth-child(2) { animation-delay: 0.14s; }
-  [data-page="projects"] .project:nth-child(3) { animation-delay: 0.22s; }
-  [data-page="projects"] .project:nth-child(n + 4) { animation-delay: 0.3s; }
-
 }
