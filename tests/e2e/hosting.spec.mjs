@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { permissionsPolicy } from "../helpers.mjs";
 import { settle, VIEWPORTS } from "./fixtures.mjs";
 
 for (const [path, status] of [["/", 200], ["/missing-hosting-check/", 404]]) {
@@ -10,7 +11,7 @@ for (const [path, status] of [["/", 200], ["/missing-hosting-check/", 404]]) {
     expect(headers["x-content-type-options"]).toBe("nosniff");
     expect(headers["x-frame-options"]).toBe("DENY");
     expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
-    expect(headers["permissions-policy"]).toBe("camera=(), microphone=(), geolocation=()");
+    expect(headers["permissions-policy"]).toBe(permissionsPolicy);
     expect(headers["strict-transport-security"]).toBe("max-age=31536000");
     expect(headers["content-security-policy"]).toContain("default-src 'self'");
     expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
@@ -72,11 +73,24 @@ test("Cloudflare compresses built scripts and gives them an immutable cache", as
 });
 
 test("Cloudflare does not serve configuration files or directory listings", async ({ request }) => {
-  for (const path of ["/_headers", "/_redirects", "/.htaccess", "/.env", "/_astro/", "/images/"]) {
+  for (const path of ["/_headers", "/_redirects", "/.htaccess", "/.env", "/.well-known/.env", "/_astro/", "/images/"]) {
     const response = await request.get(path, { maxRedirects: 0 });
     expect(response.status(), path).toBe(404);
     expect(await response.text(), path).toContain("Page not found");
   }
+});
+
+test("Cloudflare serves the security contact as plain text", async ({ request }) => {
+  const response = await request.get("/.well-known/security.txt", { maxRedirects: 0 });
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toMatch(/^text\/plain(?:;|$)/);
+  expect(response.headers()["cache-control"]).toBe("public, max-age=3600");
+  expect(await response.text()).toContain("Contact: https://github.com/cristianvega-ai/cristianvega.ai/security/advisories/new");
+});
+
+test("Cloudflare rejects POST requests to the static homepage", async ({ request }) => {
+  const response = await request.post("/", { maxRedirects: 0 });
+  expect(response.status()).toBe(405);
 });
 
 for (const [name, viewport] of Object.entries(VIEWPORTS)) {
