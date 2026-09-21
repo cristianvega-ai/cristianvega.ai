@@ -12,6 +12,14 @@ import assert from "node:assert/strict";
 export const root = fileURLToPath(new URL("..", import.meta.url));
 export const dist = join(root, "dist");
 
+export const blockedBrowserFeatures = [
+  "accelerometer", "autoplay", "camera", "display-capture", "encrypted-media",
+  "fullscreen", "geolocation", "gyroscope", "magnetometer", "microphone",
+  "midi", "payment", "picture-in-picture", "screen-wake-lock", "usb",
+  "xr-spatial-tracking",
+];
+export const permissionsPolicy = blockedBrowserFeatures.map((name) => `${name}=()`).join(", ");
+
 export function readDistFile(...segments) {
   return readFileSync(join(dist, ...segments), "utf8");
 }

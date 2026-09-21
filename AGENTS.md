@@ -27,7 +27,7 @@ edit, you are writing as an engineer.
 - Prefer `rg` and `rg --files` for discovery.
 - Follow existing patterns unless a change explicitly requires a new one.
 - Preserve user changes in a dirty worktree and avoid unrelated cleanup.
-- Treat `AGENTS.md` as the canonical repository policy. Tool-specific instruction files must point here instead of duplicating these rules.
+- Treat `AGENTS.md` as the canonical repository policy. It is the only instruction file in this repository. A tool-specific file must point here instead of duplicating these rules.
 
 ## Project Map
 
@@ -166,6 +166,11 @@ Adding focused tests for requested behavior does not require separate approval. 
 
 - Create focused branches using `feature/<description>`, `fix/<description>`, `documentation/<description>`, `test/<description>`, or `chore/<description>`.
 - Keep commits atomic, reviewable, and limited to one coherent purpose.
+- Stage files by explicit path. Never run `git add -A` or `git add .`. A
+  stage-all also adds each private file that `.gitignore` does not cover.
+- Confirm what you staged before you write the message. `git add` fails as a
+  whole if one path does not match. This has produced a commit that holds
+  one file under a message that describes ten.
 - Use imperative commit subjects with complete-word prefixes:
   - `feature:` for user-facing functionality;
   - `fix:` for defect corrections;
