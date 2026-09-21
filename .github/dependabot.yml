@@ -13,3 +13,8 @@ updates:
       interval: weekly
     commit-message:
       prefix: "chore"
+    # TypeScript 7 lacks the API that astro check needs.
+    # @astrojs/check accepts TypeScript 5 or 6. Ignore 7.x until that range opens.
+    ignore:
+      - dependency-name: "typescript"
+        versions: ["^7.0.0"]
