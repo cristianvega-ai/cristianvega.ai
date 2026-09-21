@@ -228,6 +228,34 @@ page when the script is blocked. The content and navigation must still work.
 See Cloudflare's [installation guide](https://developers.cloudflare.com/web-analytics/get-started/)
 and [security policy guidance](https://developers.cloudflare.com/web-analytics/faq/#what-do-i-need-to-add-to-my-content-security-policy-csp).
 
+## Security maintenance
+
+GitHub dependency alerts, security update pull requests, CodeQL default setup,
+and private vulnerability reporting must stay enabled. Dependabot checks npm
+packages and GitHub Actions each week. Review each update before merge.
+
+`public/.well-known/security.txt` directs reports to GitHub's private form.
+`SECURITY.md` explains that process. Renew the file's `Expires` date before it
+passes. Keep the next date within one year. The build and live gates reject
+an expired record.
+
+The CSP blocks inline style elements and attributes. Astro writes stylesheets
+to files. The motion code sets individual style properties through JavaScript;
+the browser permits these changes under the policy. Browser tests confirm that
+motion works and that injected inline styles are blocked. The Permissions
+Policy also denies unused browser features, including device and payment access.
+
+Cloudflare account settings are separate from the repository. Set the minimum
+TLS version to 1.2 and keep TLS 1.3 enabled. Enable DNSSEC in Cloudflare, then
+publish its DS record at the domain registrar. Confirm DNSSEC after both steps.
+See the [TLS setting](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/minimum-tls/)
+and [DNSSEC setup](https://developers.cloudflare.com/dns/dnssec/#enable-dnssec).
+
+Keep HSTS limited to the current host until every subdomain has been checked.
+HSTS preload is optional. It is not a requirement for this deployment.
+Keep dated audit reports in a private local archive. Do not commit them or
+copy them into `public/`.
+
 ## Image derivatives
 
 Requires `sharp` (devDependency).

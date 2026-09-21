@@ -4,7 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { dist, readDistFile, root } from "./helpers.mjs";
+import { dist, permissionsPolicy, readDistFile, root } from "./helpers.mjs";
 
 // Check the compiled policy. Browser tests check Cloudflare's response.
 const headerRules = readDistFile("_headers");
@@ -22,7 +22,7 @@ test("Cloudflare keeps the security headers on all static paths", () => {
     "X-Content-Type-Options: nosniff",
     "X-Frame-Options: DENY",
     "Referrer-Policy: strict-origin-when-cross-origin",
-    "Permissions-Policy: camera=(), microphone=(), geolocation=()",
+    `Permissions-Policy: ${permissionsPolicy}`,
     "Strict-Transport-Security: max-age=31536000",
   ]) assert.ok(block.includes(line), `missing ${line}`);
   assert.doesNotMatch(block, /includeSubDomains/);
@@ -43,7 +43,7 @@ test("Cloudflare test addresses stay out of search results", () => {
   assert.match(headerBlock("https://:worker.:account.workers.dev/*"), /X-Robots-Tag: noindex/);
 });
 
-test("Cloudflare CSP denies inline scripts while allowing inline styles", () => {
+test("Cloudflare CSP blocks unapproved inline scripts and styles", () => {
   const headers = readDistFile("_headers");
   const csp = headers.match(/Content-Security-Policy: ([^\n]+)/)?.[1];
   assert.ok(csp, "CSP header must be present");
@@ -61,7 +61,8 @@ test("Cloudflare CSP denies inline scripts while allowing inline styles", () => 
   }
 
   const styleSrc = csp.match(/style-src\s+([^;]+)/)?.[1] ?? "";
-  assert.match(styleSrc, /'unsafe-inline'/, "style-src keeps unsafe-inline for Astro CSS");
+  assert.equal(styleSrc.trim(), "'self'", "stylesheets must come from this site");
+  assert.match(csp, /(?:^|;)\s*style-src-attr 'none'(?:;|$)/);
 
   // Every *executable* inline script the build ships must be allow-listed by
   // hash, so no page can quietly require 'unsafe-inline' back. Script elements
@@ -92,8 +93,9 @@ test("Cloudflare CSP denies inline scripts while allowing inline styles", () => 
   const dataBlockTypes = new Set();
   for (const file of htmlFiles) {
     const html = readFileSync(file, "utf8");
+    assert.doesNotMatch(html, /<style\b|<[^>]+\sstyle\s*=/i, `${file} must not contain inline styles`);
     for (const [, attributes, body] of html.matchAll(
-      /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/gi,
+      /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script\s*>/gi,
     )) {
       const type = (attributes.match(/\btype=["']([^"']*)["']/i)?.[1] ?? "").toLowerCase().trim();
       if (!executableTypes.has(type)) {
@@ -166,11 +168,6 @@ test("the security policy allows the Cloudflare script and beacon endpoint", () 
   const connectSrc = csp.match(/connect-src\s+([^;]+)/)?.[1]?.trim();
   assert.ok(connectSrc, "CSP must declare connect-src");
   const tokens = connectSrc.split(/\s+/);
-  assert.ok(tokens.includes("'self'"), "connect-src must keep 'self'");
-  assert.ok(
-    tokens.includes("https://cloudflareinsights.com"),
-    "connect-src must allow the Cloudflare beacon endpoint over HTTPS",
-  );
   assert.deepEqual(
     [...tokens].sort(),
     ["'self'", "https://cloudflareinsights.com"],
@@ -202,8 +199,7 @@ test("Cloudflare CSP hosts fonts and styles from this origin only", () => {
   const styleSrc = csp.match(/style-src\s+([^;]+)/)?.[1]?.trim();
   assert.ok(styleSrc, "CSP must declare style-src");
   const styleTokens = styleSrc.split(/\s+/);
-  assert.ok(styleTokens.includes("'self'"), "style-src must keep 'self'");
-  assert.ok(styleTokens.includes("'unsafe-inline'"), "style-src keeps unsafe-inline for Astro CSS");
+  assert.deepEqual(styleTokens, ["'self'"], "stylesheets must come from this site");
   assert.equal(
     styleTokens.some((token) => /googleapis|gstatic|fonts\./i.test(token)),
     false,
@@ -215,4 +211,14 @@ test("Cloudflare CSP hosts fonts and styles from this origin only", () => {
     /fonts\.googleapis\.com|fonts\.gstatic\.com/,
     "the CSP must not name Google Fonts hosts",
   );
+});
+
+test("security.txt gives a private report contact and a valid expiry date", () => {
+  const record = readDistFile(".well-known", "security.txt");
+  assert.match(record, /^Contact: https:\/\/github\.com\/cristianvega-ai\/cristianvega\.ai\/security\/advisories\/new$/m);
+  assert.match(record, /^Canonical: https:\/\/cristianvega\.ai\/\.well-known\/security\.txt$/m);
+  assert.match(record, /^Policy: https:\/\/github\.com\/cristianvega-ai\/cristianvega\.ai\/security\/policy$/m);
+  const expires = Date.parse(record.match(/^Expires: (.+)$/m)?.[1] ?? "");
+  assert.ok(expires > Date.now(), "security.txt must not be expired");
+  assert.ok(expires < Date.now() + 366 * 24 * 60 * 60 * 1000, "renew security.txt within one year");
 });

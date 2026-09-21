@@ -74,7 +74,10 @@ for (const origin of ["http://localhost:4323", "https://cristianvega-ai.preview.
     await installBeaconProbe(page);
     const requests = [];
     page.on("request", (request) => {
-      if (request.url().includes("cloudflareinsights.com")) requests.push(request.url());
+      const host = new URL(request.url()).hostname;
+      if (host === "cloudflareinsights.com" || host.endsWith(".cloudflareinsights.com")) {
+        requests.push(request.url());
+      }
     });
     await page.goto(origin, { waitUntil: "networkidle" });
     await expect(page.locator('script[src*="CloudflareAnalytics"]')).toHaveCount(1);

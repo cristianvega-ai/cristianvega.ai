@@ -133,7 +133,7 @@ function findUngatedHides(rules, scripts) {
  */
 function shippedScripts() {
   const html = readFileSync(join(dist, "index.html"), "utf8");
-  const inline = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+  const inline = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)]
     .filter(([, attributes]) => !/\bsrc=/i.test(attributes))
     .map(([, , body]) => body);
 

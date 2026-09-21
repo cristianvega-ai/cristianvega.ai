@@ -231,7 +231,7 @@ test("the build contains only approved static files and Cloudflare rules", () =>
   const files = listDistFiles();
   assert.ok(files.length >= 15, "expected the full static build");
   for (const rel of files) {
-    if (["_headers", "_redirects"].includes(rel)) continue;
+    if (["_headers", "_redirects", ".well-known/security.txt"].includes(rel)) continue;
     const parts = rel.split("/");
     for (const part of parts) {
       assert.ok(!part.startsWith("."), `${rel}: hidden names must not be published`);
@@ -245,7 +245,7 @@ test("the build contains only approved static files and Cloudflare rules", () =>
     // The package is ustar; a plain ustar name holds 100 bytes.
     assert.ok(rel.length <= 100, `${rel}: longer than a ustar name (100); switch the package to --format=posix`);
   }
-  for (const required of ["_headers", "_redirects", "index.html", "404.html", "robots.txt", "sitemap-index.xml"]) {
+  for (const required of ["_headers", "_redirects", ".well-known/security.txt", "index.html", "404.html", "robots.txt", "sitemap-index.xml"]) {
     assertDistPath(required);
   }
 });

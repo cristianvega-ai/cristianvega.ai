@@ -130,6 +130,22 @@ async function main() {
   if (/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(csp)) {
     fail("CSP still names a Google Fonts host");
   }
+  const directives = new Map(csp.split(";").map((part) => {
+    const [name, ...sources] = part.trim().split(/\s+/);
+    return [name, sources.join(" ")];
+  }));
+  if (directives.get("style-src") !== "'self'" || directives.get("style-src-attr") !== "'none'") {
+    fail("CSP must block inline styles and use only same-origin stylesheets");
+  }
+  const permissions = (home.headers.get("permissions-policy") ?? "").split(",").map((part) => part.trim());
+  for (const feature of [
+    "accelerometer", "autoplay", "camera", "display-capture", "encrypted-media",
+    "fullscreen", "geolocation", "gyroscope", "magnetometer", "microphone",
+    "midi", "payment", "picture-in-picture", "screen-wake-lock", "usb",
+    "xr-spatial-tracking",
+  ]) {
+    if (!permissions.includes(`${feature}=()`)) fail(`Permissions-Policy must deny ${feature}`);
+  }
 
   const missingPath = `${origin}/__deploy-gate-missing-path__/`;
   let notFound;
@@ -151,6 +167,36 @@ async function main() {
   } else {
     console.log("verify-deploy: missing path returns HTTP 404");
   }
+  for (const name of REQUIRED_HEADERS) {
+    if (notFound.headers.get(name) !== home.headers.get(name)) {
+      fail(`404 response must keep the homepage ${name} header`);
+    }
+  }
+  await notFound.body?.cancel();
+
+  const post = await fetch(`${origin}/`, {
+    method: "POST",
+    redirect: "manual",
+    signal: AbortSignal.timeout(15_000),
+    headers: { "user-agent": USER_AGENT },
+  });
+  if (post.status !== 405) fail("the static homepage must reject POST with HTTP 405");
+  await post.body?.cancel();
+
+  const security = await fetch(`${origin}/.well-known/security.txt`, {
+    redirect: "manual",
+    signal: AbortSignal.timeout(15_000),
+    headers: { "user-agent": USER_AGENT },
+  });
+  const record = await security.text();
+  const expires = Date.parse(record.match(/^Expires: (.+)$/m)?.[1] ?? "");
+  if (security.status !== 200 || !/^text\/plain(?:;|$)/.test(security.headers.get("content-type") ?? "")) {
+    fail("security.txt must return HTTP 200 as plain text");
+  }
+  if (!/^Contact: https:\/\/github\.com\/cristianvega-ai\/cristianvega\.ai\/security\/advisories\/new$/m.test(record)) {
+    fail("security.txt must give the private report contact");
+  }
+  if (!(expires > Date.now())) fail("security.txt must have a future expiry date");
 
   const html = await home.text();
   if (process.env.EXPECTED_INDEX) {
