@@ -95,7 +95,7 @@ test("Cloudflare CSP blocks unapproved inline scripts and styles", () => {
     const html = readFileSync(file, "utf8");
     assert.doesNotMatch(html, /<style\b|<[^>]+\sstyle\s*=/i, `${file} must not contain inline styles`);
     for (const [, attributes, body] of html.matchAll(
-      /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script\s*>/gi,
+      /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi,
     )) {
       const type = (attributes.match(/\btype=["']([^"']*)["']/i)?.[1] ?? "").toLowerCase().trim();
       if (!executableTypes.has(type)) {
