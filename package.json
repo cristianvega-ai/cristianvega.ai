@@ -17,7 +17,7 @@
     "generate:touch-icon": "node scripts/generate-touch-icon.mjs"
   },
   "dependencies": {
-    "@astrojs/sitemap": "^3.7.3",
+    "@astrojs/sitemap": "^3.7.4",
     "astro": "^7.3.3"
   },
   "devDependencies": {
