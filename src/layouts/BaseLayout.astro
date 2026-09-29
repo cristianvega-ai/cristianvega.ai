@@ -1,14 +1,17 @@
 ---
 import "../styles/global.css";
 import CloudflareAnalytics from "../components/CloudflareAnalytics.astro";
+import { getPosts } from "../lib/blog";
+import { getProducts } from "../lib/products";
 import plexSans400 from "../assets/fonts/ibm-plex-sans-latin-400.woff2?url";
 import geist from "../assets/fonts/geist-latin-600.woff2?url";
 
 interface Props {
   title?: string;
   description?: string;
-  active?: "home" | "error";
+  active?: "home" | "about" | "blog" | "post" | "products" | "product" | "error";
   noindex?: boolean;
+  published?: string;
 }
 
 const {
@@ -16,12 +19,32 @@ const {
   description = "AI engineering leader building agentic AI and multi-agent platforms for regulated domains, and the engineering organizations that ship them.",
   active = "home",
   noindex = false,
+  published,
 } = Astro.props;
 
 const buildYear = new Date().getFullYear();
 const pageTitle = title.includes("Cristian Vega") ? title : `${title} · Cristian Vega`;
 const siteOrigin = Astro.site ?? new URL("https://cristianvega.ai");
 const canonicalUrl = new URL(Astro.url.pathname, siteOrigin).toString();
+// Writing shows when a post is visible. The writing pages keep their own link.
+const showWriting = active === "blog" || active === "post" || (await getPosts()).length > 0;
+// Products show the same way: the link appears when a product is visible.
+const showProducts = active === "products" || active === "product" || (await getProducts()).length > 0;
+const internalLinks: { label: string; href: string; current?: "page" | "location" }[] = [
+  { label: "about", href: "/about/", current: active === "about" ? ("page" as const) : undefined },
+  ...(showWriting
+    ? [{ label: "writing", href: "/writing/", current: active === "blog" ? ("page" as const) : active === "post" ? ("location" as const) : undefined }]
+    : []),
+  ...(showProducts
+    ? [{ label: "products", href: "/products/", current: active === "products" ? ("page" as const) : active === "product" ? ("location" as const) : undefined }]
+    : []),
+];
+const profileLinks = [
+  { label: "linkedin", href: "https://www.linkedin.com/in/cristianvega-ai" },
+  { label: "x", href: "https://x.com/cristianvega" },
+  { label: "github", href: "https://github.com/cristianvega-ai" },
+];
+const themeColor = "#14181F";
 // Dedicated 1200×630 share card (see scripts/generate-portrait.mjs); not the square master.
 const ogImageWidth = 1200;
 const ogImageHeight = 630;
@@ -61,41 +84,16 @@ const structuredData = {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    {
-      active === "home" && (
-        <script is:inline>
-          // Stamp before first paint so cold loads never flash readable hero copy.
-          // Release at 1200 ms (PREHIDE_DEADLINE_MS). If the entrance has not
-          // started, mark expired so a late module cannot hide the copy.
-          // FAILSAFE_DURATION covers a playing run only. No-JS leaves both
-          // attributes unset.
-          (function () {
-            try {
-              if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-              if (sessionStorage.getItem("cristianvega:hero-motion:v1") === "1") return;
-              document.documentElement.setAttribute("data-hero-motion-pending", "");
-              window.setTimeout(function () {
-                document.documentElement.removeAttribute("data-hero-motion-pending");
-                var hero = document.querySelector(".hero");
-                if (!hero || hero.getAttribute("data-motion-state") !== "playing") {
-                  document.documentElement.setAttribute("data-hero-motion-expired", "");
-                }
-              }, 1200);
-            } catch (_) {
-              /* private mode / blocked storage: skip pre-hide */
-            }
-          })();
-        </script>
-      )
-    }
-    <meta name="color-scheme" content="light" />
-    <meta name="theme-color" content="#F1F3F6" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content={themeColor} />
     <title>{pageTitle}</title>
     <meta name="description" content={description} />{noindex && <meta name="robots" content="noindex, follow" />}
     <link rel="canonical" href={canonicalUrl} />
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={active === "post" ? "article" : "website"} />
+    {published && <meta property="article:published_time" content={published} />}
+    {active === "post" && <meta name="author" content={siteName} />}
     {!noindex && <meta property="og:url" content={canonicalUrl} />}
     <meta property="og:site_name" content={siteName} />
     <meta property="og:image" content={ogImageUrl} />
@@ -107,7 +105,7 @@ const structuredData = {
     <meta name="twitter:image" content={ogImageUrl} />
     <meta name="twitter:image:alt" content={ogImageAlt} />
     {/* Preload only the faces measurement showed on the critical path: IBM
-        Plex Sans 400 roman is the homepage LCP (profile copy), Geist 600 is
+        Plex Sans 400 roman is the homepage LCP (intro copy), Geist 600 is
         the display heading. Mono 400/500/600 and Plex Sans 400 italic paint
         later and are left to CSS discovery. crossorigin is required for font
         preloads. */}
@@ -127,10 +125,26 @@ const structuredData = {
         </a>
 
         <nav class="nav" aria-label="Primary">
-          <a class="nav__link" href="https://www.linkedin.com/in/cristianvega-ai" rel="me noopener noreferrer" target="_blank">linkedin</a>
-          <a class="nav__link" href="https://x.com/cristianvega" rel="me noopener noreferrer" target="_blank">x</a>
-          <a class="nav__link" href="https://github.com/cristianvega-ai" rel="me noopener noreferrer" target="_blank">github</a>
+          {internalLinks.map((link, index) => (
+            <a class={index === internalLinks.length - 1 ? "nav__link nav__link--divided" : "nav__link"} href={link.href} aria-current={link.current}>{link.label}</a>
+          ))}
+          {profileLinks.map((link) => (
+            <a class="nav__link" href={link.href} rel="me noopener noreferrer" target="_blank">{link.label}</a>
+          ))}
         </nav>
+
+        <details class="nav-menu">
+          <summary class="nav-menu__toggle">menu</summary>
+          <nav class="nav-menu__panel" aria-label="Menu">
+            {internalLinks.map((link) => (
+              <a class="nav-menu__link" href={link.href} aria-current={link.current}>{link.label}</a>
+            ))}
+            <div class="nav-menu__rule" role="presentation"></div>
+            {profileLinks.map((link) => (
+              <a class="nav-menu__link" href={link.href} rel="me noopener noreferrer" target="_blank">{link.label}</a>
+            ))}
+          </nav>
+        </details>
       </div>
     </header>
 
@@ -147,5 +161,22 @@ const structuredData = {
       </div>
     </footer>
     <CloudflareAnalytics />
+    <script>
+      // The menu closes on Escape, when focus leaves it, and on a click
+      // outside it. It still opens and closes without this script.
+      const menu = document.querySelector<HTMLDetailsElement>(".nav-menu");
+      menu?.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape" || !menu.open) return;
+        menu.open = false;
+        menu.querySelector("summary")?.focus();
+      });
+      menu?.addEventListener("focusout", (event) => {
+        const next = event.relatedTarget;
+        if (menu.open && next instanceof Node && !menu.contains(next)) menu.open = false;
+      });
+      document.addEventListener("pointerdown", (event) => {
+        if (menu?.open && event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
+      });
+    </script>
   </body>
 </html>

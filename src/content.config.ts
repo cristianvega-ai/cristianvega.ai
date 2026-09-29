@@ -1,0 +1,31 @@
+import { defineCollection } from "astro:content";
+import { z } from "astro/zod";
+import { glob } from "astro/loaders";
+
+const blog = defineCollection({
+  loader: glob({ pattern: "*.md", base: "./src/content/blog" }),
+  schema: z.object({
+    title: z.string().min(1),
+    description: z.string().min(1),
+    date: z.coerce.date(),
+    topic: z.string().min(1),
+    draft: z.boolean().default(true),
+    series: z.string().optional(),
+  }),
+});
+
+// Products stay drafts until the owner announces them. See README.md, "Products".
+const products = defineCollection({
+  loader: glob({ pattern: "*.md", base: "./src/content/products" }),
+  schema: z.object({
+    title: z.string().min(1),
+    description: z.string().min(1),
+    draft: z.boolean().default(true),
+    // Ascending. Products with the same order sort by title.
+    order: z.number().int().default(0),
+    url: z.url({ protocol: /^https$/ }).optional(),
+    status: z.string().min(1).optional(),
+  }),
+});
+
+export const collections = { blog, products };

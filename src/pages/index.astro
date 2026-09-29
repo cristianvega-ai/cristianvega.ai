@@ -1,62 +1,60 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import HeroMotion from "../components/HeroMotion.astro";
+import LyraGlobe from "../components/LyraGlobe.astro";
+import { getPosts } from "../lib/blog";
+import { getProducts } from "../lib/products";
+import "../styles/entries.css";
+import "../styles/home.css";
+
+// A card links to its section only when the section has something to show.
+// Until then the card is plain text with a "Coming soon" label, so the page
+// never points at a route the build does not emit.
+const paths = [
+  {
+    title: "Writing",
+    href: "/writing/",
+    line: "Notes on production AI, engineering, and the systems around them.",
+    live: (await getPosts()).length > 0,
+  },
+  {
+    title: "Products",
+    href: "/products/",
+    line: undefined,
+    live: (await getProducts()).length > 0,
+  },
+];
 ---
 
 <BaseLayout active="home">
   <main>
-    <section class="hero">
-      <div class="hero__grid">
-        <HeroMotion />
-        <div class="hero__chart-col"></div>
+    <section class="hero" aria-labelledby="home-title">
+      <div class="hero__stage wrap">
         <div class="hero__main">
-          <p class="eyebrow hero__eyebrow" data-motion-target="eyebrow">AI Engineering Leader · Agentic&nbsp;Systems</p>
-          <h1 class="hero__name">
-            <span data-motion-target="name">Cristian </span><span class="highlight" data-motion-target="highlight">Vega</span>
-          </h1>
+          <p class="eyebrow eyebrow--parts hero__eyebrow"><span class="eyebrow__part">AI Engineering Leader</span> <span class="eyebrow__part">Agentic&nbsp;Systems</span></p>
+          <h1 id="home-title" class="hero__name">Cristian <span class="highlight">Vega</span></h1>
           <p class="hero__lede">Ten years building software. The last five building production AI from the ground up.</p>
-
-          <div class="hero__profile">
-            <p>
-              I'm an AI engineering leader who never stopped building. I've set strategy, owned budget, and advised
-              executives on Responsible AI governance. The strategy work never replaced the engineering, as I
-              still design the systems and write production code myself.
-            </p>
-            <p>
-              My work has a consistent shape: take AI from a promising demo to a governed system with contracts,
-              evaluation, and a unit cost.
-            </p>
-            <ul class="hero__principles">
-              <li>Deterministic execution wherever it will do the job.</li>
-              <li>Models only where reasoning is genuinely required.</li>
-              <li>Reusable building blocks instead of one-off pipelines.</li>
-              <li>Instrumentation on everything, so quality is a number rather than an opinion.</li>
-            </ul>
-            <p>
-              At Patra that shape scaled document intelligence to 12,000 documents and 400,000+ data points a
-              month, at mid-90s accuracy across 14+ lines of business and $0.20 per document.
-            </p>
-            <p>
-              I build organizations the same way. I founded Patra's AI engineering function with no
-              infrastructure and no playbook, grew it to a peak of 100 people, and owned the budget down to the
-              cost of a single policy check.
-            </p>
-            <p>
-              Nearly all of that work has been in regulated environments: four and a half years shipping digital
-              banking at BBVA, then insurance, where compliance shapes the architecture instead of sitting on top
-              of it.
-            </p>
-            <p>
-              Now I'm at Vertafore.
-            </p>
-            <p>
-              On my own time I designed and built OpenCatalyst, a local-first multi-agent AI desktop. It runs to
-              60K lines of Rust and TypeScript, written agent-first in three weeks to prove the method I ask my
-              teams to use. I'm a named inventor on U.S. Patent 12,639,972 B2.
-            </p>
-          </div>
+          <p class="hero__thesis">
+            My work has a consistent shape: take AI from a promising demo to a governed system with contracts,
+            evaluation, and a unit cost.
+          </p>
+          <p class="hero__more"><a class="text-link" href="/about/">More about me →</a></p>
         </div>
+        <div class="hero__globe"><LyraGlobe /></div>
       </div>
+      <ul class="paths wrap" aria-label="Writing and products">
+        {paths.map((path) => {
+          const Card = path.live ? "a" : "div";
+          return (
+            <li class="paths__item">
+              <Card class="path" data-state={path.live ? "live" : "soon"} href={path.live ? path.href : undefined}>
+                <span class="path__title">{path.title}</span>
+                {path.line && <span class="path__line">{path.line}</span>}
+                <span class="path__status">{path.live ? <>Explore <span class="path__arrow" aria-hidden="true">→</span></> : "Coming soon"}</span>
+              </Card>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   </main>
 </BaseLayout>

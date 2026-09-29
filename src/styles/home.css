@@ -1,0 +1,709 @@
+/* The homepage is one screen: the intro, the Lyra globe, and two cards that
+   point at Writing and Products. Nothing scrolls. The page sits on ink. The
+   blueprint grid shows only around the globe and fades to nothing toward the
+   intro, the header, the footer, and every edge of its layer, so the text sits
+   on a calm ground and no line ends on a hard edge. The dark header rules are
+   in global.css. */
+body[data-page="home"] {
+  /* The grid is faded, so its lines can be a little stronger where it shows. */
+  --grid-line: rgba(255, 255, 255, 0.09);
+  --grid-mask: radial-gradient(
+    ellipse closest-side at 50% 50%,
+    #000 0 40%,
+    rgb(0 0 0 / .82) 52%,
+    rgb(0 0 0 / .55) 62%,
+    rgb(0 0 0 / .32) 72%,
+    rgb(0 0 0 / .16) 81%,
+    rgb(0 0 0 / .06) 88%,
+    transparent 94%
+  );
+  --grid-image:
+    repeating-linear-gradient(180deg, transparent 0 39px, var(--grid-line) 39px 40px),
+    repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line) 39px 40px);
+  background-color: var(--ink);
+}
+
+/* No scrolling here, so the header has nothing to stay above. It sits on the
+   same ground as the page, with no hairline under it. Every other page keeps
+   the sticky header and its hairline. */
+html body[data-page="home"] .site-header {
+  position: relative;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* The footer bar keeps the ink ground and has no border. The grid never
+   reaches it, so the bar and the page read as one ground. */
+html body[data-page="home"] .site-footer {
+  border-top: 0;
+}
+
+/* The homepage does not scroll, so it needs no fade and holds no extra room. */
+html body[data-page="home"] {
+  --footer-fade: 0px;
+}
+
+body[data-page="home"] .site-footer::before {
+  display: none;
+}
+
+body[data-page="home"] #main-content,
+body[data-page="home"] main {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero {
+  position: relative;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: clip;
+  /* The grid layer measures the width of the hero, so its lines line up with
+     the content edge whatever the width of the screen. */
+  container-type: inline-size;
+  color: var(--mast-text);
+}
+
+.hero > .wrap {
+  position: relative;
+  width: 100%;
+}
+
+.hero__stage {
+  position: relative;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  align-items: center;
+  gap: 24px 32px;
+  padding-block: 8px 20px;
+}
+
+.hero__main {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.hero__eyebrow {
+  color: var(--sky);
+  margin-bottom: 16px;
+}
+
+.hero__name {
+  margin-bottom: 14px;
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .hero__name .highlight {
+    background: var(--grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    padding-bottom: 0;
+  }
+}
+
+/* A quiet line under the name, not a second headline competing with it. */
+.hero__lede {
+  max-width: 46ch;
+  font-size: 17px;
+  font-style: italic;
+  line-height: 1.5;
+  text-wrap: balance;
+  color: var(--mast-meta);
+}
+
+.hero__thesis {
+  max-width: 50ch;
+  margin-top: 22px;
+  font-size: 17px;
+  line-height: 1.7;
+  text-wrap: pretty;
+  color: color-mix(in srgb, var(--mast-text) 82%, transparent);
+}
+
+.hero__more {
+  margin-top: 8px;
+}
+
+.hero__more .text-link {
+  display: inline-block;
+  padding-block: 8px;
+  font-size: 14px;
+}
+
+/* The globe sits in the right of the frame. It may run past the frame's right
+   edge by --globe-bleed, into the margin the frame leaves at wide widths. The
+   height cap keeps it clear of the cards on a short screen. --cards-height is
+   the room the cards take. */
+.hero__globe {
+  --globe-bleed: 0px;
+  --globe-max: 720px;
+  --cards-height: 130px;
+  /* How far the grid layer runs past the globe box on the left and the right.
+     It stops at the screen edge: the globe box ends --globe-bleed past the
+     content edge, so the room that is left is the frame margin minus the
+     bleed. */
+  --grid-reach: clamp(0px, calc(max(0px, calc(50cqw - var(--frame) / 2)) + var(--frame-pad) - var(--globe-bleed)), 120px);
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  width: min(
+    calc(100% + var(--globe-bleed)),
+    var(--globe-max),
+    max(260px, calc((100svh - var(--header-height) - var(--footer-reserve) - var(--cards-height) - 44px) / .9013))
+  );
+  margin-right: calc(var(--globe-bleed) * -1);
+  justify-self: end;
+}
+
+/* The grid fades out behind the sphere, so the lines of the sphere read
+   against clean ink. The layer is decorative and takes no input. */
+.hero__globe::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 51%;
+  top: 49%;
+  width: 96%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--ink) 92%, transparent) 44%, transparent);
+  pointer-events: none;
+}
+
+/* The blueprint grid. The layer is one box around the globe, and one soft
+   ellipse in its mask, centred on the globe, makes the grid strongest at the
+   sphere. The ellipse reaches zero well inside the box, so the layer has no
+   visible edge and no line touches the intro, the cards, or a screen edge.
+   The lines line up with the content edge of the frame. A percent in a
+   background position is measured against the box minus the tile, so 100% is
+   the right edge of the box less 40px. The line is the last pixel of its
+   tile. The right edge of the box is the content edge plus the bleed plus the
+   reach, and the content edge is the frame padding plus the margin the frame
+   leaves at wide widths. */
+.hero__globe::after {
+  content: "";
+  position: absolute;
+  z-index: -2;
+  inset: -32px calc(var(--grid-reach) * -1);
+  background-image: var(--grid-image);
+  background-size: 40px 40px;
+  background-position:
+    calc(100% + var(--frame-pad) * 2 - min(var(--frame), 100cqw) - var(--globe-bleed) - var(--grid-reach) + 1px)
+    50%;
+  -webkit-mask-image: var(--grid-mask);
+  mask-image: var(--grid-mask);
+  pointer-events: none;
+}
+
+/* The svg is the picture. The canvas takes over once it is ready. The box is
+   a container, so the labels can drop the caption on a small globe. */
+.lyra-globe {
+  position: relative;
+  container-type: inline-size;
+  aspect-ratio: 1 / .9013;
+  overflow: clip;
+  pointer-events: none;
+}
+
+/* The picture has an empty margin on every side of the sphere. The box crops
+   it, so the sphere fills the box: the box shows 77% of the picture's width
+   and 83% of its height, and the sphere is 85% of the box wide. The picture
+   and the labels keep their full size and sit centred behind the crop. The
+   caption sits 7px above the bottom edge of the box. */
+.lyra-globe__fallback,
+.lyra-globe__canvas,
+.lyra-globe__labels {
+  position: absolute;
+  left: -15%;
+  top: -11.06%;
+  /* The base reset caps a picture at the width of its box. */
+  max-width: none;
+  width: 130%;
+  height: 120.19%;
+  pointer-events: none;
+}
+
+/* The canvas draws the entrance and ends on the finished picture. The box has
+   its size from the first paint, so nothing moves while the script loads. The
+   canvas stays hidden until it holds its first frame. Without JavaScript the
+   SVG in the noscript is the picture. The script copies the same SVG in when
+   canvas is missing. */
+.lyra-globe:not([data-ready]) .lyra-globe__canvas {
+  visibility: hidden;
+}
+
+/* The labels wait for the canvas, so they do not show over an empty box. The
+   fallback copy shows them at once. They fade in with the entrance, the name
+   last, as the star lights. */
+@media (scripting: enabled) {
+  .lyra-globe:not([data-ready], [data-fallback]) .lyra-globe__labels {
+    opacity: 0;
+  }
+}
+
+@keyframes lyra-label-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.lyra-globe[data-ready] .lyra-globe__label {
+  animation: lyra-label-in .7s ease-out .5s backwards;
+}
+
+.lyra-globe[data-ready] .lyra-globe__label:not(.lyra-globe__label--caption) {
+  animation-delay: 1.4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lyra-globe[data-ready] .lyra-globe__label {
+    animation: none;
+  }
+}
+
+.lyra-globe__star,
+.lyra-globe__edge {
+  fill: var(--mast-meta);
+  stroke: none;
+}
+
+.lyra-globe__edge {
+  fill: none;
+  stroke: var(--mast-meta);
+  stroke-width: .65;
+  stroke-linecap: round;
+}
+
+.lyra-globe__edge.is-hot {
+  stroke: var(--sky);
+  stroke-width: 1.1;
+}
+
+.lyra-globe__ring {
+  fill: none;
+  stroke: var(--sky);
+  stroke-width: .7;
+}
+
+.lyra-globe__node {
+  fill: var(--mast-text);
+}
+
+/* The labels are text over the picture, in their own svg with no viewBox. A
+   unit there is one CSS pixel, so the type keeps its size when the globe
+   shrinks. The svg and the canvas both sit under the same text. */
+.lyra-globe__labels {
+  overflow: visible;
+}
+
+.lyra-globe__label {
+  font: 400 10px var(--font-mono);
+  fill: var(--mast-text);
+}
+
+@container (min-width: 460px) {
+  .lyra-globe__label {
+    font-size: 11px;
+  }
+}
+
+/* Under 240px the caption would crowd the sphere. Vega keeps its name. */
+@container (max-width: 239px) {
+  .lyra-globe__label--caption {
+    display: none;
+  }
+}
+
+/* Two cards, one for each section, with one structure: the title and the
+   status on one row, and the description under them. A card is a link when
+   its section has something to show. Otherwise it is the same card with a
+   quieter face. Both cards hold two rows, the title row and the description
+   row. A card with no description leaves its second row empty, so its title
+   and status sit at the same height as its neighbour's and the two cards keep
+   one height. The padding is equal on every side. Each item is a size
+   container, so a card that is too narrow for the title and the status side
+   by side puts the status under the title. The two cards have one width, so
+   both make the same choice. */
+.paths {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 16px;
+  padding-block: 0 20px;
+  list-style: none;
+}
+
+.paths__item {
+  display: flex;
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.path {
+  position: relative;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "title status"
+    "line line";
+  grid-template-rows: auto auto;
+  align-content: start;
+  align-items: center;
+  gap: 6px 16px;
+  padding: 17px 22px;
+  color: var(--mast-text);
+  background: color-mix(in srgb, var(--ink-2) 72%, transparent);
+  border: 1px solid var(--mast-line);
+  border-radius: 6px;
+}
+
+@container (max-width: 259px) {
+  .path {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "title"
+      "status"
+      "line";
+    grid-template-rows: auto;
+    justify-items: start;
+    row-gap: 4px;
+  }
+}
+
+.path__title {
+  grid-area: title;
+  font: 600 22px/1.2 var(--font-display);
+  letter-spacing: -.015em;
+}
+
+.path__line {
+  grid-area: line;
+  max-width: 60ch;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--mast-meta);
+  text-wrap: pretty;
+}
+
+/* The status. Both states set the same box: a row 26px tall with 12px mono
+   type. Only the colour, the edge, and the mark change. */
+.path__status {
+  grid-area: status;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  font: 500 12px/1 var(--font-mono);
+  color: var(--mast-meta);
+}
+
+/* Live: the edge carries sky, and the affordance is the word and an arrow.
+   The whole card is the target. On hover and on keyboard focus the edge and
+   the ground brighten, and the arrow steps right. */
+a.path {
+  border-color: color-mix(in srgb, var(--sky) 38%, transparent);
+  transition: border-color .2s ease, background-color .2s ease;
+}
+
+a.path .path__status {
+  color: var(--sky);
+}
+
+a.path .path__arrow {
+  display: inline-block;
+  font-size: 15px;
+  transition: transform .24s cubic-bezier(.2, .7, .2, 1);
+}
+
+a.path:hover,
+a.path:focus-visible {
+  border-color: var(--sky);
+  background: color-mix(in srgb, var(--sky) 9%, var(--ink-2));
+}
+
+a.path:hover .path__arrow,
+a.path:focus-visible .path__arrow {
+  transform: translateX(5px);
+}
+
+/* One clean ring, clear of the edge. The base rule rounds a focused element
+   to 4px, which would change the card's corners, so the radius is set back. */
+a.path:focus-visible {
+  outline: 2px solid var(--sky);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+/* Not a link yet: a solid, quieter edge, a title at 70% and a pill with a
+   dot for the status. It takes no hover and no focus. */
+.path[data-state="soon"] {
+  border-color: rgba(255, 255, 255, .14);
+}
+
+.path[data-state="soon"] .path__title {
+  color: color-mix(in srgb, var(--mast-text) 70%, transparent);
+}
+
+.path[data-state="soon"] .path__status {
+  padding-inline: 10px 11px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 999px;
+}
+
+.path[data-state="soon"] .path__status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mast-meta);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  a.path,
+  a.path .path__arrow {
+    transition: none;
+  }
+}
+
+/* Below 900px the intro stacks over the globe. The globe fills the room
+   between the intro and the cards, at most 760px wide. Its box is a size
+   container, so the picture measures the room and not the other way round.
+   The top padding grows with the screen height, so a tall tablet keeps its
+   intro clear of the header and does not pool all of its spare room under
+   the globe. */
+@media (max-width: 900px) {
+  .hero__stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: start;
+    row-gap: 0;
+    padding-block: clamp(16px, 3.6svh, 44px) 12px;
+  }
+
+  .hero__globe {
+    --globe-bleed: 0px;
+    container-type: size;
+    display: grid;
+    place-items: center;
+    align-self: stretch;
+    justify-self: stretch;
+    width: auto;
+    min-height: 0;
+    margin: 0;
+  }
+
+  .hero__globe .lyra-globe {
+    width: min(100cqw, 760px, calc(100cqh / .9013));
+  }
+
+  /* The stacked layout has no room on the right. The grid layer is the
+     globe's own band, between the intro and the cards, and it runs out to the
+     screen edges. Its mask is zero well inside every side, so no line reaches
+     the intro, the cards, or a screen edge. The band starts at the frame
+     padding, so the layer starts 20px or 32px further left, and one line lands
+     on the content edge. */
+  .hero__globe::after {
+    inset: 0 calc(var(--frame-pad) * -1);
+    background-position: calc(var(--frame-pad) - 39px) 50%;
+  }
+}
+
+/* Two cards side by side, as compact as they can be. The title and the status
+   share the top row when the card is wide enough and stack when it is not.
+   The description sits under them in small type. */
+@media (max-width: 600px) {
+  .paths {
+    gap: 10px;
+    padding-block: 0 18px;
+  }
+
+  .path {
+    gap: 4px 10px;
+    padding: 10px 12px;
+  }
+
+  .path__status {
+    min-height: 22px;
+  }
+
+  .path__title {
+    font-size: 19px;
+  }
+
+  .path__line {
+    font-size: 12px;
+    line-height: 1.28;
+  }
+}
+
+/* The phone stack. The spacing is fixed, so it does not drift with the screen
+   height. The top padding keeps the eyebrow clear of the header. The eyebrow
+   scales with the width and keeps to one line. */
+@media (max-width: 540px) {
+  .hero__stage {
+    padding-block: 20px 14px;
+  }
+
+  .hero__eyebrow {
+    margin-bottom: 12px;
+    font-size: clamp(10px, 3.05vw, 12px);
+    letter-spacing: .06em;
+  }
+
+  /* The last clause needs no room after it. */
+  .hero__eyebrow .eyebrow__part:last-child {
+    margin-right: 0;
+  }
+
+  .hero__name {
+    margin-bottom: 8px;
+  }
+
+  .hero__lede,
+  .hero__thesis {
+    font-size: 15px;
+  }
+
+  .hero__thesis {
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+
+  .hero__more {
+    margin-top: 2px;
+  }
+
+  .hero__more .text-link {
+    padding-block: 6px;
+    line-height: 1.3;
+  }
+}
+
+/* A short phone gives the globe the least room, so the intro and the cards
+   tighten by a step. */
+@media (max-width: 540px) and (max-height: 760px) {
+  .hero__stage {
+    padding-top: 12px;
+  }
+
+  .hero__name {
+    font-size: 34px;
+    margin-bottom: 4px;
+  }
+
+  .hero__eyebrow {
+    margin-bottom: 10px;
+  }
+
+  .hero__lede {
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  .hero__thesis {
+    margin-top: 8px;
+    font-size: 14px;
+    line-height: 1.36;
+  }
+
+  .hero__more {
+    margin-top: 0;
+  }
+
+  .hero__more .text-link {
+    padding-block: 4px;
+  }
+
+  .path {
+    padding-block: 9px;
+  }
+
+  .path__title {
+    line-height: 1.15;
+  }
+}
+
+/* A tall phone has room to spare, so the intro and the cards breathe. Fixed
+   values, so the rhythm does not drift with the screen height. */
+@media (max-width: 540px) and (min-height: 800px) {
+  .hero__stage {
+    padding-top: 24px;
+  }
+
+  .hero__eyebrow {
+    margin-bottom: 14px;
+  }
+
+  .hero__name {
+    margin-bottom: 10px;
+  }
+
+  .hero__thesis {
+    margin-top: 14px;
+  }
+
+  .hero__more {
+    margin-top: 2px;
+  }
+}
+
+@media (min-width: 961px) {
+  .hero__globe {
+    /* The globe runs to 24px from the frame's right edge and no further. */
+    --globe-bleed: min(260px, max(32px, calc(50vw - var(--frame) / 2 - 24px)));
+  }
+}
+
+/* A wide screen gets a bigger picture and bigger type. The frame is wider too
+   (global.css), so the left edge rule holds on every page. */
+@media (min-width: 1600px) {
+  .hero__stage {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .hero__globe {
+    --globe-max: 1040px;
+    --globe-bleed: min(400px, max(32px, calc(50vw - var(--frame) / 2 - 24px)));
+  }
+
+  .hero__name {
+    font-size: clamp(72px, 4.2vw, 84px);
+    margin-bottom: 20px;
+  }
+
+  .hero__eyebrow {
+    margin-bottom: 20px;
+    font-size: 13px;
+  }
+
+  .hero__lede {
+    font-size: 23px;
+  }
+
+  .hero__thesis {
+    margin-top: 30px;
+    font-size: 21px;
+  }
+
+  .hero__more {
+    margin-top: 12px;
+  }
+
+  .hero__more .text-link {
+    font-size: 15px;
+  }
+
+  .path {
+    padding: 22px 26px;
+  }
+
+  .path__title {
+    font-size: 24px;
+  }
+}

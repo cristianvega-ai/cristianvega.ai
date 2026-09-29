@@ -23,12 +23,13 @@ export const VIEWPORTS = {
  * Geometry read while an animation is mid-flight is the animation's transform,
  * not the layout's. Resolves at once when nothing animates, as under reduced
  * motion.
+ * A cancelled animation is not mid-flight, so its cancellation counts as done.
  */
 export async function settle(page) {
   await page
     .locator("main")
     .evaluate((el) =>
-      Promise.all(el.getAnimations({ subtree: true }).map((animation) => animation.finished)),
+      Promise.all(el.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined))),
     );
 }
 
@@ -55,4 +56,20 @@ export async function tabTo(page, selector, limit = 25) {
   }
 
   return false;
+}
+
+/**
+ * Locate a header link by its label. At 640px and below the links sit in a
+ * menu, so this opens the menu first when its button is showing.
+ * Returns the link locator. Call it again after each navigation.
+ */
+export function navLink(page, name) {
+  const link = page.locator(".nav:visible, .nav-menu:visible").getByRole("link", { name, exact: true });
+  return {
+    async click() {
+      const toggle = page.locator(".nav-menu__toggle:visible");
+      if (await toggle.count()) await toggle.click();
+      await link.click();
+    },
+  };
 }

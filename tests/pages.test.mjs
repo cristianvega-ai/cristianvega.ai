@@ -7,52 +7,115 @@ import { assertPageBasics, dist, readDistFile } from "./helpers.mjs";
 
 // What each rendered page must say, and the contracts every page shares:
 // accessibility landmarks, SEO metadata, navigation state, and truthful links.
-// Hero motion belongs to tests/hero-motion.test.mjs, even on the homepage.
+// Globe behavior belongs to tests/e2e/home.spec.mjs, even on the homepage.
 
-test("homepage keeps the portfolio theme and the profile copy", () => {
+test("about holds the profile and marks its own navigation link", () => {
+  const html = readDistFile("about", "index.html");
+  assertPageBasics(html, { titleFragment: "About · Cristian Vega" });
+  assert.match(html, /rel="canonical" href="https:\/\/cristianvega\.ai\/about\/"/);
+  assert.match(html, /href="\/about\/" aria-current="page"/);
+  assert.match(html, /class="skip-link"[^>]*href="#main-content"/);
+  assert.match(html, /<meta name="color-scheme" content="dark"/);
+  assert.doesNotMatch(html, /<canvas/, "about must not draw a canvas");
+  assert.doesNotMatch(html, /name="robots" content="noindex/);
+
+  for (const copy of [
+    "AI Engineering Leader",
+    "Ten years building software. The last five building production AI from the ground up.",
+    "I'm an AI engineering leader who never stopped building.",
+    "Deterministic execution wherever it will do the job.",
+    "Models only where reasoning is genuinely required.",
+    "Reusable building blocks instead of one-off pipelines.",
+    "Instrumentation on everything, so quality is a number rather than an opinion.",
+    "At Patra that shape scaled document intelligence",
+    "four and a half years shipping digital",
+    "Now I'm at Vertafore.",
+    "OpenCatalyst",
+    "U.S. Patent 12,639,972 B2",
+  ]) {
+    assert.ok(html.replace(/\s+/g, " ").includes(copy), `about must keep the copy: ${copy}`);
+  }
+  assert.equal([...html.matchAll(/<li>/g)].length, 4, "about must hold four principles");
+});
+
+test("homepage holds the intro, the globe, and a link to about", () => {
   const html = readDistFile("index.html");
+  const text = html.replace(/\s+/g, " ");
 
   assertPageBasics(html, { titleFragment: "Cristian Vega" });
+  assert.match(html, /<meta name="color-scheme" content="dark"/);
+  assert.match(html, /<h1 id="home-title" class="hero__name">Cristian <span class="highlight">Vega<\/span><\/h1>/);
+  // The two clauses are separate spans, so the dot between them can drop out when they wrap.
+  assert.match(text, /<span class="eyebrow__part">AI Engineering Leader<\/span> <span class="eyebrow__part">Agentic&nbsp;Systems<\/span>/);
 
-  // The profile is the page. It replaced a separate About page, so the words
-  // must be in the served HTML, not assembled by script after load.
-  assert.match(html, /class="[^"]*hero__profile[^"]*"/);
-  assert.match(html, /Ten years building software\. The last five building production AI/);
-  assert.match(html, /never stopped building/);
-  assert.match(html, /governed system with contracts, evaluation, and a unit cost/);
-  assert.match(html, /12,000 documents and 400,000\+ data points/);
-  assert.match(html, /\$0\.20 per document/);
-  assert.match(html, /grew it to a peak of 100 people, and owned the budget down to the cost of a single policy check/);
-  assert.match(html, /BBVA/);
-  assert.match(html, /Now I'm at Vertafore\./);
-  assert.match(html, /OpenCatalyst/);
-  assert.match(html, /U\.S\. Patent 12,639,972 B2/);
+  for (const copy of [
+    "Ten years building software. The last five building production AI from the ground up.",
+    "My work has a consistent shape: take AI from a promising demo to a governed system with contracts, evaluation, and a unit cost.",
+  ]) {
+    assert.ok(text.includes(copy), `the intro must keep the copy: ${copy}`);
+  }
+  assert.match(html, /<a class="text-link" href="\/about\/">More about me →<\/a>/);
 
-  // The four working principles are a real list, served as markup. A styled
-  // run of paragraphs would look the same and mean nothing to a screen reader.
-  assert.match(html, /<ul class="hero__principles">/);
-  assert.equal((html.match(/<ul class="hero__principles">.*?<\/ul>/s)?.[0].match(/<li>/g) ?? []).length, 4);
-  assert.match(html, /Deterministic execution wherever it will do the job/);
-  assert.match(html, /Models only where reasoning is genuinely required/);
-  assert.match(html, /Reusable building blocks instead of one-off pipelines/);
-  assert.match(html, /Instrumentation on everything, so quality is a number/);
+  // The long profile lives on /about/. The homepage must not repeat it.
+  for (const copy of ["never stopped building", "12,000 documents", "Now I'm at Vertafore", "U.S. Patent", "OpenCatalyst"]) {
+    assert.ok(!text.includes(copy), `the homepage must not repeat the profile copy: ${copy}`);
+  }
+  assert.doesNotMatch(html, /hero__principles|hero__profile/);
 
-  // The hero holds a name and the profile now. A stray button or subhead would
-  // re-enter the motion choreography, which no longer has a window for one.
-  assert.doesNotMatch(html, /data-motion-target="(primary|secondary)-action"/);
-  assert.doesNotMatch(html, /class="[^"]*hero__actions[^"]*"/);
-  assert.doesNotMatch(html, /data-motion-target="subhead"/);
-  assert.doesNotMatch(html, /class="[^"]*hero__sub[^"]*"/);
-  // Hero copy must remain in HTML. Pre-hide is gated on a head-stamped attribute
-  // (not html.js), so no-JS never blanks the copy.
-  assert.match(html, /class="[^"]*hero__name[^"]*"/);
+  // The globe is decorative. The canvas draws it. The SVG sits in the served
+  // HTML twice, in a noscript for visitors without JavaScript and in a template
+  // for the script to copy in when canvas is missing. It is never a live
+  // element of the page, so a visitor with canvas never sees it.
+  const globe = html.match(/<div class="lyra-globe"[^>]*>/)?.[0];
+  assert.ok(globe, "the globe must be in the served HTML");
+  assert.match(globe, /aria-hidden="true"/);
+  assert.match(globe, /data-lyra-globe/);
+  assert.match(html, /<svg class="lyra-globe__fallback"[^>]*viewBox="0 0 600 500"/);
+  assert.match(html, /<noscript><svg class="lyra-globe__fallback"/);
+  assert.match(html, /<template><svg class="lyra-globe__fallback"/);
+  assert.equal(html.match(/class="lyra-globe__fallback"/g)?.length, 2, "the SVG appears once in the noscript and once in the template");
+  assert.doesNotMatch(html.replace(/<noscript>[\s\S]*?<\/noscript>/g, "").replace(/<template>[\s\S]*?<\/template>/g, ""), /lyra-globe__fallback/, "no live SVG sits outside the two fallbacks");
+  assert.match(html, /<canvas class="lyra-globe__canvas">/);
+  assert.match(html, />LYRA \/ NEURAL SPHERE</);
+
+  // The retired hero motion and its inline pre-hide must not return.
+  assert.doesNotMatch(html, /data-hero-motion|data-motion-target|hero__sky-canvas|hero__copy-canvas/);
   assert.doesNotMatch(html, /html\.js|classList\.add\(["']js["']\)/);
-  assert.match(html, /data-hero-motion-pending/);
+});
+
+test("homepage lists no writing or products and shows two Coming soon cards in production", () => {
+  const html = readDistFile("index.html");
+  assert.equal((html.match(/<h2\b/g) ?? []).length, 0, "the homepage must hold no section heading");
+  assert.doesNotMatch(html, /home-writing|home-products|entries__item|data-post-id|data-product-id/);
+  // Every entry is a draft, so no card may point at a route the build omits.
+  assert.doesNotMatch(html, /href="\/(?:writing|products)\//);
+  assert.doesNotMatch(html, /href="#"/);
+
+  const cards = [...html.matchAll(/<(a|div) class="path"[^>]*>[\s\S]*?<\/\1>/g)].map((match) => match[0]);
+  assert.equal(cards.length, 2, "the homepage must hold two cards");
+  const [writing, products] = cards;
+  for (const [card, title] of [[writing, "Writing"], [products, "Products"]]) {
+    assert.match(card, /^<div class="path" data-state="soon">/, `${title} must be a plain card, not a link`);
+    assert.match(card, new RegExp(`<span class="path__title">${title}</span>`));
+    assert.match(card, /<span class="path__status">Coming soon<\/span>/);
+  }
+  assert.ok(writing.includes("Notes on production AI, engineering, and the systems around them."), "the Writing card must keep its line");
+  assert.equal((html.match(/path__line/g) ?? []).length, 1, "only the Writing card holds a line");
+});
+
+test("the header keeps one primary nav and a menu with the same links", () => {
+  for (const segments of [["index.html"], ["about", "index.html"], ["404.html"]]) {
+    const html = readDistFile(...segments);
+    assert.equal((html.match(/<nav\b[^>]*aria-label="Primary"/g) ?? []).length, 1);
+    assert.equal((html.match(/<details class="nav-menu">/g) ?? []).length, 1);
+    assert.match(html, /<nav class="nav-menu__panel" aria-label="Menu">/);
+  }
 });
 
 test("key pages share accessibility and SEO basics", () => {
   const pages = [
     ["index.html"],
+    ["about", "index.html"],
     ["404.html"],
   ];
 
@@ -81,6 +144,7 @@ test("key pages share accessibility and SEO basics", () => {
 test("pages do not load fonts from Google", () => {
   const pages = [
     ["index.html"],
+    ["about", "index.html"],
     ["404.html"],
   ];
 
@@ -103,6 +167,7 @@ test("pages do not load fonts from Google", () => {
 test("pages preload only the measured critical font files", () => {
   const pages = [
     ["index.html"],
+    ["about", "index.html"],
     ["404.html"],
   ];
 
@@ -134,17 +199,19 @@ test("pages preload only the measured critical font files", () => {
 });
 
 test("the retired pages are gone from the build", () => {
-  // About and contact were public. Keep their redirects in the build.
-  assert.equal(existsSync(join(dist, "about", "index.html")), false, "about page must be gone");
+  // Contact was public. Keep its redirects in the build. About is a page again.
   assert.equal(existsSync(join(dist, "contact", "index.html")), false, "contact page must be gone");
 
-  const redirects = readDistFile("_redirects");
-  for (const path of ["/about", "/about/", "/contact", "/contact/"]) {
-    assert.ok(redirects.split("\n").includes(`${path} / 301`));
+  const redirects = readDistFile("_redirects").split("\n");
+  for (const path of ["/contact", "/contact/"]) {
+    assert.ok(redirects.includes(`${path} / 301`));
+  }
+  for (const path of ["/about", "/about/"]) {
+    assert.ok(!redirects.includes(`${path} / 301`), `${path} must not redirect`);
   }
 
   // These routes held placeholder content. Cloudflare must serve the 404 page.
-  for (const route of ["projects", "writing", "posts"]) {
+  for (const route of ["projects", "posts"]) {
     assert.equal(existsSync(join(dist, route)), false, `${route}/ must not be built`);
   }
 });
@@ -152,6 +219,7 @@ test("the retired pages are gone from the build", () => {
 test("each page loads one Cloudflare analytics loader", () => {
   const pages = [
     ["index.html"],
+    ["about", "index.html"],
     ["404.html"],
   ];
 

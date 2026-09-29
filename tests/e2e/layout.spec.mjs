@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { chromium, expect, test } from "@playwright/test";
 
-import { settle, VIEWPORTS } from "./fixtures.mjs";
+import { settle, tabTo, VIEWPORTS } from "./fixtures.mjs";
 
 /**
  * Shell contracts that every route owes the reader, checked on all of them at
@@ -20,10 +20,10 @@ const ROUTES = [
   "/no-such-page/",
 ];
 
-/** Content-edge insets of every page container, ignoring the box's own bleed. */
+/** Content-edge insets of every centred page container, ignoring the box's own bleed. */
 async function containers(page) {
   return page.evaluate(() =>
-    [...document.querySelectorAll("main .wrap")].map((el) => {
+    [...document.querySelectorAll("main .wrap:not(.wrap--read)")].map((el) => {
       const rect = el.getBoundingClientRect();
       const style = getComputedStyle(el);
       return {
@@ -47,13 +47,9 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
 
         const boxes = await containers(page);
 
+        // The 404 page uses the reading column, which sits on the frame's
+        // left edge instead of the centre. The frame test below covers it.
         if (route === "/") {
-          /* The homepage is `bare`. Its hero runs full bleed on its own grid,
-             so it holds no shared container. There is no edge relation to
-             check. This asserts the absence instead of skipping the route, so
-             a `.wrap` added here later must be aligned on purpose. */
-          expect(boxes).toEqual([]);
-        } else {
           expect(boxes.length).toBeGreaterThan(0);
 
           // Every container starts in the same place. Centring each one
@@ -129,53 +125,853 @@ test.describe("the footer holds the foot of the viewport", () => {
   }
 });
 
+test.describe("the footer fade", () => {
+  const dev = "http://127.0.0.1:4324";
+  const scrolling = [
+    "/about/",
+    "/no-such-page/",
+    `${dev}/writing/`,
+    `${dev}/writing/lorem-ipsum-dolor-sit-amet/`,
+    `${dev}/products/`,
+  ];
+
+  for (const viewport of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
+    for (const route of scrolling) {
+      test(`${route} softens the text above the fixed bar and ends clear of it at ${viewport.width}px`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        await page.goto(route);
+        await settle(page);
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+
+        const state = await page.evaluate(() => {
+          const footer = document.querySelector(".site-footer");
+          const fade = getComputedStyle(footer, "::before");
+          const bar = footer.getBoundingClientRect();
+          return {
+            height: parseFloat(fade.height),
+            position: fade.position,
+            pointerEvents: fade.pointerEvents,
+            image: fade.backgroundImage,
+            // The strip ends where the bar begins.
+            bottom: parseFloat(fade.bottom),
+            clear: bar.top - document.querySelector("#main-content").getBoundingClientRect().bottom,
+          };
+        });
+        expect(state.height).toBeGreaterThanOrEqual(24);
+        expect(state.height).toBeLessThanOrEqual(32);
+        expect(state.position).toBe("absolute");
+        expect(state.pointerEvents, "the fade takes no input").toBe("none");
+        expect(state.image).toContain("linear-gradient");
+        // The last line ends above the fade, so it reads at full strength.
+        expect(state.clear, "the end of the page clears the fade").toBeGreaterThanOrEqual(state.height);
+      });
+    }
+  }
+
+  test("the homepage has no fade and reserves no room for one", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await page.goto("/");
+    await settle(page);
+    const state = await page.evaluate(() => ({
+      display: getComputedStyle(document.querySelector(".site-footer"), "::before").display,
+      scroll: document.documentElement.scrollHeight - window.innerHeight,
+    }));
+    expect(state.display).toBe("none");
+    expect(state.scroll).toBeLessThanOrEqual(0);
+  });
+});
+
+test.describe("the footer disclaimer on narrow screens", () => {
+  for (const width of [390, 360]) {
+    test(`shows the whole disclaimer above the copyright at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 700 });
+      await page.goto("/");
+      await settle(page);
+
+      const state = await page.evaluate(() => {
+        const bar = document.querySelector(".site-footer").getBoundingClientRect();
+        const text = document.querySelector(".site-footer__disclaimer");
+        const copyright = document.querySelector(".site-footer__copyright").getBoundingClientRect();
+        const box = text.getBoundingClientRect();
+        return {
+          display: getComputedStyle(text).display,
+          top: box.top, bottom: box.bottom, left: box.left, right: box.right,
+          barTop: bar.top, barBottom: bar.bottom,
+          copyrightTop: copyright.top, copyrightBottom: copyright.bottom,
+          client: document.documentElement.clientWidth,
+          scrollWidth: text.scrollWidth,
+          width: text.clientWidth,
+        };
+      });
+      expect(state.display).not.toBe("none");
+      expect(state.bottom).toBeGreaterThan(state.top);
+      expect(state.top).toBeGreaterThanOrEqual(state.barTop);
+      expect(state.copyrightBottom).toBeLessThanOrEqual(state.barBottom + 0.5);
+      expect(state.bottom).toBeLessThanOrEqual(state.copyrightTop + 0.5);
+      expect(state.left).toBeGreaterThanOrEqual(0);
+      expect(state.right).toBeLessThanOrEqual(state.client);
+      expect(state.scrollWidth).toBeLessThanOrEqual(state.width);
+
+      // At the end of the page the bar must not cover the content.
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      const clear = await page.evaluate(() =>
+        document.querySelector(".site-footer").getBoundingClientRect().top -
+        document.querySelector("#main-content").getBoundingClientRect().bottom);
+      expect(clear).toBeGreaterThanOrEqual(0);
+    });
+  }
+});
+
+test.describe("the footer items keep apart", () => {
+  const SIZES = [
+    { width: 1920, height: 1080 },
+    { width: 1440, height: 900 },
+    { width: 820, height: 1180 },
+    { width: 390, height: 844 },
+    { width: 360, height: 740 },
+  ];
+  for (const viewport of SIZES) {
+    test(`keeps the disclaimer and the copyright apart at ${viewport.width}px`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await settle(page);
+      const boxes = await page.evaluate(() => {
+        const plain = (el) => {
+          const { left, top, right, bottom } = el.getBoundingClientRect();
+          return { left, top, right, bottom };
+        };
+        return {
+          disclaimer: plain(document.querySelector(".site-footer__disclaimer")),
+          copyright: plain(document.querySelector(".site-footer__copyright")),
+        };
+      });
+      const stacked = boxes.copyright.top >= boxes.disclaimer.bottom - 0.5;
+      if (stacked) {
+        // Stacked lines keep a row gap of at least 4px.
+        expect(boxes.copyright.top - boxes.disclaimer.bottom).toBeGreaterThanOrEqual(3.5);
+      } else {
+        expect(boxes.copyright.left - boxes.disclaimer.right).toBeGreaterThanOrEqual(16);
+      }
+    });
+  }
+});
+
 test.describe("the compact header", () => {
-  // The 520px block used to hide the wordmark because four labels overflowed
-  // in the 421–520px band. The nav now has two (about, contact). Full brand
-  // plus those two still fit at 390 and 450, so the name must stay visible.
-  for (const width of [450, 390]) {
-    test(`keeps the wordmark beside the nav at ${width}px`, async ({ page }) => {
+  // At 640px and below the inline links move into a menu, so the header stays
+  // on one row and the wordmark stays beside the button.
+  const NARROW = [640, 450, 390, 360];
+
+  for (const width of NARROW) {
+    test(`stays on one row with the wordmark and the menu button at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 });
       await page.goto("/");
       await settle(page);
 
       const state = await page.evaluate(() => {
-        const brand = document.querySelector(".brand");
-        const wordmark = document.querySelector(".brand span:last-child");
-        const nav = document.querySelector(".nav");
-        const brandBox = brand.getBoundingClientRect();
-        const navBox = nav.getBoundingClientRect();
+        const header = document.querySelector(".site-header").getBoundingClientRect();
+        const brand = document.querySelector(".brand").getBoundingClientRect();
+        const wordmark = document.querySelector(".brand__word");
+        const toggle = document.querySelector(".nav-menu__toggle").getBoundingClientRect();
         return {
+          headerHeight: header.height,
           wordmarkShown: getComputedStyle(wordmark).display !== "none",
-          overlap: brandBox.right > navBox.left + 0.5,
+          inlineNavShown: getComputedStyle(document.querySelector(".nav")).display !== "none",
+          overlap: brand.right > toggle.left + 0.5,
+          toggleInside: toggle.right <= document.documentElement.clientWidth,
+          overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         };
       });
 
+      expect(state.headerHeight).toBeLessThanOrEqual(65);
       expect(state.wordmarkShown).toBe(true);
+      expect(state.inlineNavShown).toBe(false);
       expect(state.overlap).toBe(false);
+      expect(state.toggleInside).toBe(true);
+      expect(state.overflow).toBeLessThanOrEqual(1);
     });
-  }
-});
 
-/* Routes that open with a grid band. The homepage opens with the hero. */
-const HEAD_ROUTES = ["/no-such-page/"];
-
-test.describe("the grid runs to the top", () => {
-  test.use({ viewport: VIEWPORTS.desktop });
-
-  for (const route of HEAD_ROUTES) {
-    test(`${route} starts its band behind the header`, async ({ page }) => {
-      await page.goto(route);
+    test(`reaches every link through the menu at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto("/");
       await settle(page);
 
-      const top = await page
-        .locator("main .page-head")
-        .evaluate((el) => el.getBoundingClientRect().top);
+      const panel = page.locator(".nav-menu__panel");
+      await expect(panel).toBeHidden();
+      await page.locator(".nav-menu__toggle").click();
+      await expect(panel).toBeVisible();
 
-      // The band slides under the transparent header, so the grid reaches the
-      // top of the page. Stop it at the header and the logo and the nav sit on
-      // bare paper, reading as detached from the page under them.
-      expect(top).toBeLessThanOrEqual(0.5);
+      // Production holds about and the three profile links.
+      const links = panel.getByRole("link");
+      await expect(links).toHaveText(["about", "linkedin", "x", "github"]);
+      const boxes = await links.evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect()));
+      for (const box of boxes) {
+        expect(box.height).toBeGreaterThanOrEqual(44);
+        expect(box.left).toBeGreaterThanOrEqual(0);
+        expect(box.right).toBeLessThanOrEqual(width);
+      }
+      // The panel opens over the page. It must not change the header height.
+      expect(await page.locator(".site-header").evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(65);
+    });
+  }
+
+  test("opens and closes from the keyboard and shows a focus ring", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.goto("/");
+    await settle(page);
+
+    expect(await tabTo(page, ".nav-menu__toggle")).toBe(true);
+    const ring = await page.locator(".nav-menu__toggle").evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { style: style.outlineStyle, width: parseFloat(style.outlineWidth) };
+    });
+    expect(ring.style).not.toBe("none");
+    expect(ring.width).toBeGreaterThanOrEqual(2);
+
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".nav-menu__panel")).toBeVisible();
+    await page.keyboard.press("Tab");
+    await expect(page.locator(".nav-menu__link").first()).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Space");
+    await expect(page.locator(".nav-menu__panel")).toBeHidden();
+  });
+
+  test("closes on Escape and returns focus to the button", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.goto("/");
+    await settle(page);
+
+    expect(await tabTo(page, ".nav-menu__toggle")).toBe(true);
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".nav-menu__panel")).toBeVisible();
+    await page.keyboard.press("Tab");
+    await expect(page.locator(".nav-menu__link").first()).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".nav-menu__panel")).toBeHidden();
+    await expect(page.locator(".nav-menu__toggle")).toBeFocused();
+
+    // Escape with the menu shut does nothing.
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".nav-menu__toggle")).toBeFocused();
+    await expect(page.locator(".nav-menu")).not.toHaveAttribute("open", /.*/);
+  });
+
+  test("closes when focus tabs past the last link", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.goto("/");
+    await settle(page);
+
+    expect(await tabTo(page, ".nav-menu__toggle")).toBe(true);
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".nav-menu__panel")).toBeVisible();
+    await page.locator(".nav-menu__link").last().focus();
+    await page.keyboard.press("Tab");
+    await expect(page.locator(".nav-menu__panel")).toBeHidden();
+    await expect(page.locator(".nav-menu")).not.toHaveAttribute("open", /.*/);
+  });
+
+  test("closes on a click outside the menu and stays open on a click inside", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.goto("/");
+    await settle(page);
+
+    await page.locator(".nav-menu__toggle").click();
+    await expect(page.locator(".nav-menu__panel")).toBeVisible();
+    // A click on the panel padding is inside the menu.
+    await page.locator(".nav-menu__rule").click({ force: true });
+    await expect(page.locator(".nav-menu__panel")).toBeVisible();
+
+    await page.mouse.click(20, 500);
+    await expect(page.locator(".nav-menu__panel")).toBeHidden();
+  });
+
+  test("works without JavaScript", async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 800 } });
+    const page = await context.newPage();
+    await page.goto(new URL("/", baseURL).href);
+    await page.locator(".nav-menu__toggle").click();
+    await expect(page.locator(".nav-menu__panel").getByRole("link")).toHaveCount(4);
+    await context.close();
+  });
+
+  test("shows every link inline above the breakpoint", async ({ page }) => {
+    await page.setViewportSize({ width: 641, height: 800 });
+    await page.goto("/");
+    await settle(page);
+
+    const state = await page.evaluate(() => ({
+      menuShown: getComputedStyle(document.querySelector(".nav-menu")).display !== "none",
+      height: document.querySelector(".site-header").getBoundingClientRect().height,
+      links: [...document.querySelectorAll(".nav__link")].map((link) => link.getBoundingClientRect().top),
+    }));
+
+    expect(state.menuShown).toBe(false);
+    expect(state.height).toBeLessThanOrEqual(65);
+    expect(new Set(state.links.map(Math.round)).size).toBe(1);
+  });
+
+  test("keeps the full nav on one row with every draft link on the dev server", async ({ page }) => {
+    // The dev server shows drafts, so its nav holds about, writing, products,
+    // and the three profile links: the widest header the site can build.
+    await page.setViewportSize({ width: 641, height: 800 });
+    await page.goto("http://127.0.0.1:4324/");
+    await settle(page);
+
+    const state = await page.evaluate(() => {
+      const brand = document.querySelector(".brand").getBoundingClientRect();
+      const nav = document.querySelector(".nav").getBoundingClientRect();
+      return {
+        count: document.querySelectorAll(".nav__link").length,
+        height: document.querySelector(".site-header").getBoundingClientRect().height,
+        overlap: brand.right > nav.left,
+        navInside: nav.right <= document.documentElement.clientWidth,
+      };
+    });
+
+    expect(state.count).toBe(6);
+    expect(state.height).toBeLessThanOrEqual(65);
+    expect(state.overlap).toBe(false);
+    expect(state.navInside).toBe(true);
+  });
+});
+
+const DARK_GROUND = "rgb(20, 24, 31)";
+
+test.describe("the 404 page uses the same dark ground as every page", () => {
+  test.use({ viewport: VIEWPORTS.desktop });
+
+  test("takes the dark theme, the ink ground, and the reading column", async ({ page }) => {
+    await page.goto("/no-such-page/");
+    await settle(page);
+
+    await expect(page.locator("meta[name='color-scheme']")).toHaveAttribute("content", "dark");
+    await expect(page.locator("meta[name='theme-color']")).toHaveAttribute("content", "#14181F");
+
+    const state = await page.evaluate(() => ({
+      body: getComputedStyle(document.body).backgroundColor,
+      header: getComputedStyle(document.querySelector(".site-header")).backgroundColor,
+      footer: getComputedStyle(document.querySelector(".site-footer")).backgroundColor,
+      title: getComputedStyle(document.querySelector("main h1")).color,
+      titleLeft: document.querySelector("main h1").getBoundingClientRect().left,
+      column: document.querySelector("main .wrap--read").getBoundingClientRect().width,
+    }));
+    expect(state.body).toBe(DARK_GROUND);
+    expect(state.header).toBe(DARK_GROUND);
+    expect(state.footer).toBe(DARK_GROUND);
+    // Light text on the dark ground.
+    expect(state.title).toBe("rgb(234, 237, 242)");
+    expect(state.column).toBeLessThanOrEqual(744);
+
+    // The title starts where the about title starts.
+    await page.goto("/about/");
+    await settle(page);
+    const about = await page.locator("main h1").evaluate((el) => el.getBoundingClientRect().left);
+    expect(Math.abs(state.titleLeft - about)).toBeLessThanOrEqual(1);
+  });
+});
+
+/**
+ * Left edge of the content in the frame: the header, the intro, and the
+ * columns start here. The frame is 960px wide and centred, and 1120px wide from
+ * 1600px. Its padding is 32px, or 20px at 760px and below.
+ */
+const frameLeft = (client) => {
+  const pad = client <= 760 ? 20 : 32;
+  const frame = client >= 1600 ? 1120 : 960;
+  return Math.max(0, (client - frame) / 2) + pad;
+};
+
+test.describe("one site frame at every width", () => {
+  const WIDE = [
+    { width: 1920, height: 1080 },
+    { width: 1440, height: 900 },
+    { width: 1280, height: 800 },
+    { width: 1024, height: 768 },
+    { width: 820, height: 1180 },
+    { width: 390, height: 844 },
+  ];
+  const ROUTES_IN_FRAME = [
+    "/",
+    "/about/",
+    "/no-such-page/",
+    "http://127.0.0.1:4324/",
+    "http://127.0.0.1:4324/writing/lorem-ipsum-dolor-sit-amet/",
+    "http://127.0.0.1:4324/products/",
+    "http://127.0.0.1:4324/writing/",
+  ];
+
+  for (const viewport of WIDE) {
+    for (const route of ROUTES_IN_FRAME) {
+      test(`${route} starts the logo, the title, and the footer on the frame edge at ${viewport.width}px`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        await page.goto(route);
+        await settle(page);
+
+        const edges = await page.evaluate(() => ({
+          client: document.documentElement.clientWidth,
+          logo: document.querySelector(".brand__mark").getBoundingClientRect().left,
+          title: document.querySelector("main h1").getBoundingClientRect().left,
+          // Read the bar's own content edge. The disclaimer and the copyright both start there.
+          footer: (() => {
+            const bar = document.querySelector(".site-footer__inner");
+            return bar.getBoundingClientRect().left + parseFloat(getComputedStyle(bar).paddingLeft);
+          })(),
+        }));
+        const expected = frameLeft(edges.client);
+        for (const [name, left] of Object.entries({ logo: edges.logo, title: edges.title, footer: edges.footer })) {
+          expect(Math.abs(left - expected), `${name} at ${left}, frame at ${expected}`).toBeLessThanOrEqual(1);
+        }
+      });
+    }
+  }
+
+  test("keeps the reading column on the frame edge and under 745px on a wide screen", async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    for (const route of ["/about/", "http://127.0.0.1:4324/writing/lorem-ipsum-dolor-sit-amet/"]) {
+      await page.goto(route);
+      await settle(page);
+      const column = await page.evaluate(() => {
+        const title = document.querySelector("main h1").getBoundingClientRect();
+        return { title: title.left, client: document.documentElement.clientWidth };
+      });
+      expect(Math.abs(column.title - frameLeft(column.client)), route).toBeLessThanOrEqual(1);
+    }
+    await page.goto("/about/");
+    const read = await page.locator("main .wrap--read").first().evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      return { width: box.width, left: box.left + parseFloat(getComputedStyle(el).paddingLeft) };
+    });
+    expect(read.width).toBeLessThanOrEqual(744);
+    expect(Math.abs(read.left - frameLeft(1920))).toBeLessThanOrEqual(1);
+  });
+
+  test("keeps the header and the home page on one gutter at tablet width", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto("/");
+    await settle(page);
+    const edges = await page.evaluate(() => ({
+      logo: document.querySelector(".brand__mark").getBoundingClientRect().left,
+      title: document.querySelector("main h1").getBoundingClientRect().left,
+    }));
+    expect(Math.abs(edges.logo - edges.title)).toBeLessThanOrEqual(1);
+  });
+});
+
+test.describe("the header holds still between short and long pages", () => {
+  // Headless Chromium hides scrollbars by default, which makes this check
+  // pass for free. This group starts its own browser that keeps them, so a
+  // long page really takes the space.
+  let browser;
+  let page;
+
+  test.beforeAll(async ({ baseURL }, testInfo) => {
+    browser = await chromium.launch({ ignoreDefaultArgs: ["--hide-scrollbars"] });
+    const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 700 } });
+    page = await context.newPage();
+    testInfo.setTimeout(60_000);
+  });
+
+  test.afterAll(async () => {
+    await browser.close();
+  });
+
+  test("keeps the logo and the nav in place when the scrollbar appears", async () => {
+    const measure = async (route) => {
+      await page.goto(route);
+      await settle(page);
+      return page.evaluate(() => ({
+        overflowY: getComputedStyle(document.documentElement).overflowY,
+        overflows: document.documentElement.scrollHeight > document.documentElement.clientHeight,
+        client: document.documentElement.clientWidth,
+        logo: document.querySelector(".brand__mark").getBoundingClientRect().left,
+        nav: document.querySelector(".nav").getBoundingClientRect().right,
+      }));
+    };
+    const short = await measure("/no-such-page/");
+    const long = await measure("/about/");
+
+    // The rule itself holds on every browser, whatever kind of scrollbar it draws.
+    expect(short.overflowY).toBe("scroll");
+    expect(long.overflowY).toBe("scroll");
+    expect(Math.abs(short.logo - long.logo)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(short.nav - long.nav)).toBeLessThanOrEqual(0.5);
+
+    // Classic scrollbars take width. Overlay scrollbars take none, so no gutter exists to measure.
+    const gutter = await page.evaluate(() => {
+      const box = document.createElement("div");
+      box.style.cssText = "width:100px;height:100px;overflow:scroll;position:absolute;visibility:hidden";
+      document.body.append(box);
+      const width = box.offsetWidth - box.clientWidth;
+      box.remove();
+      return width;
+    });
+    if (gutter === 0) {
+      test.info().annotations.push({
+        type: "skip-reason",
+        description: "overlay scrollbars: no gutter to measure",
+      });
+      return;
+    }
+    expect(short.overflows).toBe(false);
+    expect(long.overflows).toBe(true);
+    expect(long.client).toBeLessThan(1440);
+    expect(short.client).toBe(long.client);
+  });
+
+  test("keeps the footer and the pages free of sideways overflow", async () => {
+    for (const route of ["/", "/about/", "/no-such-page/"]) {
+      await page.goto(route);
+      await settle(page);
+      const state = await page.evaluate(() => ({
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        footerRight: document.querySelector(".site-footer").getBoundingClientRect().right,
+        client: document.documentElement.clientWidth,
+      }));
+      expect(state.overflow, route).toBeLessThanOrEqual(1);
+      expect(state.footerRight, route).toBeLessThanOrEqual(state.client + 1);
+    }
+  });
+});
+
+test.describe("the desktop nav targets", () => {
+  test.use({ viewport: VIEWPORTS.desktop });
+
+  test("give every link a 40px tall target and at least 24px width", async ({ page }) => {
+    await page.goto("http://127.0.0.1:4324/");
+    await settle(page);
+    const links = await page.locator(".nav__link").evaluateAll((nodes) => nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      return { name: node.textContent, width: box.width, height: box.height, left: box.left, right: box.right };
+    }));
+    expect(links).toHaveLength(6);
+    for (const link of links) {
+      expect(link.height, link.name).toBeGreaterThanOrEqual(40);
+      expect(link.width, link.name).toBeGreaterThanOrEqual(24);
+    }
+    // Targets do not overlap.
+    for (let i = 1; i < links.length; i += 1) expect(links[i].left).toBeGreaterThanOrEqual(links[i - 1].right);
+  });
+
+  test("centres the divider in the gap between the internal and profile links", async ({ page }) => {
+    await page.goto("http://127.0.0.1:4324/");
+    await settle(page);
+    const state = await page.evaluate(() => {
+      const divided = document.querySelector(".nav__link--divided");
+      const next = divided.nextElementSibling;
+      const from = divided.getBoundingClientRect().right;
+      const line = getComputedStyle(divided, "::after");
+      const width = parseFloat(line.width);
+      return {
+        middle: (from + next.getBoundingClientRect().left) / 2,
+        centre: from - parseFloat(line.right) - width / 2,
+        width,
+      };
+    });
+    // The centre of the line is the centre of the space between the two targets.
+    expect(Math.abs(state.centre - state.middle)).toBeLessThanOrEqual(0.5);
+    expect(state.width).toBe(1);
+  });
+
+  test("leaves equal visible space around every word and the divider", async ({ page }) => {
+    await page.goto("http://127.0.0.1:4324/");
+    await settle(page);
+    const words = await page.evaluate(() => [...document.querySelectorAll(".nav__link")].map((link) => {
+      const range = document.createRange();
+      range.selectNodeContents(link);
+      const box = range.getBoundingClientRect();
+      return { name: link.textContent, left: box.left, right: box.right, divided: link.classList.contains("nav__link--divided") };
+    }));
+    const gaps = words.slice(1).map((word, index) => word.left - words[index].right);
+    // Every word pair shares one visible space, the divider pair included once
+    // the divider's own space is taken out.
+    const at = words.findIndex((word) => word.divided);
+    const plain = gaps.filter((_, index) => index !== at);
+    for (const gap of plain) expect(Math.abs(gap - plain[0]), plain.join(",")).toBeLessThanOrEqual(1);
+
+    // The divider has the same space on each side as two words have between them.
+    const divider = await page.evaluate(() => {
+      const link = document.querySelector(".nav__link--divided");
+      const line = getComputedStyle(link, "::after");
+      const box = link.getBoundingClientRect();
+      return { x: box.right - parseFloat(line.right) };
+    });
+    expect(Math.abs(divider.x - 1 - words[at].right - plain[0])).toBeLessThanOrEqual(1);
+    expect(Math.abs(words[at + 1].left - divider.x - plain[0])).toBeLessThanOrEqual(1);
+  });
+});
+
+/* The dev server holds the draft article, so that route needs the dev origin.
+   The homepage is one screen with no scrolling, so its header does not stick. */
+const STICKY_PAGES = [
+  ["about", "/about/"],
+  ["article", "http://127.0.0.1:4324/writing/lorem-ipsum-dolor-sit-amet/"],
+];
+
+test.describe("the sticky header", () => {
+  test("leaves the screen with the homepage when a short screen scrolls", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 390 });
+    await page.goto("/");
+    await settle(page);
+    await page.evaluate(() => window.scrollTo({ top: 120, behavior: "instant" }));
+    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBeGreaterThan(60);
+    const top = await page.evaluate(() => document.querySelector(".site-header").getBoundingClientRect().top);
+    expect(top).toBeLessThan(-40);
+  });
+
+  for (const [viewportName, viewport] of Object.entries(VIEWPORTS)) {
+    test(`does not stick to the top on the homepage at ${viewportName} width`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await settle(page);
+
+      const header = await page.evaluate(() => {
+        const element = document.querySelector(".site-header");
+        const style = getComputedStyle(element);
+        return { position: style.position };
+      });
+      expect(header.position).not.toBe("sticky");
+      expect(header.position).not.toBe("fixed");
+    });
+
+    for (const [pageName, url] of STICKY_PAGES) {
+      test(`stays at the top with an opaque ground on ${pageName} at ${viewportName} width`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        await page.goto(url);
+        await settle(page);
+
+        await page.evaluate(() => window.scrollTo({ top: 600, behavior: "instant" }));
+        await expect
+          .poll(() => page.evaluate(() => Math.round(window.scrollY)))
+          .toBeGreaterThan(300);
+
+        const header = await page.evaluate(() => {
+          const element = document.querySelector(".site-header");
+          const box = element.getBoundingClientRect();
+          const ground = getComputedStyle(element).backgroundColor;
+          const alpha = ground.startsWith("rgba") ? Number(ground.split(",")[3].replace(")", "")) : 1;
+          return { top: box.top, bottom: box.bottom, alpha, position: getComputedStyle(element).position };
+        });
+
+        expect(header.position).toBe("sticky");
+        expect(header.top).toBeCloseTo(0, 0);
+        expect(header.bottom).toBeGreaterThan(40);
+        expect(header.alpha).toBe(1);
+
+        // The element under the header's midpoint must be the header, so page
+        // text cannot show through it.
+        const covered = await page.evaluate(() => {
+          const element = document.querySelector(".site-header");
+          const box = element.getBoundingClientRect();
+          return element.contains(document.elementFromPoint(box.left + 4, box.top + box.height / 2));
+        });
+        expect(covered).toBe(true);
+      });
+    }
+  }
+});
+
+/**
+ * The faint grid in the empty area right of the reading column.
+ *
+ * The test hides the header, the page content, and the footer. Then the
+ * screenshot holds only the ground and the grid. A pixel that differs from
+ * the ground is grid. The screenshot loads into a blank page, so the canvas
+ * can read its pixels and the page CSP does not apply.
+ */
+const MOTIF_DEV = "http://127.0.0.1:4324";
+const MOTIF_ROUTES = ["/about/", "/no-such-page/", `${MOTIF_DEV}/products/`, `${MOTIF_DEV}/products/opencatalyst/`];
+const MOTIF_GROUND = [20, 24, 31];
+
+/** Box of every text run in main, taken before the content is hidden. */
+async function textBoxes(page) {
+  return page.evaluate(() => {
+    const boxes = [];
+    const walker = document.createTreeWalker(document.querySelector("main"), NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      for (const rect of range.getClientRects()) {
+        if (rect.width > 0 && rect.bottom > 0 && rect.top < innerHeight) {
+          boxes.push({ x: rect.left, y: rect.top, w: rect.width, h: rect.height });
+        }
+      }
+    }
+    return boxes;
+  });
+}
+
+/** Screenshot the page with only the ground and the grid visible. */
+async function gridPixels(page) {
+  await page.evaluate(() => {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(
+      ".site-header, main, .site-footer, .skip-link, astro-dev-toolbar { visibility: hidden !important; }",
+    );
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+  });
+  const png = (await page.screenshot()).toString("base64");
+  const blank = await page.context().newPage();
+  try {
+    return await blank.evaluate(async (data) => {
+      const image = await createImageBitmap(await (await fetch(`data:image/png;base64,${data}`)).blob());
+      const canvas = new OffscreenCanvas(image.width, image.height);
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0);
+      const { data: rgba } = context.getImageData(0, 0, image.width, image.height);
+      return { width: image.width, height: image.height, rgba: Array.from(rgba) };
+    }, png);
+  } finally {
+    await blank.close();
+  }
+}
+
+/** Largest channel difference from the ground inside a box. Columns sum up for the line test. */
+function gridIn(shot, box) {
+  const x0 = Math.max(0, Math.floor(box.x));
+  const y0 = Math.max(0, Math.floor(box.y));
+  const x1 = Math.min(shot.width, Math.ceil(box.x + box.w));
+  const y1 = Math.min(shot.height, Math.ceil(box.y + box.h));
+  let peak = 0;
+  const columns = new Map();
+  for (let y = y0; y < y1; y += 1) {
+    for (let x = x0; x < x1; x += 1) {
+      const at = (y * shot.width + x) * 4;
+      const diff = Math.max(...MOTIF_GROUND.map((value, i) => Math.abs(shot.rgba[at + i] - value)));
+      peak = Math.max(peak, diff);
+      columns.set(x, (columns.get(x) ?? 0) + diff);
+    }
+  }
+  return { peak, columns };
+}
+
+test.describe("the blueprint grid right of the reading column", () => {
+  test.use({ viewport: VIEWPORTS.desktop });
+
+  for (const route of MOTIF_ROUTES) {
+    test(`${route} shows a grid on the right and none behind text, bars, or edges at 1440px`, async ({ page }) => {
+      await page.goto(route);
+      await settle(page);
+      const { width, height } = VIEWPORTS.desktop;
+      const column = await page.locator("main .wrap--read").first().evaluate((el) => el.getBoundingClientRect().right);
+      const text = await textBoxes(page);
+      const bar = await page.evaluate(() => {
+        const fade = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--footer-fade"));
+        return document.querySelector(".site-footer").getBoundingClientRect().height + fade;
+      });
+      const shot = await gridPixels(page);
+
+      // Nothing behind any text box, and nothing anywhere left of the column edge.
+      expect(text.length).toBeGreaterThan(0);
+      for (const box of text) {
+        expect(gridIn(shot, { x: box.x - 8, y: box.y - 8, w: box.w + 16, h: box.h + 16 }).peak).toBeLessThanOrEqual(1);
+      }
+      expect(gridIn(shot, { x: 0, y: 0, w: column, h: height }).peak, "no grid under the column").toBeLessThanOrEqual(1);
+
+      // Nothing at the viewport edges, behind the header, or behind the footer and its fade.
+      expect(gridIn(shot, { x: 0, y: 0, w: width, h: 64 }).peak, "header").toBeLessThanOrEqual(1);
+      expect(gridIn(shot, { x: 0, y: height - bar, w: width, h: bar }).peak, "footer").toBeLessThanOrEqual(1);
+      expect(gridIn(shot, { x: width - 3, y: 0, w: 3, h: height }).peak, "right edge").toBeLessThanOrEqual(1);
+      expect(gridIn(shot, { x: 0, y: 0, w: 3, h: height }).peak, "left edge").toBeLessThanOrEqual(1);
+
+      // A visible, but faint, grid in the right area.
+      const right = gridIn(shot, { x: column, y: 64, w: width - column, h: height - 64 - bar });
+      expect(right.peak, "the grid shows").toBeGreaterThanOrEqual(6);
+      expect(right.peak, "the grid stays fainter than the homepage grid").toBeLessThanOrEqual(26);
+
+      // The strongest vertical line sits on a homepage line position.
+      const strongest = [...right.columns.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      const offset = (((strongest - frameLeft(width)) % 40) + 40) % 40;
+      expect(Math.min(offset, 40 - offset)).toBeLessThanOrEqual(1);
+    });
+
+    test(`${route} shows no grid at 390px and 1024px`, async ({ page }) => {
+      for (const size of [VIEWPORTS.mobile, { width: 1024, height: 768 }]) {
+        await page.setViewportSize(size);
+        await page.goto(route);
+        await settle(page);
+        const shot = await gridPixels(page);
+        expect(gridIn(shot, { x: 0, y: 0, w: size.width, h: size.height }).peak, `${size.width}px`).toBeLessThanOrEqual(1);
+      }
+    });
+  }
+
+  test("the grid layer is a fixed pseudo-element that takes no input", async ({ page }) => {
+    await page.goto("/about/");
+    const layer = await page.evaluate(() => {
+      const style = getComputedStyle(document.body, "::before");
+      return { position: style.position, pointerEvents: style.pointerEvents, content: style.content };
+    });
+    expect(layer.position).toBe("fixed");
+    expect(layer.pointerEvents).toBe("none");
+    expect(layer.content).toBe('""');
+  });
+
+  for (const route of ["/", `${MOTIF_DEV}/writing/`, `${MOTIF_DEV}/writing/lorem-ipsum-dolor-sit-amet/`]) {
+    test(`${route} has no grid layer from this rule`, async ({ page }) => {
+      await page.goto(route);
+      await settle(page);
+      const content = await page.evaluate(() => getComputedStyle(document.body, "::before").content);
+      expect(content).toBe("none");
     });
   }
 });
+
+test.describe("page headers", () => {
+  const dev = "http://127.0.0.1:4324";
+
+  async function headerMetrics(page, url, eyebrow, heading) {
+    await page.goto(url);
+    await settle(page);
+    return page.evaluate(([eyebrowSelector, headingSelector]) => ({
+      eyebrowTop: document.querySelector(eyebrowSelector).getBoundingClientRect().top,
+      fontSize: parseFloat(getComputedStyle(document.querySelector(headingSelector)).fontSize),
+    }), [eyebrow, heading]);
+  }
+
+  test("the writing header matches the about header at 1440px", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    const about = await headerMetrics(page, "/about/", ".about .eyebrow", "#about-title");
+    const writing = await headerMetrics(page, `${dev}/writing/`, ".blog-index__intro .eyebrow", "#blog-title");
+    expect(Math.abs(writing.eyebrowTop - about.eyebrowTop)).toBeLessThanOrEqual(2);
+    expect(Math.abs(writing.fontSize - about.fontSize)).toBeLessThanOrEqual(2);
+  });
+
+  test("the writing post count sits under the heading", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await page.goto(`${dev}/writing/`);
+    await settle(page);
+    const boxes = await page.evaluate(() => ({
+      heading: document.querySelector("#blog-title").getBoundingClientRect().bottom,
+      count: document.querySelector(".blog-index__count").getBoundingClientRect().top,
+    }));
+    expect(boxes.count).toBeGreaterThanOrEqual(boxes.heading);
+  });
+});
+
+for (const [name, viewport] of Object.entries(VIEWPORTS)) {
+  test(`the name highlight bar sits below the descender of the g at ${name} width`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/about/");
+    await settle(page);
+    const gap = await page.evaluate(() => {
+      const mark = document.querySelector(".about__title .highlight");
+      const style = getComputedStyle(mark);
+      // A zero-size inline-block marks the baseline of the text.
+      const probe = document.createElement("span");
+      probe.style.cssText = "display:inline-block;width:0;height:0;vertical-align:baseline";
+      mark.append(probe);
+      const baseline = probe.getBoundingClientRect().bottom;
+      probe.remove();
+      const context = document.createElement("canvas").getContext("2d");
+      context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const descent = context.measureText("g").actualBoundingBoxDescent;
+      const barHeight = parseFloat(style.backgroundSize.split(" ")[1]);
+      const box = mark.getBoundingClientRect();
+      const barTop = box.top + (box.height - barHeight) * (parseFloat(style.backgroundPositionY) / 100);
+      return barTop - (baseline + descent);
+    });
+    expect(gap).toBeGreaterThanOrEqual(0);
+  });
+}

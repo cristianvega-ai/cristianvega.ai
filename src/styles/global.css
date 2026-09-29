@@ -87,7 +87,7 @@
   --mast-meta: #98A1B0;
   --mast-line: rgba(255, 255, 255, 0.1);
   --mark2-ink: rgba(255, 255, 255, 0.42);
-  --grid-line: rgba(255, 255, 255, 0.028);
+  --grid-line: rgba(255, 255, 255, 0.048);
   --grid-line-surface: rgba(20, 24, 31, 0.055);
   /* brand. Azure is the accent on surface: 5.34 on the well, 5.93 for white
      on azure. Sky is the bright end, for ink grounds (8.31 on ink). */
@@ -101,9 +101,7 @@
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   /* type scale */
   --fs-display-xl: clamp(38px, 4.9vw, 60px);
-  --fs-lede: 17px;
   --lh-display: 1.1;
-  --lh-body: 1.6;
   --track-display-xl: -0.028em;
   --track-caps-wide: 0.16em;
   /* fixed sizes */
@@ -112,9 +110,22 @@
   /* The bar plus the gap that keeps the last line off it. One value, so the
      hero and the page bottom cannot disagree about how much is reserved. */
   --footer-reserve: 54px;
-  --container: 1180px;
-  --gutter: max(32px, calc((100vw - var(--container)) / 2 + 32px));
+  /* The fade above the bar. The page adds it to the reserve, so the last line
+     ends above the fade and reads at full strength. */
+  --footer-fade: 28px;
+  /* One site frame: the header, the home page, the footer, and the reading
+     column all start on the left edge of a centred box this wide. */
+  --frame: 960px;
+  --frame-pad: 32px;
   --radius-md: 8px;
+}
+
+/* A wide screen gets a wider frame on every page. The reading column keeps
+   its own width and stays on the left edge of the frame. */
+@media (min-width: 1600px) {
+  :root {
+    --frame: 1120px;
+  }
 }
 
 *,
@@ -128,8 +139,15 @@
 }
 
 html {
+  /* The scrollbar takes its space on every page, so the header does not shift
+     between a short page and a long one. scrollbar-gutter: stable did not
+     reserve the space on the root in Chromium, so the track stays instead. */
+  overflow-y: scroll;
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
+  /* The sticky header covers the top of the viewport. Anchors and the skip
+     link target stop below it. */
+  scroll-padding-top: var(--header-height);
 }
 
 /* Column layout so the footer is seated at the foot of the viewport rather
@@ -149,7 +167,7 @@ body {
   /* The footer is fixed, so the page reserves its strip. The gap above the bar
      keeps the last line off it and absorbs the fractional layout that would
      otherwise put that line a hair underneath. */
-  padding-bottom: var(--footer-reserve);
+  padding-bottom: calc(var(--footer-reserve) + var(--footer-fade));
 }
 
 /* The slot wrapper takes the slack, so the footer never rides up the page. */
@@ -225,36 +243,23 @@ h1 {
   outline-offset: 2px;
 }
 
-body:has(.hero) .skip-link:focus {
+body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .skip-link:focus {
   outline-color: var(--sky);
 }
 
 .wrap {
-  max-width: var(--container);
+  max-width: var(--frame);
   margin-inline: auto;
-  padding-inline: 32px;
+  padding-inline: var(--frame-pad);
 }
 
-.wrap--narrow {
-  max-width: 840px;
+.wrap--read {
+  width: 100%;
+  max-width: 744px;
+  margin-left: max(0px, calc(50% - var(--frame) / 2));
+  margin-right: auto;
 }
 
-.section {
-  padding-block: 88px;
-}
-
-.section--tight {
-  padding-block: 64px;
-}
-
-/* Faint blueprint grid on light page heads — the masthead motif, in daylight */
-.dotgrid {
-  background-image:
-    repeating-linear-gradient(0deg, transparent 0 39px, var(--grid-line-surface) 39px 40px),
-    repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line-surface) 39px 40px);
-}
-
-.marker,
 .eyebrow {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -282,13 +287,47 @@ body:has(.hero) .skip-link:focus {
   background: var(--grad);
 }
 
-.marker__sig {
-  color: var(--azure);
+/* An eyebrow of two clauses. Each clause after the first carries its own dot,
+   pulled left out of the box by its own width. The eyebrow clips that overflow,
+   so a clause that wraps to a new line loses its dot instead of leaving one
+   at the end of the line above. */
+.eyebrow--parts {
+  --eyebrow-sep: 1.6em;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  overflow: hidden;
 }
 
+.eyebrow--parts::before {
+  flex: none;
+}
+
+.eyebrow__part {
+  min-width: 0;
+  margin-right: var(--eyebrow-sep);
+}
+
+.eyebrow__part + .eyebrow__part {
+  margin-left: calc(var(--eyebrow-sep) * -1);
+}
+
+.eyebrow__part + .eyebrow__part::before {
+  content: "·" / "";
+  display: inline-block;
+  width: var(--eyebrow-sep);
+  text-align: center;
+}
+
+/* Sticky on every page. The ground is opaque so text never shows through.
+   The hairline is a shadow, so it adds no height to the header. Dark pages
+   set the ink ground and the dark hairline below and in blog.css. */
 .site-header {
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 50;
+  background: var(--surface-well);
+  box-shadow: 0 1px 0 var(--line);
 }
 
 .site-header__inner {
@@ -297,7 +336,9 @@ body:has(.hero) .skip-link:focus {
   justify-content: space-between;
   min-height: var(--header-height);
   gap: 20px;
-  padding-inline: clamp(20px, 3.2vw, 40px);
+  max-width: var(--frame);
+  margin-inline: auto;
+  padding-inline: var(--frame-pad);
 }
 
 .brand {
@@ -352,19 +393,29 @@ body:has(.hero) .skip-link:focus {
 }
 
 .nav {
+  --nav-gap: 6px;
+  --nav-pad: 8px;
   display: flex;
   align-items: center;
-  gap: 26px;
+  gap: var(--nav-gap);
+  margin-right: calc(var(--nav-pad) * -1);
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 500;
   color: var(--muted);
 }
 
-/* Vertical padding, not line-height, sets the 24px minimum target height */
+/* Padding sets the target: 40px tall and at least 24px wide. "x" is 8px of
+   text, so 8px of padding on each side makes exactly 24px. Every link has the
+   same inline padding, so the visible space between two words is the same
+   22px: two paddings plus the gap. */
 .nav__link {
-  padding-top: 6px;
-  padding-bottom: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  min-width: 24px;
+  padding-inline: var(--nav-pad);
   border-bottom: 2px solid transparent;
   transition: color 0.15s ease, border-color 0.15s ease;
 }
@@ -373,28 +424,117 @@ body:has(.hero) .skip-link:focus {
   color: var(--fg);
 }
 
-/* Home is a dark masthead page; the transparent header inverts to light */
-body:has(.hero) .brand {
+.nav__link[aria-current] {
+  border-bottom-color: var(--sky);
+}
+
+/* The divider sits after the last internal link, before the profile links.
+   It has 22px of clear space on each side, the same as two words have between
+   them. The margin makes room for those two spaces and the divider's 1px. */
+.nav__link--divided {
+  position: relative;
+  margin-right: 23px;
+}
+
+.nav__link--divided::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -15px;
+  width: 1px;
+  height: 14px;
+  background: currentColor;
+  opacity: .5;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* The home and products pages sit on ink. The header takes that ground. The
+   about and writing pages carry the same rules in their own stylesheets. */
+body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) {
+  color: var(--mast-text);
+  background: var(--ink);
+}
+
+/* A faint blueprint grid in the empty area right of the reading column. It
+   echoes the homepage grid: the same 40px pitch, the same elliptical fade, and
+   lines on the same x positions as the homepage. The box starts at the right
+   edge of the column, and the mask reaches 0 well inside the box. So nothing
+   sits behind text, the header, the footer fade, or the viewport edges. It is
+   fixed, so it stays still while the page scrolls. Articles and the writing
+   list do not get it. */
+body:is([data-page="about"], [data-page="products"], [data-page="product"], [data-page="error"])::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  top: var(--header-height);
+  bottom: calc(var(--footer-height) + var(--footer-fade));
+  right: 0;
+  /* Column right edge: the frame left edge plus the 744px reading column. */
+  left: calc(max(0px, 50% - var(--frame) / 2) + 744px);
+  background-image:
+    repeating-linear-gradient(180deg, transparent 0 39px, var(--grid-line) 39px 40px),
+    repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line) 39px 40px);
+  background-size: 40px 40px;
+  /* One vertical line lands on the content left edge, as on the homepage. The
+     frame left edge cancels out, so the offset needs no frame width. */
+  background-position: calc(var(--frame-pad) - 744px - 39px) 0;
+  -webkit-mask-image: radial-gradient(
+    ellipse closest-side at 50% 50%,
+    #000 0 30%,
+    rgb(0 0 0 / .7) 48%,
+    rgb(0 0 0 / .42) 60%,
+    rgb(0 0 0 / .22) 72%,
+    rgb(0 0 0 / .08) 84%,
+    transparent 94%
+  );
+  mask-image: radial-gradient(
+    ellipse closest-side at 50% 50%,
+    #000 0 30%,
+    rgb(0 0 0 / .7) 48%,
+    rgb(0 0 0 / .42) 60%,
+    rgb(0 0 0 / .22) 72%,
+    rgb(0 0 0 / .08) 84%,
+    transparent 94%
+  );
+  pointer-events: none;
+}
+
+/* Below this width the column takes most of the page and no empty area
+   remains. The grid goes away, so it never crosses text. */
+@media (max-width: 1099px) {
+  body:is([data-page="about"], [data-page="products"], [data-page="product"], [data-page="error"])::before {
+    display: none;
+  }
+}
+
+body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .site-header {
+  background: var(--ink);
+  box-shadow: 0 1px 0 var(--mast-line);
+}
+
+body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .brand {
   color: var(--mast-text);
 }
 
-body:has(.hero) .brand__mark i:last-child {
+body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .brand__mark i:last-child {
   border-color: var(--mark2-ink);
 }
 
-body:has(.hero) .brand__word i {
+body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .brand__word i {
   color: var(--mast-meta);
 }
 
-body:has(.hero) .nav {
-  color: #9AA3B2;
+body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .nav {
+  color: var(--mast-meta);
 }
 
-body:has(.hero) .nav__link:hover {
-  color: #fff;
+body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .nav__link:hover,
+body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .nav__link[aria-current] {
+  color: var(--mast-text);
 }
 
-body:has(.hero) .site-header :focus-visible {
+body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .site-header :focus-visible {
   outline-color: var(--sky);
 }
 
@@ -425,238 +565,14 @@ body:has(.hero) .site-header :focus-visible {
   background: var(--azure-dark);
 }
 
-/* Home is one full dark masthead; ink extends past the short stacked hero */
-body:has(.hero) {
-  background: var(--ink);
-}
-
-.hero {
-  min-height: calc(100vh - var(--footer-reserve));
-  min-height: calc(100svh - var(--footer-reserve));
-  margin-top: calc(var(--header-height) * -1);
-  display: flex;
-  flex-direction: column;
-  background: var(--ink);
-  color: var(--mast-text);
-}
-
-.hero__grid {
-  position: relative;
-  flex: 1;
-  display: grid;
-  grid-template-columns: 0.92fr 1.08fr;
-}
-
-/* Masthead grid lines, masked to glow from the top-right like the reference */
-.hero__grid::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background:
-    repeating-linear-gradient(0deg, transparent 0 39px, var(--grid-line) 39px 40px),
-    repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line) 39px 40px);
-  -webkit-mask-image: radial-gradient(120% 100% at 82% 0%, #000 20%, transparent 72%);
-  mask-image: radial-gradient(120% 100% at 82% 0%, #000 20%, transparent 72%);
-  pointer-events: none;
-}
-
-/* Left column: empty in flow. It reserves the copy's measure and gives the
-   Lyra figure — Vega is the surname — a box to be anchored in. The star field
-   itself spans the whole masthead, so this column carries no divider. */
-.hero__chart-col {
-  position: relative;
-}
-
-/* Decorative dual-canvas layer; real hero copy stays above (z-index) and visible */
-.hero-motion {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.hero__sky-canvas,
-.hero__copy-canvas {
-  position: absolute;
-  display: block;
-  pointer-events: none;
-}
-
-.hero__main {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding-block: clamp(40px, 7vh, 72px);
-  padding-inline: clamp(40px, 5vw, 76px) var(--gutter);
-}
-
-/* Hero text stays visible by default. A tiny home-only head script may stamp
-   html[data-hero-motion-pending] before paint; CSS below hides targets only
-   then, for about 1.2s (PREHIDE_DEADLINE_MS). Without that attribute (no-JS,
-   reduced motion, session replay, deadline expiry, or any bail-out clearing
-   it) the real copy stays accessible. */
-
-/* Cold-load pre-hide: only while the head script's pending flag is set.
-   Reduced-motion users never get the attribute; the reduce branch also forces
-   opacity 1. After the deadline the module must not set inline opacity 0. */
-@media (prefers-reduced-motion: no-preference) {
-  html[data-hero-motion-pending] .hero [data-motion-target] {
-    opacity: 0;
-  }
-}
-
-.hero__eyebrow {
-  color: var(--sky);
-  margin-bottom: 16px;
-}
-
-.hero__name {
-  margin-bottom: 16px;
-}
-
 /* Gradient underline on light surfaces; the hero upgrades it to gradient text */
 .highlight {
   background-image: var(--grad);
   background-repeat: no-repeat;
-  background-position: 0 92%;
+  background-position: 0 100%;
   background-size: 100% 0.16em;
-  padding-bottom: 0.04em;
-}
-
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .hero__name .highlight {
-    background: var(--grad);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    padding-bottom: 0;
-  }
-}
-
-.hero__profile {
-  margin-top: 22px;
-  max-width: 62ch;
-}
-
-/* A quiet line under the name, not a second headline competing with it. */
-.hero__lede {
-  font-family: var(--font-body);
-  text-wrap: balance;
-  font-size: clamp(14.5px, 1.15vw, 16px);
-  font-style: italic;
-  font-weight: 400;
-  line-height: 1.5;
-  letter-spacing: 0.002em;
-  max-width: 46ch;
-  margin-top: 10px;
-  color: var(--mast-meta);
-}
-
-.hero__profile p {
-  text-wrap: pretty;
-  margin-top: 13px;
-  font-size: 15px;
-  line-height: 1.62;
-  color: color-mix(in srgb, var(--mast-text) 82%, transparent);
-}
-
-/* The four working principles. Hairline rules and a gradient tick, so the list
-   reads as part of the masthead's chart apparatus rather than a bulleted list
-   dropped into it. */
-.hero__principles {
-  list-style: none;
-  margin: 16px 0 0;
-  padding: 0;
-}
-
-.hero__principles li {
-  display: grid;
-  grid-template-columns: 7px minmax(0, 1fr);
-  align-items: baseline;
-  gap: 13px;
-  padding: 9px 0;
-  font-size: 14.5px;
-  line-height: 1.5;
-  color: color-mix(in srgb, var(--mast-text) 88%, transparent);
-}
-
-.hero__principles li + li {
-  border-top: 1px solid var(--mast-line);
-}
-
-.hero__principles li::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  transform: translateY(1px) rotate(45deg);
-  background: var(--grad);
-}
-
-/* Above this width the copy runs in two measures, so the whole profile sits in
-   one screen instead of running past the fold. The chart keeps the left band. */
-@media (min-width: 1100px) {
-  .hero__grid {
-    grid-template-columns: 0.5fr 1.5fr;
-  }
-
-  .hero__profile {
-    max-width: none;
-    column-count: 2;
-    column-gap: 40px;
-    column-rule: 1px solid var(--mast-line);
-  }
-
-  /* A paragraph or the principle list split across the gutter reads as a bug. */
-  .hero__profile p,
-  .hero__principles {
-    break-inside: avoid;
-  }
-
-  .hero__profile > p:first-child {
-    margin-top: 0;
-  }
-}
-
-/* Short laptop screens carry the same words in less height, so the copy comes
-   down half a point there. Wider screens keep the larger size. */
-@media (min-width: 1100px) and (max-width: 1359px) {
-  .hero__profile p {
-    font-size: 14.5px;
-    line-height: 1.55;
-    margin-top: 11px;
-  }
-}
-
-/* Slide the band up behind the transparent header, the way the hero does, so
-   the grid reaches the top of the page and the header sits on it instead of on
-   bare paper. The matching top padding holds the heading where it was. */
-.page-head {
-  margin-top: calc(var(--header-height) * -1);
-  padding-top: calc(64px + var(--header-height));
-  border-bottom: 1px solid var(--line);
-}
-
-.page-title {
-  max-width: 18ch;
-  margin-top: 18px;
-}
-
-.page-lede {
-  max-width: 64ch;
-  margin-top: 24px;
-  font-size: var(--fs-lede);
-  line-height: var(--lh-body);
-  color: var(--ink-2);
-}
-
-.page-head__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-top: 28px;
+  /* The padding lifts the bar's box below the descender of the "g". */
+  padding-bottom: 0.2em;
 }
 
 /* Fixed, so it reads as a status bar under the page rather than an end to it.
@@ -668,6 +584,18 @@ body:has(.hero) {
   height: var(--footer-height);
   background: var(--ink);
   border-top: 1px solid var(--mast-line);
+}
+
+/* Text scrolls under the bar. A short fade above it lets a line dim out
+   before the edge, so no line is cut through its middle. The strip takes no
+   input. The page keeps its own room for it: see the body padding. */
+.site-footer::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 100% 0;
+  height: var(--footer-fade);
+  background: linear-gradient(transparent, var(--ink));
+  pointer-events: none;
 }
 
 .site-footer__inner {
@@ -689,70 +617,152 @@ body:has(.hero) {
 }
 
 @media (max-width: 760px) {
-  .site-footer__disclaimer {
-    /* Only the copyright survives the narrow bar; the disclaimer is long. */
-    display: none;
+  /* The disclaimer stacks over the copyright in the same small type. Two
+     lines need 33px. The bar gets room for both and the page reserve grows
+     with it. */
+  :root {
+    --footer-height: 54px;
+    --footer-reserve: 62px;
   }
-  .site-footer__inner { justify-content: center; }
+  .site-footer__inner {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 4px;
+  }
 }
 
-@media (max-width: 960px) {
-  .hero {
-    min-height: 0;
-    margin-top: 0;
+@media (max-width: 540px) {
+  /* The disclaimer wraps to two lines here, so three lines share the bar.
+     The type and the line height shrink so the bar stays light. Three lines
+     of 10px type at 1.35 need 41px, and the row gap adds 4px. */
+  :root {
+    --footer-height: 56px;
+    --footer-reserve: 62px;
   }
-
-  .hero__grid {
-    grid-template-columns: 1fr;
-  }
-
-  .hero__chart-col {
-    height: 300px;
-  }
-
-  .hero__main {
-    padding: 48px 32px 52px;
+  .site-footer__disclaimer,
+  .site-footer__copyright {
+    font-size: 10px;
+    line-height: 1.35;
   }
 }
 
 @media (max-width: 760px) {
-  .wrap {
-    padding-inline: 20px;
-  }
-
-  .hero__main {
-    padding-inline: 20px;
-  }
-
-  .section {
-    padding-block: 56px;
-  }
-
-  .section--tight {
-    padding-block: 44px;
-  }
-
-  .nav {
-    gap: 14px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+  :root {
+    --frame-pad: 20px;
   }
 }
 
-/* Tight header below 520px: less padding and gap, smaller nav type.
-   Two labels (about, contact) fit beside the full brand at 320px, so this
-   block does not hide the wordmark. */
-@media (max-width: 520px) {
+/* Above 640px the nav shows every link inline. At 640px and below the same
+   links sit in a menu, so the header stays on one row however many links a
+   page has. The menu is a details element and works without JavaScript. */
+.nav-menu {
+  display: none;
+  position: relative;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.nav-menu__toggle {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.nav-menu__toggle::-webkit-details-marker {
+  display: none;
+}
+
+.nav-menu__toggle::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-left: 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.nav-menu[open] > .nav-menu__toggle::after {
+  transform: translateY(1px) rotate(-135deg);
+}
+
+.nav-menu__panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 60;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--surface-well);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.nav-menu__link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 12px;
+  color: var(--muted);
+  border-radius: 4px;
+}
+
+.nav-menu__link:hover,
+.nav-menu__link[aria-current] {
+  color: var(--fg);
+}
+
+.nav-menu__link[aria-current] {
+  box-shadow: inset 2px 0 0 var(--sky);
+}
+
+.nav-menu__rule {
+  height: 1px;
+  margin: 6px 12px;
+  background: var(--line);
+}
+
+/* Every page sits on ink. */
+.nav-menu__toggle,
+.nav-menu__link {
+  color: var(--mast-meta);
+}
+
+.nav-menu__link:hover,
+.nav-menu__link[aria-current] {
+  color: var(--mast-text);
+}
+
+.nav-menu__panel {
+  background: var(--ink-2);
+  border-color: var(--mast-line);
+}
+
+.nav-menu__rule {
+  background: var(--mast-line);
+}
+
+.nav-menu :focus-visible {
+  outline-color: var(--sky);
+}
+
+@media (max-width: 640px) {
   .site-header__inner {
     gap: 12px;
-    padding-inline: 16px;
   }
 
   .nav {
-    gap: 10px 12px;
-    font-size: 12px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    display: none;
+  }
+
+  .nav-menu {
+    display: block;
   }
 }
 
@@ -767,11 +777,5 @@ body:has(.hero) {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-  }
-
-  /* Motion targets stay at final visible state (JS also short-circuits) */
-  .hero [data-motion-target] {
-    opacity: 1 !important;
-    transform: none !important;
   }
 }

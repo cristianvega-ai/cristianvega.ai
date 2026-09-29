@@ -1,0 +1,145 @@
+/* The about page shares the article reading column and the dark ground. */
+body:is([data-page="about"], [data-page="error"]) {
+  color: var(--mast-text);
+  background: var(--ink);
+}
+
+body[data-page="about"] .site-header {
+  background: var(--ink);
+  box-shadow: 0 1px 0 var(--mast-line);
+}
+
+body[data-page="about"] .brand {
+  color: var(--mast-text);
+}
+
+body[data-page="about"] .brand__word i,
+body[data-page="about"] .nav {
+  color: var(--mast-meta);
+}
+
+body[data-page="about"] .brand__mark i:last-child {
+  border-color: var(--mark2-ink);
+}
+
+body[data-page="about"] .nav__link:hover,
+body[data-page="about"] .nav__link[aria-current] {
+  color: var(--mast-text);
+}
+
+body[data-page="about"] .site-header :focus-visible,
+body[data-page="about"] .skip-link:focus,
+.about :focus-visible {
+  outline-color: var(--sky);
+}
+
+.about__head {
+  padding-top: 72px;
+}
+
+.about .eyebrow {
+  color: var(--mast-meta);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+}
+
+.about .eyebrow::before {
+  width: 18px;
+  height: 2px;
+}
+
+.about__title {
+  margin-top: 20px;
+  font-size: clamp(38px, 4.4vw, 62px);
+  line-height: 1.06;
+  letter-spacing: -.043em;
+  text-wrap: balance;
+}
+
+.about__lede {
+  max-width: 56ch;
+  margin-top: 24px;
+  font-size: 19px;
+  line-height: 1.65;
+  color: var(--mast-meta);
+}
+
+.about__actions {
+  margin-top: 32px;
+}
+
+.about__body {
+  padding-block: 40px 72px;
+}
+
+.about__profile {
+  color: #c5cdd9;
+}
+
+.about__profile > * + * {
+  margin-top: 24px;
+}
+
+.about__profile p,
+.about__principles li {
+  font-size: 18px;
+  line-height: 1.8;
+  text-wrap: pretty;
+}
+
+/* Hairline rules and a gradient tick, the same list the article prose uses. */
+.about__principles {
+  list-style: none;
+  padding: 0;
+}
+
+.about__principles li {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 16px;
+  padding: 10px 0;
+  color: var(--mast-text);
+}
+
+.about__principles li + li {
+  border-top: 1px solid var(--mast-line);
+}
+
+.about__principles li::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  transform: translateY(1px) rotate(45deg);
+  background: var(--grad);
+}
+
+@media (max-width: 760px) {
+  .about__head {
+    padding-top: 48px;
+  }
+
+  .about__title {
+    margin-top: 16px;
+    font-size: 39px;
+    line-height: 1.08;
+    letter-spacing: -.04em;
+  }
+
+  .about__lede {
+    margin-top: 22px;
+    font-size: 17px;
+  }
+
+  .about__profile p,
+  .about__principles li {
+    font-size: 17px;
+    line-height: 1.7;
+  }
+}
+
+@media (max-width: 360px) {
+  .about__title {
+    font-size: 35px;
+  }
+}

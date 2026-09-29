@@ -1,0 +1,84 @@
+/* Ruled lists of posts and products, and the small pieces both share. */
+.entries {
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--mast-line);
+}
+
+.entries__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
+  gap: 6px 40px;
+  padding: 24px 0 26px;
+  border-bottom: 1px solid var(--mast-line);
+}
+
+.entries__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font: 500 12px/1.65 var(--font-mono);
+  color: var(--mast-meta);
+}
+
+.entries__title {
+  font-size: 21px;
+  line-height: 1.25;
+  letter-spacing: -.015em;
+}
+
+/* The whole row is the target, and the focus ring wraps the row. */
+.entries__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.entries__link:focus-visible {
+  outline: none;
+}
+
+.entries__item:focus-within {
+  outline: 3px solid var(--sky);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.entries__item:is(:hover, :focus-within) .entries__link {
+  color: var(--sky);
+}
+
+.entries__excerpt {
+  max-width: 62ch;
+  margin-top: 8px;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--mast-meta);
+  text-wrap: pretty;
+}
+
+.draft-label {
+  color: var(--sky);
+}
+
+.text-link {
+  font: 500 13px var(--font-mono);
+  color: var(--sky);
+}
+
+.text-link:hover {
+  color: var(--mast-text);
+}
+
+@media (max-width: 640px) {
+  .entries__item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .entries__meta {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0 12px;
+  }
+}

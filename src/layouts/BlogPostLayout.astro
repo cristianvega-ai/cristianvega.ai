@@ -1,0 +1,55 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import { postDate, postUrl, readingMinutes, type BlogPost } from "../lib/blog";
+import "../styles/blog.css";
+
+interface Props {
+  post: BlogPost;
+  older?: BlogPost;
+  newer?: BlogPost;
+}
+
+const { post, older, newer } = Astro.props;
+const url = new URL(postUrl(post), Astro.site).href;
+---
+
+<BaseLayout title={post.data.title} description={post.data.description} active="post" noindex={post.data.draft} published={post.data.draft ? undefined : post.data.date.toISOString()}>
+  <main>
+    <article class="article" aria-labelledby="post-title">
+      <header class="article__head">
+        <div class="article__utility wrap wrap--read">
+          <a class="back-link" href="/writing/">← All posts</a>
+          {post.data.draft && <p class="article__draft">Draft preview · not published</p>}
+        </div>
+        <div class="article__head-copy wrap wrap--read">
+          <p class={post.data.series ? "eyebrow eyebrow--parts" : "eyebrow"}>{post.data.series ? <><span class="eyebrow__part">{post.data.topic}</span> <span class="eyebrow__part">{post.data.series}</span></> : post.data.topic}</p>
+          <h1 id="post-title" class="article__title">{post.data.title}</h1>
+          <p class="article__dek">{post.data.description}</p>
+          <p class="article__meta"><strong>Cristian Vega</strong><span aria-hidden="true">·</span><time datetime={post.data.date.toISOString().slice(0, 10)}>{postDate(post)}</time><span aria-hidden="true">·</span><span>{readingMinutes(post)} min read</span></p>
+        </div>
+        <div class="article__head-rule wrap wrap--read" aria-hidden="true"><span></span><i></i><i></i><i></i></div>
+      </header>
+      <div class="article__body">
+        <div class="prose wrap wrap--read"><slot /></div>
+        {!post.data.draft && <div class="wrap wrap--read">
+          <div class="author__share">
+            <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`} target="_blank" rel="noopener noreferrer" aria-label="Share on LinkedIn">linkedin</a>
+            <a href={`https://x.com/intent/post?url=${encodeURIComponent(url)}&text=${encodeURIComponent(post.data.title)}`} target="_blank" rel="noopener noreferrer" aria-label="Share on X">x</a>
+            <button type="button" data-copy-link={url} hidden>copy link</button>
+            <span class="share-status" role="status"></span>
+          </div>
+        </div>}
+        {(older || newer) && <nav class="read-next wrap wrap--read" aria-label="More posts">
+          {older && <a href={postUrl(older)}><span>← Older{older.data.draft && " · Draft"}</span><strong>{older.data.title}</strong></a>}
+          {newer && <a href={postUrl(newer)} class="read-next__newer"><span>Newer{newer.data.draft && " · Draft"} →</span><strong>{newer.data.title}</strong></a>}
+        </nav>}
+      </div>
+    </article>
+  </main>
+</BaseLayout>
+
+<script>
+  import { setupArticle } from "../lib/blog-motion/setup";
+
+  setupArticle();
+</script>

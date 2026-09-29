@@ -95,7 +95,8 @@ test("the page works when the analytics script is blocked", async ({ page, baseU
   await blocked;
   await settle(page);
   await expect(page.locator(".hero__name")).toHaveText("Cristian Vega");
-  await expect(page.locator(".hero__name")).toHaveCSS("opacity", "1");
+  await expect(page.locator(".hero__name")).toBeVisible();
+  await expect(page.locator("[data-lyra-globe]")).toHaveAttribute("data-ready", "true");
   await page.keyboard.press("Tab");
   await expect(page.locator(".skip-link")).toBeFocused();
   await page.keyboard.press("Enter");
