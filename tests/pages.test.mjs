@@ -34,7 +34,7 @@ test("about holds the profile and marks its own navigation link", () => {
     "Build reusable components rather than one-off pipelines.",
     "Clear system contracts, evaluation, and instrumentation belong in the design from the start.",
     "Quality should be measurable, and operating costs should be understood.",
-    "At Patra, I founded the AI engineering function and grew it to a peak of 100 people.",
+    "At Patra, I founded the AI Engineering function and grew it to a peak of 50 people.",
     "four and a half years building digital banking software at BBVA",
     "U.S. Patent 12,639,972 B2",
   ]) {
