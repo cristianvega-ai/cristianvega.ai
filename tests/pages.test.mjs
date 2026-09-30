@@ -27,21 +27,20 @@ test("about holds the profile and marks its own navigation link", () => {
 
   for (const copy of [
     "AI Engineering Leader",
-    "Ten years building software. The last five building production AI from the ground up.",
-    "I'm an AI engineering leader who never stopped building.",
-    "Deterministic execution wherever it will do the job.",
-    "Models only where reasoning is genuinely required.",
-    "Reusable building blocks instead of one-off pipelines.",
-    "Instrumentation on everything, so quality is a number rather than an opinion.",
-    "At Patra that shape scaled document intelligence",
-    "four and a half years shipping digital",
-    "Now I'm at Vertafore.",
-    "OpenCatalyst",
+    "I build production AI and the teams behind it.",
+    "I’m an AI engineering leader at Vertafore with ten years in software",
+    "Use deterministic execution where it does the job.",
+    "Bring in models where reasoning is needed.",
+    "Build reusable components rather than one-off pipelines.",
+    "Clear system contracts, evaluation, and instrumentation belong in the design from the start.",
+    "Quality should be measurable, and operating costs should be understood.",
+    "At Patra, I founded the AI engineering function and grew it to a peak of 100 people.",
+    "four and a half years building digital banking software at BBVA",
     "U.S. Patent 12,639,972 B2",
   ]) {
     assert.ok(html.replace(/\s+/g, " ").includes(copy), `about must keep the copy: ${copy}`);
   }
-  assert.equal([...html.matchAll(/<li>/g)].length, 4, "about must hold four principles");
+  assert.equal([...html.matchAll(/<li>/g)].length, 5, "about must hold five principles");
 });
 
 test("homepage holds the intro, the globe, and a link to about", () => {
@@ -63,7 +62,7 @@ test("homepage holds the intro, the globe, and a link to about", () => {
   assert.doesNotMatch(html, /More about me/, "the homepage must not carry the old about link");
 
   // The long profile lives on /about/. The homepage must not repeat it.
-  for (const copy of ["never stopped building", "12,000 documents", "Now I'm at Vertafore", "U.S. Patent", "OpenCatalyst"]) {
+  for (const copy of ["AI engineering leader at Vertafore", "12,000 documents", "U.S. Patent"]) {
     assert.ok(!text.includes(copy), `the homepage must not repeat the profile copy: ${copy}`);
   }
   assert.doesNotMatch(html, /hero__principles|hero__profile/);
