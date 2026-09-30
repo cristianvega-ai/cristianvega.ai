@@ -1468,6 +1468,9 @@ test.describe("the live call to action focus ring", () => {
       const range = document.createRange();
       range.selectNodeContents(link);
       const text = range.getBoundingClientRect();
+      // The arrow slides 5px on focus. Read it where the layout puts it, not where the slide has
+      // brought it after some milliseconds, which depends on how fast the machine runs.
+      const slide = new DOMMatrix(getComputedStyle(link.querySelector(".hero__next-arrow")).transform).m41;
       const width = parseFloat(style.outlineWidth);
       const offset = parseFloat(style.outlineOffset);
       const list = document.querySelector(".hero__next").getBoundingClientRect();
@@ -1477,7 +1480,7 @@ test.describe("the live call to action focus ring", () => {
         textLeft: text.left,
         ringOuterLeft: box.left - offset - width,
         leftGap: text.left - (box.left - offset),
-        rightGap: (box.right + offset) - text.right,
+        rightGap: (box.right + offset) - (text.right - slide),
         height: box.height,
       };
     });
