@@ -12,7 +12,7 @@ import { bandHeight, drawnLabels, edgePaint, settle, textBoxes, useLabelSpy, use
 const dev = "http://127.0.0.1:4324";
 const PAGES = {
   products: { name: "products index", url: `${dev}/products/`, graphic: "[data-graphic='products']", restMs: 31_000 },
-  product: { name: "product page", url: `${dev}/products/opencatalyst/`, graphic: "[data-graphic='products']", restMs: 31_000 },
+  product: { name: "product page", url: `${dev}/products/lorem-ipsum-dolor/`, graphic: "[data-graphic='products']", restMs: 31_000 },
   notFound: { name: "404 page", url: "/no-such-page-for-the-graphic/", graphic: "[data-graphic='404']", restMs: 31_000 },
 };
 const SIZES = [

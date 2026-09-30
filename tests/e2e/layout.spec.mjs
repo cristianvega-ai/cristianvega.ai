@@ -801,7 +801,7 @@ test.describe("the sticky header", () => {
  * can read its pixels and the page CSP does not apply.
  */
 const MOTIF_DEV = "http://127.0.0.1:4324";
-const MOTIF_ROUTES = ["/about/", "/no-such-page/", `${MOTIF_DEV}/products/`, `${MOTIF_DEV}/products/opencatalyst/`];
+const MOTIF_ROUTES = ["/about/", "/no-such-page/", `${MOTIF_DEV}/products/`, `${MOTIF_DEV}/products/lorem-ipsum-dolor/`];
 const MOTIF_GROUND = [20, 24, 31];
 
 /** Screenshot the page with only the ground and the grid visible. */
@@ -1053,7 +1053,7 @@ const GRAPHIC_PAGES = [
   { name: "about", url: "/about/", graphic: "[data-graphic='about']" },
   { name: "writing", url: `${MOTIF_DEV}/writing/`, graphic: "[data-graphic='writing']" },
   { name: "products", url: `${MOTIF_DEV}/products/`, graphic: "[data-graphic='products']" },
-  { name: "product detail", url: `${MOTIF_DEV}/products/opencatalyst/`, graphic: "[data-graphic='products']" },
+  { name: "product detail", url: `${MOTIF_DEV}/products/lorem-ipsum-dolor/`, graphic: "[data-graphic='products']" },
   { name: "404", url: "/no-such-page/", graphic: "[data-graphic='404']" },
 ];
 /** The shared inset of the figure inside its box. It is FIGURE_INSET in src/lib/lyra-render/inset.ts. */

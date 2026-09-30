@@ -532,7 +532,7 @@ for (const [name, viewport] of Object.entries(WIDTHS)) {
       const focusable = await page.locator(".hero__next").evaluate((list) => list.querySelectorAll("a, button, [tabindex]").length);
       expect(focusable).toBe(0);
       expect((await request.get("/products/")).status()).toBe(404);
-      expect((await request.get("/products/opencatalyst/")).status()).toBe(404);
+      expect((await request.get("/products/lorem-ipsum-dolor/")).status()).toBe(404);
       expect((await request.get("/writing/")).status()).toBe(404);
     });
 
@@ -576,13 +576,13 @@ test.describe("products on the dev server", () => {
     await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "page");
     await expect(page.locator("meta[name='robots']")).toHaveAttribute("content", "noindex, follow");
     await expect(page.locator("meta[name='color-scheme']")).toHaveAttribute("content", "dark");
-    await page.getByRole("link", { name: "OpenCatalyst" }).click();
+    await page.getByRole("link", { name: "Lorem ipsum dolor" }).click();
 
-    await expect(page).toHaveURL(dev + "/products/opencatalyst/");
-    await expect(page.locator("main h1")).toHaveText("OpenCatalyst");
+    await expect(page).toHaveURL(dev + "/products/lorem-ipsum-dolor/");
+    await expect(page.locator("main h1")).toHaveText("Lorem ipsum dolor");
     await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "location");
     await expect(page.locator("meta[name='robots']")).toHaveAttribute("content", "noindex, follow");
-    await expect(page.locator(".product__prose")).toContainText("60K lines of Rust and TypeScript");
+    await expect(page.locator(".product__prose")).toContainText("Lorem ipsum dolor sit amet, consectetur adipiscing elit");
     await expect(page.getByRole("link", { name: "All products →" })).toHaveAttribute("href", "/products/");
     // A draft with no address shows no outbound link.
     await expect(page.locator(".product__link[target='_blank']")).toHaveCount(0);
