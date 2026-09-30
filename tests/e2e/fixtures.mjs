@@ -34,12 +34,13 @@ export const bandHeight = (screenHeight) => Math.min(240, Math.max(144, screenHe
  * A cancelled animation is not mid-flight, so its cancellation counts as done.
  */
 export async function settle(page) {
-  await page.evaluate(() => Promise.all([...document.fonts].map((face) => face.load().catch(() => undefined))).then(() => document.fonts.ready));
   await page
     .locator("main")
-    .evaluate((el) =>
-      Promise.all(el.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined))),
-    );
+    .evaluate(async (el) => {
+      await Promise.all([...document.fonts].map((face) => face.load().catch(() => undefined)));
+      await document.fonts.ready;
+      await Promise.all(el.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)));
+    });
 }
 
 /**

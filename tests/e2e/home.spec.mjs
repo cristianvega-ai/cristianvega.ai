@@ -1331,8 +1331,9 @@ test.describe("the globe band below 1100px", () => {
         innerHeight: window.innerHeight,
         footerTop: document.querySelector(".site-footer").getBoundingClientRect().top,
         nextBottom: Math.max(...[...document.querySelectorAll(".hero__next-item")].map((item) => item.getBoundingClientRect().bottom)),
+        diag: JSON.stringify({ faces: [...document.fonts].map((f) => f.family + f.weight + f.status), h1: [getComputedStyle(document.querySelector("h1")).fontFamily, document.querySelector("h1").getBoundingClientRect().height], lede: document.querySelector(".hero__lede").getBoundingClientRect().height, thesis: document.querySelector(".hero__thesis").getBoundingClientRect().height, next: document.querySelector(".hero__next").getBoundingClientRect().height, header: document.querySelector(".site-header").getBoundingClientRect().height, band: document.querySelector("[data-lyra-globe]").getBoundingClientRect().height, footer: document.querySelector(".site-footer").getBoundingClientRect().height, dpr: devicePixelRatio, ua: navigator.userAgent }),
       }));
-      expect(fit.scrollHeight, `${screen.width}x${screen.height} needs no scroll`).toBeLessThanOrEqual(fit.innerHeight);
+      expect(fit.scrollHeight, `${screen.width}x${screen.height} needs no scroll ${fit.diag}`).toBeLessThanOrEqual(fit.innerHeight);
       expect(fit.footerTop - fit.nextBottom).toBeGreaterThanOrEqual(24);
     }
   });
