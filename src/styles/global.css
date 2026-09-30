@@ -198,6 +198,11 @@ body {
   color: var(--fg);
   background: var(--surface-well);
   -webkit-font-smoothing: antialiased;
+  /* Linux Chromium rounds each glyph advance to a whole pixel at 1x unless it
+     is told to place glyphs by their exact metrics. The rounding made the
+     intro lede wrap to a third line on the phone. Exact metrics give the same
+     line breaks on every platform. */
+  text-rendering: geometricPrecision;
   min-height: 100vh;
   min-height: 100svh;
   display: flex;
