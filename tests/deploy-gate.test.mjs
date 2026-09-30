@@ -12,8 +12,8 @@ import { gzipSync } from "node:zlib";
 import { permissionsPolicy, root } from "./helpers.mjs";
 
 const run = promisify(execFile);
-const homepage = '<!doctype html><script src="/_astro/HeroMotion.fixture.js"></script><script src="/_astro/CloudflareAnalytics.fixture.js"></script>';
-const withoutAnalytics = '<!doctype html><script src="/_astro/HeroMotion.fixture.js"></script>';
+const homepage = '<!doctype html><script src="/_astro/LyraGlobe.fixture.js"></script><script src="/_astro/CloudflareAnalytics.fixture.js"></script>';
+const withoutAnalytics = '<!doctype html><script src="/_astro/LyraGlobe.fixture.js"></script>';
 const script = gzipSync("console.log('fixture');");
 
 async function checkDeployment(t, {
@@ -22,6 +22,7 @@ async function checkDeployment(t, {
   redirectStatus = 301,
   redirectLocation = "/",
   missingStatus = 404,
+  aboutStatus = 200,
   scriptEncoding = "gzip",
   scriptCache = "public, max-age=31536000, immutable",
   stylePolicy = "style-src 'self'; style-src-attr 'none'",
@@ -52,10 +53,13 @@ async function checkDeployment(t, {
     } else if (request.url === "/") {
       response.setHeader("Content-Type", "text/html; charset=utf-8");
       response.end(html);
-    } else if (["/about", "/about/", "/contact", "/contact/"].includes(request.url)) {
+    } else if (request.url === "/about/") {
+      response.writeHead(aboutStatus, { "Content-Type": "text/html; charset=utf-8" });
+      response.end("<!doctype html><title>About</title>");
+    } else if (["/contact", "/contact/"].includes(request.url)) {
       response.writeHead(redirectStatus, { Location: redirectLocation });
       response.end();
-    } else if (request.url === "/_astro/HeroMotion.fixture.js" || request.url === "/_astro/CloudflareAnalytics.fixture.js") {
+    } else if (request.url === "/_astro/LyraGlobe.fixture.js" || request.url === "/_astro/CloudflareAnalytics.fixture.js") {
       response.writeHead(200, {
         "Content-Type": "text/javascript",
         "Content-Encoding": scriptEncoding,
@@ -108,6 +112,10 @@ for (const [name, options, message] of [
     /must redirect to the homepage with HTTP 301/],
   ["a redirect to another host", { redirectLocation: "https://example.invalid/" },
     /must redirect to the homepage with HTTP 301/],
+  ["an about page that is missing", { aboutStatus: 404 },
+    /\/about\/ must return HTTP 200 as HTML/],
+  ["an about page that redirects", { aboutStatus: 301 },
+    /\/about\/ must return HTTP 200 as HTML/],
   ["a missing page served with HTTP 200", { missingStatus: 200 },
     /expected 404/],
   ["a missing analytics loader", { html: withoutAnalytics, expectedHtml: withoutAnalytics },

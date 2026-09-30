@@ -1,0 +1,611 @@
+/* The homepage holds the intro, two calls to action that point at Writing and
+   Products, and the Lyra globe. From 1100px it is one screen and nothing
+   scrolls. Below 1100px it reads like the inner pages: the globe sits in a
+   band above the intro, and the page can scroll a little on a short phone.
+   The page sits on ink. The
+   blueprint grid shows only around the globe and fades to nothing toward the
+   intro, the header, the footer, and every edge of its layer, so the text sits
+   on a calm ground and no line ends on a hard edge. The dark header rules are
+   in global.css. */
+body[data-page="home"] {
+  /* The grid is faded, so its lines can be a little stronger where it shows. */
+  --grid-line: rgba(255, 255, 255, 0.11);
+  --grid-mask: radial-gradient(
+    ellipse closest-side at 50% 50%,
+    #000 0 40%,
+    rgb(0 0 0 / .82) 52%,
+    rgb(0 0 0 / .55) 62%,
+    rgb(0 0 0 / .32) 72%,
+    rgb(0 0 0 / .16) 81%,
+    rgb(0 0 0 / .06) 88%,
+    transparent 94%
+  );
+  --grid-image:
+    repeating-linear-gradient(180deg, transparent 0 39px, var(--grid-line) 39px 40px),
+    repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line) 39px 40px);
+  background-color: var(--ink);
+}
+
+/* The header is not sticky here, and it sits on the same ground as the page,
+   with no hairline under it. Every other page keeps the sticky header and its
+   hairline. */
+html body[data-page="home"] .site-header {
+  position: relative;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* The footer bar keeps the ink ground and has no border. The grid never
+   reaches it, so the bar and the page read as one ground. */
+html body[data-page="home"] .site-footer {
+  border-top: 0;
+}
+
+/* From 1100px the homepage does not scroll, so it needs no fade and holds no
+   extra room. Below 1100px the page can scroll, and the footer keeps the fade
+   and the reserve of the inner pages. */
+@media (min-width: 1100px) {
+  html body[data-page="home"] {
+    --footer-fade: 0px;
+  }
+
+  body[data-page="home"] .site-footer::before {
+    display: none;
+  }
+}
+
+body[data-page="home"] #main-content,
+body[data-page="home"] main {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero {
+  position: relative;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: clip;
+  /* The grid layer measures the width of the hero, so its lines line up with
+     the content edge whatever the width of the screen. */
+  container-type: inline-size;
+  color: var(--mast-text);
+  /* The room above the eyebrow. The inner pages use the same value. */
+  --head-top: 72px;
+}
+
+.hero > .wrap {
+  position: relative;
+  width: 100%;
+}
+
+.hero__stage {
+  position: relative;
+  flex: 1;
+  display: grid;
+  /* The intro takes the reading column of the inner pages, less the frame padding that the
+     stage already holds. Then the gap, then a zero-width track. The globe box starts in that
+     track, at the column edge plus --graphic-gap, and runs past the track to the screen edge.
+     The inner pages put their graphic box in the same place. */
+  grid-template-columns: minmax(0, calc(var(--reading-column) - var(--frame-pad))) var(--graphic-gap) 0;
+  align-items: start;
+  gap: 0;
+  /* The stage has no top padding, so the globe can centre between the header
+     and the footer. The intro takes its head room from its own margin. */
+  padding-block: 0;
+}
+
+.hero__main {
+  grid-column: 1;
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  /* The intro starts at the same height as the title of every inner page. */
+  margin-top: var(--head-top);
+}
+
+/* The eyebrow has the colour, weight, dash, and tracking of the inner pages. Only
+   the gap below it is set here, and it matches the gap above an inner page title. */
+.hero .eyebrow {
+  color: var(--mast-meta);
+  margin-bottom: 20px;
+}
+
+.hero .eyebrow::before {
+  width: 18px;
+  height: 2px;
+}
+
+/* The name is the h1, so it takes the size, tracking, and line height of every
+   page title from global.css. */
+.hero__name {
+  margin-bottom: 14px;
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .hero__name .highlight {
+    background: var(--grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    padding-bottom: 0;
+  }
+}
+
+/* A quiet line under the name, not a second headline competing with it. */
+.hero__lede {
+  max-width: 46ch;
+  font-size: var(--fs-lede);
+  font-style: italic;
+  line-height: var(--lh-lede);
+  text-wrap: balance;
+  color: var(--mast-meta);
+}
+
+.hero__thesis {
+  max-width: 50ch;
+  margin-top: 22px;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  text-wrap: pretty;
+  color: color-mix(in srgb, var(--mast-text) 82%, transparent);
+}
+
+/* The next step. Two lines under a hairline, in the mono style of the site's
+   links. A live line is a link. A line with nothing behind it is muted text
+   with no arrow and no focus. Both states use one row of one height, so the
+   layout does not shift when a section goes live. */
+.hero__next {
+  max-width: 50ch;
+  margin-top: 26px;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--mast-line);
+  list-style: none;
+}
+
+.hero__next-item {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font: 500 var(--fs-ui) / 1.3 var(--font-mono);
+}
+
+.hero__next-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6ch;
+  min-height: 44px;
+  /* The padding gives the focus ring an even margin around the text and the arrow. The
+     negative margin keeps the text on the column edge, and the ring sits inside the box. */
+  padding-inline: 10px;
+  margin-left: -10px;
+  color: var(--sky);
+}
+
+.hero__next-link:focus-visible {
+  outline-offset: -3px;
+}
+
+.hero__next-link:hover {
+  color: var(--mast-text);
+}
+
+.hero__next-arrow {
+  display: inline-block;
+  transition: transform .24s cubic-bezier(.2, .7, .2, 1);
+}
+
+.hero__next-link:hover .hero__next-arrow,
+.hero__next-link:focus-visible .hero__next-arrow {
+  transform: translateX(5px);
+}
+
+.hero__next-soon {
+  color: var(--mast-meta);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__next-arrow {
+    transition: none;
+  }
+}
+
+/* The globe box starts where the graphic box of every inner page starts: the reading column plus
+   --graphic-gap from the left edge of the frame. Its figure starts --figure-inset inside the box,
+   as the figure of an inner page does (FIGURE_INSET in src/lib/lyra-render/inset.ts). The box runs
+   past the right edge of the screen, and the mask below fades the sphere out at the screen edge,
+   as the inner pages fade their graphics. Its top is level with the eyebrow, and the height cap
+   keeps its bottom clear of the footer bar on a short screen.
+   The sphere centre sits (.4162 * width + inset) from the box edge: the ring of the sphere is
+   1.13 radii wide, the picture is 130% of the box, and the numbers come from the model. The
+   caption reaches 66px past the centre (68px with slack), and Vega and its name reach less. The width
+   cap keeps both clear of the fade. It binds only on a narrow screen. */
+.hero__globe {
+  --globe-max: 720px;
+  /* The size the owner approved: a little over half of the frame. */
+  --globe-size: calc(var(--frame) * .55 - 5px);
+  --figure-inset: 32px;
+  /* How far the grid layer runs past the globe box on the left and the right, and how wide its
+     fade is at the screen edge. */
+  --grid-reach: 120px;
+  --grid-fade: 120px;
+  --fade: 24px;
+  /* The room the globe keeps clear below itself, above the footer bar. */
+  --globe-gap: 28px;
+  /* The left edge of the box, and the room from there to the screen edge. The hero is the
+     container, so 100cqw is the width of the screen. */
+  --globe-left: calc(max(0px, 50cqw - var(--frame) / 2) + var(--reading-column) + var(--graphic-gap));
+  --globe-room: calc(100cqw - var(--globe-left));
+  grid-column: 3;
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  width: min(
+    var(--globe-max),
+    var(--globe-size),
+    max(260px, calc((100svh - var(--header-height) - var(--head-top) - var(--footer-reserve) - 2 * var(--globe-gap)) / .9013)),
+    calc((var(--globe-room) - var(--figure-inset) - 68px - var(--fade)) / .4162)
+  );
+  justify-self: start;
+  /* The globe starts level with the eyebrow. Its bottom sits clear of the footer. */
+  align-self: start;
+  margin-top: var(--head-top);
+}
+
+/* The grid fades out behind the sphere, so the lines of the sphere read
+   against clean ink. The layer is decorative and takes no input. */
+.hero__globe::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 51%;
+  top: 49%;
+  width: 96%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--ink) 92%, transparent) 44%, transparent);
+  pointer-events: none;
+}
+
+/* The blueprint grid. The layer is one box around the globe, and one soft
+   ellipse in its mask, centred on the globe, makes the grid strongest at the
+   sphere. The ellipse reaches zero well inside the box, so the layer has no
+   visible edge and no line touches the intro or a screen edge.
+   The lines line up with the content edge of the frame, as the grid of the inner pages does. The
+   line is the last pixel of its tile. The content edge sits (reading column + gap - frame
+   padding) left of the globe box, and the layer starts --grid-reach left of the box. */
+.hero__globe::after {
+  content: "";
+  position: absolute;
+  z-index: -2;
+  inset: -32px calc(var(--grid-reach) * -1);
+  background-image: var(--grid-image);
+  background-size: 40px 40px;
+  background-position:
+    calc(var(--frame-pad) - var(--reading-column) - var(--graphic-gap) - 39px + var(--grid-reach))
+    50%;
+  /* The ellipse fades the grid around the globe. The box runs past the screen, so a second mask
+     fades the grid out at the screen edge. */
+  -webkit-mask-image: var(--grid-mask), linear-gradient(90deg, #000 calc(var(--globe-room) + var(--grid-reach) - var(--grid-fade)), transparent calc(var(--globe-room) + var(--grid-reach)));
+  mask-image: var(--grid-mask), linear-gradient(90deg, #000 calc(var(--globe-room) + var(--grid-reach) - var(--grid-fade)), transparent calc(var(--globe-room) + var(--grid-reach)));
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  pointer-events: none;
+}
+
+/* The svg is the picture. The canvas takes over once it is ready. The box is
+   a container, so the labels can drop the caption on a small globe. */
+.lyra-globe {
+  position: relative;
+  container-type: inline-size;
+  aspect-ratio: 1 / .9013;
+  overflow: clip;
+  pointer-events: none;
+  /* The soft edge of the inner page graphics. The box runs past the screen, so the fade
+     ends at the screen edge. The caption sits inside it. The top and the bottom keep no fade. */
+  --edge: min(var(--globe-room), 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(var(--edge) - var(--fade)), transparent var(--edge), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(var(--edge) - var(--fade)), transparent var(--edge), transparent);
+}
+
+/* The picture has an empty margin on every side of the sphere. The box crops
+   it, so the sphere fills the box: the box shows 83% of the picture's height.
+   The picture and the labels keep their full size. Horizontally, the picture sits so
+   the sphere ring starts --figure-inset from the box edge. The ring is 113.9 of the 600
+   grid units from the picture edge, which is .2468 of the box width. The caption sits
+   7px above the bottom edge of the box. From 1100px the mask fades the sphere out at the
+   screen edge, over --fade, and never crops it hard. */
+.lyra-globe__fallback,
+.lyra-globe__canvas,
+.lyra-globe__labels {
+  position: absolute;
+  left: calc(var(--figure-inset) - 24.68cqw);
+  top: -11.06%;
+  /* The base reset caps a picture at the width of its box. */
+  max-width: none;
+  width: 130%;
+  height: 120.19%;
+  pointer-events: none;
+}
+
+/* The canvas draws the entrance and ends on the finished picture. The box has
+   its size from the first paint, so nothing moves while the script loads. The
+   canvas stays hidden until it holds its first frame. Without JavaScript the
+   SVG in the noscript is the picture. The script copies the same SVG in when
+   canvas is missing. */
+.lyra-globe:not([data-ready]) .lyra-globe__canvas {
+  visibility: hidden;
+}
+
+/* The labels wait for the canvas, so they do not show over an empty box. The
+   fallback copy shows them at once. They fade in with the entrance, the name
+   last, as the star lights. */
+@media (scripting: enabled) {
+  .lyra-globe:not([data-ready], [data-fallback]) .lyra-globe__labels {
+    opacity: 0;
+  }
+}
+
+@keyframes lyra-label-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.lyra-globe[data-ready] .lyra-globe__label {
+  animation: lyra-label-in .7s ease-out .5s backwards;
+}
+
+.lyra-globe[data-ready] .lyra-globe__label:not(.lyra-globe__label--caption) {
+  animation-delay: 1.4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lyra-globe[data-ready] .lyra-globe__label {
+    animation: none;
+  }
+}
+
+.lyra-globe__star,
+.lyra-globe__edge {
+  fill: var(--mast-meta);
+  stroke: none;
+}
+
+.lyra-globe__edge {
+  fill: none;
+  stroke: var(--mast-meta);
+  stroke-width: .65;
+  stroke-linecap: round;
+}
+
+.lyra-globe__edge.is-hot {
+  stroke: var(--sky);
+  stroke-width: 1.1;
+}
+
+.lyra-globe__ring {
+  fill: none;
+  stroke: var(--sky);
+  stroke-width: .7;
+}
+
+.lyra-globe__node {
+  fill: var(--mast-text);
+}
+
+/* The labels are text over the picture, in their own svg with no viewBox. A
+   unit there is one CSS pixel, so the type keeps its size when the globe
+   shrinks. The svg and the canvas both sit under the same text. */
+.lyra-globe__labels {
+  overflow: visible;
+}
+
+.lyra-globe__label {
+  font: 400 10px var(--font-mono);
+  fill: var(--mast-text);
+}
+
+@container (min-width: 460px) {
+  .lyra-globe__label {
+    font-size: 11px;
+  }
+}
+
+/* Under 240px the caption would crowd the sphere. Vega keeps its name. */
+@container (max-width: 239px) {
+  .lyra-globe__label--caption {
+    display: none;
+  }
+}
+
+/* Below 1100px the globe sits in a band above the intro, as the graphic does on
+   the inner pages. The band has the box of that graphic: 20px under the header,
+   --band-height tall (global.css), and as wide as the reading column less the frame padding, from
+   the content edge. The intro then keeps the head room of the inner pages, so
+   the eyebrow and the name sit at the same height on every page. The calls
+   to action follow the intro. The globe is drawn larger than the band and the band crops
+   it, like a planet that rises into view. The crop is one rule in CSS that
+   reads the width of the band, so the canvas and the SVG fallback share it.
+   The picture is --pw wide. Its sphere centre sits on the middle of the band.
+   Vega sits --vega-y from the top of the band, clear of the edge fade. The
+   numbers .51 and .2525 are the sphere centre and Vega in the 600 by 500 grid
+   of the model (306 and 151.5, divided by 600). */
+@media (max-width: 1099px) {
+  .hero__stage {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    align-content: start;
+    gap: 0;
+    padding-block: 20px 8px;
+  }
+
+  .hero__globe {
+    grid-column: 1;
+    grid-row: 1;
+    width: min(100%, calc(var(--reading-column) - 2 * var(--frame-pad)));
+    height: var(--band-height);
+    margin: 0;
+    justify-self: start;
+    align-self: start;
+  }
+
+  .hero__main {
+    grid-column: 1;
+    grid-row: 2;
+    /* The intro uses the reading column, as the inner pages do. */
+    max-width: calc(var(--reading-column) - 2 * var(--frame-pad));
+  }
+
+  .hero__lede {
+    max-width: 56ch;
+  }
+
+  .hero__thesis,
+  .hero__next {
+    max-width: none;
+  }
+
+  .hero__globe::before {
+    display: none;
+  }
+
+  /* The inner pages show no grid below 1100px, so the band shows none either. */
+  .hero__globe::after {
+    display: none;
+  }
+
+  .hero__globe .lyra-globe {
+    --pw: clamp(420px, 130cqw, 780px);
+    --vega-y: calc(var(--band-height) * .486);
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+
+  .lyra-globe__fallback,
+  .lyra-globe__canvas,
+  .lyra-globe__labels {
+    left: calc(50cqw - var(--pw) * .51);
+    top: calc(var(--vega-y) - var(--pw) * .2525);
+    width: var(--pw);
+    height: calc(var(--pw) * .8333);
+  }
+
+  /* The edge fade of the inner page graphics: every edge of the band fades
+     over 24px, so no ring, line, or star ends on a hard edge. Vega and its name
+     sit clear of the fade. */
+  .hero__globe .lyra-globe {
+    -webkit-mask-image:
+      linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent),
+      linear-gradient(180deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+    mask-image:
+      linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent),
+      linear-gradient(180deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  /* The caption sits below the sphere, and the band crops it. */
+  .lyra-globe__label--caption {
+    display: none;
+  }
+}
+
+/* The inner pages use less head room on a phone, and so does the intro. */
+@media (max-width: 760px) {
+  .hero {
+    --head-top: 48px;
+  }
+
+  .hero .eyebrow {
+    margin-bottom: 16px;
+  }
+}
+
+/* The phone stack. The spacing is fixed, so it does not drift with the screen
+   height. */
+@media (max-width: 540px) {
+  /* The globe is small here, so its grid needs a little more strength to show. */
+  body[data-page="home"] {
+    --grid-line: rgba(255, 255, 255, 0.115);
+  }
+
+  .hero__stage {
+    padding-bottom: 14px;
+  }
+
+  .hero__name {
+    margin-bottom: 8px;
+  }
+
+  .hero__lede,
+  .hero__thesis {
+    text-wrap: pretty;
+  }
+
+  .hero__thesis {
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+
+  .hero__next {
+    margin-top: 16px;
+    padding-top: 4px;
+  }
+}
+
+/* A short phone gives the globe the least room, so the intro and the calls to
+   action tighten by a step. */
+@media (max-width: 540px) and (max-height: 760px) {
+  .hero__name {
+    margin-bottom: 6px;
+  }
+
+  .hero__lede,
+  .hero__thesis {
+    line-height: 1.4;
+  }
+
+  .hero__thesis {
+    margin-top: 12px;
+  }
+
+  .hero__next {
+    margin-top: 16px;
+    padding-top: 0;
+  }
+}
+
+/* A tall phone has room to spare, so the intro breathes. Fixed values, so the
+   rhythm does not drift with the screen height. */
+@media (max-width: 540px) and (min-height: 800px) {
+  .hero__name {
+    margin-bottom: 10px;
+  }
+
+  .hero__thesis {
+    margin-top: 14px;
+  }
+}
+
+/* A wide screen gets a bigger picture and bigger type. The frame is wider too
+   (global.css), so the left edge rule holds on every page. */
+@media (min-width: 1600px) {
+  .hero__globe {
+    --globe-max: 1040px;
+  }
+
+  .hero__name {
+    margin-bottom: 20px;
+  }
+
+  .hero__thesis {
+    margin-top: 30px;
+  }
+
+  .hero__next {
+    margin-top: 34px;
+  }
+}

@@ -1,7 +1,6 @@
 # cristianvega.ai
 
-Astro source for Cristian Vega's personal site: a profile on the homepage and a
-custom 404 page.
+This Astro site contains Cristian Vega's homepage, profile, the Neural Lyra blog, an optional products section, and a custom 404 page.
 
 ## Develop
 
@@ -9,6 +8,148 @@ custom 404 page.
 npm install
 npm run dev
 ```
+
+## Writing
+
+Open `/writing/` to view the Neural Lyra index.
+The index exists only when at least one post is visible.
+A production build has no `/writing/` route while every post is a draft.
+Add Markdown posts to `src/content/blog/`.
+Use a lowercase filename with hyphens.
+The filename sets the post URL: `example-post.md` becomes `/writing/example-post/`.
+
+Each file must start with this frontmatter:
+
+```yaml
+---
+title: "Post title"
+description: "A short description for the index and page metadata."
+date: "2026-09-24"
+topic: "Systems"
+draft: true
+---
+```
+
+Add `series` when the post belongs to a series.
+The index sorts posts by date, newest first.
+The site calculates reading time from each post's text.
+Use standard Markdown for headings, lists, links, and code.
+Code blocks use external CSS to meet the security policy.
+
+Drafts appear only in `npm run dev`.
+Draft pages show a preview label and request `noindex`.
+Production builds exclude drafts from routes, navigation, and the sitemap.
+An omitted `draft` value defaults to `true`.
+Set `draft: false` only when the owner approves publication.
+
+The eight lorem ipsum fixtures remain drafts.
+Only the lorem ipsum dolor sit amet fixture contains a full-length article.
+The other fixtures contain short text for layout review.
+The production index shows an empty state until a post is published.
+
+Article pages use Lyra Depth.
+Four projected neural layers carry one signal pass toward Vega.
+The graph sits beside the title on wide screens.
+The graph moves above the title on small screens.
+The title and article share one reading column on a continuous dark surface.
+The signal pass stops after 2.8 seconds of visible motion.
+The progress badge appears only on wide screens, outside the reading column.
+Reduced motion shows the completed graph.
+A static SVG keeps the graph visible when JavaScript or canvas is unavailable.
+
+The browser tests use a separate local Astro server for drafts.
+They also check the production build through the local Cloudflare runtime.
+
+## Homepage
+
+The homepage is one screen with no scrolling.
+It holds an intro on the left and the Lyra globe on the right.
+The globe grows to use the room and centres between the header and the footer.
+Two calls to action sit under the thesis, below a hairline.
+The primary nav links to `/about/`, which holds the full profile.
+The blueprint grid is faded. It shows around the globe and fades out toward the intro, the header, and the footer.
+The header sits on the page ground and has no ground of its own.
+The header is not sticky on the homepage. It stays sticky on every other page.
+Below 1100px the globe sits in a band above the intro, and the calls to action follow the intro.
+The page fits one screen at 1024x768, 820x1180, 390x844, and 360x740.
+A screen shorter than the content scrolls instead of overlapping.
+
+One call to action is for Writing and one is for Products.
+A call to action links to `/writing/` or `/products/` only when that section has a visible entry.
+The links read "Read my latest writing →" and "See my latest products →".
+Otherwise the line is muted text with no link and no focus: "Latest writing · coming soon" or "Latest products · coming soon".
+Both states use one box, so the layout does not shift when a section goes live.
+A production build with only drafts shows two coming-soon lines.
+`npm run dev` shows the drafts, so both lines link.
+
+The globe is decorative and hidden from assistive technology.
+A canvas draws it, with an entrance of about 2.3 seconds: the mesh draws from the far side, the neurons appear in turn, the Lyra lines draw toward Vega, comets run to Vega, and Vega blooms.
+Then the globe stays still.
+It pauses off-screen and while the tab is hidden.
+Reduced motion shows the finished globe at once.
+A build-time SVG shows the same finished picture in two cases only.
+It sits in a `noscript` for visitors without JavaScript.
+It sits in a `template`, and the script copies it in when canvas is missing or the setup fails.
+A visitor with canvas never sees the SVG.
+The globe code is in `src/lib/lyra-globe/`. The Lyra star data is in `src/lib/lyra/`.
+
+## Page graphics
+
+Each inner page can hold one decorative canvas graphic, drawn in the same language as the homepage globe.
+The About page has "Trajectory". Writing, Products, and the 404 page follow.
+The graphic is hidden from assistive technology and takes no pointer input.
+A canvas draws it, with an entrance of about 2.3 seconds. Then it stays still.
+It pauses off-screen and while the tab is hidden.
+Reduced motion shows the finished picture at once.
+Without JavaScript the graphic takes no space, and the page keeps only its faint grid. There is no SVG fallback.
+From 1100px wide, the graphic is fixed in the empty area right of the reading column. It uses the same box as the grid, and it sits above the grid.
+Below 1100px it is a 150px band above the page title. It never overlaps text.
+On About, a marker rests at the reader's place on the path as the page scrolls. Reduced motion shows the whole path lit with no marker.
+The component is `src/components/PageGraphic.astro`, and its placement rules are in `src/styles/global.css`.
+The drawing code is in `src/lib/lyra-render/`. The steps to add a page graphic are in `src/lib/lyra-render/index.ts`.
+The browser tests are in `tests/e2e/about.spec.mjs`.
+
+## Products
+
+Products stay hidden until the owner announces them.
+Add each product as a Markdown file in `src/content/products/`.
+The filename sets the URL: `example.md` becomes `/products/example/`.
+
+Each file must start with this frontmatter:
+
+```yaml
+---
+title: "Product name"
+description: "A short description for the lists and page metadata."
+draft: true
+order: 1
+---
+```
+
+Add `url` with an `https` address to show an outbound link on the detail page.
+Add `status` to replace the default `Product` label in the lists.
+The lists sort by `order`, lowest first, then by title.
+The Markdown body becomes the detail page.
+
+Drafts appear only in `npm run dev`.
+Draft pages show a label and request `noindex`.
+A production build has no `/products/` route while every product is a draft.
+The build also leaves products out of the navigation and the sitemap, and the homepage card is not a link.
+An omitted `draft` value defaults to `true`.
+To announce a product, set `draft: false` when the owner approves.
+The `OpenCatalyst` file is a draft sample for layout review.
+
+## Navigation
+
+The header is sticky on every page.
+The primary navigation lists `about`, `writing`, and `products`, then the profile links.
+The `writing` link appears only when a post is visible.
+A production build shows a post only when its `draft` value is `false`.
+The `products` link appears only when a product is visible, by the same rule.
+The `/about/` page holds the profile.
+At 640px and narrower, one `menu` button replaces the inline links.
+The menu is a `details` element, so it works without JavaScript.
+The header stays on one row at every width.
 
 ## Build
 
@@ -186,8 +327,9 @@ week. HTML revalidates. HSTS applies to
 the current host only. Do not add `includeSubDomains` until all subdomains
 support valid HTTPS.
 
-`public/_redirects` sends `/about` and `/contact`, with or without a trailing
-slash, to the homepage. Cloudflare domain rules handle HTTPS and `www`.
+`public/_redirects` sends `/contact`, with or without a trailing slash, to the
+homepage. `/about/` is a real page. Cloudflare domain rules handle HTTPS and
+`www`.
 `wrangler.jsonc` enables trailing slashes and serves `404.html` with HTTP 404
 for a missing path. Cloudflare does not apply Apache `.htaccess` files.
 

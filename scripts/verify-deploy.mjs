@@ -208,7 +208,17 @@ async function main() {
     }
   }
 
-  for (const path of ["/about", "/about/", "/contact", "/contact/"]) {
+  const about = await fetch(`${origin}/about/`, {
+    redirect: "manual",
+    signal: AbortSignal.timeout(15_000),
+    headers: { "user-agent": USER_AGENT },
+  });
+  if (about.status !== 200 || !/^text\/html(?:;|$)/.test(about.headers.get("content-type") ?? "")) {
+    fail("/about/ must return HTTP 200 as HTML");
+  }
+  await about.body?.cancel();
+
+  for (const path of ["/contact", "/contact/"]) {
     const response = await fetch(`${origin}${path}`, {
       redirect: "manual",
       signal: AbortSignal.timeout(15_000),
@@ -237,7 +247,7 @@ async function main() {
   }
   const scriptSrcs = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, src]) => src);
   const requiredScripts = [
-    ["HeroMotion", "hero"],
+    ["LyraGlobe", "globe"],
     ["CloudflareAnalytics", "analytics loader"],
   ];
 

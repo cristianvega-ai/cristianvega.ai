@@ -6,15 +6,6 @@ export function clamp(value: number, min = 0, max = 1): number {
   return Math.max(min, Math.min(max, value));
 }
 
-export function smoothstep(edge0: number, edge1: number, value: number): number {
-  const t = clamp((value - edge0) / (edge1 - edge0));
-  return t * t * (3 - 2 * t);
-}
-
-export function progress(elapsed: number, [start, end]: readonly [number, number]): number {
-  return clamp((elapsed - start) / (end - start));
-}
-
 export function easeOutCubic(t: number): number {
   return 1 - (1 - t) ** 3;
 }

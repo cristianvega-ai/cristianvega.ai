@@ -1,0 +1,39 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageGraphic from "../../components/PageGraphic.astro";
+import { getPosts, postDate, postUrl, readingMinutes } from "../../lib/blog";
+import "../../styles/blog.css";
+
+// Build /writing/ only when a post is visible. Production has no published
+// post yet, so the route must not exist. Dev shows drafts and builds the route.
+export async function getStaticPaths() {
+  return (await getPosts()).length > 0 ? [{ params: { index: undefined } }] : [];
+}
+
+const posts = await getPosts();
+const hasDrafts = posts.some((post) => post.data.draft);
+---
+
+<BaseLayout title="Writing" description="Notes on production AI, engineering, and the systems around them." active="blog" noindex={hasDrafts}>
+  <main class="blog-index">
+    <PageGraphic page="writing" />
+    <div class="blog-index__intro">
+      <p class="eyebrow">Notes · Essays</p>
+      <h1 id="blog-title">Writing</h1>
+      <p class="blog-index__count">{String(posts.length).padStart(2, "0")} {posts.length === 1 ? "post" : "posts"}{hasDrafts && " · local preview"}</p>
+    </div>
+    <section class="blog-index__list" aria-labelledby="blog-title">
+      <ol class="post-list">
+        {posts.map((post, index) => (
+          <li class="post-list__item" data-post-id={post.id}>
+            <span class="post-list__num" aria-hidden="true">N° {String(posts.length - index).padStart(2, "0")}</span>
+            <h2 class="post-list__title"><a class="post-list__link" href={postUrl(post)}>{post.data.title}</a></h2>
+            <p class="post-list__meta"><time datetime={post.data.date.toISOString().slice(0, 10)}>{postDate(post)}</time> · {post.data.topic} · {readingMinutes(post)} min{post.data.draft && <span class="draft-label"> · Draft</span>}</p>
+            <p class="post-list__excerpt">{post.data.description}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+  </main>
+</BaseLayout>
+

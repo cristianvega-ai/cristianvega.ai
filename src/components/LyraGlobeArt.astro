@@ -1,0 +1,28 @@
+---
+import { GLOBE_HEIGHT, GLOBE_WIDTH, type Globe } from "../lib/lyra-globe/model";
+
+interface Props {
+  globe: Globe;
+}
+
+const { globe } = Astro.props;
+const point = (edge: { a: { x: number; y: number }; b: { x: number; y: number } }) =>
+  `M${edge.a.x.toFixed(2)},${edge.a.y.toFixed(2)}L${edge.b.x.toFixed(2)},${edge.b.y.toFixed(2)}`;
+---
+
+  <svg class="lyra-globe__fallback" viewBox={`0 0 ${GLOBE_WIDTH} ${GLOBE_HEIGHT}`} focusable="false">
+    <defs>
+      <radialGradient id="lyra-globe-glow">
+        <stop offset="0" stop-color="var(--sky)" stop-opacity=".45" />
+        <stop offset="1" stop-color="var(--sky)" stop-opacity="0" />
+      </radialGradient>
+    </defs>
+    {globe.stars.map((star) => <circle class="lyra-globe__star" cx={star.x.toFixed(2)} cy={star.y.toFixed(2)} r={star.radius.toFixed(2)} opacity={star.alpha.toFixed(3)} />)}
+    {globe.rings.map((ring) => <ellipse class="lyra-globe__ring" cx={ring.x} cy={ring.y} rx={ring.rx} ry={ring.ry} transform={`rotate(${((ring.rotate * 180) / Math.PI).toFixed(2)} ${ring.x} ${ring.y})`} opacity={ring.alpha} />)}
+    {globe.edges.map((edge) => <path class:list={["lyra-globe__edge", { "is-hot": edge.hot }]} d={point(edge)} opacity={edge.hot ? 0.7 : edge.alpha.toFixed(3)} />)}
+    {globe.nodes.map((node) => <>
+      {node.hot && <circle cx={node.x.toFixed(2)} cy={node.y.toFixed(2)} r={node.vega ? 18 : 8} fill="url(#lyra-globe-glow)" />}
+      <circle class:list={["lyra-globe__node", { "is-hot": node.hot }]} cx={node.x.toFixed(2)} cy={node.y.toFixed(2)} r={node.radius} opacity={node.alpha.toFixed(3)} />
+      {node.vega && <circle class="lyra-globe__ring" cx={node.x.toFixed(2)} cy={node.y.toFixed(2)} r="10" opacity=".6" />}
+    </>)}
+  </svg>

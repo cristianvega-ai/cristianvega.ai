@@ -1,5 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import PageGraphic from "../components/PageGraphic.astro";
+import "../styles/about.css";
 ---
 
 <BaseLayout
@@ -9,16 +11,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   noindex
 >
   <main>
-    <section class="section section--tight page-head dotgrid">
-      <div class="wrap wrap--narrow">
-        <p class="marker"><span class="marker__sig">§</span> 404</p>
-        <h1 class="page-title">This page doesn't exist.</h1>
-        <p class="page-lede">
+    <PageGraphic page="404" />
+    <section class="about" aria-labelledby="not-found-title">
+      <div class="about__head wrap wrap--read">
+        <p class="eyebrow">§ 404</p>
+        <h1 id="not-found-title" class="about__title">This page doesn't exist.</h1>
+        <p class="about__lede">
           The link may be outdated, or the URL might be mistyped. Head back to the home page.
         </p>
-        <div class="page-head__actions">
-          <a class="btn btn--signal" href="/">Home</a>
-        </div>
+        <p class="about__actions"><a class="btn btn--signal" href="/">Home</a></p>
       </div>
     </section>
   </main>

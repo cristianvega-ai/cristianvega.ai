@@ -1,0 +1,85 @@
+/* The products pages share the article reading column and the dark ground. */
+.product :focus-visible {
+  outline-color: var(--sky);
+}
+
+.product__head {
+  padding-top: 72px;
+}
+
+.product .eyebrow {
+  color: var(--mast-meta);
+}
+
+.product .eyebrow::before {
+  width: 18px;
+  height: 2px;
+}
+
+.product__title {
+  margin-top: 20px;
+  text-wrap: balance;
+}
+
+.product__lede {
+  max-width: 56ch;
+  margin-top: 24px;
+  font-size: var(--fs-lede);
+  line-height: var(--lh-lede);
+  color: var(--mast-meta);
+}
+
+.product__body {
+  padding-block: 40px 72px;
+}
+
+.product__prose {
+  color: #c5cdd9;
+}
+
+.product__prose > * + * {
+  margin-top: 24px;
+}
+
+.product__prose p {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  text-wrap: pretty;
+}
+
+.product__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  margin-top: 40px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-ui);
+  font-weight: 500;
+}
+
+.product__link {
+  color: var(--sky);
+}
+
+.product__link:hover {
+  color: var(--mast-text);
+}
+
+/* The index has no prose, so its list sits close under the title. */
+.product--index .product__body {
+  padding-top: 32px;
+}
+
+@media (max-width: 760px) {
+  .product__head {
+    padding-top: 48px;
+  }
+
+  .product__title {
+    margin-top: 16px;
+  }
+
+  .product__lede {
+    margin-top: 22px;
+  }
+}

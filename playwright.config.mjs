@@ -28,12 +28,20 @@ export default defineConfig({
   ],
 
   /* Use a dedicated port. Never test a server from another checkout. */
-  webServer: {
+  webServer: [{
     /* The test environment keeps each request's hostname for header checks. */
     command: "npx --no-install wrangler dev --local --env test --port 4323 --inspector-port 0 --show-interactive-dev-session false",
     url: "http://localhost:4323/",
     reuseExistingServer: false,
     env: { WRANGLER_SEND_METRICS: "false" },
     timeout: 60_000,
-  },
+  }, {
+    // Keep draft checks separate from the production build.
+    command: "npm run dev -- --ignore-lock --host 127.0.0.1 --port 4324",
+    url: "http://127.0.0.1:4324/writing/",
+    reuseExistingServer: false,
+    // Keep the test server in the foreground so Playwright can stop it.
+    env: { ASTRO_DEV_BACKGROUND: "1" },
+    timeout: 60_000,
+  }],
 });

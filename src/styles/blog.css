@@ -1,0 +1,716 @@
+body[data-page="blog"] {
+  color: var(--mast-text);
+  background: var(--ink);
+}
+
+body[data-page="post"] {
+  --article-text: #c5cdd9;
+  --fg: var(--mast-text);
+  --ink-2: var(--article-text);
+  --muted: var(--mast-meta);
+  --line: var(--mast-line);
+  --surface-well: var(--ink);
+  --mark2-surface: var(--mark2-ink);
+  color: var(--mast-text);
+  background: var(--ink);
+}
+
+body:is([data-page="blog"], [data-page="post"]) .site-header {
+  background: var(--ink);
+  box-shadow: 0 1px 0 var(--mast-line);
+}
+
+body:is([data-page="blog"], [data-page="post"]) .brand {
+  color: var(--mast-text);
+}
+
+body:is([data-page="blog"], [data-page="post"]) .brand__word i,
+body:is([data-page="blog"], [data-page="post"]) .nav {
+  color: var(--mast-meta);
+}
+
+body:is([data-page="blog"], [data-page="post"]) .brand__mark i:last-child {
+  border-color: var(--mark2-ink);
+}
+
+body:is([data-page="blog"], [data-page="post"]) .nav__link:hover,
+body:is([data-page="blog"], [data-page="post"]) .nav__link[aria-current] {
+  color: var(--mast-text);
+}
+
+body:is([data-page="blog"], [data-page="post"]) .site-header :focus-visible,
+body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
+.blog-index :focus-visible,
+.article :focus-visible {
+  outline-color: var(--sky);
+}
+
+.blog-index {
+  display: grid;
+  /* The middle column is the site frame. The list starts on its left edge. */
+  grid-template-columns: minmax(0, 1fr) min(var(--frame), 100%) minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  isolation: isolate;
+}
+
+.blog-index__intro,
+.blog-index__list {
+  position: relative;
+  z-index: 2;
+  grid-column: 2;
+  justify-self: start;
+  width: min(480px, 52%);
+  padding-left: var(--frame-pad);
+  padding-right: 40px;
+  min-width: 0;
+}
+
+.blog-index__intro {
+  grid-row: 1;
+  /* Same header spacing as /about/ and /products/. */
+  padding-top: 72px;
+  padding-bottom: 14px;
+}
+
+.blog-index__intro::after {
+  content: "";
+  position: absolute;
+  inset: auto 40px 0 var(--frame-pad);
+  height: 1px;
+  background: var(--mast-line);
+}
+
+.blog-index__intro .eyebrow {
+  color: var(--mast-meta);
+}
+
+.blog-index__intro .eyebrow::before {
+  width: 18px;
+  height: 2px;
+}
+
+.blog-index__intro h1 {
+  margin-top: 20px;
+}
+
+.blog-index__count {
+  margin-top: 14px;
+  font: 500 var(--fs-meta) var(--font-mono);
+  color: var(--mast-meta);
+}
+
+.blog-index__list {
+  grid-row: 2;
+  padding-block: 4px 64px;
+}
+
+.post-list {
+  padding: 0;
+  list-style: none;
+}
+
+.post-list__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-areas: "num title" ". meta" ". excerpt";
+  gap: 6px 12px;
+  padding: 18px 12px 20px 0;
+  border-bottom: 1px solid var(--mast-line);
+}
+
+.post-list__num {
+  grid-area: num;
+  padding-top: 5px;
+  font: 600 var(--fs-label) var(--font-mono);
+  letter-spacing: .08em;
+  color: var(--sky);
+}
+
+.post-list__title {
+  grid-area: title;
+  font-size: var(--fs-lede);
+  line-height: var(--lh-title);
+  letter-spacing: var(--track-heading);
+}
+
+.post-list__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.post-list__link:focus-visible {
+  outline: none;
+}
+
+/* The ring wraps the whole row, and the link is only its title. This margin makes a
+   keyboard scroll reveal the whole ring above the footer fade, not only the title. */
+.post-list__link {
+  scroll-margin-bottom: 120px;
+}
+
+.post-list__item:focus-within {
+  outline: 3px solid var(--sky);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.post-list__item:is(:hover, :focus-within) .post-list__link {
+  color: var(--sky);
+}
+
+.post-list__meta {
+  grid-area: meta;
+  font: 500 var(--fs-meta) / var(--lh-mono) var(--font-mono);
+  color: var(--mast-meta);
+}
+
+.draft-label {
+  color: var(--sky);
+}
+
+.post-list__excerpt {
+  grid-area: excerpt;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--mast-meta);
+}
+
+.article__head {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding-top: 40px;
+  color: var(--mast-text);
+}
+
+/* A soft wash on the open right side balances the left-weighted column. */
+.article__head::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(ellipse at 74% 46%, rgba(19, 75, 117, .17), transparent 60%);
+  pointer-events: none;
+}
+
+.article__utility {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.article__head-copy {
+  position: relative;
+  z-index: 1;
+  margin-top: 40px;
+}
+
+.back-link {
+  display: inline-block;
+  font: 500 var(--fs-label) var(--font-mono);
+  color: var(--mast-meta);
+}
+
+.back-link:hover {
+  color: var(--sky);
+}
+
+.article__draft {
+  padding: 3px 9px;
+  border: 1px solid var(--mast-line);
+  border-radius: 20px;
+  font: 400 var(--fs-label) var(--font-mono);
+  color: var(--mast-meta);
+}
+
+.article__head .eyebrow {
+  color: var(--mast-meta);
+}
+
+.article__head .eyebrow::before {
+  width: 18px;
+  height: 2px;
+}
+
+.article__title {
+  margin-top: 20px;
+  text-wrap: balance;
+}
+
+.article__dek {
+  max-width: 56ch;
+  margin-top: 24px;
+  font-size: var(--fs-lede);
+  line-height: var(--lh-lede);
+  color: var(--mast-meta);
+}
+
+.article__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 28px;
+  font: 500 var(--fs-meta) / var(--lh-mono) var(--font-mono);
+  color: var(--mast-meta);
+}
+
+.article__meta strong {
+  font-weight: 500;
+  color: var(--mast-text);
+}
+
+.article__head-rule {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 1px;
+  margin-top: 42px;
+  background: linear-gradient(90deg, transparent 32px, var(--mast-line) 32px, var(--mast-line) calc(100% - 32px), transparent calc(100% - 32px));
+}
+
+.article__head-rule span {
+  width: 34px;
+  height: 1px;
+  background: var(--sky);
+}
+
+.article__head-rule i {
+  width: 3px;
+  height: 1px;
+  background: var(--sky);
+  opacity: .45;
+}
+
+.article__body {
+  padding-block: 35px 72px;
+}
+
+.prose {
+  color: var(--ink-2);
+  overflow-wrap: break-word;
+}
+
+.prose > * + * {
+  margin-top: 24px;
+}
+
+.prose p,
+.prose li {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+
+.prose :is(h2, h3, blockquote p) {
+  color: var(--mast-text);
+}
+
+.prose h2 {
+  margin-top: 52px;
+  font-size: var(--fs-h2);
+  line-height: var(--lh-heading);
+  scroll-margin-top: 24px;
+}
+
+.prose h3 {
+  margin-top: 32px;
+  font-size: var(--fs-h3);
+}
+
+.prose .h2-kicker {
+  margin-top: 56px;
+  font: 600 var(--fs-meta) / var(--lh-mono) var(--font-mono);
+  letter-spacing: var(--track-caps);
+  color: var(--sky);
+}
+
+.prose .h2-kicker + h2 {
+  margin-top: 8px;
+}
+
+.prose h2 + p {
+  margin-top: 16px;
+}
+
+.prose a {
+  color: var(--sky);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.prose :not(pre) > code {
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: .86em;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.prose .principles {
+  list-style: none;
+  padding: 0;
+}
+
+.principles li {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 14px;
+  padding-block: 11px;
+  font-size: var(--fs-body);
+}
+
+.principles li + li {
+  border-top: 1px solid var(--line);
+}
+
+.principles li::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  background: var(--grad);
+  transform: rotate(45deg);
+}
+
+.prose blockquote {
+  padding-block: 16px;
+}
+
+.prose blockquote::before {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 3px;
+  background: var(--grad);
+}
+
+.prose blockquote p {
+  margin-top: 16px;
+  font: 600 var(--fs-h2) / var(--lh-heading) var(--font-display);
+  letter-spacing: var(--track-heading);
+}
+
+.prose blockquote cite {
+  display: block;
+  margin-top: 12px;
+  font: 500 var(--fs-label) var(--font-mono);
+  color: var(--muted);
+}
+
+/* A fade at the right edge shows that more content waits there. The local
+   layer covers the fade once the reader reaches the end, or when nothing
+   overflows. Both layers are plain gradients, so the CSP is not affected. */
+.prose pre,
+.figure__panel {
+  --scroll-cue: linear-gradient(270deg, rgba(56, 189, 248, .22), transparent);
+}
+
+.prose pre {
+  --scroll-cover: linear-gradient(var(--ink), var(--ink));
+}
+
+.figure__panel {
+  --scroll-cover: linear-gradient(var(--surface-well), var(--surface-well));
+}
+
+.figure__panel {
+  padding: 28px 20px 20px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 39px, var(--grid-line-surface) 39px 40px),
+    repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line-surface) 39px 40px),
+    var(--scroll-cover),
+    var(--scroll-cue);
+  background-position: 0 0, 0 0, 100% 0, 100% 0;
+  background-repeat: repeat, repeat, no-repeat, no-repeat;
+  background-size: auto, auto, 32px 100%, 28px 100%;
+  background-attachment: scroll, scroll, local, scroll;
+}
+
+.figure figcaption {
+  margin-top: 12px;
+  font: 400 var(--fs-meta) / var(--lh-mono) var(--font-mono);
+  color: var(--muted);
+}
+
+.code {
+  overflow: hidden;
+  background: var(--ink);
+  border-radius: var(--radius-md);
+}
+
+.code figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 20px;
+  font: 400 var(--fs-label) / var(--lh-mono) var(--font-mono);
+  color: var(--mast-meta);
+  border-bottom: 1px solid var(--mast-line);
+}
+
+.prose pre {
+  padding: 18px 20px;
+  overflow-x: auto;
+  font: 400 var(--fs-ui) / var(--lh-body) var(--font-mono);
+  color: var(--mast-text);
+  background-color: var(--ink);
+  background-image: var(--scroll-cover), var(--scroll-cue);
+  background-position: 100% 0, 100% 0;
+  background-repeat: no-repeat;
+  background-size: 32px 100%, 28px 100%;
+  background-attachment: local, scroll;
+  border-radius: var(--radius-md);
+}
+
+/* Wide code and diagrams scroll inside the column. Their focus ring sits inside
+   the box, so the clipped corners of the figure cannot hide it. */
+.prose pre:focus-visible,
+.figure__panel:focus-visible {
+  outline: 2px solid var(--sky);
+  outline-offset: -3px;
+}
+
+.prose pre code {
+  font: inherit;
+}
+
+.tok-k,
+.tok-n {
+  color: var(--sky);
+}
+
+.tok-c {
+  color: var(--mast-meta);
+}
+
+.pipeline {
+  min-width: 500px;
+  width: 100%;
+  height: auto;
+}
+
+.pl-line {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.2;
+}
+
+.pl-dash {
+  stroke-dasharray: 4 4;
+}
+
+.pl-head {
+  fill: var(--muted);
+}
+
+.pl-node,
+.pl-gate {
+  fill: var(--surface-well);
+  stroke: var(--muted);
+  stroke-width: 1.2;
+}
+
+.pl-gate {
+  stroke: var(--azure);
+}
+
+.pl-model {
+  fill: var(--azure);
+  stroke: var(--azure);
+}
+
+.pl-label {
+  fill: var(--fg);
+  font: 600 10.5px var(--font-mono);
+  letter-spacing: 1.3px;
+}
+
+.pl-label--model {
+  fill: #fff;
+}
+
+.pl-meta {
+  fill: var(--muted);
+  font: 500 9.5px var(--font-mono);
+}
+
+.author__share {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 56px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  font: 400 var(--fs-meta) / var(--lh-mono) var(--font-mono);
+  color: var(--muted);
+}
+
+.author__share a,
+.author__share button {
+  padding-block: 5px;
+  color: var(--sky);
+}
+
+.author__share button {
+  padding-inline: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.share-status {
+  flex-basis: 100%;
+}
+
+.share-status:empty {
+  display: none;
+}
+
+.read-next {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding-top: 40px;
+}
+
+.read-next a {
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.read-next a:hover {
+  border-color: var(--sky);
+}
+
+.read-next__newer {
+  grid-column: 2;
+  text-align: right;
+}
+
+.read-next span {
+  font: 500 var(--fs-label) var(--font-mono);
+  color: var(--muted);
+}
+
+.read-next strong {
+  display: block;
+  margin-top: 8px;
+  font: 600 var(--fs-lede) / var(--lh-title) var(--font-display);
+  letter-spacing: var(--track-heading);
+}
+
+@media (max-width: 1150px) {
+  .article__head-copy {
+    margin-top: 32px;
+  }
+
+  .article__head::before {
+    background: radial-gradient(ellipse at 50% 30%, rgba(19, 75, 117, .14), transparent 65%);
+  }
+}
+
+/* Below 1100px the graphic is a block above the title, as on every other page. From 1100px it is the fixed box that global.css places. */
+@media (max-width: 1099px) {
+  .blog-index {
+    display: flex;
+    flex-direction: column;
+    /* Keep the stack on the site frame, so the title and the list start on the frame edge. */
+    width: 100%;
+    max-width: var(--frame);
+    margin-inline: auto;
+  }
+
+  .blog-index__intro {
+    order: 1;
+    width: auto;
+    padding: 72px var(--frame-pad) 14px;
+  }
+
+  .blog-index__intro::after {
+    left: var(--frame-pad);
+    right: var(--frame-pad);
+  }
+
+  /* The block keeps the x range and the top gap that global.css gives every page graphic. Only its height differs. */
+  .blog-index .page-graphic[data-graphic="writing"]:not([hidden]) {
+    order: 0;
+    height: calc(var(--band-height) * 1.19);
+  }
+
+  .blog-index__list {
+    order: 3;
+    width: auto;
+    padding: 4px var(--frame-pad) 56px;
+  }
+}
+
+@media (max-width: 760px) {
+  .blog-index__intro {
+    padding-top: 48px;
+  }
+
+  .blog-index__intro h1 {
+    margin-top: 16px;
+  }
+
+  .article__head {
+    padding-top: 26px;
+  }
+
+  .article__head-copy {
+    margin-top: 26px;
+  }
+
+  .article__title {
+    margin-top: 16px;
+  }
+
+  .article__dek {
+    margin-top: 22px;
+  }
+
+  .article__meta {
+    gap: 6px 8px;
+    margin-top: 24px;
+  }
+
+  .article__head-rule {
+    margin-top: 30px;
+    background: linear-gradient(90deg, transparent 20px, var(--mast-line) 20px, var(--mast-line) calc(100% - 20px), transparent calc(100% - 20px));
+  }
+
+  .article__body {
+    padding-top: 26px;
+  }
+
+  .post-list__item {
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 8px 10px;
+  }
+}
+
+@media (max-width: 520px) {
+  .read-next {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .read-next__newer {
+    grid-column: 1;
+  }
+}

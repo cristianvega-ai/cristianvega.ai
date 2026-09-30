@@ -54,8 +54,7 @@ test("Cloudflare CSP blocks unapproved inline scripts and styles", () => {
   assert.doesNotMatch(scriptSrc, /unsafe-inline|unsafe-eval/);
   for (const token of scriptSrc.split(/\s+/)) {
     assert.ok(
-      token === "'self'" || /^'sha256-[A-Za-z0-9+/=]+'$/.test(token) ||
-      token === "https://static.cloudflareinsights.com/beacon.min.js",
+      token === "'self'" || token === "https://static.cloudflareinsights.com/beacon.min.js",
       `unexpected script source ${token}`,
     );
   }
@@ -112,8 +111,8 @@ test("Cloudflare CSP blocks unapproved inline scripts and styles", () => {
   }
   assert.deepEqual(
     [...inlineDigests],
-    ["DarllRtSZBmSvCjf89jdetABo5/SYKGdWIWRem+vzIs="],
-    "the hero pre-hide stamp is the only executable inline script the build may ship",
+    [],
+    "the build must ship no executable inline script, so script-src needs no hash",
   );
   assert.deepEqual(
     [...dataBlockTypes].sort(),
@@ -145,11 +144,11 @@ test("post-deploy gate requires a one-year HSTS max-age without includeSubDomain
   assert.match(script, /live HSTS must not include includeSubDomains/);
 });
 
-test("the live gate checks compression for the hero and analytics loader", () => {
+test("the live gate checks compression for the globe and analytics loader", () => {
   const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
   assert.match(script, /content-encoding/i);
   assert.match(script, /\bgzip\b/i);
-  assert.match(script, /HeroMotion/);
+  assert.match(script, /LyraGlobe/);
   assert.match(script, /CloudflareAnalytics/);
 });
 

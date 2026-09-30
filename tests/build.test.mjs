@@ -41,7 +41,12 @@ test("dist build is present for contract tests", () => {
 
 test("build emits the core static pages Cloudflare will serve", () => {
   assertDistPath("index.html");
+  assertDistPath("about", "index.html");
   assertDistPath("sitemap-index.xml");
+});
+
+test("the sitemap lists the about page", () => {
+  assert.match(readDistFile("sitemap-0.xml"), /<loc>https:\/\/cristianvega\.ai\/about\/<\/loc>/);
 });
 
 test("sitemap enumerates every public route the build produces", () => {
@@ -63,16 +68,21 @@ test("sitemap enumerates every public route the build produces", () => {
   );
 });
 
-test("the navigation leaves the site, and every outbound link is safe", () => {
-  // The site is one page. The navigation carries the owner's profiles instead
-  // of internal routes, so each link opens a new tab and must not hand the
-  // opener or the referrer to the destination.
+test("navigation links to about, hides writing while no post is published, and keeps outbound links safe", () => {
   const home = readDistFile("index.html");
   const nav = home.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
   assert.ok(nav, "primary navigation required");
 
   const anchors = [...nav.matchAll(/<a\b[^>]*>/gi)].map(([tag]) => tag);
-  assert.equal(anchors.length, 3, `navigation must hold three links: ${nav}`);
+  assert.equal(anchors.length, 4, `navigation must hold about and three profile links: ${nav}`);
+  const about = anchors.filter((tag) => /href="\/about\/"/.test(tag));
+  assert.equal(about.length, 1, "navigation must link to about once");
+  assert.doesNotMatch(about[0], /target=/, "about must open in the current tab");
+  // Every fixture post is a draft, so a production build hides the writing link.
+  assert.doesNotMatch(nav, /href="\/writing\/"/, "navigation must hide writing while no post is published");
+  assert.doesNotMatch(nav, /href="\/products\/"/, "navigation must hide products while no product is published");
+  const outbound = anchors.filter((tag) => !about.includes(tag));
+  assert.equal(outbound.length, 3, "navigation must keep all three profile links");
 
   for (const host of ["linkedin.com", "x.com", "github.com"]) {
     assert.ok(
@@ -81,11 +91,47 @@ test("the navigation leaves the site, and every outbound link is safe", () => {
     );
   }
 
-  for (const tag of anchors) {
+  for (const tag of outbound) {
     assert.match(tag, /href="https:\/\//, `navigation link must be absolute: ${tag}`);
     assert.match(tag, /target="_blank"/, `navigation link must open a new tab: ${tag}`);
     assert.match(tag, /rel="[^"]*noopener/, `navigation link needs noopener: ${tag}`);
     assert.match(tag, /rel="[^"]*noreferrer/, `navigation link needs noreferrer: ${tag}`);
+  }
+});
+
+test("the narrow-screen menu holds the same links as the primary navigation", () => {
+  const home = readDistFile("index.html");
+  const links = (nav) => [...nav.matchAll(/<a\b[^>]*href="([^"]+)"/gi)].map(([, href]) => href);
+  const primary = home.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
+  const menu = home.match(/<details class="nav-menu">[\s\S]*?<\/details>/i)?.[0];
+  assert.ok(primary && menu, "primary navigation and menu required");
+  assert.match(menu, /<summary class="nav-menu__toggle">menu<\/summary>/);
+  assert.deepEqual(links(menu), links(primary), "the menu must reach every link the primary navigation reaches");
+});
+
+test("writing and products build no routes while every entry is a draft", () => {
+  // The fixture posts and the sample product are drafts, so production emits
+  // neither index. The routes exist only once an entry is published.
+  assert.equal(existsSync(join(dist, "writing")), false, "writing must not build while every post is a draft");
+  assert.equal(existsSync(join(dist, "products")), false, "products must not build while every product is a draft");
+  assert.equal(existsSync(join(dist, "blog")), false, "the old blog routes must not be built");
+  // Read each sitemap entry as a URL, so the check compares the exact path.
+  const sitemapPaths = [...readDistFile("sitemap-0.xml").matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => new URL(match[1]).pathname);
+  assert.ok(sitemapPaths.length > 0, "the sitemap must list the pages");
+  for (const [route, message] of [["writing", "the writing index"], ["products", "the products index"], ["blog", "the old blog routes"]]) {
+    assert.ok(!sitemapPaths.some((path) => path === `/${route}` || path.startsWith(`/${route}/`)), `${message} must stay out of the sitemap`);
+  }
+  // The homepage calls to action must not link to a route that the build omits.
+  assert.doesNotMatch(readDistFile("index.html"), /href="\/(?:writing|products)\//, "the homepage must not link to an omitted route");
+  for (const [collection, route] of [["blog", "writing"], ["products", "products"]]) {
+    const source = join(root, "src", "content", collection);
+    for (const file of readdirSync(source).filter((name) => name.endsWith(".md"))) {
+      const frontmatter = readFileSync(join(source, file), "utf8").split("---")[1];
+      if (/^draft: false$/m.test(frontmatter)) continue;
+      const slug = file.slice(0, -3);
+      assert.equal(existsSync(join(dist, route, slug)), false, `${slug} must remain a draft`);
+      assert.ok(!sitemapPaths.includes(`/${route}/${slug}/`), `${slug} must stay out of the sitemap`);
+    }
   }
 });
 
@@ -132,11 +178,13 @@ test("compiled css assets are emitted", () => {
   assert.ok(cssFiles.length > 0);
   assert.ok(cssFiles.some((file) => statSync(join(astroDir, file)).size > 1_000));
 
-  // The no-JS pre-hide and reduced-motion contracts over this CSS are enforced
-  // mechanism-agnostically in tests/motion-css.test.mjs. What stays here is the
-  // positive check that the cold-load pre-hide gate actually reaches the build.
+  // The reduced-motion contract over this CSS is enforced in
+  // tests/motion-css.test.mjs. What stays here is the positive check that the
+  // globe reveal rules reach the build, and that the retired pre-hide is gone.
   const css = cssFiles.map((file) => readFileSync(join(astroDir, file), "utf8")).join("\n");
-  assert.match(css, /html\[data-hero-motion-pending\]/);
+  assert.match(css, /\.lyra-globe\[data-ready\]/);
+  assert.match(css, /@media \(scripting: ?enabled\)/);
+  assert.doesNotMatch(css, /data-hero-motion-pending/);
 });
 
 test("the build ships hashed self-hosted latin font files", () => {

@@ -26,7 +26,7 @@ for (const [path, status] of [["/", 200], ["/missing-hosting-check/", 404]]) {
   });
 }
 
-for (const path of ["/about", "/about/", "/contact", "/contact/"]) {
+for (const path of ["/contact", "/contact/"]) {
   test(`${path} redirects to the homepage and keeps the query`, async ({ request }) => {
     const response = await request.get(`${path}?from=hosting-check`, { maxRedirects: 0 });
     expect(response.status()).toBe(301);
@@ -52,12 +52,12 @@ test("Cloudflare compresses built scripts and gives them an immutable cache", as
   const home = await request.get("/");
   const html = await home.text();
   const sources = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, src]) => src);
-  const hero = sources.find((src) => src.includes("HeroMotion"));
+  const globe = sources.find((src) => src.includes("LyraGlobe"));
   const analytics = sources.find((src) => src.includes("CloudflareAnalytics"));
-  expect(hero).toBeTruthy();
+  expect(globe).toBeTruthy();
   expect(analytics).toBeTruthy();
   const paths = [
-    [hero, "public, max-age=31536000, immutable"],
+    [globe, "public, max-age=31536000, immutable"],
     [analytics, "public, max-age=31536000, immutable"],
   ];
   for (const [path, cache] of paths) {
