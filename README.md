@@ -137,7 +137,7 @@ A production build has no `/products/` route while every product is a draft.
 The build also leaves products out of the navigation and the sitemap, and the homepage card is not a link.
 An omitted `draft` value defaults to `true`.
 To announce a product, set `draft: false` when the owner approves.
-The `OpenCatalyst` file is a draft sample for layout review.
+The `lorem-ipsum-dolor` file is a draft sample for layout review.
 
 ## Navigation
 

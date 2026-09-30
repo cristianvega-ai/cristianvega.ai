@@ -17,7 +17,7 @@ const PAGES = {
   about: { url: "/about/", h1: ".about__title", lede: ".about__lede", body: ".about__profile p", eyebrow: ".about .eyebrow" },
   writing: { url: "/writing/", h1: ".blog-index__intro h1", eyebrow: ".blog-index__intro .eyebrow" },
   products: { url: "/products/", h1: ".product__title", eyebrow: ".product .eyebrow" },
-  product: { url: "/products/opencatalyst/", h1: ".product__title", lede: ".product__lede", body: ".product__prose p", eyebrow: ".product .eyebrow" },
+  product: { url: "/products/lorem-ipsum-dolor/", h1: ".product__title", lede: ".product__lede", body: ".product__prose p", eyebrow: ".product .eyebrow" },
   notFound: { url: "/nope/", h1: "h1", lede: ".about__lede", eyebrow: ".about .eyebrow" },
   article: { url: "/writing/lorem-ipsum-dolor-sit-amet/", h1: ".article__title", lede: ".article__dek", body: ".prose p", eyebrow: ".article__head .eyebrow" },
   shortArticle: { url: "/writing/veniam-quis-nostrud/", h1: ".article__title", lede: ".article__dek", eyebrow: ".article__head .eyebrow" },
