@@ -24,14 +24,17 @@ export const VIEWPORTS = {
 export const bandHeight = (screenHeight) => Math.min(240, Math.max(144, screenHeight * 0.2));
 
 /**
- * Wait out any entrance animation in main before measuring.
+ * Wait out any entrance animation in main, and any web font, before measuring.
  *
  * Geometry read while an animation is mid-flight is the animation's transform,
- * not the layout's. Resolves at once when nothing animates, as under reduced
- * motion.
+ * not the layout's. Geometry read before the web fonts arrive is the fallback
+ * font's, which is taller and wider. A slow runner shows that gap. Resolves at
+ * once when nothing animates, as under reduced motion.
+ *
  * A cancelled animation is not mid-flight, so its cancellation counts as done.
  */
 export async function settle(page) {
+  await page.evaluate(() => Promise.all([...document.fonts].map((face) => face.load().catch(() => undefined))).then(() => document.fonts.ready));
   await page
     .locator("main")
     .evaluate((el) =>

@@ -115,10 +115,12 @@ test("writing and products build no routes while every entry is a draft", () => 
   assert.equal(existsSync(join(dist, "writing")), false, "writing must not build while every post is a draft");
   assert.equal(existsSync(join(dist, "products")), false, "products must not build while every product is a draft");
   assert.equal(existsSync(join(dist, "blog")), false, "the old blog routes must not be built");
-  const sitemap = readDistFile("sitemap-0.xml");
-  assert.ok(!sitemap.includes("https://cristianvega.ai/writing/"), "the writing index must stay out of the sitemap");
-  assert.ok(!sitemap.includes("https://cristianvega.ai/products/"), "the products index must stay out of the sitemap");
-  assert.ok(!sitemap.includes("https://cristianvega.ai/blog/"), "the old blog routes must stay out of the sitemap");
+  // Read each sitemap entry as a URL, so the check compares the exact path.
+  const sitemapPaths = [...readDistFile("sitemap-0.xml").matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => new URL(match[1]).pathname);
+  assert.ok(sitemapPaths.length > 0, "the sitemap must list the pages");
+  for (const [route, message] of [["writing", "the writing index"], ["products", "the products index"], ["blog", "the old blog routes"]]) {
+    assert.ok(!sitemapPaths.some((path) => path === `/${route}` || path.startsWith(`/${route}/`)), `${message} must stay out of the sitemap`);
+  }
   // The homepage calls to action must not link to a route that the build omits.
   assert.doesNotMatch(readDistFile("index.html"), /href="\/(?:writing|products)\//, "the homepage must not link to an omitted route");
   for (const [collection, route] of [["blog", "writing"], ["products", "products"]]) {
@@ -128,7 +130,7 @@ test("writing and products build no routes while every entry is a draft", () => 
       if (/^draft: false$/m.test(frontmatter)) continue;
       const slug = file.slice(0, -3);
       assert.equal(existsSync(join(dist, route, slug)), false, `${slug} must remain a draft`);
-      assert.ok(!sitemap.includes(`/${route}/${slug}/`), `${slug} must stay out of the sitemap`);
+      assert.ok(!sitemapPaths.includes(`/${route}/${slug}/`), `${slug} must stay out of the sitemap`);
     }
   }
 });
