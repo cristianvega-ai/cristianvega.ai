@@ -9,8 +9,6 @@
 
 .product .eyebrow {
   color: var(--mast-meta);
-  font-size: 10.5px;
-  letter-spacing: .12em;
 }
 
 .product .eyebrow::before {
@@ -20,17 +18,14 @@
 
 .product__title {
   margin-top: 20px;
-  font-size: clamp(38px, 4.4vw, 62px);
-  line-height: 1.06;
-  letter-spacing: -.043em;
   text-wrap: balance;
 }
 
 .product__lede {
   max-width: 56ch;
   margin-top: 24px;
-  font-size: 19px;
-  line-height: 1.65;
+  font-size: var(--fs-lede);
+  line-height: var(--lh-lede);
   color: var(--mast-meta);
 }
 
@@ -47,8 +42,8 @@
 }
 
 .product__prose p {
-  font-size: 18px;
-  line-height: 1.8;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   text-wrap: pretty;
 }
 
@@ -58,7 +53,7 @@
   gap: 12px 28px;
   margin-top: 40px;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--fs-ui);
   font-weight: 500;
 }
 
@@ -82,24 +77,9 @@
 
   .product__title {
     margin-top: 16px;
-    font-size: 39px;
-    line-height: 1.08;
-    letter-spacing: -.04em;
   }
 
   .product__lede {
     margin-top: 22px;
-    font-size: 17px;
-  }
-
-  .product__prose p {
-    font-size: 17px;
-    line-height: 1.7;
-  }
-}
-
-@media (max-width: 360px) {
-  .product__title {
-    font-size: 35px;
   }
 }

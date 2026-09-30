@@ -1,0 +1,24 @@
+---
+// The decorative graphic of an inner page. It is a canvas that one bundled
+// script fills. Without JavaScript the box takes no space, and the faint grid
+// stays. Place it as the first child of <main>. Placement is in global.css.
+interface Props {
+  page: "about" | "products" | "404" | "writing";
+  /** Data for the page module, as data attributes. A product page passes its count and place. */
+  data?: Record<`data-${string}`, string | number>;
+}
+
+const { page, data = {} } = Astro.props;
+---
+
+<div class="page-graphic" data-graphic={page} aria-hidden="true" {...data}>
+  <canvas class="page-graphic__canvas"></canvas>
+</div>
+
+<script>
+  import { mountPageGraphic } from "../lib/lyra-render/pages/index.ts";
+
+  // The module tears down on pagehide and sets up again on a restored page.
+  const root = document.querySelector<HTMLElement>("[data-graphic]");
+  if (root) void mountPageGraphic(root);
+</script>

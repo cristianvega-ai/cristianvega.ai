@@ -99,11 +99,37 @@
   --font-display: "Geist", "Geist Fallback", system-ui, -apple-system, sans-serif;
   --font-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-  /* type scale */
-  --fs-display-xl: clamp(38px, 4.9vw, 60px);
-  --lh-display: 1.1;
-  --track-display-xl: -0.028em;
-  --track-caps-wide: 0.16em;
+  /* Type scale. Every step is a fixed size that changes once, at the phone
+     breakpoint below.
+     H1: every page title, the home name and articles included.
+     H2 and H3: prose headings and the pull quote.
+     Lede: the line under a title, and the title of a card or a list row.
+     Body: prose and lists.
+     Small: excerpts and card lines.
+     UI: mono links and the nav.
+     Meta: dates, counts, the eyebrow, and captions.
+     Label: the smallest mono text. */
+  --fs-h1: 36px;
+  --fs-h2: 24px;
+  --fs-h3: 20px;
+  --fs-lede: 18px;
+  --fs-body: 17px;
+  --fs-small: 15px;
+  --fs-ui: 13px;
+  --fs-meta: 12px;
+  --fs-label: 11px;
+  /* Line height: tight for large type, open for reading. */
+  --lh-display: 1.08;
+  --lh-heading: 1.2;
+  --lh-title: 1.3;
+  --lh-lede: 1.55;
+  --lh-body: 1.7;
+  --lh-small: 1.55;
+  --lh-mono: 1.6;
+  /* Tracking: large type is tight, body is normal, caps are open. */
+  --track-h1: -0.022em;
+  --track-heading: -0.015em;
+  --track-caps: 0.12em;
   /* fixed sizes */
   --header-height: 64px;
   --footer-height: 46px;
@@ -117,6 +143,15 @@
      column all start on the left edge of a centred box this wide. */
   --frame: 960px;
   --frame-pad: 32px;
+  /* The reading column, and the one gap between it and the page graphic. Every
+     inner page puts the graphic box at the column edge plus this gap, so the
+     picture does not move when a visitor switches pages. */
+  --reading-column: 744px;
+  --graphic-gap: 48px;
+  /* The height of the graphic band below 1100px. It grows with the screen height,
+     so a tall tablet has no dead space under the band. Every page uses it. */
+  --band-height: clamp(144px, 20svh, 240px);
+  --graphic-left: calc(max(0px, 50% - var(--frame) / 2) + var(--reading-column) + var(--graphic-gap));
   --radius-md: 8px;
 }
 
@@ -148,6 +183,9 @@ html {
   /* The sticky header covers the top of the viewport. Anchors and the skip
      link target stop below it. */
   scroll-padding-top: var(--header-height);
+  /* The fixed footer and its fade cover the bottom of the viewport. A focused
+     element scrolls to a place above them, so its focus ring stays clear. */
+  scroll-padding-bottom: calc(var(--footer-height) + var(--footer-fade) + 12px);
 }
 
 /* Column layout so the footer is seated at the foot of the viewport rather
@@ -155,8 +193,8 @@ html {
    paper under the ink footer and the 404 left 402px. */
 body {
   font-family: var(--font-body);
-  font-size: 16.5px;
-  line-height: 1.62;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   color: var(--fg);
   background: var(--surface-well);
   -webkit-font-smoothing: antialiased;
@@ -190,15 +228,16 @@ h1,
 h2,
 h3 {
   font-family: var(--font-display);
-  letter-spacing: -0.02em;
-  line-height: var(--lh-display);
+  letter-spacing: var(--track-heading);
+  line-height: var(--lh-heading);
   font-weight: 600;
 }
 
-/* The one display line on a page. Both H1s on this site use it. */
+/* The title of every page, the home name included. */
 h1 {
-  font-size: var(--fs-display-xl);
-  letter-spacing: var(--track-display-xl);
+  font-size: var(--fs-h1);
+  line-height: var(--lh-display);
+  letter-spacing: var(--track-h1);
 }
 
 ::selection {
@@ -228,7 +267,7 @@ h1 {
   background: var(--ink);
   color: #fff;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--fs-ui);
   font-weight: 500;
   border-radius: 0 0 var(--radius-md) var(--radius-md);
   transform: translateY(-120%);
@@ -255,16 +294,17 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
 
 .wrap--read {
   width: 100%;
-  max-width: 744px;
+  max-width: var(--reading-column);
   margin-left: max(0px, calc(50% - var(--frame) / 2));
   margin-right: auto;
 }
 
 .eyebrow {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   font-weight: 500;
-  letter-spacing: var(--track-caps-wide);
+  line-height: var(--lh-mono);
+  letter-spacing: var(--track-caps);
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -381,7 +421,7 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
    takes the meta grey, the family name takes the ground's foreground. */
 .brand__word {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--fs-meta);
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -400,7 +440,7 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
   gap: var(--nav-gap);
   margin-right: calc(var(--nav-pad) * -1);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--fs-ui);
   font-weight: 500;
   color: var(--muted);
 }
@@ -459,7 +499,7 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
 /* A faint blueprint grid in the empty area right of the reading column. It
    echoes the homepage grid: the same 40px pitch, the same elliptical fade, and
    lines on the same x positions as the homepage. The box starts at the right
-   edge of the column, and the mask reaches 0 well inside the box. So nothing
+   edge of the column plus the graphic gap, and the mask reaches 0 well inside the box. So nothing
    sits behind text, the header, the footer fade, or the viewport edges. It is
    fixed, so it stays still while the page scrolls. Articles and the writing
    list do not get it. */
@@ -470,15 +510,14 @@ body:is([data-page="about"], [data-page="products"], [data-page="product"], [dat
   top: var(--header-height);
   bottom: calc(var(--footer-height) + var(--footer-fade));
   right: 0;
-  /* Column right edge: the frame left edge plus the 744px reading column. */
-  left: calc(max(0px, 50% - var(--frame) / 2) + 744px);
+  left: var(--graphic-left);
   background-image:
     repeating-linear-gradient(180deg, transparent 0 39px, var(--grid-line) 39px 40px),
     repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line) 39px 40px);
   background-size: 40px 40px;
   /* One vertical line lands on the content left edge, as on the homepage. The
      frame left edge cancels out, so the offset needs no frame width. */
-  background-position: calc(var(--frame-pad) - 744px - 39px) 0;
+  background-position: calc(var(--frame-pad) - var(--reading-column) - var(--graphic-gap) - 39px) 0;
   -webkit-mask-image: radial-gradient(
     ellipse closest-side at 50% 50%,
     #000 0 30%,
@@ -505,6 +544,62 @@ body:is([data-page="about"], [data-page="products"], [data-page="product"], [dat
 @media (max-width: 1099px) {
   body:is([data-page="about"], [data-page="products"], [data-page="product"], [data-page="error"])::before {
     display: none;
+  }
+}
+
+/* The page graphic: a canvas picture that shares the grid's place. It is
+   decorative. It takes no input and never sits behind text. Without
+   JavaScript it takes no space, so the page keeps only the grid. */
+.page-graphic {
+  display: none;
+  position: relative;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.page-graphic__canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  /* Every edge fades out over 24px, so no ring, line, or label clips hard
+     against the viewport edge, the header line, or the column. */
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent),
+    linear-gradient(180deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+  mask-image:
+    linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent),
+    linear-gradient(180deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+
+/* Below 1100px: a short band above the page title, inside the reading column. */
+@media (scripting: enabled) {
+  .page-graphic:not([hidden]) {
+    display: block;
+    height: var(--band-height);
+    margin-top: 20px;
+    width: calc(min(100%, var(--reading-column)) - 2 * var(--frame-pad));
+    margin-left: calc(max(0px, 50% - var(--frame) / 2) + var(--frame-pad));
+  }
+}
+
+/* From 1100px: the box of the grid above, in the empty area right of the
+   column. It sits above the grid layer and stays fixed while the page scrolls. */
+@media (min-width: 1100px) and (scripting: enabled) {
+  .page-graphic:not([hidden]) {
+    position: fixed;
+    z-index: 0;
+    top: var(--header-height);
+    bottom: calc(var(--footer-height) + var(--footer-fade));
+    right: 0;
+    left: var(--graphic-left);
+    width: auto;
+    height: auto;
+    margin: 0;
   }
 }
 
@@ -544,7 +639,7 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
   gap: 8px;
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 15px;
+  font-size: var(--fs-small);
   padding: 12px 22px;
   border-radius: var(--radius-md);
   border: 1px solid transparent;
@@ -610,7 +705,7 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
 .site-footer__disclaimer,
 .site-footer__copyright {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-label);
   line-height: 1.5;
   color: var(--mast-meta);
   margin: 0;
@@ -642,6 +737,7 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
   }
   .site-footer__disclaimer,
   .site-footer__copyright {
+    /* Below the label step on purpose: three lines must fit the 56px bar. */
     font-size: 10px;
     line-height: 1.35;
   }
@@ -650,6 +746,11 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
 @media (max-width: 760px) {
   :root {
     --frame-pad: 20px;
+    --fs-h1: 28px;
+    --fs-h2: 21px;
+    --fs-h3: 18px;
+    --fs-lede: 17px;
+    --fs-body: 16px;
   }
 }
 
@@ -660,7 +761,7 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
   display: none;
   position: relative;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--fs-ui);
   font-weight: 500;
 }
 
@@ -694,7 +795,8 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
 
 .nav-menu__panel {
   position: absolute;
-  top: 100%;
+  /* The gap clears the 5px focus ring of the toggle. */
+  top: calc(100% + 10px);
   right: 0;
   z-index: 60;
   min-width: 200px;

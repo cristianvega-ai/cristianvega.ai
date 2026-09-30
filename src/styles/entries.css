@@ -18,14 +18,14 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font: 500 12px/1.65 var(--font-mono);
+  font: 500 var(--fs-meta) / var(--lh-mono) var(--font-mono);
   color: var(--mast-meta);
 }
 
 .entries__title {
-  font-size: 21px;
-  line-height: 1.25;
-  letter-spacing: -.015em;
+  font-size: var(--fs-lede);
+  line-height: var(--lh-title);
+  letter-spacing: var(--track-heading);
 }
 
 /* The whole row is the target, and the focus ring wraps the row. */
@@ -52,8 +52,8 @@
 .entries__excerpt {
   max-width: 62ch;
   margin-top: 8px;
-  font-size: 15.5px;
-  line-height: 1.6;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
   color: var(--mast-meta);
   text-wrap: pretty;
 }
@@ -63,7 +63,7 @@
 }
 
 .text-link {
-  font: 500 13px var(--font-mono);
+  font: 500 var(--fs-ui) var(--font-mono);
   color: var(--sky);
 }
 

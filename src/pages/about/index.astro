@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageGraphic from "../../components/PageGraphic.astro";
 import "../../styles/about.css";
 ---
 
@@ -9,6 +10,7 @@ import "../../styles/about.css";
   active="about"
 >
   <main>
+    <PageGraphic page="about" />
     <article class="about" aria-labelledby="about-title">
       <header class="about__head wrap wrap--read">
         <p class="eyebrow eyebrow--parts"><span class="eyebrow__part">AI Engineering Leader</span> <span class="eyebrow__part">Agentic&nbsp;Systems</span></p>

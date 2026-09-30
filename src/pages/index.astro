@@ -6,22 +6,13 @@ import { getProducts } from "../lib/products";
 import "../styles/entries.css";
 import "../styles/home.css";
 
-// A card links to its section only when the section has something to show.
-// Until then the card is plain text with a "Coming soon" label, so the page
-// never points at a route the build does not emit.
-const paths = [
-  {
-    title: "Writing",
-    href: "/writing/",
-    line: "Notes on production AI, engineering, and the systems around them.",
-    live: (await getPosts()).length > 0,
-  },
-  {
-    title: "Products",
-    href: "/products/",
-    line: undefined,
-    live: (await getProducts()).length > 0,
-  },
+// A call to action links to its section only when the section has something
+// to show. Until then it is plain, muted text, so the page never points at a
+// route the build does not emit. Both states share one box, so the layout
+// does not shift when a section goes live.
+const next = [
+  { href: "/writing/", live: (await getPosts()).length > 0, label: "Read my latest writing", soon: "Latest writing · coming soon" },
+  { href: "/products/", live: (await getProducts()).length > 0, label: "See my latest products", soon: "Latest products · coming soon" },
 ];
 ---
 
@@ -30,31 +21,27 @@ const paths = [
     <section class="hero" aria-labelledby="home-title">
       <div class="hero__stage wrap">
         <div class="hero__main">
-          <p class="eyebrow eyebrow--parts hero__eyebrow"><span class="eyebrow__part">AI Engineering Leader</span> <span class="eyebrow__part">Agentic&nbsp;Systems</span></p>
+          <p class="eyebrow eyebrow--parts"><span class="eyebrow__part">AI Engineering Leader</span> <span class="eyebrow__part">Agentic&nbsp;Systems</span></p>
           <h1 id="home-title" class="hero__name">Cristian <span class="highlight">Vega</span></h1>
           <p class="hero__lede">Ten years building software. The last five building production AI from the ground up.</p>
           <p class="hero__thesis">
             My work has a consistent shape: take AI from a promising demo to a governed system with contracts,
             evaluation, and a unit cost.
           </p>
-          <p class="hero__more"><a class="text-link" href="/about/">More about me →</a></p>
+          <ul class="hero__next" aria-label="Latest work">
+            {next.map((item) => (
+              <li class="hero__next-item" data-state={item.live ? "live" : "soon"}>
+                {item.live ? (
+                  <a class="hero__next-link" href={item.href}>{item.label} <span class="hero__next-arrow" aria-hidden="true">→</span></a>
+                ) : (
+                  <span class="hero__next-soon">{item.soon}</span>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
         <div class="hero__globe"><LyraGlobe /></div>
       </div>
-      <ul class="paths wrap" aria-label="Writing and products">
-        {paths.map((path) => {
-          const Card = path.live ? "a" : "div";
-          return (
-            <li class="paths__item">
-              <Card class="path" data-state={path.live ? "live" : "soon"} href={path.live ? path.href : undefined}>
-                <span class="path__title">{path.title}</span>
-                {path.line && <span class="path__line">{path.line}</span>}
-                <span class="path__status">{path.live ? <>Explore <span class="path__arrow" aria-hidden="true">→</span></> : "Coming soon"}</span>
-              </Card>
-            </li>
-          );
-        })}
-      </ul>
     </section>
   </main>
 </BaseLayout>

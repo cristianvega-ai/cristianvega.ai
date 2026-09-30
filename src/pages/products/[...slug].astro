@@ -1,6 +1,7 @@
 ---
 import { render } from "astro:content";
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageGraphic from "../../components/PageGraphic.astro";
 import ProductList from "../../components/ProductList.astro";
 import { getProducts, type Product } from "../../lib/products";
 import "../../styles/entries.css";
@@ -30,6 +31,7 @@ const hasDrafts = products.some((entry) => entry.data.draft);
 {product && Content ? (
   <BaseLayout title={product.data.title} description={product.data.description} active="product" noindex={product.data.draft}>
     <main>
+      <PageGraphic page="products" data={{ "data-products": products.length, "data-current": products.findIndex((entry) => entry.id === product.id) }} />
       <article class="product" aria-labelledby="product-title">
         <header class="product__head wrap wrap--read">
           <p class="eyebrow">{product.data.status ?? "Product"}{product.data.draft && <span class="draft-label"> · Draft</span>}</p>
@@ -49,6 +51,7 @@ const hasDrafts = products.some((entry) => entry.data.draft);
 ) : (
   <BaseLayout title="Products" description="Products I have built." active="products" noindex={hasDrafts}>
     <main>
+      <PageGraphic page="products" />
       <section class="product product--index" aria-labelledby="products-title">
         <header class="product__head wrap wrap--read">
           <p class="eyebrow">Products{hasDrafts && <span class="draft-label"> · Local preview</span>}</p>

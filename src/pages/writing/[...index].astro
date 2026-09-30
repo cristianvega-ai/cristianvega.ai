@@ -1,6 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import BlogScene from "../../components/BlogScene.astro";
+import PageGraphic from "../../components/PageGraphic.astro";
 import { getPosts, postDate, postUrl, readingMinutes } from "../../lib/blog";
 import "../../styles/blog.css";
 
@@ -16,9 +16,10 @@ const hasDrafts = posts.some((post) => post.data.draft);
 
 <BaseLayout title="Writing" description="Notes on production AI, engineering, and the systems around them." active="blog" noindex={hasDrafts}>
   <main class="blog-index">
+    <PageGraphic page="writing" />
     <div class="blog-index__intro">
       <p class="eyebrow">Notes · Essays</p>
-      <h1 id="blog-title" data-decode>Writing</h1>
+      <h1 id="blog-title">Writing</h1>
       <p class="blog-index__count">{String(posts.length).padStart(2, "0")} {posts.length === 1 ? "post" : "posts"}{hasDrafts && " · local preview"}</p>
     </div>
     <section class="blog-index__list" aria-labelledby="blog-title">
@@ -33,6 +34,6 @@ const hasDrafts = posts.some((post) => post.data.draft);
         ))}
       </ol>
     </section>
-    <BlogScene inputs={posts.map((post) => post.id)} />
   </main>
 </BaseLayout>
+

@@ -170,9 +170,18 @@ const structuredData = {
         menu.open = false;
         menu.querySelector("summary")?.focus();
       });
+      // A press on the panel padding moves focus to nothing, so it is not a focus exit.
+      // A Tab past the last link on a page with nothing after the menu also moves focus
+      // to nothing, and it must close the menu.
+      let pressing = false;
+      menu?.addEventListener("pointerdown", () => { pressing = true; });
+      document.addEventListener("pointerup", () => { pressing = false; });
+      document.addEventListener("pointercancel", () => { pressing = false; });
       menu?.addEventListener("focusout", (event) => {
         const next = event.relatedTarget;
-        if (menu.open && next instanceof Node && !menu.contains(next)) menu.open = false;
+        if (!menu.open || (next instanceof Node && menu.contains(next))) return;
+        if (next === null && pressing) return;
+        menu.open = false;
       });
       document.addEventListener("pointerdown", (event) => {
         if (menu?.open && event.target instanceof Node && !menu.contains(event.target)) menu.open = false;

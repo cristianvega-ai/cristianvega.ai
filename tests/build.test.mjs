@@ -119,7 +119,7 @@ test("writing and products build no routes while every entry is a draft", () => 
   assert.ok(!sitemap.includes("https://cristianvega.ai/writing/"), "the writing index must stay out of the sitemap");
   assert.ok(!sitemap.includes("https://cristianvega.ai/products/"), "the products index must stay out of the sitemap");
   assert.ok(!sitemap.includes("https://cristianvega.ai/blog/"), "the old blog routes must stay out of the sitemap");
-  // The homepage cards must not link to a route that the build omits.
+  // The homepage calls to action must not link to a route that the build omits.
   assert.doesNotMatch(readDistFile("index.html"), /href="\/(?:writing|products)\//, "the homepage must not link to an omitted route");
   for (const [collection, route] of [["blog", "writing"], ["products", "products"]]) {
     const source = join(root, "src", "content", collection);

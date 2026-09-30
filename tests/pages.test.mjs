@@ -16,7 +16,13 @@ test("about holds the profile and marks its own navigation link", () => {
   assert.match(html, /href="\/about\/" aria-current="page"/);
   assert.match(html, /class="skip-link"[^>]*href="#main-content"/);
   assert.match(html, /<meta name="color-scheme" content="dark"/);
-  assert.doesNotMatch(html, /<canvas/, "about must not draw a canvas");
+  assert.match(
+    html,
+    /<div class="page-graphic" data-graphic="about" aria-hidden="true"[^>]*>\s*<canvas class="page-graphic__canvas"><\/canvas>\s*<\/div>/,
+    "about must hold one hidden graphic with one canvas",
+  );
+  assert.equal([...html.matchAll(/<canvas/g)].length, 1, "about must draw one canvas");
+  assert.doesNotMatch(html, /<svg[^>]*class="[^"]*page-graphic/, "the graphic must have no SVG fallback");
   assert.doesNotMatch(html, /name="robots" content="noindex/);
 
   for (const copy of [
@@ -54,7 +60,7 @@ test("homepage holds the intro, the globe, and a link to about", () => {
   ]) {
     assert.ok(text.includes(copy), `the intro must keep the copy: ${copy}`);
   }
-  assert.match(html, /<a class="text-link" href="\/about\/">More about me →<\/a>/);
+  assert.doesNotMatch(html, /More about me/, "the homepage must not carry the old about link");
 
   // The long profile lives on /about/. The homepage must not repeat it.
   for (const copy of ["never stopped building", "12,000 documents", "Now I'm at Vertafore", "U.S. Patent", "OpenCatalyst"]) {
@@ -83,24 +89,23 @@ test("homepage holds the intro, the globe, and a link to about", () => {
   assert.doesNotMatch(html, /html\.js|classList\.add\(["']js["']\)/);
 });
 
-test("homepage lists no writing or products and shows two Coming soon cards in production", () => {
+test("homepage lists no writing or products and shows two coming-soon lines in production", () => {
   const html = readDistFile("index.html");
   assert.equal((html.match(/<h2\b/g) ?? []).length, 0, "the homepage must hold no section heading");
   assert.doesNotMatch(html, /home-writing|home-products|entries__item|data-post-id|data-product-id/);
-  // Every entry is a draft, so no card may point at a route the build omits.
+  // Every entry is a draft, so no line may point at a route the build omits.
   assert.doesNotMatch(html, /href="\/(?:writing|products)\//);
   assert.doesNotMatch(html, /href="#"/);
 
-  const cards = [...html.matchAll(/<(a|div) class="path"[^>]*>[\s\S]*?<\/\1>/g)].map((match) => match[0]);
-  assert.equal(cards.length, 2, "the homepage must hold two cards");
-  const [writing, products] = cards;
-  for (const [card, title] of [[writing, "Writing"], [products, "Products"]]) {
-    assert.match(card, /^<div class="path" data-state="soon">/, `${title} must be a plain card, not a link`);
-    assert.match(card, new RegExp(`<span class="path__title">${title}</span>`));
-    assert.match(card, /<span class="path__status">Coming soon<\/span>/);
-  }
-  assert.ok(writing.includes("Notes on production AI, engineering, and the systems around them."), "the Writing card must keep its line");
-  assert.equal((html.match(/path__line/g) ?? []).length, 1, "only the Writing card holds a line");
+  const list = html.match(/<ul class="hero__next"[^>]*>[\s\S]*?<\/ul>/)?.[0];
+  assert.ok(list, "the homepage must hold the list of calls to action");
+  const items = [...list.matchAll(/<li class="hero__next-item" data-state="(\w+)">([\s\S]*?)<\/li>/g)];
+  assert.equal(items.length, 2, "the homepage must hold two calls to action");
+  assert.deepEqual(items.map((item) => item[1]), ["soon", "soon"]);
+  assert.equal(items[0][2], '<span class="hero__next-soon">Latest writing · coming soon</span>');
+  assert.equal(items[1][2], '<span class="hero__next-soon">Latest products · coming soon</span>');
+  assert.doesNotMatch(list, /<a\b|href=|tabindex/, "a coming-soon line must not be a link or take focus");
+  assert.doesNotMatch(html, /class="path"|path__|Coming soon|Explore/, "the old cards must not return");
 });
 
 test("the header keeps one primary nav and a menu with the same links", () => {

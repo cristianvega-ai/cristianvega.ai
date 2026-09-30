@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { navLink, settle, tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { bandHeight, drawnLabels, edgePaint, focusRingAndFade, navLink, settle, tabTo, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 const preview = "http://127.0.0.1:4324";
 const article = "/writing/lorem-ipsum-dolor-sit-amet/";
 const qualityArticle = "/writing/nisi-ut-aliquip-ex-ea/";
 const shortArticle = "/writing/exercitation-ullamco-laboris/";
 const title = "Lorem ipsum dolor sit amet";
+const graphic = "[data-graphic='writing']";
 
 for (const [name, viewport] of Object.entries(VIEWPORTS)) {
   test(`${name} navigation keeps the header and browser theme consistent`, async ({ page }) => {
@@ -46,7 +47,7 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
         const brand = document.querySelector(".brand").getBoundingClientRect();
         // Narrow screens swap the inline nav for the menu button.
         const nav = [...document.querySelectorAll(".nav, .nav-menu")].find((element) => element.getClientRects().length).getBoundingClientRect();
-        const scene = document.querySelector("[data-lyra]");
+        const scene = document.querySelector("[data-graphic='writing']");
         const wraps = [...document.querySelectorAll("main .wrap--read")].map((element) => {
           const rect = element.getBoundingClientRect();
           return Math.round(rect.left + parseFloat(getComputedStyle(element).paddingLeft));
@@ -58,9 +59,9 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
           overlap: brand.right > nav.left,
           edges: [...new Set(wraps)],
           pointerEvents: scene && getComputedStyle(scene).pointerEvents,
-          canvasWidth: scene && scene.querySelector(".lyra-scene__canvas").getBoundingClientRect().width,
+          canvasWidth: scene && scene.querySelector("canvas").getBoundingClientRect().width,
           sceneWidth: scene && scene.getBoundingClientRect().width,
-          sceneCount: document.querySelectorAll("[data-lyra]").length,
+          sceneCount: document.querySelectorAll("[data-graphic]").length,
           headerBottom: header.bottom,
           contentTop: first.top,
           depthArt: document.querySelectorAll(".lyra-depth__fallback, .reading-hud").length,
@@ -73,9 +74,10 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       if (route === "/writing/") {
         expect(layout.pointerEvents).toBe("none");
         expect(layout.canvasWidth).toBe(layout.sceneWidth);
-        // The scene stays inside the 960px site frame, so its labels never pass the frame's right edge.
-        expect(layout.canvasWidth).toBe(Math.min(viewport.width, 960));
-        await expect(page.locator("[data-lyra]")).toHaveAttribute("aria-hidden", "true");
+        // The scene has the box that every inner page has, and it stays inside the viewport. The layout spec checks its exact place.
+        expect(layout.canvasWidth).toBeGreaterThan(200);
+        expect(layout.canvasWidth).toBeLessThan(viewport.width);
+        await expect(page.locator(graphic)).toHaveAttribute("aria-hidden", "true");
       } else {
         // Articles hold no scene, and the header never covers the first row.
         expect(layout.sceneCount).toBe(0);
@@ -113,7 +115,7 @@ test("keyboard focus lights a post and opens its article", async ({ page }) => {
   await page.goto(preview + "/writing/");
   expect(await tabTo(page, ".post-list__link >> nth=0")).toBe(true);
   const row = page.locator(".post-list__item").first();
-  await expect(page.locator("[data-lyra]")).toHaveAttribute("data-active-post", await row.getAttribute("data-post-id"));
+  await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await row.getAttribute("data-post-id"));
   await expect(row).toHaveCSS("outline-style", "solid");
   await expect(row).toHaveCSS("outline-width", "3px");
   await page.keyboard.press("Enter");
@@ -167,10 +169,10 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       expect(Math.abs(column.width - width)).toBeLessThanOrEqual(1);
       expect(Math.abs(column.left - left)).toBeLessThanOrEqual(1);
     }
-    if (viewport.width <= 760) expect(measured.titleSize).toBe(39);
-    else expect(measured.titleSize).toBeGreaterThan(39);
-    expect(measured.proseSize).toBe(viewport.width <= 760 ? 17 : 18);
-    expect(measured.proseLine).toBeCloseTo(measured.proseSize * 1.8, 0);
+    // The title takes the page title step: 28px on a phone, 36px above it.
+    expect(measured.titleSize).toBe(viewport.width <= 760 ? 28 : 36);
+    expect(measured.proseSize).toBe(viewport.width <= 760 ? 16 : 17);
+    expect(measured.proseLine).toBeCloseTo(measured.proseSize * 1.7, 0);
   });
 }
 
@@ -212,16 +214,16 @@ test("anchors and the back link sit below the sticky header", async ({ page }) =
   }
 });
 
-test("the writing index scene sits below the sticky header", async ({ page }) => {
+test("the writing index graphic sits below the sticky header", async ({ page }) => {
   await page.setViewportSize(VIEWPORTS.desktop);
   await page.goto(preview + "/writing/");
   await settle(page);
   await page.evaluate(() => window.scrollTo({ top: 300, behavior: "instant" }));
-  await expect.poll(() => page.evaluate(() => {
+  await expect.poll(() => page.evaluate((graphicSelector) => {
     const header = document.querySelector(".site-header").getBoundingClientRect();
-    const scene = document.querySelector(".lyra-scene--index").getBoundingClientRect();
+    const scene = document.querySelector(graphicSelector).getBoundingClientRect();
     return Math.abs(scene.top - header.bottom);
-  })).toBeLessThanOrEqual(1);
+  }, graphic)).toBeLessThanOrEqual(1);
 });
 
 test("content and links work without JavaScript", async ({ browser }) => {
@@ -232,10 +234,10 @@ test("content and links work without JavaScript", async ({ browser }) => {
   await expect(page.locator("#post-title")).toHaveText(title);
   await expect(page.locator(".prose h2")).toHaveCount(3);
   await expect(page.locator(".prose pre")).toContainText("LoremIpsum");
-  await expect(page.locator(".decode-noise")).toHaveCount(0);
-  await expect(page.locator("[data-lyra]")).toHaveCount(0);
+  await expect(page.locator("[data-graphic]")).toHaveCount(0);
   await page.getByRole("link", { name: "← All posts" }).click();
   await expect(page.locator(".post-list__link")).toHaveCount(8);
+  await expect(page.locator(graphic)).toHaveCSS("display", "none");
   await context.close();
 });
 
@@ -250,54 +252,461 @@ test("canvas, fonts, and storage failures keep content readable", async ({ page 
   await expect(page.locator("#post-title")).toBeVisible();
   await expect(page.locator("#post-title")).toHaveCSS("opacity", "1");
   await expect(page.locator(".prose h2")).toHaveCount(3);
-  await expect(page.locator(".decode-noise")).toHaveCount(0);
-  await expect(page.locator("[data-lyra]")).toHaveCount(0);
+  await expect(page.locator("[data-graphic]")).toHaveCount(0);
   await page.getByRole("link", { name: "← All posts" }).click();
   await expect(page.locator(".post-list__link")).toHaveCount(8);
+  // With no canvas, the graphic hides itself and the list stays.
+  await expect(page.locator(graphic)).toBeHidden();
 });
 
-test("the index motion finishes and responds to a reduced-motion change", async ({ page }) => {
-  await useReducedMotion(page, "no-preference");
-  await page.goto(preview + "/writing/");
-  await expect(page.locator("[data-lyra]")).toHaveAttribute("data-motion-state", "playing");
-  await expect(page.locator("[data-lyra]")).toHaveAttribute("data-motion-state", "still");
-  await expect(page.locator(".decode-noise")).toHaveCount(0);
-  await useReducedMotion(page);
-  await expect(page.locator("[data-lyra]")).toHaveAttribute("data-motion-state", "still");
-  await page.setViewportSize(VIEWPORTS.mobile);
-  await expect.poll(() => page.locator(".lyra-scene__canvas").evaluate((canvas) =>
-    Math.abs(canvas.width / devicePixelRatio - canvas.getBoundingClientRect().width),
-  )).toBeLessThanOrEqual(1);
+/** Play the manual clock forward, in 16 ms frames. A frame counts at most 64 ms of time. */
+const play = (page, ms) =>
+  page.evaluate((span) => {
+    window.__time = window.__time ?? 0;
+    for (let end = window.__time + span; window.__time < end; ) {
+      window.__time += 16;
+      window.__step(window.__time);
+    }
+  }, ms);
+const pending = (page) => page.evaluate(() => window.__pending());
+
+/** The count of canvas pixels that hold any paint. */
+const paintedPixels = (page) =>
+  page.locator(`${graphic} canvas`).evaluate((canvas) => {
+    const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+    let count = 0;
+    for (let i = 3; i < data.length; i += 4) if (data[i] > 8) count += 1;
+    return count;
+  });
+
+/** The count of near-opaque canvas pixels. A lit route and its halos add them, while the dimmed field loses faint ones. */
+const strongPixels = (page) =>
+  page.locator(`${graphic} canvas`).evaluate((canvas) => {
+    const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+    let count = 0;
+    for (let i = 3; i < data.length; i += 4) if (data[i] > 200) count += 1;
+    return count;
+  });
+
+/** The count of painted canvas pixels under each box, given in page pixels. */
+const paintUnder = (page, boxes) =>
+  page.locator(`${graphic} canvas`).evaluate((canvas, list) => {
+    const rect = canvas.getBoundingClientRect();
+    const scale = canvas.width / rect.width;
+    const context = canvas.getContext("2d");
+    let count = 0;
+    for (const box of list) {
+      const x0 = Math.max(0, Math.floor((box.x - rect.left) * scale));
+      const y0 = Math.max(0, Math.floor((box.y - rect.top) * scale));
+      const x1 = Math.min(canvas.width, Math.ceil((box.x + box.w - rect.left) * scale));
+      const y1 = Math.min(canvas.height, Math.ceil((box.y + box.h - rect.top) * scale));
+      if (x1 <= x0 || y1 <= y0) continue;
+      const { data } = context.getImageData(x0, y0, x1 - x0, y1 - y0);
+      for (let i = 3; i < data.length; i += 4) if (data[i] > 8) count += 1;
+    }
+    return count;
+  }, boxes);
+
+test.describe("the writing graphic is decorative", () => {
+  test.use({ viewport: VIEWPORTS.desktop });
+
+  test("hides from assistive technology and takes no pointer input", async ({ page }) => {
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    const state = await page.evaluate((selector) => {
+      const root = document.querySelector(selector);
+      return {
+        hidden: root.getAttribute("aria-hidden"),
+        pointerEvents: [root, root.querySelector("canvas")].map((part) => getComputedStyle(part).pointerEvents),
+        canvases: root.querySelectorAll("canvas").length,
+        focusable: root.querySelectorAll("a, button, input, select, textarea, [tabindex]").length,
+        text: root.textContent.trim(),
+        styled: root.querySelectorAll("[style]").length + (root.hasAttribute("style") ? 1 : 0),
+      };
+    }, graphic);
+    expect(state.hidden).toBe("true");
+    expect(state.pointerEvents).toEqual(["none", "none"]);
+    expect(state.canvases).toBe(1);
+    expect(state.focusable).toBe(0);
+    expect(state.text).toBe("");
+    expect(state.styled, "no style attributes in the markup").toBe(0);
+  });
+
+  test("adds no heading or link, and keeps the list readable", async ({ page }) => {
+    await page.goto(preview + "/writing/");
+    await expect(page.locator("main h1")).toHaveText("Writing");
+    await expect(page.locator(`${graphic} :is(h1, h2, h3, a)`)).toHaveCount(0);
+    await expect(page.locator(".post-list__item")).toHaveCount(8);
+  });
+
+  test("draws every label at 10px or larger", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__fontSizes = new Set();
+      const font = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, "font");
+      Object.defineProperty(CanvasRenderingContext2D.prototype, "font", {
+        get: font.get,
+        set(value) {
+          const size = /(\d+(?:\.\d+)?)px/.exec(value);
+          if (size) window.__fontSizes.add(Number(size[1]));
+          font.set.call(this, value);
+        },
+      });
+    });
+    await useReducedMotion(page);
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    const sizes = await page.evaluate(() => [...window.__fontSizes]);
+    expect(sizes.length).toBeGreaterThan(0);
+    for (const size of sizes) expect(size).toBeGreaterThanOrEqual(10);
+  });
 });
 
-test("reduced motion keeps the index canvas still after layout", async ({ page }) => {
-  await useReducedMotion(page);
-  await page.addInitScript(() => {
-    window.blogPaints = 0;
-    const drawImage = CanvasRenderingContext2D.prototype.drawImage;
-    CanvasRenderingContext2D.prototype.drawImage = function (...args) {
-      if (this.canvas.classList.contains("lyra-scene__canvas")) window.blogPaints += 1;
-      return drawImage.apply(this, args);
-    };
+test.describe("the writing graphic never covers text", () => {
+  for (const size of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 768 },
+    { width: 820, height: 1180 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`paints no pixel under any text box at ${size.width}px`, async ({ page }) => {
+      await page.setViewportSize(size);
+      await useReducedMotion(page);
+      await page.goto(preview + "/writing/");
+      await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+      await settle(page);
+      for (const place of ["top", "middle"]) {
+        await page.evaluate((where) => {
+          const max = document.documentElement.scrollHeight - innerHeight;
+          scrollTo(0, where === "top" ? 0 : Math.min(max, 300));
+        }, place);
+        const shape = await page.locator(graphic).evaluate((el) => {
+          const rect = el.getBoundingClientRect();
+          return { w: rect.width, h: rect.height };
+        });
+        expect(shape.w, `${place}: the graphic has a width`).toBeGreaterThan(300);
+        expect(shape.h, `${place}: the graphic has a height`).toBeGreaterThan(150);
+        const texts = await textBoxes(page);
+        expect(texts.length).toBeGreaterThan(0);
+        expect(await paintedPixels(page), `${place}: the picture is drawn`).toBeGreaterThan(3000);
+        expect(await paintUnder(page, texts), `${place}: the picture must not paint under text`).toBe(0);
+      }
+    });
+  }
+
+  for (const size of [{ width: 1099, height: 900 }, { width: 1024, height: 768 }, { width: 820, height: 1180 }, VIEWPORTS.mobile]) {
+    test(`sits above the list and takes a block 19% taller than the shared band at ${size.width}px`, async ({ page }) => {
+      await page.setViewportSize(size);
+      await page.goto(preview + "/writing/");
+      await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+      const block = await page.evaluate((selector) => {
+        const root = document.querySelector(selector);
+        const rect = root.getBoundingClientRect();
+        return {
+          position: getComputedStyle(root).position,
+          height: rect.height,
+          bottom: rect.bottom + scrollY,
+          list: document.querySelector(".blog-index__list").getBoundingClientRect().top + scrollY,
+        };
+      }, graphic);
+      expect(block.position).not.toBe("sticky");
+      expect(Math.abs(block.height - bandHeight(size.height) * 1.19), "the block is the shared band plus 19%").toBeLessThanOrEqual(1);
+      expect(block.bottom).toBeLessThanOrEqual(block.list);
+    });
+  }
+
+  test("sits beside the list from 1100px, as the fixed box of the other pages", async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 900 });
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    const place = await page.evaluate((selector) => {
+      const root = document.querySelector(selector);
+      return { position: getComputedStyle(root).position, left: root.getBoundingClientRect().left, listRight: document.querySelector(".blog-index__list").getBoundingClientRect().right };
+    }, graphic);
+    expect(place.position).toBe("fixed");
+    expect(place.left, "right of the list").toBeGreaterThanOrEqual(place.listRight);
   });
-  await page.goto(preview + "/writing/");
-  await expect(page.locator("[data-lyra]")).toHaveAttribute("data-motion-state", "still");
-  await page.evaluate(() => document.fonts.ready);
-  const changes = await page.locator(".lyra-scene__canvas").evaluate(async (canvas) => {
-    await new Promise(requestAnimationFrame);
-    const first = canvas.toDataURL();
-    const paints = window.blogPaints;
-    for (let i = 0; i < 4; i++) await new Promise(requestAnimationFrame);
-    return first !== canvas.toDataURL() || paints !== window.blogPaints;
+});
+
+test.describe("the writing graphic labels and family look", () => {
+  for (const size of [{ width: 1440, height: 900 }, { width: 1024, height: 768 }, { width: 820, height: 1180 }, VIEWPORTS.mobile]) {
+    test(`keeps every label 24px from the canvas edge and 32px from the viewport edge at ${size.width}px`, async ({ page }) => {
+      await page.setViewportSize(size);
+      await useLabelSpy(page);
+      await useReducedMotion(page);
+      await page.goto(preview + "/writing/");
+      await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+      const { labels, viewport } = await drawnLabels(page);
+      // Every post number is drawn. A star name is drawn only where the layout finds a clear place for it,
+      // and a small band can have none, so the star names are not counted.
+      const posts = await page.locator(".post-list__item").count();
+      expect(posts).toBeGreaterThan(0);
+      expect(labels.filter((label) => label.text.startsWith("N°")).length, "every post number is drawn").toBe(posts);
+      for (const label of labels) {
+        expect(label.localLeft, `"${label.text}" left`).toBeGreaterThanOrEqual(24);
+        expect(label.localRight, `"${label.text}" right`).toBeLessThanOrEqual(label.canvasWidth - 24);
+        expect(label.localTop, `"${label.text}" top`).toBeGreaterThanOrEqual(24);
+        expect(label.localBottom, `"${label.text}" bottom`).toBeLessThanOrEqual(label.canvasHeight - 24);
+        expect(label.right, `"${label.text}" viewport right`).toBeLessThanOrEqual(viewport - 32);
+      }
+    });
+  }
+
+  test("draws its labels over an ink halo and fades its canvas edges", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await useLabelSpy(page);
+    await useReducedMotion(page);
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    const { labels, ink } = await drawnLabels(page);
+    for (const label of labels) {
+      expect(label.halo?.style, `"${label.text}" halo colour`).toBe(ink);
+      expect(label.halo?.lineJoin).toBe("round");
+    }
+    const mask = await page.locator(`${graphic} canvas`).evaluate((canvas) => getComputedStyle(canvas).maskImage || getComputedStyle(canvas).webkitMaskImage);
+    expect(mask).toContain("linear-gradient");
   });
-  expect(changes).toBe(false);
+
+  test("draws no corner bracket and no plus lattice, only the faint site grid", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await useReducedMotion(page);
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    // The old frame put brackets 6px in from every corner. The grid fades to nothing at the corners.
+    const painted = await page.locator(`${graphic} canvas`).evaluate((canvas) => {
+      const context = canvas.getContext("2d");
+      const { width, height } = canvas;
+      const count = (x, y) => {
+        const { data } = context.getImageData(x, y, 20, 20);
+        let total = 0;
+        for (let i = 3; i < data.length; i += 4) if (data[i] > 8) total += 1;
+        return total;
+      };
+      return [count(width - 22, 2), count(width - 22, height - 22)];
+    });
+    expect(painted).toEqual([0, 0]);
+  });
+});
+
+test.describe("the writing graphic entrance", () => {
+  test.use({ viewport: VIEWPORTS.desktop });
+
+  test("plays, then rests in the still state", async ({ page }) => {
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
+    });
+
+  test("paints more as it goes, and ends at rest with no queued frame", async ({ page }) => {
+    await useManualFrames(page);
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "playing");
+    await play(page, 32);
+    const early = await paintedPixels(page);
+    await play(page, 1000);
+    const middle = await paintedPixels(page);
+    await play(page, 2000);
+    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
+    const done = await paintedPixels(page);
+    expect(early).toBeLessThan(middle);
+    expect(middle).toBeLessThan(done);
+    await expect.poll(() => pending(page)).toBe(0);
+  });
+
+  test("reduced motion paints the finished picture on the first frame and runs no frames", async ({ page }) => {
+    await useManualFrames(page);
+    await useReducedMotion(page);
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
+    expect(await pending(page)).toBe(0);
+    expect(await paintedPixels(page), "every star, synapse, and label is drawn at once").toBeGreaterThan(3000);
+  });
+
+  test("a live change to reduced motion finishes the picture at once", async ({ page }) => {
+    await useManualFrames(page);
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "playing");
+    await useReducedMotion(page);
+    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
+    expect(await pending(page)).toBe(0);
+  });
+
+  test("keeps the canvas as wide as its box after a resize", async ({ page }) => {
+    await useReducedMotion(page);
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    await page.setViewportSize(VIEWPORTS.mobile);
+    await expect.poll(() => page.locator(`${graphic} canvas`).evaluate((canvas) =>
+      Math.abs(canvas.width / devicePixelRatio - canvas.getBoundingClientRect().width),
+    )).toBeLessThanOrEqual(1);
+  });
+});
+
+test.describe("the writing graphic pauses and tears down", () => {
+  test("stops its frames when it scrolls off-screen, and resumes on return", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.mobile);
+    await useManualFrames(page);
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    expect(await pending(page), "frames run while the graphic shows").toBe(1);
+    await page.evaluate(() => scrollTo(0, 1500));
+    await expect.poll(() => pending(page), "no frame is queued off-screen").toBe(0);
+    await page.evaluate(() => scrollTo(0, 0));
+    await expect.poll(() => pending(page), "frames resume on return").toBe(1);
+  });
+
+  test("stops its frames while the tab is hidden, and resumes when it shows", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await useManualFrames(page);
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    expect(await pending(page)).toBe(1);
+    const setHidden = (hidden) =>
+      page.evaluate((value) => {
+        Object.defineProperty(document, "hidden", { configurable: true, get: () => value });
+        document.dispatchEvent(new Event("visibilitychange"));
+      }, hidden);
+    await setHidden(true);
+    expect(await pending(page), "no frame is queued in a hidden tab").toBe(0);
+    await setHidden(false);
+    expect(await pending(page), "frames resume when the tab shows").toBe(1);
+  });
+
+  test("cancels its frames and its listeners on pagehide, and sets up again on a restored page", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await useManualFrames(page);
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    await play(page, 3000);
+    await page.locator(".post-list__item").nth(1).hover();
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-post", /.+/);
+    expect(await pending(page)).toBe(1);
+
+    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true })));
+    expect(await pending(page), "no frame stays queued after pagehide").toBe(0);
+    await expect(page.locator(graphic)).not.toHaveAttribute("data-ready", /.*/);
+    await expect(page.locator(graphic)).not.toHaveAttribute("data-motion-state", /.*/);
+    await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
+    // The listeners are gone: a post that takes the pointer lights nothing.
+    await page.locator(".post-list__item").nth(2).hover();
+    await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
+    expect(await pending(page)).toBe(0);
+
+    // The entrance is over, so a restored page rests with no queued frame. Its listeners return.
+    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })));
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    expect(await pending(page), "a restored page at rest queues no frame").toBe(0);
+    await page.mouse.move(2, 2);
+    await page.locator(".post-list__item").nth(1).hover();
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-post", /.+/);
+    expect(await pending(page), "a lit post asks for frames after a restored page").toBe(1);
+  });
+});
+
+test.describe("the writing graphic answers a lit post", () => {
+  test.use({ viewport: VIEWPORTS.desktop });
+
+  /** Count the changes to data-active-post from now on. */
+  const watchActive = (page) =>
+    page.evaluate(() => {
+      window.__writes = 0;
+      window.__observer?.disconnect();
+      window.__observer = new MutationObserver((records) => {
+        window.__writes += records.length;
+      });
+      window.__observer.observe(document.querySelector("[data-graphic='writing']"), { attributes: true, attributeFilter: ["data-active-post"] });
+    });
+  const writes = (page) => page.evaluate(() => (window.__observer.takeRecords(), window.__writes));
+
+  test("the pointer sets the active post once for each change and runs frames only while it is lit", async ({ page }) => {
+    await useManualFrames(page);
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    await play(page, 3000);
+    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
+    expect(await pending(page), "the picture rests with no lit post").toBe(0);
+    await watchActive(page);
+
+    const second = page.locator(".post-list__item").nth(1);
+    await second.hover();
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await second.getAttribute("data-post-id"));
+    expect(await pending(page), "a lit post asks for frames").toBe(1);
+    const before = await strongPixels(page);
+    for (let i = 0; i < 20; i += 1) await play(page, 16);
+    expect(await writes(page), "twenty frames write no attribute").toBe(1);
+    await play(page, 400);
+    expect(await strongPixels(page), "the path to Vega adds paint").toBeGreaterThan(before);
+
+    await page.mouse.move(2, 2);
+    await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
+    await play(page, 2000);
+    expect(await writes(page)).toBe(2);
+    expect(await pending(page), "the loop stops once the glow has faded").toBe(0);
+  });
+
+  test("keyboard focus sets the active post, and leaving clears it", async ({ page }) => {
+    await useReducedMotion(page);
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    await watchActive(page);
+    expect(await tabTo(page, ".post-list__link >> nth=1")).toBe(true);
+    const second = page.locator(".post-list__item").nth(1);
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await second.getAttribute("data-post-id"));
+    await page.keyboard.press("Tab");
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await page.locator(".post-list__item").nth(2).getAttribute("data-post-id"));
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Shift+Tab");
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await page.locator(".post-list__item").first().getAttribute("data-post-id"));
+    await page.keyboard.press("Shift+Tab");
+    await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
+  });
+
+  test("reduced motion draws a lit post at once and runs no frame", async ({ page }) => {
+    await useManualFrames(page);
+    await useReducedMotion(page);
+    await page.goto(preview + "/writing/");
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    const canvas = page.locator(`${graphic} canvas`);
+    const rest = await canvas.evaluate((element) => element.toDataURL());
+    await page.locator(".post-list__item").nth(1).hover();
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-post", /.+/);
+    expect(await canvas.evaluate((element) => element.toDataURL()), "the picture changes on the same turn").not.toBe(rest);
+    expect(await pending(page)).toBe(0);
+    await page.mouse.move(2, 2);
+    expect(await canvas.evaluate((element) => element.toDataURL())).toBe(rest);
+  });
+});
+
+test.describe("the writing graphic in production", () => {
+  test("runs with no console error and no CSP violation", async ({ page }) => {
+    const problems = [];
+    page.on("console", (message) => {
+      if (message.type() === "error" || message.type() === "warning") problems.push(message.text());
+    });
+    page.on("pageerror", (error) => problems.push(error.message));
+    await page.addInitScript(() => {
+      window.__csp = [];
+      document.addEventListener("securitypolicyviolation", (event) => window.__csp.push(event.violatedDirective));
+    });
+    for (const size of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
+      await page.setViewportSize(size);
+      await page.goto(preview + "/writing/");
+      await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
+      await page.locator(".post-list__item").nth(1).hover();
+      await expect(page.locator(graphic)).toHaveAttribute("data-active-post", /.+/);
+      expect(await page.evaluate(() => window.__csp)).toEqual([]);
+    }
+    expect(problems).toEqual([]);
+  });
 });
 
 test("production has no writing index and keeps the security policy on its 404", async ({ page }) => {
   const response = await page.goto("/writing/");
   expect(response.status()).toBe(404);
   expect(response.headers()["content-security-policy"]).toContain("style-src-attr 'none'");
-  await expect(page.locator("[data-lyra]")).toHaveCount(0);
+  // The 404 page has its own graphic, and it is not the writing graphic.
+  await expect(page.locator("[data-graphic='writing']")).toHaveCount(0);
+  await expect(page.locator("[data-graphic='404']")).toHaveCount(1);
   await expect(page.locator(".post-list")).toHaveCount(0);
 });
 
@@ -358,3 +767,60 @@ for (const width of [820, 390, 360]) {
     else expect(state.second.left).toBeGreaterThanOrEqual(state.first.right - 1);
   });
 }
+
+test.describe("the last focusable element clears the footer fade", () => {
+  for (const [name, viewport] of [["desktop", VIEWPORTS.desktop], ["mobile", VIEWPORTS.mobile]]) {
+    for (const route of ["/writing/", "/products/", article]) {
+      test(`the focus ring of the last control on ${route} sits above the fade on ${name}`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        await useReducedMotion(page);
+        await page.goto(preview + route);
+        await settle(page);
+        const focusable = "main :is(a[href], button:not([hidden]), [tabindex='0'])";
+        expect(await tabTo(page, `${focusable} >> nth=-1`, 80), "the last control takes keyboard focus").toBe(true);
+        await expect.poll(async () => {
+          const { ringBottom, fadeTop } = await focusRingAndFade(page);
+          return fadeTop - ringBottom;
+        }, "the whole ring is above the fade").toBeGreaterThanOrEqual(0);
+        const { ringTop } = await focusRingAndFade(page);
+        expect(ringTop, "the ring stays below the header").toBeGreaterThanOrEqual(
+          await page.evaluate(() => document.querySelector(".site-header").getBoundingClientRect().bottom - 1),
+        );
+      });
+    }
+  }
+});
+
+test.describe("the writing graphic keeps its figure inside the box", () => {
+  for (const [name, viewport] of [["desktop", VIEWPORTS.desktop], ["mobile", VIEWPORTS.mobile]]) {
+    test(`keeps every strong mark 28px inside the canvas edge on ${name}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await useReducedMotion(page);
+      await page.goto(preview + "/writing/");
+      await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+      const painted = await edgePaint(page, graphic);
+      for (const side of ["left", "right", "top", "bottom"]) expect(painted[side], `strong paint at the ${side} edge`).toBe(0);
+    });
+  }
+
+  test("the phone band is at most 20% taller than the about band", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.mobile);
+    const height = async (path, selector) => {
+      await page.goto(preview + path);
+      await expect(page.locator(selector)).toHaveAttribute("data-ready", "true");
+      return page.locator(selector).evaluate((el) => el.getBoundingClientRect().height);
+    };
+    const about = await height("/about/", "[data-graphic='about']");
+    const writing = await height("/writing/", graphic);
+    expect(writing).toBeGreaterThanOrEqual(about);
+    expect(writing).toBeLessThanOrEqual(about * 1.2 + 1);
+  });
+
+  test("the title has no decode layer and reads as plain text on the first frame", async ({ page }) => {
+    await useManualFrames(page);
+    await page.goto(preview + "/writing/");
+    await expect(page.locator("#blog-title")).toHaveText("Writing");
+    await expect(page.locator("#blog-title *")).toHaveCount(0);
+    await expect(page.locator("#blog-title")).not.toHaveAttribute("data-decode", /.*/);
+  });
+});

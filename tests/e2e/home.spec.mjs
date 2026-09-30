@@ -1,53 +1,32 @@
 import { expect, test } from "@playwright/test";
 
-import { settle, tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { settle, tabTo, useManualFrames, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 /**
- * The homepage: one screen with the intro, the Lyra globe, and two cards for
- * Writing and Products. A card links only when its section has visible
- * content. Production comes from the built site on the base URL, where both
- * cards say "Coming soon". The dev server holds the drafts, so both link.
+ * The homepage: one screen with the intro, two calls to action for Writing
+ * and Products, and the Lyra globe. A call to action links only when its
+ * section has visible content. Production comes from the built site on the
+ * base URL, where both lines say "coming soon". The dev server holds the
+ * drafts, so both link.
  */
 
 const dev = "http://127.0.0.1:4324";
 const globe = "[data-lyra-globe]";
 const WIDTHS = { ...VIEWPORTS, wide: { width: 1920, height: 1080 }, narrow: { width: 360, height: 740 } };
-/** The screens where the homepage must fit with no scrolling. */
+/** The screens where the homepage must fit with no scrolling. Below 1100px the page can scroll. */
 const SCREENS = [
   { width: 1920, height: 1080 },
   { width: 1440, height: 900 },
   { width: 1280, height: 800 },
+  { width: 1100, height: 800 },
+];
+/** The screens where the globe sits in a band above the intro. */
+const BAND_SCREENS = [
   { width: 1024, height: 768 },
   { width: 820, height: 1180 },
   { width: 390, height: 844 },
   { width: 360, height: 740 },
 ];
-
-/**
- * Replace requestAnimationFrame with a manual clock. A frame runs only when a
- * test calls `window.__step(time)`, so the entrance stays in flight until the
- * test says otherwise, and `window.__pending()` counts the frames left queued.
- */
-async function useManualFrames(page) {
-  await page.addInitScript(() => {
-    let next = 0;
-    const queue = new Map();
-    window.requestAnimationFrame = (callback) => {
-      next += 1;
-      queue.set(next, callback);
-      return next;
-    };
-    window.cancelAnimationFrame = (id) => {
-      queue.delete(id);
-    };
-    window.__pending = () => queue.size;
-    window.__step = (time) => {
-      const callbacks = [...queue.values()];
-      queue.clear();
-      for (const callback of callbacks) callback(time);
-    };
-  });
-}
 
 const pending = (page) => page.evaluate(() => window.__pending());
 
@@ -78,7 +57,7 @@ test.describe("the globe is decorative", () => {
   test("leaves the real content readable", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("h1")).toHaveText("Cristian Vega");
-    await expect(page.getByRole("link", { name: "More about me →" })).toHaveAttribute("href", "/about/");
+    await expect(page.getByRole("link", { name: /More about me/ })).toHaveCount(0);
     await expect(page.locator(".hero__lede")).toBeVisible();
     await expect(page.locator(".hero__thesis")).toBeVisible();
   });
@@ -131,13 +110,24 @@ async function measureLight(page, ...shots) {
   }, shots.map((shot) => shot.toString("base64")));
 }
 
+/**
+ * Take a screenshot of the part of the globe box that the screen shows. The box runs past the
+ * right edge of the screen from 1100px, and the part past the edge is blank. Blank ground would
+ * dilute the mean light, so the comparisons read only the visible part.
+ */
+async function shootGlobe(page) {
+  const box = await page.locator(globe).boundingBox();
+  const visibleWidth = Math.min(box.width, page.viewportSize().width - box.x);
+  return page.screenshot({ clip: { x: box.x, y: box.y, width: visibleWidth, height: box.height } });
+}
+
 /** The picture of a visitor without JavaScript: the SVG in the noscript. */
 async function readPlainGlobe(browser, baseURL, viewport) {
   const plain = await browser.newContext({ javaScriptEnabled: false, viewport });
   const plainPage = await plain.newPage();
   await plainPage.goto(new URL("/", baseURL).href);
   await settle(plainPage);
-  const shot = await plainPage.locator(globe).screenshot();
+  const shot = await shootGlobe(plainPage);
   await plain.close();
   return shot;
 }
@@ -242,7 +232,7 @@ test.describe("the globe entrance", () => {
     await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
 
-    const look = async () => (await measureLight(page, await page.locator(globe).screenshot())).means[0];
+    const look = async () => (await measureLight(page, await shootGlobe(page))).means[0];
     // The grid lines behind the box hold some light too. Read them alone, with
     // the canvas and the labels hidden, so the frames are measured above them.
     const layers = page.locator(`${globe} canvas, ${globe} .lyra-globe__labels`);
@@ -259,7 +249,7 @@ test.describe("the globe entrance", () => {
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "still");
     // The labels fade in on a CSS clock of their own. Wait for it before the last look.
     await settle(page);
-    const last = await page.locator(globe).screenshot();
+    const last = await shootGlobe(page);
     const [final] = (await measureLight(page, last)).means;
     const match = await measureLight(page, plain, last);
 
@@ -269,8 +259,10 @@ test.describe("the globe entrance", () => {
     expect(share[3], "the middle of the entrance holds part of the picture").toBeGreaterThan(0.2);
     expect(share[3], "the middle of the entrance is not yet complete").toBeLessThan(0.9);
     for (let i = 1; i < 6; i += 1) expect(share[i], `frame ${i} adds to frame ${i - 1}`).toBeGreaterThanOrEqual(share[i - 1] - 0.02);
-    // The last frame is the finished picture: it matches the SVG closely.
-    expect(Math.abs(final - full) / full, "the final light matches the SVG").toBeLessThan(0.03);
+    // The last frame is the finished picture: it matches the SVG closely. The canvas draws the thin
+    // lines a few percent dimmer than the SVG. The screen shows 78% of the box at 1440px, and that
+    // share holds more thin lines and less grid, so the allowance is 4.5% and no longer 3%.
+    expect(Math.abs(final - full) / full, "the final light matches the SVG").toBeLessThan(0.045);
     expect(match.diff, "the final frame matches the SVG mark for mark").toBeLessThan(0.3);
   });
 
@@ -284,9 +276,10 @@ test.describe("the globe entrance", () => {
     expect(await pending(page)).toBe(0);
     await settle(page);
 
-    const shown = await page.locator(globe).screenshot();
+    const shown = await shootGlobe(page);
     const match = await measureLight(page, plain, shown);
-    expect(Math.abs(match.means[1] - match.means[0]) / match.means[0], "the light matches the SVG").toBeLessThan(0.03);
+    // The allowance is 4.5% for the reason given in the entrance test above.
+    expect(Math.abs(match.means[1] - match.means[0]) / match.means[0], "the light matches the SVG").toBeLessThan(0.045);
     expect(match.diff, "the picture matches the SVG mark for mark").toBeLessThan(0.3);
   });
 
@@ -505,23 +498,22 @@ for (const [name, viewport] of Object.entries(WIDTHS)) {
 
       expect(layout.overflow).toBeLessThanOrEqual(1);
       expect(layout.titleClipped).toBe(false);
-      // A short phone leaves the globe the least room. It keeps a 260px floor.
-      expect(layout.art.width).toBeGreaterThanOrEqual(viewport.width < 900 ? 260 : 400);
-      if (viewport.width > 900) {
-        // Side by side: the globe sits to the right of the intro.
+      if (viewport.width >= 1100) {
+        // Side by side: the globe sits to the right of the intro. Its box runs past the screen edge,
+        // and the screen shows most of it.
+        expect(layout.art.width).toBeGreaterThanOrEqual(400);
         expect(layout.art.left).toBeGreaterThanOrEqual(layout.main.right - 0.5);
-      }
-      if (viewport.width > 900) {
-        expect(layout.art.right).toBeLessThanOrEqual(layout.width + 0.5);
+        expect((layout.width - layout.art.left) / layout.art.width, "the screen shows most of the globe box").toBeGreaterThanOrEqual(0.65);
       } else {
-        // Stacked: the globe sits under the intro, inside the screen.
-        expect(layout.art.top).toBeGreaterThanOrEqual(layout.main.bottom - 0.5);
+        // Stacked: the globe band sits above the intro, inside the screen.
+        expect(layout.art.width).toBeGreaterThanOrEqual(Math.min(680, viewport.width - 40) - 1);
+        expect(layout.art.bottom).toBeLessThanOrEqual(layout.main.top + 0.5);
         expect(layout.art.left).toBeGreaterThanOrEqual(0);
         expect(layout.art.right).toBeLessThanOrEqual(layout.width + 0.5);
       }
     });
 
-    test("lists no writing or products and shows two Coming soon cards in production", async ({ page, request }) => {
+    test("lists no writing or products and shows two coming-soon lines in production", async ({ page, request }) => {
       await page.goto("/");
       await expect(page.locator("h1")).toHaveCount(1);
       await expect(page.locator("main h2")).toHaveCount(0);
@@ -530,25 +522,21 @@ for (const [name, viewport] of Object.entries(WIDTHS)) {
       await expect(page.locator(".nav__link[href='/writing/'], .nav-menu__link[href='/writing/']")).toHaveCount(0);
       // No link on the page may point at a route that is not built.
       await expect(page.locator("a[href^='/writing'], a[href^='/products'], a[href='#']")).toHaveCount(0);
+      await expect(page.getByText("More about me")).toHaveCount(0);
 
-      const cards = page.locator(".paths .path");
-      await expect(cards).toHaveCount(2);
-      await expect(cards.locator("xpath=self::a")).toHaveCount(0);
-      expect(await cards.evaluateAll((nodes) => nodes.map((node) => node.dataset.state))).toEqual(["soon", "soon"]);
-      await expect(cards.nth(0)).toContainText("Writing");
-      await expect(cards.nth(0)).toContainText("Notes on production AI, engineering, and the systems around them.");
-      await expect(cards.nth(1)).toContainText("Products");
-      await expect(cards.locator(".path__status")).toHaveText(["Coming soon", "Coming soon"]);
+      const items = page.locator(".hero__next-item");
+      await expect(items).toHaveText(["Latest writing · coming soon", "Latest products · coming soon"]);
+      expect(await items.evaluateAll((nodes) => nodes.map((node) => node.dataset.state))).toEqual(["soon", "soon"]);
 
-      // A card that is not a link takes no keyboard focus and no click.
-      const focusable = await page.locator(".paths").evaluate((list) => list.querySelectorAll("a, button, [tabindex]").length);
+      // A line that is not a link takes no keyboard focus and no click.
+      const focusable = await page.locator(".hero__next").evaluate((list) => list.querySelectorAll("a, button, [tabindex]").length);
       expect(focusable).toBe(0);
       expect((await request.get("/products/")).status()).toBe(404);
       expect((await request.get("/products/opencatalyst/")).status()).toBe(404);
       expect((await request.get("/writing/")).status()).toBe(404);
     });
 
-    test("shows two linked cards and no lists with the drafts on the dev server", async ({ page }) => {
+    test("shows two links and no lists with the drafts on the dev server", async ({ page }) => {
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
       page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
@@ -560,14 +548,17 @@ for (const [name, viewport] of Object.entries(WIDTHS)) {
       await expect(page.locator("main h2")).toHaveCount(0);
       await expect(page.locator("[data-post-id], [data-product-id]")).toHaveCount(0);
 
-      const cards = page.locator(".paths a.path");
-      await expect(cards).toHaveCount(2);
-      await expect(cards.nth(0)).toHaveAttribute("href", "/writing/");
-      await expect(cards.nth(1)).toHaveAttribute("href", "/products/");
-      expect(await cards.evaluateAll((nodes) => nodes.map((node) => node.dataset.state))).toEqual(["live", "live"]);
-      await expect(page.locator(".paths")).not.toContainText("Coming soon");
-      await expect(page.getByRole("link", { name: /^Writing\b.*Notes on production AI/ })).toHaveCount(1);
-      await expect(page.getByRole("link", { name: /^Products\b/ })).toHaveCount(1);
+      const links = page.locator(".hero__next a");
+      await expect(links).toHaveCount(2);
+      await expect(links.nth(0)).toHaveAttribute("href", "/writing/");
+      await expect(links.nth(1)).toHaveAttribute("href", "/products/");
+      expect(await page.locator(".hero__next-item").evaluateAll((nodes) => nodes.map((node) => node.dataset.state))).toEqual(["live", "live"]);
+      await expect(page.locator(".hero__next")).not.toContainText("coming soon");
+      // The arrow is decoration, so the accessible name is the words alone.
+      await expect(page.getByRole("link", { name: "Read my latest writing", exact: true })).toHaveAttribute("href", "/writing/");
+      await expect(page.getByRole("link", { name: "See my latest products", exact: true })).toHaveAttribute("href", "/products/");
+      await expect(links).toHaveText(["Read my latest writing →", "See my latest products →"]);
+      await expect(page.getByText("More about me")).toHaveCount(0);
 
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(overflow).toBeLessThanOrEqual(1);
@@ -619,262 +610,166 @@ test.describe("products on the dev server", () => {
 });
 
 for (const viewport of [VIEWPORTS.desktop, VIEWPORTS.mobile, WIDTHS.narrow]) {
-  test(`the home eyebrow keeps both clauses on one line, clear of the header, at ${viewport.width}px`, async ({ page }) => {
+  test(`the home eyebrow keeps its clauses whole, clear of the header, at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto("/");
     await settle(page);
-    const state = await page.locator(".hero__eyebrow").evaluate((eyebrow) => {
+    const state = await page.locator(".hero .eyebrow").evaluate((eyebrow) => {
       const [first, second] = [...eyebrow.querySelectorAll(".eyebrow__part")].map((part) => part.getBoundingClientRect());
       return {
         box: eyebrow.getBoundingClientRect().toJSON(), first, second, text: eyebrow.textContent,
         headerBottom: document.querySelector(".site-header").getBoundingClientRect().bottom,
+        bandBottom: document.querySelector(".hero__globe").getBoundingClientRect().bottom,
         fontSize: parseFloat(getComputedStyle(eyebrow).fontSize),
         toName: document.querySelector("h1").getBoundingClientRect().top - eyebrow.getBoundingClientRect().bottom,
         ledeToThesis: document.querySelector(".hero__thesis").getBoundingClientRect().top - document.querySelector(".hero__lede").getBoundingClientRect().bottom,
-        thesisToMore: document.querySelector(".hero__more").getBoundingClientRect().top - document.querySelector(".hero__thesis").getBoundingClientRect().bottom,
+        thesisToNext: document.querySelector(".hero__next").getBoundingClientRect().top - document.querySelector(".hero__thesis").getBoundingClientRect().bottom,
       };
     });
     expect(state.text.replace(/\s+/g, " ").trim()).toBe("AI Engineering Leader Agentic Systems");
-    // One line: the second clause starts after the first ends, on the same row.
-    expect(state.second.top).toBeLessThan(state.first.bottom - 1);
-    expect(state.second.left).toBeGreaterThanOrEqual(state.first.right - 1);
-    expect(state.fontSize).toBeGreaterThanOrEqual(10);
+    // The eyebrow has the style of every inner page. Above a phone it is one line: the second
+    // clause starts after the first ends, on the same row. On a phone the clauses can wrap,
+    // as they do on the inner pages, and each clause stays on one line.
+    if (viewport.width > 540) {
+      expect(state.second.top).toBeLessThan(state.first.bottom - 1);
+      expect(state.second.left).toBeGreaterThanOrEqual(state.first.right - 1);
+    } else {
+      expect(state.second.top).toBeGreaterThanOrEqual(state.first.bottom - 1);
+      expect(state.first.height).toBeLessThan(state.fontSize * 2);
+      expect(state.second.height).toBeLessThan(state.fontSize * 2);
+    }
+    expect(state.fontSize).toBe(12);
+    // The eyebrow sits the head room under the header, or under the globe band below 1100px, as on
+    // every inner page.
+    const above = viewport.width < 1100 ? state.bandBottom : state.headerBottom;
+    expect(state.box.top - above, "the eyebrow clears what is above it").toBe(viewport.width > 760 ? 72 : 48);
     // The intro keeps a steady rhythm on a phone. A tall phone has room and
     // gets the larger set. A short phone gets the tight set, which still keeps
     // the gaps clear of the crowded 5px to 8px of the old intro.
     if (viewport.width < 540) {
       const tall = viewport.height >= 800;
-      expect(state.box.top - state.headerBottom, "the eyebrow clears the header").toBeGreaterThanOrEqual(tall ? 24 : 12);
       expect(state.toName, "the eyebrow clears the name").toBeGreaterThanOrEqual(tall ? 14 : 10);
       expect(state.ledeToThesis, "the lede clears the thesis").toBeGreaterThanOrEqual(tall ? 14 : 8);
-      expect(state.thesisToMore, "the thesis clears the link").toBeGreaterThanOrEqual(tall ? 2 : 0);
+      expect(state.thesisToNext, "the thesis clears the calls to action").toBeGreaterThanOrEqual(tall ? 16 : 10);
     }
   });
 }
 
-/** Read the box of each card and of the parts inside it. */
-const readCards = (page) => page.evaluate(() => [...document.querySelectorAll(".paths .path")].map((card) => {
-  const box = card.getBoundingClientRect();
-  const part = (selector) => card.querySelector(selector).getBoundingClientRect();
-  return {
-    top: box.top, height: box.height, left: box.left, right: box.right,
-    title: part(".path__title").top - box.top,
-    statusTop: part(".path__status").top - box.top,
-    statusRight: box.right - part(".path__status").right,
-    statusHeight: part(".path__status").height,
-    hasLine: Boolean(card.querySelector(".path__line")),
-    // The room between the title row and the description.
-    lineGap: card.querySelector(".path__line")
-      ? part(".path__line").top - Math.max(part(".path__title").bottom, part(".path__status").bottom)
-      : null,
-    titleBaseline: part(".path__title").bottom - box.top,
-    // The room above and below the content, so a test can see how it is centred.
-    gapTop: Math.min(...[...card.children].map((child) => child.getBoundingClientRect().top)) - box.top,
-    gapBottom: box.bottom - Math.max(...[...card.children].map((child) => child.getBoundingClientRect().bottom)),
+/** Read the box of the list of calls to action and of each row in it. */
+const readNext = (page) => page.evaluate(() => {
+  const plain = (el) => {
+    const { left, top, right, bottom, width, height } = el.getBoundingClientRect();
+    return { left, top, right, bottom, width, height };
   };
-}));
+  return {
+    list: plain(document.querySelector(".hero__next")),
+    items: [...document.querySelectorAll(".hero__next-item")].map(plain),
+    globe: plain(document.querySelector(".hero__globe")),
+    canvas: plain(document.querySelector(".lyra-globe")),
+  };
+});
 
-for (const [name, origin] of [["production", ""], ["dev", dev]]) {
-  test.describe(`the two cards share one structure in ${name}`, () => {
-    for (const viewport of [VIEWPORTS.desktop, VIEWPORTS.tablet, VIEWPORTS.mobile, WIDTHS.narrow]) {
-      test(`match in height and line up their rows at ${viewport.width}px`, async ({ page }) => {
-        await page.setViewportSize(viewport);
+const overlaps = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+
+for (const viewport of [WIDTHS.wide, VIEWPORTS.desktop, VIEWPORTS.tablet, VIEWPORTS.mobile, WIDTHS.narrow]) {
+  test.describe(`the calls to action at ${viewport.width}px`, () => {
+    test.use({ viewport });
+
+    test("keep one box in both states, so the layout never shifts", async ({ page }) => {
+      await page.goto("/");
+      await settle(page);
+      const soon = await readNext(page);
+      await page.goto(dev + "/");
+      await settle(page);
+      const live = await readNext(page);
+
+      expect(soon.items).toHaveLength(2);
+      expect(live.items).toHaveLength(2);
+      // The two rows of one state match in height, and so do the two states.
+      for (const [one, two] of [[soon.items[0], soon.items[1]], [live.items[0], live.items[1]], [soon.items[0], live.items[0]], [soon.items[1], live.items[1]]]) {
+        expect(Math.abs(one.height - two.height)).toBeLessThanOrEqual(1);
+      }
+      // The list has one place and one size in both states.
+      expect(Math.abs(soon.list.top - live.list.top)).toBeLessThanOrEqual(1);
+      expect(Math.abs(soon.list.height - live.list.height)).toBeLessThanOrEqual(1);
+      expect(Math.abs(soon.list.left - live.list.left)).toBeLessThanOrEqual(1);
+      expect(Math.abs(soon.list.width - live.list.width)).toBeLessThanOrEqual(1);
+      // Each row is a comfortable target, and the rows sit one under the other.
+      for (const row of live.items) expect(row.height).toBeGreaterThanOrEqual(44);
+      expect(live.items[1].top).toBeGreaterThanOrEqual(live.items[0].bottom - 1);
+    });
+
+    for (const [state, origin] of [["coming-soon", ""], ["live", dev]]) {
+      test(`stay clear of the globe and inside the screen in the ${state} state`, async ({ page }) => {
         await page.goto(origin + "/");
         await settle(page);
-        const rows = await readCards(page);
-        expect(rows).toHaveLength(2);
-        expect(Math.abs(rows[0].height - rows[1].height)).toBeLessThanOrEqual(1);
-        expect(Math.abs(rows[0].statusHeight - rows[1].statusHeight)).toBeLessThanOrEqual(1);
-        expect(Math.abs(rows[0].statusRight - rows[1].statusRight)).toBeLessThanOrEqual(1);
-        // Side by side at every width, phones included: the cards start on one
-        // row, share one height, and do not overlap.
-        expect(Math.abs(rows[0].top - rows[1].top)).toBeLessThanOrEqual(1);
-        expect(rows[1].left, "the cards sit side by side").toBeGreaterThanOrEqual(rows[0].right);
-        // Both titles sit on one baseline, measured from the top of each card,
-        // and both status pills sit at one height. The Products card keeps an
-        // empty description row, so its title does not drift to the middle.
-        expect(Math.abs(rows[0].titleBaseline - rows[1].titleBaseline), "the titles share a baseline").toBeLessThanOrEqual(1);
-        expect(Math.abs(rows[0].title - rows[1].title), "the titles share a top").toBeLessThanOrEqual(1);
-        expect(Math.abs(rows[0].statusTop - rows[1].statusTop), "the status pills line up").toBeLessThanOrEqual(1);
-        // The padding is even: the room above the title row equals the room
-        // below the description, and it is never the cramped 7px of the old card.
-        expect(Math.abs(rows[0].gapTop - rows[0].gapBottom), "the padding is even").toBeLessThanOrEqual(2);
-        expect(rows[0].gapTop, "the title row has room above it").toBeGreaterThanOrEqual(viewport.width > 600 ? 16 : 10);
-        expect(rows[0].lineGap, "the description does not touch the title row").toBeGreaterThanOrEqual(3);
-        // The owner has not supplied a Products line. Writing has one.
-        expect(rows.map((row) => row.hasLine)).toEqual([true, false]);
-      });
-
-      test(`keep one height when Products gains a line, at ${viewport.width}px`, async ({ page }) => {
-        await page.setViewportSize(viewport);
-        await page.goto(origin + "/");
-        await settle(page);
-        // Add the line the owner may supply later, to the second card.
-        await page.evaluate(() => {
-          const card = document.querySelectorAll(".paths .path")[1];
-          const line = document.createElement("span");
-          line.className = "path__line";
-          line.textContent = "A hypothetical line for the products, long enough to wrap onto a second row on a phone.";
-          card.querySelector(".path__status").before(line);
-        });
-        const rows = await readCards(page);
-        expect(Math.abs(rows[0].height - rows[1].height)).toBeLessThanOrEqual(1);
-        expect(Math.abs(rows[0].title - rows[1].title)).toBeLessThanOrEqual(1);
-        expect(Math.abs(rows[0].statusTop - rows[1].statusTop)).toBeLessThanOrEqual(1);
-        expect(Math.abs(rows[0].statusRight - rows[1].statusRight)).toBeLessThanOrEqual(1);
-      });
-    }
-  });
-}
-
-for (const [name, origin] of [["production", ""], ["dev", dev]]) {
-  test.describe(`the cards on a phone in ${name}`, () => {
-    for (const viewport of [VIEWPORTS.mobile, WIDTHS.narrow]) {
-      test(`sit side by side, stay compact, and cut no word at ${viewport.width}px`, async ({ page }) => {
-        await page.setViewportSize(viewport);
-        await page.goto(origin + "/");
-        await settle(page);
-        const read = await page.evaluate(() => {
-          const plain = (el) => {
-            const { left, top, right, bottom, width, height } = el.getBoundingClientRect();
-            return { left, top, right, bottom, width, height };
-          };
-          return {
-            client: document.documentElement.clientWidth,
-            cards: [...document.querySelectorAll(".paths .path")].map((card) => ({
-              box: plain(card),
-              parts: [".path__title", ".path__status", ".path__line"].map((selector) => {
-                const part = card.querySelector(selector);
-                return part && {
-                  selector, box: plain(part), clipped: part.scrollWidth > part.clientWidth,
-                  fontSize: parseFloat(getComputedStyle(part).fontSize),
-                  overflow: getComputedStyle(part).textOverflow,
-                };
-              }).filter(Boolean),
-              titleBottom: card.querySelector(".path__title").getBoundingClientRect().bottom,
-              statusTop: card.querySelector(".path__status").getBoundingClientRect().top,
-            })),
-          };
-        });
-        expect(read.cards).toHaveLength(2);
-        const [first, second] = read.cards;
-        // Two columns, one row, one gutter of 10px.
-        expect(Math.abs(first.box.top - second.box.top)).toBeLessThanOrEqual(1);
-        expect(second.box.left - first.box.right, "the gutter between the cards").toBeGreaterThanOrEqual(8);
-        expect(second.box.left - first.box.right).toBeLessThanOrEqual(12);
-        expect(Math.abs(first.box.width - second.box.width)).toBeLessThanOrEqual(1);
-        expect(first.box.left).toBeGreaterThanOrEqual(19);
-        expect(second.box.right).toBeLessThanOrEqual(read.client - 19);
-        // Compact and still a comfortable target: at least 44px tall, and the
-        // pair no taller than 130px. The old stack took 190px or more.
-        for (const card of read.cards) {
-          expect(card.box.height, "a comfortable target").toBeGreaterThanOrEqual(44);
-          expect(card.box.height, "compact").toBeLessThanOrEqual(130);
-          // The status sits under the title: the card is too narrow for both on one row.
-          expect(card.statusTop, "the status wraps under the title").toBeGreaterThanOrEqual(card.titleBottom - 1);
-          for (const part of card.parts) {
-            expect(part.clipped, `${part.selector} is not clipped`).toBe(false);
-            expect(part.overflow, `${part.selector} is not truncated with an ellipsis`).not.toBe("ellipsis");
-            expect(part.box.left, `${part.selector} stays inside the card`).toBeGreaterThanOrEqual(card.box.left);
-            expect(part.box.right, `${part.selector} stays inside the card`).toBeLessThanOrEqual(card.box.right + 0.5);
-            expect(part.box.bottom, `${part.selector} stays inside the card`).toBeLessThanOrEqual(card.box.bottom);
-            if (part.selector === ".path__line") expect(part.fontSize, "the description stays legible").toBeGreaterThanOrEqual(12);
-          }
+        const read = await readNext(page);
+        const width = await page.evaluate(() => document.documentElement.clientWidth);
+        for (const row of read.items) {
+          expect(overlaps(row, read.globe), "a row must not overlap the globe").toBe(false);
+          expect(overlaps(row, read.canvas), "a row must not overlap the globe picture").toBe(false);
+          expect(row.left).toBeGreaterThanOrEqual(0);
+          expect(row.right).toBeLessThanOrEqual(width + 0.5);
         }
       });
     }
 
-    test("takes the whole card as the target when it is a link", async ({ page }) => {
-      test.skip(name === "production", "Production cards are not links.");
-      await page.setViewportSize(WIDTHS.narrow);
-      await page.goto(origin + "/");
+    test("read as text with no arrow when a section is not live", async ({ page }) => {
+      await page.goto("/");
       await settle(page);
-      const misses = await page.evaluate(() => [...document.querySelectorAll(".paths a.path")].flatMap((card) => {
-        const box = card.getBoundingClientRect();
-        // Every corner and the middle of the card land on the link itself.
-        return [[6, 6], [box.width - 6, 6], [6, box.height - 6], [box.width - 6, box.height - 6], [box.width / 2, box.height / 2]]
-          .filter(([x, y]) => !card.contains(document.elementFromPoint(box.left + x, box.top + y)));
-      }));
-      expect(misses).toEqual([]);
+      const state = await page.evaluate(() => {
+        const soon = document.querySelector(".hero__next-soon");
+        const style = getComputedStyle(soon);
+        const thesis = getComputedStyle(document.querySelector(".hero__thesis"));
+        return { color: style.color, thesisColor: thesis.color, cursor: style.cursor, arrow: Boolean(document.querySelector(".hero__next-arrow")), fontFamily: style.fontFamily };
+      });
+      expect(state.arrow, "a line that is not a link has no arrow").toBe(false);
+      expect(state.cursor).not.toBe("pointer");
+      expect(state.color, "the line is quieter than the thesis").not.toBe(state.thesisColor);
+      expect(state.fontFamily, "the line keeps the mono type of the links").toMatch(/mono/i);
     });
   });
 }
 
-test.describe("the Coming soon cards", () => {
+test.describe("the live calls to action", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 
-  test("read as a designed state: a solid edge, a pill with a dot, and no hover", async ({ page }) => {
-    await page.goto("/");
-    await settle(page);
-    const state = await page.evaluate(() => {
-      const card = document.querySelector(".path");
-      const cardStyle = getComputedStyle(card);
-      const pill = getComputedStyle(card.querySelector(".path__status"));
-      const dot = getComputedStyle(card.querySelector(".path__status"), "::before");
-      return {
-        borderStyle: cardStyle.borderTopStyle,
-        pillBorder: pill.borderTopWidth,
-        pillRadius: parseFloat(pill.borderTopLeftRadius),
-        dotRadius: dot.borderTopLeftRadius,
-        dotWidth: dot.width,
-        cursor: cardStyle.cursor,
-      };
-    });
-    expect(state.borderStyle).toBe("solid");
-    expect(state.pillBorder).toBe("1px");
-    expect(state.pillRadius).toBeGreaterThan(10);
-    expect(state.dotWidth).toBe("6px");
-    expect(state.dotRadius).toBe("50%");
-    expect(state.cursor).not.toBe("pointer");
-  });
-});
-
-test.describe("the linked cards", () => {
-  test.use({ viewport: VIEWPORTS.desktop });
-
-  test("take the whole card as the target, a visible focus ring, and a hover state", async ({ page }) => {
+  test("take a visible focus ring, a hover state, and follow their links", async ({ page }) => {
     await page.goto(dev + "/");
     await settle(page);
-    const card = page.locator("a.path", { hasText: "Writing" });
+    const link = page.getByRole("link", { name: "Read my latest writing", exact: true });
+    const color = () => link.evaluate((el) => getComputedStyle(el).color);
 
-    // A click near the corner, away from the title, follows the link.
-    const box = await card.boundingBox();
-    await page.mouse.move(box.x + box.width - 8, box.y + box.height - 8);
-    const hovered = await card.evaluate((el) => getComputedStyle(el).borderTopColor);
+    const box = await link.boundingBox();
+    const resting = await color();
+    await page.mouse.move(box.x + 8, box.y + box.height / 2);
+    await expect.poll(color).not.toBe(resting);
     await page.mouse.move(2, 400);
-    const resting = await card.evaluate((el) => getComputedStyle(el).borderTopColor);
-    expect(hovered).not.toBe(resting);
+    await expect.poll(color).toBe(resting);
 
-    // The arrow steps right by at least 4px with the brighter edge, and rests at zero.
-    const arrow = card.locator(".path__arrow");
+    // The arrow steps right by at least 4px on hover, and rests at zero.
+    const arrow = link.locator(".hero__next-arrow");
     const shift = () => arrow.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m41);
-    await page.mouse.move(box.x + box.width - 8, box.y + box.height - 8);
+    await page.mouse.move(box.x + 8, box.y + box.height / 2);
     await expect.poll(shift).toBeGreaterThanOrEqual(4);
     await page.mouse.move(2, 400);
     await expect.poll(shift).toBe(0);
 
-    await tabTo(page, "a.path[href='/writing/']");
+    // Keyboard focus shows a ring of at least 2px.
+    expect(await tabTo(page, ".hero__next a[href='/writing/']")).toBe(true);
     const ring = await page.evaluate(() => {
       const style = getComputedStyle(document.activeElement);
-      return { width: style.outlineWidth, style: style.outlineStyle, isCard: document.activeElement.classList.contains("path") };
+      return { width: parseFloat(style.outlineWidth), style: style.outlineStyle, visible: document.activeElement.matches(":focus-visible") };
     });
-    expect(ring.isCard).toBe(true);
+    expect(ring.visible).toBe(true);
     expect(ring.style).toBe("solid");
-    expect(parseFloat(ring.width)).toBeGreaterThanOrEqual(2);
+    expect(ring.width).toBeGreaterThanOrEqual(2);
+    // The next Tab reaches Products, and that link shows a ring too.
+    await page.keyboard.press("Tab");
+    await expect(page.locator(".hero__next a[href='/products/']")).toBeFocused();
+    expect(await page.evaluate(() => parseFloat(getComputedStyle(document.activeElement).outlineWidth))).toBeGreaterThanOrEqual(2);
 
-    // One clean ring, 4px clear of the edge, on a card that keeps its corners.
-    const focus = await page.evaluate(() => {
-      const style = getComputedStyle(document.activeElement);
-      const mark = getComputedStyle(document.activeElement, "::before");
-      return { offset: style.outlineOffset, shadow: style.boxShadow, radius: style.borderTopLeftRadius, mark: mark.content };
-    });
-    expect(focus.offset).toBe("4px");
-    expect(focus.shadow).toBe("none");
-    expect(focus.radius).toBe("6px");
-    // The old corner mark is gone.
-    expect(focus.mark).toMatch(/^(none|normal)$/);
-
-    await page.mouse.click(box.x + box.width - 8, box.y + box.height - 8);
+    await link.click();
     await expect(page).toHaveURL(/\/writing\/$/);
   });
 });
@@ -884,7 +779,7 @@ test.describe("the linked cards", () => {
  * the CSSOM, so a screenshot holds only the ground and the grid. A grid line
  * is one column wide, so its strength is the brightness of a line column
  * minus a column 4px to its left. Returns the strength in the intro, the
- * header, the footer, the cards, the strips at the seams, and the strongest
+ * header, the footer, the calls to action, the strips at the seams, and the strongest
  * cell, with the offset of the line columns from the content edge.
  */
 async function readGrid(page) {
@@ -893,15 +788,14 @@ async function readGrid(page) {
       const { left, top, right, bottom, width, height } = document.querySelector(selector).getBoundingClientRect();
       return { left, top, right, bottom, width, height };
     };
-    for (const selector of [".hero__main", ".lyra-globe", ".paths", ".site-header", ".site-footer"]) {
+    for (const selector of [".hero__main", ".lyra-globe", ".hero__next", ".site-header", ".site-footer"]) {
       document.querySelector(selector).style.visibility = "hidden";
     }
     const hero = box(".hero");
     return {
       intro: box(".hero__main"),
       globe: box(".lyra-globe"),
-      band: box(".hero__globe"),
-      cards: box(".paths"),
+      cards: box(".hero__next"),
       header: box(".site-header"),
       footer: box(".site-footer"),
       hero,
@@ -978,15 +872,6 @@ async function readGrid(page) {
       cards: strength(g.cards.left, g.cards.top, g.cards.right, g.cards.bottom),
       below: strength(0, g.hero.bottom - 24, g.width, g.footer.top),
       headerSeam: strength(0, g.header.bottom, g.width, g.header.bottom + 24),
-      // The stacked layout draws the grid in the globe's own band. These read
-      // the middle of the band and a strip on each of its four sides.
-      band: {
-        middle: strength(g.band.left + g.band.width * 0.3, g.band.top + g.band.height * 0.35, g.band.right - g.band.width * 0.3, g.band.bottom - g.band.height * 0.35),
-        top: strength(0, g.band.top, g.width, g.band.top + 10),
-        bottom: strength(0, g.band.bottom - 10, g.width, g.band.bottom),
-        left: strength(0, g.band.top + g.band.height * 0.25, 48, g.band.bottom - g.band.height * 0.25),
-        right: strength(g.width - 48, g.band.top + g.band.height * 0.25, g.width, g.band.bottom - g.band.height * 0.25),
-      },
     };
   }, { base64: shot.toString("base64"), geometry });
 }
@@ -1000,7 +885,7 @@ async function readGrid(page) {
  */
 async function readGridEdges(page) {
   const geometry = await page.evaluate(() => {
-    for (const selector of [".hero__main", ".lyra-globe", ".paths", ".site-header", ".site-footer"]) {
+    for (const selector of [".hero__main", ".lyra-globe", ".hero__next", ".site-header", ".site-footer"]) {
       document.querySelector(selector).style.visibility = "hidden";
     }
     const host = document.querySelector(".hero__globe");
@@ -1071,7 +956,7 @@ test.describe("the homepage is one screen", () => {
     test.describe(`${screen.width}x${screen.height}`, () => {
       test.use({ viewport: screen });
 
-      test("does not scroll and keeps text, labels, and cards apart", async ({ page }) => {
+      test("does not scroll and keeps text, labels, and calls to action apart", async ({ page }) => {
         await page.goto("/");
         await settle(page);
 
@@ -1080,12 +965,12 @@ test.describe("the homepage is one screen", () => {
           innerHeight: window.innerHeight,
           overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           footerTop: document.querySelector(".site-footer").getBoundingClientRect().top,
-          lastCardBottom: Math.max(...[...document.querySelectorAll(".path")].map((card) => card.getBoundingClientRect().bottom)),
+          lastNextBottom: Math.max(...[...document.querySelectorAll(".hero__next-item")].map((item) => item.getBoundingClientRect().bottom)),
         }));
         expect(fit.scrollHeight).toBeLessThanOrEqual(fit.innerHeight);
         expect(fit.overflowX).toBeLessThanOrEqual(1);
-        // The cards leave room above the footer bar at every size.
-        expect(fit.footerTop - fit.lastCardBottom).toBeGreaterThanOrEqual(24);
+        // The calls to action leave room above the footer bar at every size.
+        expect(fit.footerTop - fit.lastNextBottom).toBeGreaterThanOrEqual(24);
 
         const boxes = await page.evaluate(() => {
           const plain = ({ left, top, right, bottom }) => ({ left, top, right, bottom });
@@ -1103,8 +988,8 @@ test.describe("the homepage is one screen", () => {
             }
           }
           const labels = [...document.querySelectorAll("[data-lyra-globe] svg text")].map((el) => ({ text: el.textContent, ...plain(el.getBoundingClientRect()) }));
-          const cards = [...document.querySelectorAll(".path")].map((el) => plain(el.getBoundingClientRect()));
-          return { lines, labels, cards };
+          const items = [...document.querySelectorAll(".hero__next-item")].map((el) => plain(el.getBoundingClientRect()));
+          return { lines, labels, items };
         });
 
         const overlap = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
@@ -1115,60 +1000,57 @@ test.describe("the homepage is one screen", () => {
             expect(overlap(label, line), `"${line.text}" must not cover the globe label ${label.text}`).toBe(false);
           }
         }
-        expect(overlap(boxes.cards[0], boxes.cards[1]), "the two cards must not overlap").toBe(false);
-        // Intro text stays above the cards.
+        expect(boxes.items).toHaveLength(2);
+        expect(overlap(boxes.items[0], boxes.items[1]), "the two rows must not overlap").toBe(false);
+        // Intro text stays above the calls to action.
         for (const line of boxes.lines) {
-          if (line.top >= boxes.cards[0].top - 1) continue;
-          for (const card of boxes.cards) expect(overlap(line, card), `"${line.text}" must not run into a card`).toBe(false);
+          if (line.top >= boxes.items[0].top - 1) continue;
+          for (const item of boxes.items) expect(overlap(line, item), `"${line.text}" must not run into a call to action`).toBe(false);
         }
       });
 
-      test("keeps the globe caption clear of the cards and gives the globe its room", async ({ page }) => {
+      test("starts the globe level with the eyebrow, balances it against the intro, and starts at the graphic box of the inner pages", async ({ page }) => {
         await page.goto("/");
         await settle(page);
         const read = await page.evaluate(() => {
-          const caption = document.querySelector(".lyra-globe__label--caption")?.getBoundingClientRect();
           const box = document.querySelector(".lyra-globe").getBoundingClientRect();
           const canvas = document.querySelector(".lyra-globe__canvas").getBoundingClientRect();
-          const cards = document.querySelector(".paths .path").getBoundingClientRect();
           const header = document.querySelector(".site-header").getBoundingClientRect();
-          const eyebrow = document.querySelector(".hero__eyebrow").getBoundingClientRect();
-          const more = document.querySelector(".hero__more").getBoundingClientRect();
+          const footer = document.querySelector(".site-footer").getBoundingClientRect();
+          const eyebrow = document.querySelector(".hero .eyebrow").getBoundingClientRect();
           const main = document.querySelector(".hero__main").getBoundingClientRect();
+          const list = document.querySelector(".hero__next").getBoundingClientRect();
+          const rootStyle = getComputedStyle(document.documentElement);
+          const frame = parseFloat(rootStyle.getPropertyValue("--frame"));
+          const columnEdge = Math.max(0, (innerWidth - frame) / 2) + parseFloat(rootStyle.getPropertyValue("--reading-column"));
           return {
-            captionGap: caption ? cards.top - caption.bottom : Infinity,
-            boxGap: cards.top - box.bottom,
             width: box.width,
+            top: box.top,
+            eyebrowTop: eyebrow.top,
+            left: box.left,
+            expectedLeft: columnEdge + parseFloat(rootStyle.getPropertyValue("--graphic-gap")),
+            viewport: innerWidth,
+            centre: (box.top + box.bottom) / 2,
+            introCentre: (main.top + list.bottom) / 2,
+            clearOfFooter: footer.top - box.bottom,
             // The picture is drawn larger than the box, and the box crops it.
             zoom: canvas.width / box.width,
             eyebrowGap: eyebrow.top - header.bottom,
-            moreToGlobe: box.top - more.bottom,
-            centreOffset: (main.top + main.bottom) / 2 - (box.top + box.bottom) / 2,
+            listBottom: list.bottom,
+            screen: window.innerHeight,
           };
         });
-        expect(read.captionGap, "the caption stays 16px above the cards").toBeGreaterThanOrEqual(16);
-        expect(read.boxGap).toBeGreaterThanOrEqual(0);
         expect(read.zoom, "the box crops the empty margin of the picture, so the sphere fills the box").toBeGreaterThanOrEqual(1.25);
-        // The sphere is about 85% of the box wide. The stacked layouts give the
-        // globe all the room the intro and the cards leave.
-        if (screen.width === 390) expect(read.width, "the globe fills the band on a phone").toBeGreaterThanOrEqual(325);
-        if (screen.width === 360) expect(read.width, "the globe fills the band on a small phone").toBeGreaterThanOrEqual(280);
-        if (screen.width === 820) {
-          expect(read.width, "the globe grows on a tablet").toBeGreaterThanOrEqual(640);
-          expect(read.moreToGlobe, "no dead band between the intro and the globe").toBeLessThanOrEqual(40);
-          // The spare height is shared: the room under the header and the room
-          // under the caption stay close to each other.
-          expect(read.eyebrowGap, "the intro starts clear of the header").toBeGreaterThanOrEqual(32);
-          expect(read.eyebrowGap).toBeLessThanOrEqual(56);
-          expect(Math.abs(read.eyebrowGap - read.captionGap), "the top and the bottom of the tablet balance").toBeLessThanOrEqual(24);
-        }
-        if (screen.width === 1024) {
-          expect(read.width, "the globe uses the room on a small laptop").toBeGreaterThanOrEqual(480);
-          expect(read.captionGap, "no gap under the caption").toBeLessThanOrEqual(60);
-        }
-        if (screen.width > 900) {
-          expect(Math.abs(read.centreOffset), "the intro and the globe share a centre line").toBeLessThanOrEqual(16);
-        }
+        // Below 1280px the box shrinks with the room that is left of the graphic box, so the sphere stays whole.
+        expect(read.width, "the globe uses the room beside the intro").toBeGreaterThanOrEqual(screen.width >= 1280 ? 440 : 260);
+        expect(read.eyebrowGap, "the intro starts at the head room of the inner pages").toBe(72);
+        expect(Math.abs(read.top - read.eyebrowTop), "the globe top is level with the eyebrow").toBeLessThanOrEqual(1);
+        expect(read.clearOfFooter, "the globe bottom sits well above the footer bar").toBeGreaterThanOrEqual(48);
+        expect(Math.abs(read.left - read.expectedLeft), "the globe box starts at the reading column edge plus the graphic gap").toBeLessThanOrEqual(1);
+        expect(read.left, "the globe box starts inside the screen").toBeLessThan(read.viewport);
+        // The intro uses the wide reading column, so it is shorter than it was in a narrow column.
+        expect(Math.abs(read.centre - read.introCentre), "the globe centre stays near the intro centre").toBeLessThanOrEqual(100);
+        expect(read.listBottom, "the intro stays on the screen").toBeLessThan(read.screen);
       });
 
       test("keeps the globe box clear of every line of text", async ({ page }) => {
@@ -1302,24 +1184,9 @@ test.describe("the homepage is one screen", () => {
         expect(grid.intro, "no grid line behind the intro").toBeLessThanOrEqual(0.6);
         expect(grid.header, "no grid line behind the header").toBeLessThanOrEqual(0.6);
         expect(grid.footer, "no grid line behind the footer").toBeLessThanOrEqual(0.6);
-        expect(grid.cards, "no grid line behind the cards").toBeLessThanOrEqual(1.5);
+        expect(grid.cards, "no grid line behind the calls to action").toBeLessThanOrEqual(1.5);
         expect(grid.below, "no grid line in the strip above the footer").toBeLessThanOrEqual(0.6);
         expect(grid.headerSeam, "no grid line at the seam under the header").toBeLessThanOrEqual(0.6);
-      });
-
-      test("fades the phone grid to nothing on all four sides of the globe band", async ({ page }) => {
-        test.skip(screen.width > 540, "Only the stacked phone layout draws the grid in the globe band.");
-        await page.goto("/");
-        await settle(page);
-        const { band, peak } = await readGrid(page);
-        // The sphere fills the band, so the grid shows around it. The strongest
-        // cell of the screen sets the scale. The mask fades the grid at each
-        // edge of the band, and a side strip holds one line where the mask
-        // still lets a little through.
-        expect(peak.contrast, "the grid shows around the sphere").toBeGreaterThanOrEqual(3);
-        for (const side of ["top", "bottom", "left", "right"]) {
-          expect(band[side], `the grid has faded to a fifth or less at the ${side} edge of the band`).toBeLessThanOrEqual(peak.contrast * 0.2);
-        }
       });
 
       test("shows no straight edge: the grid is gone at every edge of its layer and of the screen", async ({ page }) => {
@@ -1349,4 +1216,275 @@ test.describe("the homepage is one screen", () => {
       });
     });
   }
+});
+
+test.describe("the globe band below 1100px", () => {
+  for (const screen of BAND_SCREENS) {
+    test.describe(`${screen.width}x${screen.height}`, () => {
+      test.use({ viewport: screen });
+
+      test("holds a canvas that fills the band, and shows Vega and its name whole inside it", async ({ page }) => {
+        await page.goto("/");
+        await settle(page);
+        await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
+        const read = await page.evaluate(() => {
+          const plain = ({ left, top, right, bottom, width, height }) => ({ left, top, right, bottom, width, height });
+          const band = document.querySelector(".hero__globe").getBoundingClientRect();
+          const root = document.querySelector("[data-lyra-globe]").getBoundingClientRect();
+          const canvas = document.querySelector(".lyra-globe__canvas").getBoundingClientRect();
+          const labels = [...document.querySelectorAll("[data-lyra-globe] svg text")]
+            .filter((text) => getComputedStyle(text).display !== "none")
+            .map((text) => ({ text: text.textContent, ...plain(text.getBoundingClientRect()), size: parseFloat(getComputedStyle(text).fontSize) }));
+          return { band: plain(band), root: plain(root), canvas: plain(canvas), labels, main: document.querySelector(".hero__main").getBoundingClientRect().top };
+        });
+
+        // The globe box is the band, and the intro starts under it.
+        expect(read.root.width).toBeCloseTo(read.band.width, 0);
+        expect(read.root.height).toBeCloseTo(read.band.height, 0);
+        expect(read.band.bottom).toBeLessThanOrEqual(read.main + 0.5);
+        // The canvas fills the band across its whole width, and the band crops it: the picture
+        // is larger than the band.
+        expect(read.canvas.left, "the canvas reaches the left edge of the band").toBeLessThanOrEqual(read.band.left + 0.5);
+        expect(read.canvas.right, "the canvas reaches the right edge of the band").toBeGreaterThanOrEqual(read.band.right - 0.5);
+        expect(read.canvas.width, "the picture is larger than the band").toBeGreaterThan(read.band.width);
+        expect(read.canvas.height, "the picture is taller than the band").toBeGreaterThan(read.band.height);
+        // Vega and its name sit whole inside the band, clear of the 24px edge fade.
+        const vega = read.labels.find((label) => label.text === "VEGA");
+        expect(vega, "the Vega label shows").toBeTruthy();
+        expect(vega.size, "the label keeps a readable size").toBeGreaterThanOrEqual(10);
+        expect(vega.left, "Vega's name clears the left fade").toBeGreaterThanOrEqual(read.band.left + 24);
+        expect(vega.right, "Vega's name clears the right fade").toBeLessThanOrEqual(read.band.right - 24);
+        expect(vega.top, "Vega's name clears the top fade").toBeGreaterThanOrEqual(read.band.top + 24);
+        expect(vega.bottom, "Vega's name clears the bottom fade").toBeLessThanOrEqual(read.band.bottom - 24);
+        for (const label of read.labels) {
+          expect(label.left).toBeGreaterThanOrEqual(read.band.left);
+          expect(label.right).toBeLessThanOrEqual(read.band.right);
+          expect(label.top).toBeGreaterThanOrEqual(read.band.top);
+          expect(label.bottom).toBeLessThanOrEqual(read.band.bottom);
+        }
+      });
+
+      test("puts the Vega label in the same place with and without the canvas", async ({ browser, baseURL, page }) => {
+        await useReducedMotion(page);
+        await page.goto("/");
+        await settle(page);
+        await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "still");
+        // The label sits at a fixed offset from the Vega star, so the label place shows the star place.
+        const star = (target) => target.evaluate(() => {
+          const band = document.querySelector(".hero__globe").getBoundingClientRect();
+          const label = [...document.querySelectorAll("[data-lyra-globe] svg text")].find((text) => text.textContent === "VEGA").getBoundingClientRect();
+          return { x: label.left - band.left, y: label.top - band.top, width: band.width, height: band.height };
+        });
+        const withCanvas = await star(page.locator("body"));
+        const plain = await browser.newContext({ javaScriptEnabled: false, viewport: screen });
+        const plainPage = await plain.newPage();
+        await plainPage.goto(new URL("/", baseURL).href);
+        await settle(plainPage);
+        const withoutCanvas = await star(plainPage.locator("body"));
+        await plain.close();
+        expect(Math.abs(withoutCanvas.x - withCanvas.x), "the label x").toBeLessThanOrEqual(1);
+        expect(Math.abs(withoutCanvas.y - withCanvas.y), "the label y").toBeLessThanOrEqual(1);
+        expect(withoutCanvas.width).toBeCloseTo(withCanvas.width, 0);
+        expect(withoutCanvas.height).toBeCloseTo(withCanvas.height, 0);
+      });
+
+      test("draws no grid layer behind the band, as the inner pages draw none", async ({ page }) => {
+        await page.goto("/");
+        await settle(page);
+        const layers = await page.evaluate(() => ["::before", "::after"].map((pseudo) => getComputedStyle(document.querySelector(".hero__globe"), pseudo).display));
+        expect(layers).toEqual(["none", "none"]);
+      });
+
+      test("keeps the calls to action clear of the footer and the header with the page at the end", async ({ page }) => {
+        await page.goto("/");
+        await settle(page);
+        await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
+        const end = await page.evaluate(() => ({
+          footerTop: document.querySelector(".site-footer").getBoundingClientRect().top,
+          nextBottom: Math.max(...[...document.querySelectorAll(".hero__next-item")].map((item) => item.getBoundingClientRect().bottom)),
+          overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          scrollY: window.scrollY,
+          header: getComputedStyle(document.querySelector(".site-header")).position,
+          headerHeight: document.querySelector(".site-header").getBoundingClientRect().height,
+          headerBottom: document.querySelector(".site-header").getBoundingClientRect().bottom,
+          headerBackground: getComputedStyle(document.querySelector(".site-header")).backgroundColor,
+          fade: getComputedStyle(document.querySelector(".site-footer"), "::before").display,
+        }));
+        expect(end.footerTop - end.nextBottom, "the calls to action stay 24px above the footer").toBeGreaterThanOrEqual(24);
+        expect(end.overflowX).toBeLessThanOrEqual(1);
+        expect(end.fade, "the footer fade shows, as on the inner pages").not.toBe("none");
+        // The header is not sticky and has no ground of its own, so it moves up with the page.
+        expect(end.header).toBe("relative");
+        expect(end.headerBackground).toBe("rgba(0, 0, 0, 0)");
+        expect(Math.abs(end.headerBottom - (end.headerHeight - end.scrollY)), "the header scrolls with the page").toBeLessThanOrEqual(1);
+      });
+    });
+  }
+
+  test("shows the calls to action without scrolling on every band screen", async ({ page }) => {
+    for (const screen of BAND_SCREENS) {
+      await page.setViewportSize(screen);
+      await page.goto("/");
+      await settle(page);
+      const fit = await page.evaluate(() => ({
+        scrollHeight: document.documentElement.scrollHeight,
+        innerHeight: window.innerHeight,
+        footerTop: document.querySelector(".site-footer").getBoundingClientRect().top,
+        nextBottom: Math.max(...[...document.querySelectorAll(".hero__next-item")].map((item) => item.getBoundingClientRect().bottom)),
+      }));
+      expect(fit.scrollHeight, `${screen.width}x${screen.height} needs no scroll`).toBeLessThanOrEqual(fit.innerHeight);
+      expect(fit.footerTop - fit.nextBottom).toBeGreaterThanOrEqual(24);
+    }
+  });
+});
+
+/** The left edge of the first text in an element, and its style as the browser computes it. */
+const readEyebrow = (page, selector) => page.locator(selector).evaluate((eyebrow) => {
+  const walker = document.createTreeWalker(eyebrow, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  while (node && !node.textContent.trim()) node = walker.nextNode();
+  const range = document.createRange();
+  range.selectNodeContents(node);
+  const style = getComputedStyle(eyebrow);
+  const dash = getComputedStyle(eyebrow, "::before");
+  return {
+    textLeft: range.getBoundingClientRect().left,
+    color: style.color,
+    weight: style.fontWeight,
+    letterSpacing: style.letterSpacing,
+    dashWidth: dash.width,
+    dashHeight: dash.height,
+    dashGap: dash.marginRight,
+  };
+});
+
+test.describe("the home eyebrow matches the About eyebrow", () => {
+  for (const viewport of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
+    test(`in text position, colour, weight, tracking, and dash at ${viewport.width}px`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/about/");
+      await settle(page);
+      const about = await readEyebrow(page, ".about .eyebrow");
+      await page.goto("/");
+      await settle(page);
+      const home = await readEyebrow(page, ".hero .eyebrow");
+      expect(Math.abs(home.textLeft - about.textLeft), "the text starts at the same x").toBeLessThanOrEqual(0.5);
+      expect(home.color).toBe(about.color);
+      expect(home.weight).toBe(about.weight);
+      expect(home.letterSpacing).toBe(about.letterSpacing);
+      expect([home.dashWidth, home.dashHeight, home.dashGap]).toEqual([about.dashWidth, about.dashHeight, about.dashGap]);
+    });
+  }
+});
+
+test.describe("the intro on a tablet uses the reading column", () => {
+  for (const viewport of [{ width: 1024, height: 768 }, { width: 820, height: 1180 }]) {
+    test(`fills the reading column, as the inner pages do, at ${viewport.width}px`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await settle(page);
+      const widths = await page.evaluate(() => {
+        const column = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--reading-column"));
+        const pad = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--frame-pad"));
+        return {
+          text: column - 2 * pad,
+          thesis: document.querySelector(".hero__thesis").getBoundingClientRect().width,
+          next: document.querySelector(".hero__next").getBoundingClientRect().width,
+        };
+      });
+      expect(widths.text).toBe(680);
+      expect(Math.abs(widths.thesis - widths.text)).toBeLessThanOrEqual(1);
+      expect(Math.abs(widths.next - widths.text)).toBeLessThanOrEqual(1);
+    });
+  }
+});
+
+test.describe("the intro on the shortest phone", () => {
+  test.use({ viewport: WIDTHS.narrow });
+
+  test("keeps a gap under the name, open lines, no widow, and even rows", async ({ page }) => {
+    await page.goto("/");
+    await settle(page);
+    const read = await page.evaluate(() => {
+      const box = (selector) => document.querySelector(selector).getBoundingClientRect();
+      const lineRatio = (selector) => {
+        const style = getComputedStyle(document.querySelector(selector));
+        return parseFloat(style.lineHeight) / parseFloat(style.fontSize);
+      };
+      // Group the words of the thesis by line, and count the words on the last line.
+      const thesis = document.querySelector(".hero__thesis");
+      const walker = document.createTreeWalker(thesis, NodeFilter.SHOW_TEXT);
+      const tops = [];
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        for (const match of node.textContent.matchAll(/\S+/g)) {
+          const range = document.createRange();
+          range.setStart(node, match.index);
+          range.setEnd(node, match.index + match[0].length);
+          tops.push(Math.round(range.getBoundingClientRect().top));
+        }
+      }
+      const rowText = document.querySelector(".hero__next-item").firstElementChild ?? document.querySelector(".hero__next-item");
+      const textRange = document.createRange();
+      textRange.selectNodeContents(rowText);
+      return {
+        nameToLede: box(".hero__lede").top - box("h1").bottom,
+        ledeToThesis: box(".hero__thesis").top - box(".hero__lede").bottom,
+        ledeLine: lineRatio(".hero__lede"),
+        thesisLine: lineRatio(".hero__thesis"),
+        lastLineWords: tops.filter((top) => top === tops[tops.length - 1]).length,
+        thesisToRule: box(".hero__next").top - box(".hero__thesis").bottom,
+        ruleToText: textRange.getBoundingClientRect().top - box(".hero__next").top,
+        rowsGap: box(".hero__next-item:last-child").top - box(".hero__next-item:first-child").bottom,
+        wrap: [getComputedStyle(document.querySelector(".hero__lede")).textWrapStyle, getComputedStyle(thesis).textWrapStyle],
+        footerGap: box(".site-footer").top - box(".hero__next-item:last-child").bottom,
+        scroll: document.documentElement.scrollHeight - innerHeight,
+      };
+    });
+    expect(read.nameToLede, "the name clears the lede").toBeGreaterThanOrEqual(4);
+    expect(read.ledeToThesis, "the lede clears the thesis").toBeGreaterThanOrEqual(10);
+    expect(read.ledeLine).toBeGreaterThanOrEqual(1.35);
+    expect(read.thesisLine).toBeGreaterThanOrEqual(1.35);
+    expect(read.lastLineWords, "the thesis does not end on a widow").toBeGreaterThanOrEqual(2);
+    expect(read.thesisToRule, "the thesis clears the hairline").toBeGreaterThanOrEqual(12);
+    expect(read.ruleToText, "the hairline clears the first row text").toBeGreaterThanOrEqual(12);
+    expect(read.rowsGap, "the rows sit one under the other with no overlap").toBeGreaterThanOrEqual(0);
+    expect(read.wrap).toEqual(["pretty", "pretty"]);
+    expect(read.footerGap).toBeGreaterThanOrEqual(24);
+    expect(read.scroll).toBeLessThanOrEqual(0);
+  });
+});
+
+test.describe("the live call to action focus ring", () => {
+  test.use({ viewport: VIEWPORTS.desktop });
+
+  test("keeps the text on the column edge and surrounds text and arrow evenly", async ({ page }) => {
+    await page.goto(dev + "/");
+    await settle(page);
+    expect(await tabTo(page, ".hero__next a[href='/writing/']")).toBe(true);
+    const read = await page.evaluate(() => {
+      const link = document.activeElement;
+      const style = getComputedStyle(link);
+      const box = link.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(link);
+      const text = range.getBoundingClientRect();
+      const width = parseFloat(style.outlineWidth);
+      const offset = parseFloat(style.outlineOffset);
+      const list = document.querySelector(".hero__next").getBoundingClientRect();
+      // The ring is drawn from `offset` outside the box. Its inner edge is `offset` from the box edge.
+      return {
+        listLeft: list.left,
+        textLeft: text.left,
+        ringOuterLeft: box.left - offset - width,
+        leftGap: text.left - (box.left - offset),
+        rightGap: (box.right + offset) - text.right,
+        height: box.height,
+      };
+    });
+    expect(Math.abs(read.textLeft - read.listLeft), "the text starts on the column edge").toBeLessThanOrEqual(0.5);
+    expect(Math.abs(read.leftGap - read.rightGap), "the ring surrounds text and arrow evenly").toBeLessThanOrEqual(1);
+    expect(read.leftGap, "the ring keeps clear of the text").toBeGreaterThanOrEqual(4);
+    expect(read.listLeft - read.ringOuterLeft, "the ring hangs no more than 10px left of the column").toBeLessThanOrEqual(10.5);
+    expect(read.height).toBeGreaterThanOrEqual(44);
+  });
 });

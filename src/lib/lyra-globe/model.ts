@@ -101,6 +101,9 @@ const MESH_REACH = 0.28;
 const FIGURE_START = 0.36;
 const FIGURE_REACH = 0.28;
 const VEGA_START = 0.7;
+// Vega sits this far right of the sphere centre, in sphere radii. From 1100px the box runs past the
+// screen edge, so Vega stays near the centre and the crop never reaches the star or its name.
+const VEGA_OFFSET_X = 0.12;
 
 // A fixed pseudo-random sequence, so every draw sows the same field.
 function unit(i: number): number {
@@ -205,7 +208,7 @@ function schedule(globe: Globe, depths: Map<GlobeNode, number>, vega: GlobeNode)
 }
 
 /**
- * A sphere of 70 neurons with the Lyra figure at its upper right. One model
+ * A sphere of 70 neurons with the Lyra figure at its upper centre. One model
  * feeds the build-time SVG and the canvas, so the two cannot drift apart.
  */
 export function buildGlobe(width = GLOBE_WIDTH, height = GLOBE_HEIGHT): Globe {
@@ -250,7 +253,7 @@ export function buildGlobe(width = GLOBE_WIDTH, height = GLOBE_HEIGHT): Globe {
   }
 
   const scale = radius * 0.175;
-  const lyra = LYRA.map(({ x, y }, i) => add(cx + radius * 0.45 + x * scale, cy - radius * 0.55 + y * scale, i === 0 ? 4.1 : 2.3, 0.95, i === 0 ? 3 : 2, 1));
+  const lyra = LYRA.map(({ x, y }, i) => add(cx + radius * VEGA_OFFSET_X + x * scale, cy - radius * 0.55 + y * scale, i === 0 ? 4.1 : 2.3, 0.95, i === 0 ? 3 : 2, 1));
   lyra[0].vega = true;
   for (const [from, to] of LYRA_LINKS) connect(lyra[from], lyra[to], true, 2, 0.3);
 

@@ -39,8 +39,6 @@ body[data-page="about"] .skip-link:focus,
 
 .about .eyebrow {
   color: var(--mast-meta);
-  font-size: 10.5px;
-  letter-spacing: .12em;
 }
 
 .about .eyebrow::before {
@@ -50,17 +48,14 @@ body[data-page="about"] .skip-link:focus,
 
 .about__title {
   margin-top: 20px;
-  font-size: clamp(38px, 4.4vw, 62px);
-  line-height: 1.06;
-  letter-spacing: -.043em;
   text-wrap: balance;
 }
 
 .about__lede {
   max-width: 56ch;
   margin-top: 24px;
-  font-size: 19px;
-  line-height: 1.65;
+  font-size: var(--fs-lede);
+  line-height: var(--lh-lede);
   color: var(--mast-meta);
 }
 
@@ -82,8 +77,8 @@ body[data-page="about"] .skip-link:focus,
 
 .about__profile p,
 .about__principles li {
-  font-size: 18px;
-  line-height: 1.8;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   text-wrap: pretty;
 }
 
@@ -121,25 +116,9 @@ body[data-page="about"] .skip-link:focus,
 
   .about__title {
     margin-top: 16px;
-    font-size: 39px;
-    line-height: 1.08;
-    letter-spacing: -.04em;
   }
 
   .about__lede {
     margin-top: 22px;
-    font-size: 17px;
-  }
-
-  .about__profile p,
-  .about__principles li {
-    font-size: 17px;
-    line-height: 1.7;
-  }
-}
-
-@media (max-width: 360px) {
-  .about__title {
-    font-size: 35px;
   }
 }

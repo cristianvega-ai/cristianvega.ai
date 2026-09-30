@@ -63,19 +63,24 @@ They also check the production build through the local Cloudflare runtime.
 ## Homepage
 
 The homepage is one screen with no scrolling.
-It holds an intro on the left, the Lyra globe on the right, and two cards below them.
-The intro links to `/about/`, which holds the full profile.
+It holds an intro on the left and the Lyra globe on the right.
+The globe grows to use the room and centres between the header and the footer.
+Two calls to action sit under the thesis, below a hairline.
+The primary nav links to `/about/`, which holds the full profile.
 The blueprint grid is faded. It shows around the globe and fades out toward the intro, the header, and the footer.
 The header sits on the page ground and has no ground of its own.
 The header is not sticky on the homepage. It stays sticky on every other page.
-On a phone the globe sits under the intro, and the cards stack.
+Below 1100px the globe sits in a band above the intro, and the calls to action follow the intro.
+The page fits one screen at 1024x768, 820x1180, 390x844, and 360x740.
 A screen shorter than the content scrolls instead of overlapping.
 
-One card is for Writing and one is for Products.
-A card links to `/writing/` or `/products/` only when that section has a visible entry.
-Otherwise the card is not a link and shows "Coming soon".
-A production build with only drafts shows two "Coming soon" cards.
-`npm run dev` shows the drafts, so both cards link.
+One call to action is for Writing and one is for Products.
+A call to action links to `/writing/` or `/products/` only when that section has a visible entry.
+The links read "Read my latest writing →" and "See my latest products →".
+Otherwise the line is muted text with no link and no focus: "Latest writing · coming soon" or "Latest products · coming soon".
+Both states use one box, so the layout does not shift when a section goes live.
+A production build with only drafts shows two coming-soon lines.
+`npm run dev` shows the drafts, so both lines link.
 
 The globe is decorative and hidden from assistive technology.
 A canvas draws it, with an entrance of about 2.3 seconds: the mesh draws from the far side, the neurons appear in turn, the Lyra lines draw toward Vega, comets run to Vega, and Vega blooms.
@@ -86,8 +91,23 @@ A build-time SVG shows the same finished picture in two cases only.
 It sits in a `noscript` for visitors without JavaScript.
 It sits in a `template`, and the script copies it in when canvas is missing or the setup fails.
 A visitor with canvas never sees the SVG.
-On screens 760px wide and narrower, the globe sits under the intro.
 The globe code is in `src/lib/lyra-globe/`. The Lyra star data is in `src/lib/lyra/`.
+
+## Page graphics
+
+Each inner page can hold one decorative canvas graphic, drawn in the same language as the homepage globe.
+The About page has "Trajectory". Writing, Products, and the 404 page follow.
+The graphic is hidden from assistive technology and takes no pointer input.
+A canvas draws it, with an entrance of about 2.3 seconds. Then it stays still.
+It pauses off-screen and while the tab is hidden.
+Reduced motion shows the finished picture at once.
+Without JavaScript the graphic takes no space, and the page keeps only its faint grid. There is no SVG fallback.
+From 1100px wide, the graphic is fixed in the empty area right of the reading column. It uses the same box as the grid, and it sits above the grid.
+Below 1100px it is a 150px band above the page title. It never overlaps text.
+On About, a marker rests at the reader's place on the path as the page scrolls. Reduced motion shows the whole path lit with no marker.
+The component is `src/components/PageGraphic.astro`, and its placement rules are in `src/styles/global.css`.
+The drawing code is in `src/lib/lyra-render/`. The steps to add a page graphic are in `src/lib/lyra-render/index.ts`.
+The browser tests are in `tests/e2e/about.spec.mjs`.
 
 ## Products
 

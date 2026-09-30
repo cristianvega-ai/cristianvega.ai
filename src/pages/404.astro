@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import PageGraphic from "../components/PageGraphic.astro";
 import "../styles/about.css";
 ---
 
@@ -10,6 +11,7 @@ import "../styles/about.css";
   noindex
 >
   <main>
+    <PageGraphic page="404" />
     <section class="about" aria-labelledby="not-found-title">
       <div class="about__head wrap wrap--read">
         <p class="eyebrow">§ 404</p>

@@ -82,8 +82,6 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 
 .blog-index__intro .eyebrow {
   color: var(--mast-meta);
-  font-size: 10.5px;
-  letter-spacing: .12em;
 }
 
 .blog-index__intro .eyebrow::before {
@@ -93,14 +91,11 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 
 .blog-index__intro h1 {
   margin-top: 20px;
-  font-size: clamp(38px, 4.4vw, 62px);
-  line-height: 1.06;
-  letter-spacing: -.043em;
 }
 
 .blog-index__count {
   margin-top: 14px;
-  font: 500 11.5px var(--font-mono);
+  font: 500 var(--fs-meta) var(--font-mono);
   color: var(--mast-meta);
 }
 
@@ -127,16 +122,16 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 .post-list__num {
   grid-area: num;
   padding-top: 5px;
-  font: 600 11px var(--font-mono);
+  font: 600 var(--fs-label) var(--font-mono);
   letter-spacing: .08em;
   color: var(--sky);
 }
 
 .post-list__title {
   grid-area: title;
-  font-size: 18px;
-  line-height: 1.28;
-  letter-spacing: -.012em;
+  font-size: var(--fs-lede);
+  line-height: var(--lh-title);
+  letter-spacing: var(--track-heading);
 }
 
 .post-list__link::after {
@@ -147,6 +142,12 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 
 .post-list__link:focus-visible {
   outline: none;
+}
+
+/* The ring wraps the whole row, and the link is only its title. This margin makes a
+   keyboard scroll reveal the whole ring above the footer fade, not only the title. */
+.post-list__link {
+  scroll-margin-bottom: 120px;
 }
 
 .post-list__item:focus-within {
@@ -161,7 +162,7 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 
 .post-list__meta {
   grid-area: meta;
-  font: 500 12px/1.65 var(--font-mono);
+  font: 500 var(--fs-meta) / var(--lh-mono) var(--font-mono);
   color: var(--mast-meta);
 }
 
@@ -175,106 +176,10 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-size: 15px;
-  line-height: 1.6;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
   color: var(--mast-meta);
 }
-
-.lyra-scene {
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.lyra-scene--index {
-  position: sticky;
-  top: var(--header-height);
-  /* The scene stays inside the site frame, like the list. */
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: start;
-  min-height: 600px;
-  height: calc(100svh - var(--footer-reserve));
-  margin-top: calc(var(--header-height) * -1);
-}
-
-.lyra-scene__canvas,
-.lyra-scene__scan {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.lyra-scene__scan {
-  background: repeating-linear-gradient(180deg, transparent 0 2px, rgba(20, 24, 31, .25) 2px 3px);
-  mask-image: linear-gradient(90deg, transparent 49%, #000 58%);
-}
-
-.lyra-scene__hud {
-  position: absolute;
-  top: calc(var(--header-height) + 20px);
-  right: calc(var(--frame-pad) - 16px);
-  display: grid;
-  gap: 8px;
-  padding: 12px 16px;
-  font: 500 10px/1.5 var(--font-mono);
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  text-align: right;
-  color: var(--mast-meta);
-}
-
-.lyra-scene__symbol {
-  text-transform: none;
-}
-
-.cut {
-  --cut: 9px;
-  isolation: isolate;
-}
-
-.cut::before,
-.cut::after {
-  content: "";
-  position: absolute;
-  z-index: -2;
-  inset: 0;
-  background: rgba(56, 189, 248, .35);
-  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
-}
-
-.cut::after {
-  inset: 1px;
-  z-index: -1;
-  background: var(--ink);
-}
-
-.lyra-scene__card {
-  position: absolute;
-  left: 58%;
-  bottom: 72px;
-  max-width: 300px;
-  padding: 14px 18px;
-  opacity: 0;
-}
-
-.lyra-scene__card.is-active {
-  opacity: 1;
-}
-
-.lyra-scene__card p {
-  font-family: var(--font-display);
-  color: var(--mast-text);
-}
-
-.lyra-scene__card span {
-  display: block;
-  margin-top: 8px;
-  font: 500 11px/1.6 var(--font-mono);
-  color: var(--sky);
-}
-
 
 .article__head {
   position: relative;
@@ -310,7 +215,7 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 
 .back-link {
   display: inline-block;
-  font: 500 11px var(--font-mono);
+  font: 500 var(--fs-label) var(--font-mono);
   color: var(--mast-meta);
 }
 
@@ -322,14 +227,12 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
   padding: 3px 9px;
   border: 1px solid var(--mast-line);
   border-radius: 20px;
-  font: 400 10px var(--font-mono);
+  font: 400 var(--fs-label) var(--font-mono);
   color: var(--mast-meta);
 }
 
 .article__head .eyebrow {
   color: var(--mast-meta);
-  font-size: 10.5px;
-  letter-spacing: .12em;
 }
 
 .article__head .eyebrow::before {
@@ -339,17 +242,14 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 
 .article__title {
   margin-top: 20px;
-  font-size: clamp(38px, 4.4vw, 62px);
-  line-height: 1.06;
-  letter-spacing: -.043em;
   text-wrap: balance;
 }
 
 .article__dek {
   max-width: 56ch;
   margin-top: 24px;
-  font-size: 19px;
-  line-height: 1.65;
+  font-size: var(--fs-lede);
+  line-height: var(--lh-lede);
   color: var(--mast-meta);
 }
 
@@ -358,7 +258,7 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
   flex-wrap: wrap;
   gap: 6px 10px;
   margin-top: 28px;
-  font: 500 11px/1.7 var(--font-mono);
+  font: 500 var(--fs-meta) / var(--lh-mono) var(--font-mono);
   color: var(--mast-meta);
 }
 
@@ -406,8 +306,8 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 
 .prose p,
 .prose li {
-  font-size: 18px;
-  line-height: 1.8;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
 }
 
 .prose :is(h2, h3, blockquote p) {
@@ -416,20 +316,20 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 
 .prose h2 {
   margin-top: 52px;
-  font-size: 28px;
-  line-height: 1.2;
+  font-size: var(--fs-h2);
+  line-height: var(--lh-heading);
   scroll-margin-top: 24px;
 }
 
 .prose h3 {
   margin-top: 32px;
-  font-size: 22px;
+  font-size: var(--fs-h3);
 }
 
 .prose .h2-kicker {
   margin-top: 56px;
-  font: 600 11.5px/1.6 var(--font-mono);
-  letter-spacing: var(--track-caps-wide);
+  font: 600 var(--fs-meta) / var(--lh-mono) var(--font-mono);
+  letter-spacing: var(--track-caps);
   color: var(--sky);
 }
 
@@ -466,7 +366,7 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
   align-items: baseline;
   gap: 14px;
   padding-block: 11px;
-  font-size: 17px;
+  font-size: var(--fs-body);
 }
 
 .principles li + li {
@@ -495,13 +395,14 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 
 .prose blockquote p {
   margin-top: 16px;
-  font: 600 30px/1.2 var(--font-display);
+  font: 600 var(--fs-h2) / var(--lh-heading) var(--font-display);
+  letter-spacing: var(--track-heading);
 }
 
 .prose blockquote cite {
   display: block;
   margin-top: 12px;
-  font: 500 11.5px var(--font-mono);
+  font: 500 var(--fs-label) var(--font-mono);
   color: var(--muted);
 }
 
@@ -539,7 +440,7 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 
 .figure figcaption {
   margin-top: 12px;
-  font: 400 12px/1.6 var(--font-mono);
+  font: 400 var(--fs-meta) / var(--lh-mono) var(--font-mono);
   color: var(--muted);
 }
 
@@ -555,7 +456,7 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
   justify-content: space-between;
   gap: 8px;
   padding: 10px 20px;
-  font: 400 11px/1.6 var(--font-mono);
+  font: 400 var(--fs-label) / var(--lh-mono) var(--font-mono);
   color: var(--mast-meta);
   border-bottom: 1px solid var(--mast-line);
 }
@@ -563,7 +464,7 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 .prose pre {
   padding: 18px 20px;
   overflow-x: auto;
-  font: 400 13px/1.7 var(--font-mono);
+  font: 400 var(--fs-ui) / var(--lh-body) var(--font-mono);
   color: var(--mast-text);
   background-color: var(--ink);
   background-image: var(--scroll-cover), var(--scroll-cue);
@@ -654,7 +555,7 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
   margin-top: 56px;
   padding-top: 24px;
   border-top: 1px solid var(--line);
-  font: 400 12px/1.6 var(--font-mono);
+  font: 400 var(--fs-meta) / var(--lh-mono) var(--font-mono);
   color: var(--muted);
 }
 
@@ -703,34 +604,15 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 }
 
 .read-next span {
-  font: 500 11px var(--font-mono);
+  font: 500 var(--fs-label) var(--font-mono);
   color: var(--muted);
 }
 
 .read-next strong {
   display: block;
   margin-top: 8px;
-  font: 600 17px/1.3 var(--font-display);
-}
-
-.decode-target {
-  position: relative;
-}
-
-.decode-noise {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  color: var(--sky);
-  background: var(--ink);
-  font-family: var(--font-mono);
-  pointer-events: none;
-  animation: decode-away 1s ease-out forwards;
-}
-
-@keyframes decode-away {
-  from { clip-path: inset(0); }
-  to { clip-path: inset(0 0 0 100%); }
+  font: 600 var(--fs-lede) / var(--lh-title) var(--font-display);
+  letter-spacing: var(--track-heading);
 }
 
 @media (max-width: 1150px) {
@@ -743,10 +625,15 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
   }
 }
 
-@media (max-width: 899px) {
+/* Below 1100px the graphic is a block above the title, as on every other page. From 1100px it is the fixed box that global.css places. */
+@media (max-width: 1099px) {
   .blog-index {
     display: flex;
     flex-direction: column;
+    /* Keep the stack on the site frame, so the title and the list start on the frame edge. */
+    width: 100%;
+    max-width: var(--frame);
+    margin-inline: auto;
   }
 
   .blog-index__intro {
@@ -760,29 +647,16 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
     right: var(--frame-pad);
   }
 
-  .lyra-scene--index {
-    order: 2;
-    position: relative;
-    top: 0;
-    align-self: stretch;
-    height: 340px;
-    min-height: 0;
-    margin-top: 0;
+  /* The block keeps the x range and the top gap that global.css gives every page graphic. Only its height differs. */
+  .blog-index .page-graphic[data-graphic="writing"]:not([hidden]) {
+    order: 0;
+    height: calc(var(--band-height) * 1.19);
   }
 
   .blog-index__list {
     order: 3;
     width: auto;
     padding: 4px var(--frame-pad) 56px;
-  }
-
-  .lyra-scene__hud,
-  .lyra-scene__card {
-    display: none;
-  }
-
-  .lyra-scene__scan {
-    mask-image: none;
   }
 }
 
@@ -793,9 +667,6 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 
   .blog-index__intro h1 {
     margin-top: 16px;
-    font-size: 39px;
-    line-height: 1.08;
-    letter-spacing: -.04em;
   }
 
   .article__head {
@@ -806,27 +677,17 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
     margin-top: 26px;
   }
 
-  .article__head .eyebrow {
-    font-size: 10px;
-    line-height: 1.7;
-  }
-
   .article__title {
     margin-top: 16px;
-    font-size: 39px;
-    line-height: 1.08;
-    letter-spacing: -.04em;
   }
 
   .article__dek {
     margin-top: 22px;
-    font-size: 17px;
   }
 
   .article__meta {
     gap: 6px 8px;
     margin-top: 24px;
-    font-size: 10.5px;
   }
 
   .article__head-rule {
@@ -838,20 +699,9 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
     padding-top: 26px;
   }
 
-  .prose p,
-  .prose li {
-    font-size: 17px;
-  }
-
   .post-list__item {
     grid-template-columns: 42px minmax(0, 1fr);
     gap: 8px 10px;
-  }
-}
-
-@media (max-width: 360px) {
-  .article__title {
-    font-size: 35px;
   }
 }
 
@@ -862,11 +712,5 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 
   .read-next__newer {
     grid-column: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .decode-noise {
-    display: none;
   }
 }

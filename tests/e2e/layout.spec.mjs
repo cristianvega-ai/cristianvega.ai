@@ -1,6 +1,6 @@
 import { chromium, expect, test } from "@playwright/test";
 
-import { settle, tabTo, VIEWPORTS } from "./fixtures.mjs";
+import { settle, tabTo, textBoxes, VIEWPORTS } from "./fixtures.mjs";
 
 /**
  * Shell contracts that every route owes the reader, checked on all of them at
@@ -357,7 +357,25 @@ test.describe("the compact header", () => {
     await expect(page.locator(".nav-menu")).not.toHaveAttribute("open", /.*/);
   });
 
-  test("closes when focus tabs past the last link", async ({ page }) => {
+  // The draft homepage has links after the header, so focus moves to a target. On the production
+  // homepage nothing follows the menu, and Tab leaves the page with no new focus target.
+  for (const [name, url] of [["production", "/"], ["draft", "http://127.0.0.1:4324/"]]) {
+    test(`closes when focus tabs past the last link on the ${name} homepage`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 800 });
+      await page.goto(url);
+      await settle(page);
+
+      expect(await tabTo(page, ".nav-menu__toggle")).toBe(true);
+      await page.keyboard.press("Enter");
+      await expect(page.locator(".nav-menu__panel")).toBeVisible();
+      await page.locator(".nav-menu__link").last().focus();
+      await page.keyboard.press("Tab");
+      await expect(page.locator(".nav-menu__panel")).toBeHidden();
+      await expect(page.locator(".nav-menu")).not.toHaveAttribute("open", /.*/);
+    });
+  }
+
+  test("keeps a gap between the focus ring of the button and the open panel", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 });
     await page.goto("/");
     await settle(page);
@@ -365,10 +383,13 @@ test.describe("the compact header", () => {
     expect(await tabTo(page, ".nav-menu__toggle")).toBe(true);
     await page.keyboard.press("Enter");
     await expect(page.locator(".nav-menu__panel")).toBeVisible();
-    await page.locator(".nav-menu__link").last().focus();
-    await page.keyboard.press("Tab");
-    await expect(page.locator(".nav-menu__panel")).toBeHidden();
-    await expect(page.locator(".nav-menu")).not.toHaveAttribute("open", /.*/);
+    const gap = await page.evaluate(() => {
+      const toggle = document.querySelector(".nav-menu__toggle");
+      const style = getComputedStyle(toggle);
+      const ringBottom = toggle.getBoundingClientRect().bottom + parseFloat(style.outlineOffset) + parseFloat(style.outlineWidth);
+      return document.querySelector(".nav-menu__panel").getBoundingClientRect().top - ringBottom;
+    });
+    expect(gap, "the ring of the button clears the panel").toBeGreaterThanOrEqual(4);
   });
 
   test("closes on a click outside the menu and stays open on a click inside", async ({ page }) => {
@@ -783,25 +804,6 @@ const MOTIF_DEV = "http://127.0.0.1:4324";
 const MOTIF_ROUTES = ["/about/", "/no-such-page/", `${MOTIF_DEV}/products/`, `${MOTIF_DEV}/products/opencatalyst/`];
 const MOTIF_GROUND = [20, 24, 31];
 
-/** Box of every text run in main, taken before the content is hidden. */
-async function textBoxes(page) {
-  return page.evaluate(() => {
-    const boxes = [];
-    const walker = document.createTreeWalker(document.querySelector("main"), NodeFilter.SHOW_TEXT);
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (!node.textContent.trim()) continue;
-      const range = document.createRange();
-      range.selectNodeContents(node);
-      for (const rect of range.getClientRects()) {
-        if (rect.width > 0 && rect.bottom > 0 && rect.top < innerHeight) {
-          boxes.push({ x: rect.left, y: rect.top, w: rect.width, h: rect.height });
-        }
-      }
-    }
-    return boxes;
-  });
-}
-
 /** Screenshot the page with only the ground and the grid visible. */
 async function gridPixels(page) {
   await page.evaluate(() => {
@@ -938,6 +940,72 @@ test.describe("page headers", () => {
     expect(Math.abs(writing.fontSize - about.fontSize)).toBeLessThanOrEqual(2);
   });
 
+  // The seven screens of the homepage suite. Home and About must start their title in one place.
+  const HEAD_SCREENS = [
+    { width: 1920, height: 1080 },
+    { width: 1440, height: 900 },
+    { width: 1280, height: 800 },
+    { width: 1024, height: 768 },
+    { width: 820, height: 1180 },
+    { width: 390, height: 844 },
+    { width: 360, height: 740 },
+  ];
+
+  /**
+   * Read the eyebrow, the title, and the graphic band of the open page. "Room" is the space between
+   * the eyebrow and what sits above it: the graphic band when the page flows one in, and the header
+   * otherwise. Under 1100px both pages put a band above the title. The inner pages call it
+   * [data-graphic], and the homepage holds its globe in .hero__globe.
+   */
+  const headPosition = (page, eyebrow, title, bandSelector) =>
+    page.evaluate(([eyebrowSelector, titleSelector, bandQuery]) => {
+      const box = (selector) => document.querySelector(selector).getBoundingClientRect();
+      const band = document.querySelector(bandQuery);
+      const inFlow = band && getComputedStyle(band).display !== "none" && getComputedStyle(band).position !== "fixed";
+      const above = inFlow ? box(bandQuery).bottom : box(".site-header").bottom;
+      const style = getComputedStyle(document.querySelector(titleSelector));
+      return {
+        eyebrowTop: box(eyebrowSelector).top,
+        titleTop: box(titleSelector).top,
+        room: box(eyebrowSelector).top - above,
+        fontSize: parseFloat(style.fontSize),
+        band: inFlow ? (({ left, top, width, height }) => ({ left, top, width, height }))(box(bandQuery)) : null,
+      };
+    }, [eyebrow, title, bandSelector]);
+
+  for (const screen of HEAD_SCREENS) {
+    test(`the home intro starts where the About header starts at ${screen.width}x${screen.height}`, async ({ page }) => {
+      await page.setViewportSize(screen);
+      await page.goto("/about/");
+      await settle(page);
+      if (screen.width < 1100) await expect(page.locator("[data-graphic='about']")).toHaveAttribute("data-ready", "true");
+      const about = await headPosition(page, ".about .eyebrow", ".about__title", "[data-graphic]");
+      await page.goto("/");
+      await settle(page);
+      if (screen.width < 1100) await expect(page.locator("[data-lyra-globe]")).toHaveAttribute("data-ready", "true");
+      const home = await headPosition(page, ".hero .eyebrow", ".hero__name", screen.width < 1100 ? ".hero__globe" : "[data-graphic]");
+
+      expect(home.fontSize).toBe(about.fontSize);
+      // The room above the eyebrow is the same rule on both pages.
+      expect(Math.abs(home.room - about.room)).toBeLessThanOrEqual(1);
+      // The gap from eyebrow to title is the same too.
+      expect(Math.abs(home.titleTop - home.eyebrowTop - (about.titleTop - about.eyebrowTop))).toBeLessThanOrEqual(1);
+      // The two pages match in y at every width.
+      expect(Math.abs(home.eyebrowTop - about.eyebrowTop), "the eyebrow top").toBeLessThanOrEqual(1);
+      expect(Math.abs(home.titleTop - about.titleTop), "the name top").toBeLessThanOrEqual(1);
+      // Below 1100px both pages hold a band, and the two bands have one box.
+      if (screen.width < 1100) {
+        expect(home.band, "the homepage holds a band").not.toBeNull();
+        expect(about.band, "the About page holds a band").not.toBeNull();
+        for (const key of ["left", "top", "width", "height"]) {
+          expect(Math.abs(home.band[key] - about.band[key]), `the band ${key}`).toBeLessThanOrEqual(1);
+        }
+      } else {
+        expect(home.band, "no band from 1100px").toBeNull();
+      }
+    });
+  }
+
   test("the writing post count sits under the heading", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
     await page.goto(`${dev}/writing/`);
@@ -975,3 +1043,167 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     expect(gap).toBeGreaterThanOrEqual(0);
   });
 }
+
+/**
+ * The page graphic sits in one place on every inner page. A visitor who switches pages must see
+ * the picture stay still. These pages once placed it by their own rules, so the gap between the
+ * words and the picture changed from page to page.
+ */
+const GRAPHIC_PAGES = [
+  { name: "about", url: "/about/", graphic: "[data-graphic='about']" },
+  { name: "writing", url: `${MOTIF_DEV}/writing/`, graphic: "[data-graphic='writing']" },
+  { name: "products", url: `${MOTIF_DEV}/products/`, graphic: "[data-graphic='products']" },
+  { name: "product detail", url: `${MOTIF_DEV}/products/opencatalyst/`, graphic: "[data-graphic='products']" },
+  { name: "404", url: "/no-such-page/", graphic: "[data-graphic='404']" },
+];
+/** The shared inset of the figure inside its box. It is FIGURE_INSET in src/lib/lyra-render/inset.ts. */
+const FIGURE_INSET = 32;
+
+/** Read the box, the column edges, and the figure bound of the graphic on the open page. */
+function readGraphic(page, selector) {
+  return page.evaluate((target) => {
+    const root = document.querySelector(target);
+    const box = root.getBoundingClientRect();
+    const rootStyle = getComputedStyle(document.documentElement);
+    const frame = parseFloat(rootStyle.getPropertyValue("--frame"));
+    const reading = parseFloat(rootStyle.getPropertyValue("--reading-column"));
+    const read = document.querySelector("main .wrap--read");
+    const header = document.querySelector(".site-header").getBoundingClientRect();
+    return {
+      left: box.left,
+      right: box.right,
+      top: box.top,
+      bottom: box.bottom,
+      gap: parseFloat(rootStyle.getPropertyValue("--graphic-gap")),
+      // Every page owes the same column edge. The writing list is narrower, so it uses the frame.
+      columnRight: Math.max(0, (innerWidth - frame) / 2) + reading,
+      readRight: read ? read.getBoundingClientRect().right : null,
+      figureLeft: Number(root.dataset.figureLeft),
+      headerBottom: header.bottom,
+      position: getComputedStyle(root).position,
+    };
+  }, selector);
+}
+
+test.describe("the page graphic keeps one place on every inner page", () => {
+  for (const width of [1920, 1440, 1280, 1100]) {
+    test(`shares one box, one gap, and one figure inset at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      const found = [];
+      for (const target of GRAPHIC_PAGES) {
+        await page.goto(target.url);
+        await expect(page.locator(target.graphic)).toHaveAttribute("data-ready", "true");
+        await settle(page);
+        found.push({ name: target.name, ...(await readGraphic(page, target.graphic)) });
+      }
+      const [first] = found;
+      expect(first.gap, "the shared gap token is set").toBeGreaterThan(0);
+      for (const item of found) {
+        expect(item.position, `${item.name} box is fixed`).toBe("fixed");
+        expect(Math.abs(item.left - first.left), `${item.name} box left`).toBeLessThanOrEqual(1);
+        expect(Math.abs(item.top - first.top), `${item.name} box top`).toBeLessThanOrEqual(1);
+        expect(Math.abs(item.bottom - first.bottom), `${item.name} box bottom`).toBeLessThanOrEqual(1);
+        expect(Math.abs(item.right - first.right), `${item.name} box right`).toBeLessThanOrEqual(1);
+        expect(Math.abs(item.left - (item.columnRight + item.gap)), `${item.name} gap from the column`).toBeLessThanOrEqual(1);
+        if (item.readRight !== null) {
+          expect(Math.abs(item.left - (item.readRight + item.gap)), `${item.name} gap from the reading column`).toBeLessThanOrEqual(1);
+        }
+        expect(Math.abs(item.left + item.figureLeft - (first.left + FIGURE_INSET)), `${item.name} figure left`).toBeLessThanOrEqual(2);
+      }
+    });
+  }
+
+  for (const width of [1099, 900, 390]) {
+    test(`shares one band x range and one top gap under the header at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      const found = [];
+      for (const target of GRAPHIC_PAGES) {
+        await page.goto(target.url);
+        await expect(page.locator(target.graphic)).toHaveAttribute("data-ready", "true");
+        await settle(page);
+        found.push({ name: target.name, ...(await readGraphic(page, target.graphic)) });
+      }
+      const [first] = found;
+      for (const item of found) {
+        expect(item.position, `${item.name} band scrolls with the page`).not.toBe("fixed");
+        expect(Math.abs(item.left - first.left), `${item.name} band left`).toBeLessThanOrEqual(1);
+        expect(Math.abs(item.right - first.right), `${item.name} band right`).toBeLessThanOrEqual(1);
+        expect(Math.abs(item.top - item.headerBottom - (first.top - first.headerBottom)), `${item.name} gap under the header`).toBeLessThanOrEqual(1);
+      }
+    });
+  }
+});
+
+/**
+ * The homepage globe starts where the graphic of every inner page starts. It once sat 340px to the
+ * left of it, so the picture jumped when a visitor moved from Home to About. The sphere is the
+ * figure of the globe. The SVG and the canvas draw the same picture, so these tests read the SVG in
+ * a page with no JavaScript.
+ */
+const GLOBE_SCREENS = [
+  { width: 1920, height: 1080 },
+  { width: 1440, height: 900 },
+  { width: 1280, height: 800 },
+  { width: 1100, height: 800 },
+];
+/** The edge fade of every page graphic, in pixels. It is --fade in home.css. */
+const EDGE_FADE = 24;
+
+/** Read the globe box, the sphere, Vega, and the labels of the homepage in a page with no JavaScript. */
+async function readPlainGlobe(browser, baseURL, viewport) {
+  const context = await browser.newContext({ javaScriptEnabled: false, viewport });
+  const plain = await context.newPage();
+  await plain.goto(new URL("/", baseURL).href);
+  await settle(plain);
+  const read = await plain.evaluate(() => {
+    const box = document.querySelector("[data-lyra-globe]").getBoundingClientRect();
+    const svg = document.querySelector(".lyra-globe__fallback");
+    // The sphere is every neuron and the round ring. The tilted ring has a loose box, so it is not counted.
+    const sphere = [...svg.querySelectorAll("circle.lyra-globe__node, ellipse.lyra-globe__ring")]
+      .filter((el) => el.tagName === "circle" || el.getAttribute("rx") === el.getAttribute("ry"))
+      .map((el) => el.getBoundingClientRect());
+    const plainBox = ({ left, right, top, bottom }) => ({ left, right, top, bottom });
+    return {
+      boxLeft: box.left,
+      sphereLeft: Math.min(...sphere.map((rect) => rect.left)),
+      sphereRight: Math.max(...sphere.map((rect) => rect.right)),
+      // The halo of Vega is the one circle with a radius of 18 grid units.
+      vegaGlow: plainBox(svg.querySelector('circle[r="18"]').getBoundingClientRect()),
+      labels: [...document.querySelectorAll("[data-lyra-globe] text")].map((text) => ({ text: text.textContent, ...plainBox(text.getBoundingClientRect()) })),
+      viewport: innerWidth,
+    };
+  });
+  await context.close();
+  return read;
+}
+
+test.describe("the homepage globe lines up with the inner page graphic", () => {
+  for (const screen of GLOBE_SCREENS) {
+    test(`shares the box left and the figure inset of About at ${screen.width}px`, async ({ page, browser, baseURL }) => {
+      await page.setViewportSize(screen);
+      await page.goto("/about/");
+      await expect(page.locator("[data-graphic='about']")).toHaveAttribute("data-ready", "true");
+      await settle(page);
+      const about = await readGraphic(page, "[data-graphic='about']");
+      const home = await readPlainGlobe(browser, baseURL, screen);
+
+      expect(Math.abs(home.boxLeft - about.left), "the globe box left is the About graphic box left").toBeLessThanOrEqual(1);
+      expect(Math.abs(home.sphereLeft - (about.left + FIGURE_INSET)), "the sphere starts one figure inset inside the box").toBeLessThanOrEqual(2);
+    });
+
+    test(`keeps most of the sphere, Vega, and every label clear of the screen edge fade at ${screen.width}px`, async ({ browser, baseURL }) => {
+      const home = await readPlainGlobe(browser, baseURL, screen);
+      const clearRight = home.viewport - EDGE_FADE;
+
+      const visible = (Math.min(home.viewport, home.sphereRight) - home.sphereLeft) / (home.sphereRight - home.sphereLeft);
+      expect(visible, "the screen shows most of the sphere").toBeGreaterThanOrEqual(0.65);
+      expect(home.vegaGlow.left, "the halo of Vega starts inside the screen").toBeGreaterThan(0);
+      expect(home.vegaGlow.right, "the halo of Vega ends before the fade").toBeLessThanOrEqual(clearRight);
+      expect(home.labels.map((label) => label.text)).toContain("VEGA");
+      for (const label of home.labels) {
+        expect(label.left, `${label.text} starts inside the screen`).toBeGreaterThan(0);
+        expect(label.right, `${label.text} ends before the fade`).toBeLessThanOrEqual(clearRight);
+      }
+    });
+  }
+});
