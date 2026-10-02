@@ -69,11 +69,7 @@ const structuredData = {
       url: `${siteOrigin.origin}/`,
       jobTitle: "AI Engineering Leader",
       worksFor: { "@type": "Organization", name: "Vertafore" },
-      sameAs: [
-        "https://www.linkedin.com/in/cristianvega-ai",
-        "https://github.com/cristianvega-ai",
-        "https://x.com/cristianvega"
-      ]
+      sameAs: profileLinks.map((link) => link.href)
     }
   ]
 };
