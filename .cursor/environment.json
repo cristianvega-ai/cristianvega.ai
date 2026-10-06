@@ -1,6 +1,6 @@
 {
   "name": "cristianvega.ai",
-  "install": "export NVM_DIR=\"$HOME/.nvm\"; . \"$NVM_DIR/nvm.sh\"; nvm install 24.15.0 && nvm alias default 24.15.0 && export PATH=\"$NVM_DIR/versions/node/v24.15.0/bin:$PATH\" && npm ci && npx playwright install chromium",
+  "install": "export NVM_DIR=\"$HOME/.nvm\"; . \"$NVM_DIR/nvm.sh\"; nvm install && nvm use && nvm alias default \"$(nvm current)\" && npm ci && npx playwright install chromium",
   "terminals": [
     {
       "name": "dev",

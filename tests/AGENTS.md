@@ -13,6 +13,7 @@ The suite has two runners and one file per concern. Put each new test in the lay
 | Pages | `tests/pages.test.mjs` | Rendered HTML content, headings, metadata, and navigation state. |
 | Security | `tests/security.test.mjs` | Cloudflare header rules, the CSP, and the post-deploy gate. |
 | Deployment | `tests/deploy-gate.test.mjs` | The live gate accepts the verified build and rejects broken responses. |
+| Node version | `tests/node-version.test.mjs` | The tests and Cursor setup use the exact version in `.nvmrc`. |
 | Design tokens | `tests/design-tokens.test.mjs` | Design-token hygiene in `global.css`. |
 | Selector hygiene | `tests/css-hygiene.test.mjs` | A class that is the subject of `:focus` or `:focus-visible` must be able to receive focus. |
 | CSS | `tests/motion-css.test.mjs` | Rules that must survive compilation, such as the reduced-motion contract. |

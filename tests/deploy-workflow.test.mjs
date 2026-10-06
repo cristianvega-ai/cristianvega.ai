@@ -107,7 +107,8 @@ test("Verify packs the required files and the live verifier, and records the pac
   }
   assert.match(verify, /--format=ustar/);
   assert.match(verify, /cp scripts\/verify-deploy\.mjs/);
-  assert.match(verify, /sha256sum site\.tar\.gz verify-deploy\.mjs wrangler\.jsonc package\.json package-lock\.json > SHA256SUMS/);
+  assert.match(verify, /cp \.nvmrc "\$package_dir\/node-version"/);
+  assert.match(verify, /sha256sum site\.tar\.gz verify-deploy\.mjs wrangler\.jsonc package\.json package-lock\.json node-version > SHA256SUMS/);
   assert.match(verify, /package_sha256=.*>> "\$GITHUB_OUTPUT"/);
   assert.match(verify, /sha256sum "\$package_dir\/SHA256SUMS"/);
   assert.match(verify, /manifest_sha256=.*>> "\$GITHUB_OUTPUT"/);
@@ -174,11 +175,25 @@ test("production checks run only after the domain switch is confirmed", () => {
   assert.match(pkg.devDependencies.wrangler, /^\d+\.\d+\.\d+$/);
 });
 
-test("Node is pinned to one exact version everywhere", () => {
-  const versions = [...workflow.matchAll(/node-version:\s*(\S+)/g)].map(([, version]) => version);
-  assert.ok(versions.length >= 2);
-  for (const version of versions) assert.match(version, /^\d+\.\d+\.\d+$/, "node-version must be exact");
-  assert.equal(new Set(versions).size, 1, "Verify and the live gate must use the same Node");
+test("both jobs read the shared Node version file", () => {
+  for (const job of [verify, deploy]) {
+    assert.match(job, /^\s+node-version-file: \.nvmrc$/m);
+    assert.equal([...job.matchAll(/uses: actions\/setup-node@/g)].length, 1);
+    assert.doesNotMatch(job, /^\s+node-version:/m, "a Node version must not override the shared file");
+  }
+});
+
+test("Deploy reads the Node version only after it checks the artifact hashes", () => {
+  const manifestCheck = deploy.indexOf('"$manifest" != "$EXPECTED_MANIFEST_SHA256"');
+  const fileCheck = deploy.indexOf("sha256sum --check SHA256SUMS");
+  const packageCheck = deploy.indexOf('"$actual" != "$EXPECTED_PACKAGE_SHA256"');
+  const versionCopy = deploy.indexOf('cp node-version "$GITHUB_WORKSPACE/.nvmrc"');
+  const nodeSetup = deploy.indexOf("uses: actions/setup-node@");
+  assert.ok(manifestCheck >= 0, "Deploy must check the manifest hash");
+  assert.ok(fileCheck > manifestCheck, "Deploy must check every file after it checks the manifest");
+  assert.ok(packageCheck > fileCheck, "Deploy must check the recorded package hash");
+  assert.ok(versionCopy > packageCheck, "Deploy must copy the verified Node version after every hash check");
+  assert.ok(nodeSetup > versionCopy, "Deploy must receive the verified Node version before setup-node reads it");
 });
 
 test("Dependabot keeps the action pins current", () => {

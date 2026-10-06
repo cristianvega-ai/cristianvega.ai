@@ -4,10 +4,17 @@ This Astro site contains Cristian Vega's homepage, profile, the Neural Lyra blog
 
 ## Develop
 
+Use the exact Node.js version in `.nvmrc`.
+Install nvm before you run these commands.
+
 ```bash
-npm install
+nvm install
+nvm use
+npm ci
 npm run dev
 ```
+
+The Cursor setup reads the same version file.
 
 ## Writing
 
@@ -175,14 +182,17 @@ Keep Cloudflare's separate Git build integration disabled.
 
 ### Verification and publication
 
-1. `Verify` installs locked dependencies, audits them, checks signatures, and
-   runs `npm run verify`. Pull requests have no deployment secrets.
+1. `Verify` reads `.nvmrc` to install Node.js. It installs locked dependencies,
+   audits them, checks signatures, and runs `npm run verify`.
+   Pull requests have no deployment secrets.
 2. The job packages `dist/`, the live verifier, the Wrangler configuration,
    and the dependency files. It records the package and manifest hashes.
+   The package includes a hashed copy of `.nvmrc` as `node-version`.
 3. `Deploy production` runs only for the current `main` commit. It requires
    `PRODUCTION_DEPLOY_ENABLED=true` and the GitHub `production` environment.
-4. The deploy job checks both hashes. It installs locked tooling without
-   install scripts, then runs Wrangler on the verified files. It selects the
+4. The deploy job checks both hashes before it installs Node.js from the
+   packaged version file. It installs locked tooling without install
+   scripts, then runs Wrangler on the verified files. It selects the
    default Wrangler environment. It does not check out source or build the
    site again.
 5. The live gate checks the Worker address. It requires an exact homepage
