@@ -1,6 +1,7 @@
 import { clamp, easeOutCubic, FULL_TURN_RADIANS, type Point } from "../motion/easing.ts";
 import { GLOBE_POLICY, mountCanvasController, type FrameState } from "../motion/canvas-controller.ts";
 import type { Palette } from "../lyra-render/palette.ts";
+import { entranceProgress } from "../lyra-render/clock.ts";
 import { buildGlobe, EDGE_SPAN, GLOBE_HEIGHT, GLOBE_WIDTH, NODE_SPAN, type Globe, type GlobeRoute } from "./model.ts";
 
 /** How far behind its head a comet leaves light, in grid units, and in how many soft slices. */
@@ -136,6 +137,35 @@ function drawGlobe(root: HTMLElement): (() => void) | undefined {
   let vega: Globe["hotNodes"][number] | undefined;
   let scale = 1;
   let removeFallback: (() => void) | undefined;
+  const labels = root.querySelectorAll<SVGTextElement>(".lyra-globe__label");
+  const labelAnimations: { animation: Animation; start: number; span: number }[] = [];
+
+  /** Bind paused animations once per entrance. The canvas clock sets their progress. */
+  function attachLabels() {
+    try {
+      for (const label of labels) {
+        const delay = label.classList.contains("lyra-globe__label--caption") ? 500 : 1400;
+        const start = entranceProgress(delay);
+        const animation = label.animate([{ opacity: 0 }, { opacity: label.getAttribute("opacity")! }], {
+          duration: 1,
+          easing: "ease-out",
+          fill: "both",
+        });
+        labelAnimations.push({ animation, start, span: entranceProgress(delay + 700) - start });
+        animation.pause();
+        animation.currentTime = 0;
+      }
+    } catch (error) {
+      detachLabels();
+      throw error;
+    }
+    return detachLabels;
+  }
+
+  function detachLabels() {
+    for (const binding of labelAnimations) binding.animation.cancel();
+    labelAnimations.length = 0;
+  }
 
   function resize(state: FrameState) {
     // Keep the canvas projection equal to the SVG projection.
@@ -146,6 +176,15 @@ function drawGlobe(root: HTMLElement): (() => void) | undefined {
 
   function draw(ctx: CanvasRenderingContext2D, state: FrameState) {
     if (!globe) return;
+    if (state.still) {
+      for (let i = 0; i < labelAnimations.length; i++) labelAnimations[i].animation.finish();
+      // Restore the model opacity after the entrance.
+      detachLabels();
+    }
+    for (let i = 0; i < labelAnimations.length; i++) {
+      const binding = labelAnimations[i];
+      binding.animation.currentTime = clamp((state.progress - binding.start) / binding.span);
+    }
     const ease = easeOutCubic(state.progress);
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.save();
@@ -206,7 +245,7 @@ function drawGlobe(root: HTMLElement): (() => void) | undefined {
     ctx.fill();
   }
 
-  const handle = mountCanvasController(root, { draw, onResize: resize }, GLOBE_POLICY, () => {
+  const handle = mountCanvasController(root, { draw, onResize: resize, attach: attachLabels }, GLOBE_POLICY, () => {
     removeFallback = showFallback(root);
   });
   if (!handle) return undefined;
