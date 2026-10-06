@@ -1,10 +1,11 @@
 # cristianvega.ai
 
-This Astro site contains Cristian Vega's homepage, profile, the Neural Lyra blog, an optional products section, and a custom 404 page.
+This Astro site contains Cristian Vega's homepage, profile, and Neural Lyra blog.
+It also contains an optional products section and a custom 404 page.
 
 ## Develop
 
-Use the exact Node.js version in `.nvmrc`.
+Use the exact supported Node.js version in [.nvmrc](.nvmrc).
 Install nvm before you run these commands.
 
 ```bash
@@ -14,7 +15,7 @@ npm ci
 npm run dev
 ```
 
-The Cursor setup reads the same version file.
+The [Cursor setup](.cursor/environment.json) reads the same version file.
 
 ## Writing
 
@@ -53,69 +54,89 @@ The eight lorem ipsum fixtures remain drafts.
 Only the lorem ipsum dolor sit amet fixture contains a full-length article.
 Read its [fixture contract](src/content/article-fixture.md) before you change article presentation.
 The other fixtures contain short text for layout review.
-The production index shows an empty state until a post is published.
 
-Article pages use Lyra Depth.
-Four projected neural layers carry one signal pass toward Vega.
-The graph sits beside the title on wide screens.
-The graph moves above the title on small screens.
-The title and article share one reading column on a continuous dark surface.
-The signal pass stops after 2.8 seconds of visible motion.
-The progress badge appears only on wide screens, outside the reading column.
-Reduced motion shows the completed graph.
-A static SVG keeps the graph visible when JavaScript or canvas is unavailable.
+Article pages place the title, metadata, and prose in one reading column on a continuous dark surface.
+[BlogPostLayout.astro](src/layouts/BlogPostLayout.astro) owns the article shell, draft label, sharing controls, and adjacent navigation.
+The layout adds no article graph or progress badge.
+Published articles show sharing controls.
 
 The browser tests use a separate local Astro server for drafts.
 They also check the production build through the local Cloudflare runtime.
 
 ## Homepage
 
-The homepage is one screen with no scrolling.
-It holds an intro on the left and the Lyra globe on the right.
-The globe grows to use the room and centres between the header and the footer.
+The homepage fits one screen when the viewport has enough height.
+At widths from 1100px, the intro sits left of the Lyra globe.
+The globe grows to use the available space.
+It centers between the header and footer.
 Two calls to action sit under the thesis, below a hairline.
 The primary nav links to `/about/`, which holds the full profile.
-The blueprint grid is faded. It shows around the globe and fades out toward the intro, the header, and the footer.
-The header sits on the page ground and has no ground of its own.
-The header is not sticky on the homepage. It stays sticky on every other page.
-Below 1100px the globe sits in a band above the intro, and the calls to action follow the intro.
+The blueprint grid shows around the globe.
+It fades toward the intro, header, and footer.
+The homepage header has a transparent background and scrolls with the page.
+Below 1100px, the globe sits in a band above the intro.
+The calls to action follow the intro.
 The page fits one screen at 1024x768, 820x1180, 390x844, and 360x740.
 A screen shorter than the content scrolls instead of overlapping.
 
 One call to action is for Writing and one is for Products.
 A call to action links to `/writing/` or `/products/` only when that section has a visible entry.
 The links read "Read my latest writing →" and "See my latest products →".
-Otherwise the line is muted text with no link and no focus: "Latest writing · coming soon" or "Latest products · coming soon".
+Otherwise, each line uses muted text without a link or keyboard focus.
+"Latest writing · coming soon" and "Latest products · coming soon" show those states.
 Both states use one box, so the layout does not shift when a section goes live.
 A production build with only drafts shows two coming-soon lines.
 `npm run dev` shows the drafts, so both lines link.
 
 The globe is decorative and hidden from assistive technology.
-A canvas draws it, with an entrance of about 2.3 seconds: the mesh draws from the far side, the neurons appear in turn, the Lyra lines draw toward Vega, comets run to Vega, and Vega blooms.
-Then the globe stays still.
-It pauses off-screen and while the tab is hidden.
-Reduced motion shows the finished globe at once.
+A canvas draws its entrance in about 2.3 active seconds.
+The mesh draws first, then neurons, Lyra lines, comets, and the Vega bloom appear.
+The globe completes its entrance and rests.
+Its canvas and labels share entrance progress.
+Active time excludes hidden tabs and periods outside the viewport.
+Reduced motion shows the completed globe and labels at once.
 A build-time SVG shows the same finished picture in two cases only.
 It sits in a `noscript` for visitors without JavaScript.
 It sits in a `template`, and the script copies it in when canvas is missing or the setup fails.
-A visitor with canvas never sees the SVG.
-The globe code is in `src/lib/lyra-globe/`. The Lyra star data is in `src/lib/lyra/`.
+A successful canvas setup keeps the fallback SVG hidden.
+The [globe model](src/lib/lyra-globe/model.ts) supplies drawing geometry and label anchors.
+The [projection module](src/lib/lyra-globe/projection.ts) generates a versioned external stylesheet from model measurements.
+[home.css](src/styles/home.css) controls responsive placement.
+The globe restarts its entrance after page restoration.
+The Lyra star data lives in [src/lib/lyra/](src/lib/lyra/).
 
 ## Page graphics
 
-Each inner page can hold one decorative canvas graphic, drawn in the same language as the homepage globe.
-The About page has "Trajectory". Writing, Products, and the 404 page follow.
-The graphic is hidden from assistive technology and takes no pointer input.
-A canvas draws it, with an entrance of about 2.3 seconds. Then it stays still.
-It pauses off-screen and while the tab is hidden.
-Reduced motion shows the finished picture at once.
-Without JavaScript the graphic takes no space, and the page keeps only its faint grid. There is no SVG fallback.
-From 1100px wide, the graphic is fixed in the empty area right of the reading column. It uses the same box as the grid, and it sits above the grid.
-Below 1100px it is a 150px band above the page title. It never overlaps text.
-On About, a marker rests at the reader's place on the path as the page scrolls. Reduced motion shows the whole path lit with no marker.
-The component is `src/components/PageGraphic.astro`, and its placement rules are in `src/styles/global.css`.
-The drawing code is in `src/lib/page-graphics/`. The steps to add a page graphic are in `src/lib/page-graphics/index.ts`.
-The browser tests are in `tests/e2e/about.spec.mjs`.
+About, the Writing index, Products, and the 404 page use decorative canvas graphics.
+They use the homepage globe's visual language.
+The graphics remain hidden from assistive technology and take no pointer input.
+Without JavaScript, the graphic takes no space.
+Canvas failure also hides the graphic container.
+Inner page graphics have no SVG fallback.
+
+At widths from 1100px, graphics stay fixed beside the reading column, above the grid.
+At narrower widths, graphics use a band above the page title.
+The shared `--band-height` token controls the responsive band height.
+The Writing band uses 1.19 times that height.
+Placement rules live in [global.css](src/styles/global.css) and [blog.css](src/styles/blog.css).
+
+Each visual entrance takes about 2.3 active seconds.
+Active time excludes hidden tabs and periods outside the viewport.
+Reduced motion completes the entrance immediately and runs no continuous frames.
+
+| Scene | Motion after the visual entrance | Reduced motion |
+| --- | --- | --- |
+| About | Fixed graphics follow the reader's scroll. Bands rest at Vega. | A static marker shows the reader's place. Scroll updates it immediately, without easing. |
+| Writing | Pointer or keyboard focus lights a post's path and runs comets. The scene rests after the glow fades. | Selection updates immediately, with no comet. |
+| Products | Satellites drift until 30 active seconds from mount, then rest. | Satellites stay at their initial positions. |
+| 404 | Four search pulses follow the entrance. The scene rests after 30.5 active seconds. | The missing-star gap stays static, without pulses. |
+
+About fades the reader marker into Vega at the end of the path.
+Page graphics preserve their elapsed time after page restoration.
+The shared [canvas controller](src/lib/motion/canvas-controller.ts) owns clocks, observers, frames, listeners, and cleanup.
+[PageGraphic.astro](src/components/PageGraphic.astro) owns typed inputs and the decorative canvas container.
+Read the [graphics how-to](src/lib/page-graphics/index.ts) for scoped bindings, label measurements, palette rules, and scene registration.
+Read the [test ownership guide](tests/AGENTS.md) to find the matching model, page, and shared browser suites.
 
 ## Products
 
@@ -149,7 +170,8 @@ The `lorem-ipsum-dolor` file is a draft sample for layout review.
 
 ## Navigation
 
-The header is sticky on every page.
+The header stays sticky on inner pages.
+The homepage header scrolls with the page.
 The primary navigation lists `about`, `writing`, and `products`, then the profile links.
 The `writing` link appears only when a post is visible.
 A production build shows a post only when its `draft` value is `false`.
@@ -164,19 +186,25 @@ The header stays on one row at every width.
 ```bash
 npm run build
 npm run check
-npm test          # builds, then runs tests against that dist/
+npm test          # Builds, then runs Node tests against that dist/.
 ```
 
-Or run the full gate with `npm run verify` (one build + type-check + tests). Prefer `verify` or `test` over bare `node --test` so contract tests never read a missing or stale `dist/`.
+Run `npm run verify` for one build, Astro diagnostics, Node tests, and browser tests.
+`npm test` builds the site and runs only the Node tests.
+Use `verify` or `test` when contract tests need current `dist/` output.
+
+[tsconfig.json](tsconfig.json) excludes `dist/`, `playwright-report/`, `test-results/`, `coverage/`, and `.nyc_output/` from diagnostics.
+The checker still includes source, configuration, scripts, and tests.
+Generated reports and build output must remain ignored.
 
 `npm run build` first checks `public/` for `.DS_Store` and `Thumbs.db` files.
 The check rejects these files before Astro copies public files into `dist/`.
 Remove each reported metadata file, then run the build again.
-The check permits `public/.well-known/security.txt`.
+The [public-file guard](scripts/check-public.mjs) permits `public/.well-known/security.txt`.
 
 ## Deploy
 
-GitHub Actions is the default deploy path. Every merge to `main` runs
+The [GitHub workflow](.github/workflows/deploy.yml) is the default deploy path. Every merge to `main` runs
 `Verify`, then uploads that verified static build to Cloudflare Workers.
 Cloudflare serves the files. The site has no Worker script or server adapter.
 Keep Cloudflare's separate Git build integration disabled.
@@ -196,9 +224,8 @@ Keep Cloudflare's separate Git build integration disabled.
    scripts, then runs Wrangler on the verified files. It selects the
    default Wrangler environment. It does not check out source or build the
    site again.
-5. The live gate checks the Worker address. It requires an exact homepage
-   match, security headers, a real 404, permanent redirects for retired
-   pages, gzip for scripts, and the specified cache lifetimes.
+5. The live gate checks the Worker address against the verified homepage.
+   It checks approved security headers, a real 404, retired-page redirects, gzip, and cache lifetimes.
 6. After the domain switch, `CLOUDFLARE_PRODUCTION_READY=true` also requires
    those checks on `https://cristianvega.ai`. It checks HTTP and `www`
    redirects with their path and query intact.
@@ -359,6 +386,10 @@ Run `npm run verify:deploy` to check the public site. Set `ORIGIN` to check
 the Cloudflare test address. Set `EXPECTED_INDEX=dist/index.html` only when
 that local build is the exact build deployed by GitHub. A different build
 must fail the comparison.
+
+The [live verifier](scripts/verify-deploy.mjs) reads script URLs from the verified homepage when `EXPECTED_INDEX` is set.
+Otherwise, it reads the live homepage.
+It checks each script URL from the same origin once, without relying on component filenames.
 
 ### Web analytics
 
