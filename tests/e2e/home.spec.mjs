@@ -247,7 +247,7 @@ test.describe("the globe entrance", () => {
     }
     await page.evaluate(() => window.__step(9000));
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "still");
-    // The labels fade in on a CSS clock of their own. Wait for it before the last look.
+    // Wait for the fonts after the canvas clock finishes the labels.
     await settle(page);
     const last = await shootGlobe(page);
     const [final] = (await measureLight(page, last)).means;

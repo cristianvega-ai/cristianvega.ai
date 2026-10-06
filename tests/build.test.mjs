@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 
 import { assertPageBasics, contentRoutes, dist, listBuiltRoutes, publishedContent, readContentInventory, readDistFile, root, sitemapPaths, withContentBuild } from "./helpers.mjs";
 
@@ -173,13 +174,20 @@ test("compiled css assets are emitted", () => {
   assert.ok(cssFiles.length > 0);
   assert.ok(cssFiles.some((file) => statSync(join(astroDir, file)).size > 1_000));
 
-  // The reduced-motion contract over this CSS is enforced in
-  // tests/motion-css.test.mjs. What stays here is the positive check that the
-  // globe reveal rules reach the build, and that the retired pre-hide is gone.
+  // Motion CSS tests enforce reduced motion. Keep the canvas readiness gate in the build.
   const css = cssFiles.map((file) => readFileSync(join(astroDir, file), "utf8")).join("\n");
-  assert.match(css, /\.lyra-globe\[data-ready\]/);
+  assert.match(css, /\.lyra-globe:not\(\[data-ready\]\) \.lyra-globe__canvas/);
   assert.match(css, /@media \(scripting: ?enabled\)/);
   assert.doesNotMatch(css, /data-hero-motion-pending/);
+});
+
+test("build emits a versioned external globe stylesheet", () => {
+  const link = readDistFile("index.html").match(/href="(\/globe-projection\/([a-f0-9]{16})\.css)"/);
+  assert.ok(link, "the homepage must link the external globe stylesheet");
+  assertDistPath(link[1].slice(1));
+  const stylesheet = readDistFile(link[1].slice(1));
+  assert.match(stylesheet, /\.hero__globe\{/);
+  assert.equal(link[2], createHash("sha256").update(stylesheet).digest("hex").slice(0, 16));
 });
 
 test("the build ships hashed self-hosted latin font files", () => {
