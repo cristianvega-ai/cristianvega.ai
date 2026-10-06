@@ -17,14 +17,113 @@ const origin = (process.env.ORIGIN ?? "https://cristianvega.ai").replace(/\/$/, 
 // GitHub-hosted runners; a real client always sends one.
 const USER_AGENT = "cristianvega-verify-deploy (+https://cristianvega.ai)";
 
-const REQUIRED_HEADERS = [
-  "x-content-type-options",
-  "x-frame-options",
-  "referrer-policy",
-  "permissions-policy",
-  "strict-transport-security",
-  "content-security-policy",
-];
+// Keep these values equal to the approved global rule in public/_headers.
+const APPROVED_SECURITY_HEADERS = new Map([
+  ["x-content-type-options", "nosniff"],
+  ["x-frame-options", "DENY"],
+  ["referrer-policy", "strict-origin-when-cross-origin"],
+  ["permissions-policy", [
+    "accelerometer", "autoplay", "camera", "display-capture", "encrypted-media",
+    "fullscreen", "geolocation", "gyroscope", "magnetometer", "microphone",
+    "midi", "payment", "picture-in-picture", "screen-wake-lock", "usb",
+    "xr-spatial-tracking",
+  ].map((feature) => `${feature}=()`).join(", ")],
+  ["strict-transport-security", "max-age=31536000"],
+  ["content-security-policy", [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "style-src 'self'",
+    "style-src-attr 'none'",
+    "script-src 'self' https://static.cloudflareinsights.com/beacon.min.js",
+    "connect-src 'self' https://cloudflareinsights.com",
+    "upgrade-insecure-requests",
+  ].join("; ")],
+]);
+
+function parseCsp(value) {
+  const directives = new Map();
+  const parts = value.split(";");
+  if (parts.at(-1).trim() === "") parts.pop();
+  for (const part of parts) {
+    const [name, ...sources] = part.trim().split(/\s+/);
+    const key = name.toLowerCase();
+    if (!/^[a-z][a-z0-9-]*$/.test(key) || directives.has(key)) return null;
+    const sourceSet = new Set(sources);
+    if (sourceSet.size !== sources.length) return null;
+    directives.set(key, sourceSet);
+  }
+  return directives;
+}
+
+function parsePermissions(value) {
+  const directives = new Map();
+  for (const part of value.split(",")) {
+    const match = part.trim().match(/^([a-z][a-z0-9-]*)=\( *\)$/);
+    if (!match || directives.has(match[1])) return null;
+    directives.set(match[1], new Set());
+  }
+  return directives;
+}
+
+function parseHsts(value) {
+  const directives = new Map();
+  const parts = value.split(";");
+  if (parts.at(-1).trim() === "") parts.pop();
+  for (const part of parts) {
+    const match = part.trim().match(/^([a-z][a-z0-9-]*)(?:=(\d+))?$/i);
+    if (!match) return null;
+    const key = match[1].toLowerCase();
+    if (directives.has(key)) return null;
+    directives.set(key, new Set(match[2] === undefined ? [] : [match[2]]));
+  }
+  return directives;
+}
+
+function sameDirectives(actual, expected) {
+  if (!actual || actual.size !== expected.size) return false;
+  for (const [name, values] of expected) {
+    const sources = actual.get(name);
+    if (!sources || sources.size !== values.size) return false;
+    for (const value of values) {
+      if (!sources.has(value)) return false;
+    }
+  }
+  return true;
+}
+
+function checkSecurityHeaders(headers, label) {
+  const parsers = {
+    "content-security-policy": parseCsp,
+    "permissions-policy": parsePermissions,
+    "strict-transport-security": parseHsts,
+  };
+  let valid = true;
+  for (const [name, expected] of APPROVED_SECURITY_HEADERS) {
+    const rawValue = headers.get(name);
+    const value = rawValue?.trim();
+    if (!value) {
+      fail(`${label} missing ${name} — check the deployed _headers file`);
+      valid = false;
+      continue;
+    }
+    const parse = parsers[name];
+    const matchesPolicy = parse
+      ? sameDirectives(parse(value), parse(expected))
+      : name === "referrer-policy"
+        ? value === expected
+        : value.toLowerCase() === expected.toLowerCase();
+    if (!/^[\t\x20-\x7e]+$/.test(rawValue) || !matchesPolicy) {
+      fail(`${label} ${name} must match the approved _headers policy`);
+      valid = false;
+    }
+  }
+  if (valid) console.log(`verify-deploy: ${label} security headers match the approved policy`);
+}
 
 function fail(message) {
   console.error(`verify-deploy: ${message}`);
@@ -93,59 +192,7 @@ async function main() {
     fail(`GET ${origin}/ returned HTTP ${home.status}`);
   }
 
-  const missingHeaders = REQUIRED_HEADERS.filter((name) => !home.headers.get(name));
-  if (missingHeaders.length) {
-    fail(
-      `missing response headers: ${missingHeaders.join(", ")} — check the deployed _headers file`,
-    );
-  } else {
-    console.log("verify-deploy: all six security headers present");
-  }
-
-  const hsts = home.headers.get("strict-transport-security") ?? "";
-  const maxAgeMatch = hsts.match(/(?:^|;\s*)max-age=(\d+)/i);
-  const maxAge = maxAgeMatch ? Number(maxAgeMatch[1]) : 0;
-  if (maxAge < 31536000) {
-    fail(
-      `HSTS max-age is ${maxAgeMatch ? maxAgeMatch[1] : "missing"} (expected at least 31536000)`,
-    );
-  } else if (/\bincludeSubDomains\b/i.test(hsts)) {
-    fail("live HSTS must not include includeSubDomains");
-  } else {
-    console.log(`verify-deploy: HSTS max-age=${maxAge} without includeSubDomains`);
-  }
-
-  const csp = home.headers.get("content-security-policy") ?? "";
-  for (const directive of [
-    "default-src 'self'",
-    "base-uri 'self'",
-    "object-src 'none'",
-    "frame-ancestors 'none'",
-    "font-src 'self'",
-  ]) {
-    if (!csp.includes(directive)) {
-      fail(`CSP missing required directive: ${directive}`);
-    }
-  }
-  if (/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(csp)) {
-    fail("CSP still names a Google Fonts host");
-  }
-  const directives = new Map(csp.split(";").map((part) => {
-    const [name, ...sources] = part.trim().split(/\s+/);
-    return [name, sources.join(" ")];
-  }));
-  if (directives.get("style-src") !== "'self'" || directives.get("style-src-attr") !== "'none'") {
-    fail("CSP must block inline styles and use only same-origin stylesheets");
-  }
-  const permissions = (home.headers.get("permissions-policy") ?? "").split(",").map((part) => part.trim());
-  for (const feature of [
-    "accelerometer", "autoplay", "camera", "display-capture", "encrypted-media",
-    "fullscreen", "geolocation", "gyroscope", "magnetometer", "microphone",
-    "midi", "payment", "picture-in-picture", "screen-wake-lock", "usb",
-    "xr-spatial-tracking",
-  ]) {
-    if (!permissions.includes(`${feature}=()`)) fail(`Permissions-Policy must deny ${feature}`);
-  }
+  checkSecurityHeaders(home.headers, "homepage");
 
   const missingPath = `${origin}/__deploy-gate-missing-path__/`;
   let notFound;
@@ -167,11 +214,7 @@ async function main() {
   } else {
     console.log("verify-deploy: missing path returns HTTP 404");
   }
-  for (const name of REQUIRED_HEADERS) {
-    if (notFound.headers.get(name) !== home.headers.get(name)) {
-      fail(`404 response must keep the homepage ${name} header`);
-    }
-  }
+  checkSecurityHeaders(notFound.headers, "404 response");
   await notFound.body?.cancel();
 
   const post = await fetch(`${origin}/`, {

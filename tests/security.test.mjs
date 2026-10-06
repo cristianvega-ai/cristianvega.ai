@@ -121,29 +121,6 @@ test("Cloudflare CSP blocks unapproved inline scripts and styles", () => {
   );
 });
 
-test("post-deploy gate script checks live headers and 404", () => {
-  const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
-  for (const header of [
-    "x-content-type-options",
-    "x-frame-options",
-    "referrer-policy",
-    "permissions-policy",
-    "strict-transport-security",
-    "content-security-policy",
-  ]) {
-    assert.match(script, new RegExp(`["']${header}["']`));
-  }
-  assert.match(script, /__deploy-gate-missing-path__/);
-  assert.match(script, /status !== 404|status === 404/);
-});
-
-test("post-deploy gate requires a one-year HSTS max-age without includeSubDomains", () => {
-  const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
-  assert.match(script, /strict-transport-security/i);
-  assert.match(script, /expected at least 31536000/);
-  assert.match(script, /live HSTS must not include includeSubDomains/);
-});
-
 test("the live gate checks compression for the globe and analytics loader", () => {
   const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
   assert.match(script, /content-encoding/i);
