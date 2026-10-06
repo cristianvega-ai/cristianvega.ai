@@ -32,6 +32,10 @@ const SAT_RING = [0, 1, 2] as const;
 const SAT_PHASE = [0.4, 3.2, 5.1] as const;
 const SAT_SPEED = [0.00009 * 1.4, -0.00006, 0.00004] as const;
 const PRODUCT_SELECTOR = ".entries--products .entries__item";
+const PRODUCT_NODE_START = 0.42;
+const PRODUCT_NODE_SPAN = 0.16;
+const PRODUCT_LINK_START = 0.5;
+const PRODUCT_LINK_SPAN = 0.2;
 
 export interface OrbitPlan {
   /** The lit products: one for each published product, at most `MAX_SLOTS`. */
@@ -44,6 +48,15 @@ export interface OrbitPlan {
 export function planOrbit(count: number): OrbitPlan {
   const lit = Math.max(0, Math.min(Math.floor(count) || 0, MAX_SLOTS));
   return { lit, total: Math.max(MIN_SLOTS, lit) };
+}
+
+/** Give each product a share of the entrance. The last link must finish by full progress. */
+export function productProgress(progress: number, index: number, count: number, part: "node" | "link"): number {
+  const step = Math.min(0.08, (1 - PRODUCT_LINK_START - PRODUCT_LINK_SPAN) / Math.max(1, count - 1));
+  const start = (part === "node" ? PRODUCT_NODE_START : PRODUCT_LINK_START) + index * step;
+  const span = part === "node" ? PRODUCT_NODE_SPAN : PRODUCT_LINK_SPAN;
+  // Compare the end first, so division cannot leave a finished mark below one.
+  return progress >= start + span ? 1 : stagger(progress, start, span);
 }
 
 /** Put a slot on its orbit. `wide` is a band: the figure lies to the left and the slots turn with it. */
@@ -218,8 +231,8 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
 
     // The products ignite in turn, each with a link to Vega.
     for (let i = 0; i < lit; i++) {
-      const g = stagger(p, 0.42 + i * 0.08, 0.16);
-      drawLink(ctx, pal.sky, spots[i].x, spots[i].y, stars[0].x, stars[0].y, stagger(p, 0.5 + i * 0.08, 0.2), 0.32);
+      const g = productProgress(p, i, lit, "node");
+      drawLink(ctx, pal.sky, spots[i].x, spots[i].y, stars[0].x, stars[0].y, productProgress(p, i, lit, "link"), 0.32);
       drawNode(ctx, pal, s.glow, spots[i].x, spots[i].y, 2.6, g, true, 1, false);
       if (g > 0) {
         ctx.strokeStyle = pal.sky;
