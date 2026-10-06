@@ -35,7 +35,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24.15.0
+          node-version-file: .nvmrc
 
       - name: Install locked dependencies
         run: npm ci
@@ -86,9 +86,11 @@ jobs:
             .
 
           cp scripts/verify-deploy.mjs wrangler.jsonc package.json package-lock.json "$package_dir/"
+          # Keep the version file visible to the artifact upload.
+          cp .nvmrc "$package_dir/node-version"
           (
             cd "$package_dir"
-            sha256sum site.tar.gz verify-deploy.mjs wrangler.jsonc package.json package-lock.json > SHA256SUMS
+            sha256sum site.tar.gz verify-deploy.mjs wrangler.jsonc package.json package-lock.json node-version > SHA256SUMS
           )
 
           package_sha256="$(sha256sum "$package_dir/site.tar.gz" | awk '{ print $1 }')"
@@ -188,6 +190,9 @@ jobs:
             exit 1
           fi
 
+          # Supply setup-node from the verified artifact.
+          cp node-version "$GITHUB_WORKSPACE/.nvmrc"
+
           mkdir dist
           tar --extract --gzip --file site.tar.gz --directory dist
 
@@ -195,7 +200,7 @@ jobs:
         if: steps.current.outputs.deploy == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24.15.0
+          node-version-file: .nvmrc
 
       - name: Install locked deployment tooling
         if: steps.current.outputs.deploy == 'true'
