@@ -33,3 +33,16 @@ test("design tokens omit unused custom properties", () => {
   );
 });
 
+test("graphic sky tokens use six hexadecimal digits", () => {
+  const sheets = readdirSync(new URL("../src/styles/", import.meta.url)).filter((name) => name.endsWith(".css"));
+  const definitions = sheets.flatMap((name) => {
+    const css = readSourceFile("styles", name).replace(/\/\*[\s\S]*?\*\//g, "");
+    return [...css.matchAll(/(?:^|[;{}])\s*--sky\s*:\s*([^;}]+)/g)].map(([, value]) => ({ name, value: value.trim() }));
+  });
+
+  assert.ok(definitions.some(({ name }) => name === "global.css"), "global.css must define --sky");
+  for (const { name, value } of definitions) {
+    assert.equal(value.length, 7, `${name}: --sky must contain seven characters`);
+    assert.match(value, /^#[0-9a-f]{6}$/i, `${name}: --sky must use #RRGGBB`);
+  }
+});
