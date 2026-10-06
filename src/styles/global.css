@@ -364,9 +364,11 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
   text-align: center;
 }
 
-/* Sticky on every page. The ground is opaque so text never shows through.
-   The hairline is a shadow, so it adds no height to the header. Dark pages
-   set the ink ground and the dark hairline below and in blog.css. */
+/* The header stays sticky on inner pages. The homepage header scrolls with the page.
+   home.css supplies the homepage exception.
+   The opaque background keeps underlying content hidden.
+   The shadow adds a hairline without changing header height.
+   Dark pages set their background and hairline below and in blog.css. */
 .site-header {
   position: sticky;
   top: 0;
