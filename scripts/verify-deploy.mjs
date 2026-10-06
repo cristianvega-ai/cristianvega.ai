@@ -139,6 +139,58 @@ function hasGzip(headers) {
   return /\bgzip\b/i.test(headerValue(headers, "content-encoding"));
 }
 
+function scriptUrls(html) {
+  const urls = new Set();
+  const base = new URL(`${origin}/`);
+  const document = html.replace(/<!--[\s\S]*?-->/g, "");
+  const elements = document.matchAll(/<script(?=[\s/>])([^>]*)>(?:[\s\S]*?<\/script\s*>|$)/gi);
+  for (const [, attributes] of elements) {
+    const sources = [...attributes.matchAll(
+      /([^\s"'=<>`]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g,
+    )].filter((match) => match[1].toLowerCase() === "src");
+    if (sources.length === 0) continue;
+    if (sources.length > 1) {
+      fail("homepage script has multiple src attributes");
+      continue;
+    }
+
+    const [, , doubleQuoted, singleQuoted, unquoted] = sources[0];
+    const value = (doubleQuoted ?? singleQuoted ?? unquoted ?? "").trim();
+    if (!value) {
+      fail("homepage script has an empty src reference");
+      continue;
+    }
+
+    let url;
+    try {
+      const entities = { amp: "&", quot: '"', apos: "'", lt: "<", gt: ">" };
+      const src = value.replace(/&(?:#(\d+)|#x([\da-f]+)|(amp|quot|apos|lt|gt));/gi,
+        (_, decimal, hexadecimal, name) => name
+          ? entities[name.toLowerCase()]
+          : String.fromCodePoint(parseInt(decimal ?? hexadecimal, decimal ? 10 : 16)),
+      );
+      if (/[\x00-\x1f\x7f]/.test(src)) throw new Error("invalid control character");
+      url = new URL(src, base);
+    } catch {
+      fail(`homepage script has an invalid src reference: ${JSON.stringify(value)}`);
+      continue;
+    }
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      fail(`homepage script uses an unsupported URL: ${url.href}`);
+      continue;
+    }
+    if (url.username || url.password) {
+      fail("homepage script URL must not contain credentials");
+      continue;
+    }
+    if (url.origin !== base.origin) continue;
+    url.hash = "";
+    urls.add(url.href);
+  }
+  if (urls.size === 0) fail("homepage does not load a same-origin script");
+  return urls;
+}
+
 /**
  * GET a URL and return status, raw headers, and the first bytes of the body.
  * fetch() strips Content-Encoding, so this uses node:http directly. The body
@@ -152,6 +204,7 @@ function requestHeaders(url, extraHeaders = {}) {
     const req = lib.request(target, { method: "GET", headers }, (res) => {
       const chunks = [];
       let size = 0;
+      res.on("error", reject);
       res.on("data", (chunk) => {
         if (size < 240) {
           chunks.push(chunk.subarray(0, 240 - size));
@@ -242,8 +295,10 @@ async function main() {
   if (!(expires > Date.now())) fail("security.txt must have a future expiry date");
 
   const html = await home.text();
+  let verifiedHtml = html;
   if (process.env.EXPECTED_INDEX) {
     const expected = await readFile(process.env.EXPECTED_INDEX);
+    verifiedHtml = expected.toString("utf8");
     if (!expected.equals(Buffer.from(html))) {
       fail("the live homepage does not match the verified build");
     } else {
@@ -288,20 +343,8 @@ async function main() {
       await response.body?.cancel();
     }
   }
-  const scriptSrcs = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, src]) => src);
-  const requiredScripts = [
-    ["LyraGlobe", "globe"],
-    ["CloudflareAnalytics", "analytics loader"],
-  ];
-
-  for (const [needle, label] of requiredScripts) {
-    const src = scriptSrcs.find((value) => value.includes(needle));
-    if (!src) {
-      fail(`homepage does not load the ${label} script`);
-      continue;
-    }
-
-    const url = new URL(src, `${origin}/`).href;
+  for (const url of scriptUrls(verifiedHtml)) {
+    const label = `script at ${url}`;
     let script;
     try {
       script = await requestHeaders(url, { "accept-encoding": "gzip" });
@@ -312,23 +355,26 @@ async function main() {
 
     if (script.status !== 200) {
       const server = headerValue(script.headers, "server") || "unknown server";
-      fail(`GET ${url} returned HTTP ${script.status} (${label}); ${server}; body: ${script.sample || "(empty)"}`);
+      fail(`GET ${url} returned HTTP ${script.status}; ${server}; body: ${script.sample || "(empty)"}`);
+      continue;
+    }
+    const type = headerValue(script.headers, "content-type").trim();
+    if (!/^(?:text|application)\/(?:javascript|ecmascript)(?:;|$)/i.test(type)) {
+      fail(`${label} must return a JavaScript content type (Content-Type: ${type || "none"})`);
       continue;
     }
     if (!hasGzip(script.headers)) {
       const encoding = headerValue(script.headers, "content-encoding") || "none";
-      fail(`${label} at ${url} is not gzip-compressed (Content-Encoding: ${encoding})`);
+      fail(`${label} is not gzip-compressed (Content-Encoding: ${encoding})`);
       continue;
     }
     console.log(`verify-deploy: ${label} is gzip-compressed`);
 
     const cache = headerValue(script.headers, "cache-control");
-    if (
-      !/\bmax-age=31536000\b/.test(cache) ||
-      !/\bimmutable\b/i.test(cache)
-    ) {
+    const directives = cache.toLowerCase().split(",").map((value) => value.trim()).sort();
+    if (directives.join(",") !== "immutable,max-age=31536000,public") {
       fail(
-        `${label} at ${url} Cache-Control is ${cache || "none"} (expected public, max-age=31536000, immutable)`,
+        `${label} Cache-Control is ${cache || "none"} (expected public, max-age=31536000, immutable)`,
       );
       continue;
     } else {

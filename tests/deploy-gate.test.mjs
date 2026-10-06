@@ -12,8 +12,13 @@ import { gzipSync } from "node:zlib";
 import { permissionsPolicy, root } from "./helpers.mjs";
 
 const run = promisify(execFile);
-const homepage = '<!doctype html><script src="/_astro/LyraGlobe.fixture.js"></script><script src="/_astro/CloudflareAnalytics.fixture.js"></script>';
-const withoutAnalytics = '<!doctype html><script src="/_astro/LyraGlobe.fixture.js"></script>';
+const scriptPaths = [
+  "/_astro/orbit.a1b2c3d4.js",
+  "/_astro/metrics.e5f6a7b8.js",
+  "/_astro/interface.c9d0e1f2.js",
+];
+const homepage = `<!doctype html><script type="module" src="${scriptPaths[0]}"></script>`
+  + `<script src='${scriptPaths[1]}'></script><script src=${scriptPaths[2]}></script>`;
 const script = gzipSync("console.log('fixture');");
 
 // Keep this fixture separate from the verifier's policy.
@@ -46,6 +51,16 @@ function cspWithSources(name, sources) {
   ).join("; ");
 }
 
+async function listen(t, server) {
+  t.after(() => new Promise((resolve, reject) => {
+    server.closeAllConnections();
+    server.close((error) => error ? reject(error) : resolve());
+  }));
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  return `http://127.0.0.1:${server.address().port}`;
+}
+
 async function checkDeployment(t, {
   html = homepage,
   expectedHtml = homepage,
@@ -53,8 +68,7 @@ async function checkDeployment(t, {
   redirectLocation = "/",
   missingStatus = 404,
   aboutStatus = 200,
-  scriptEncoding = "gzip",
-  scriptCache = "public, max-age=31536000, immutable",
+  scriptResponses = {},
   headers = {},
   notFoundHeaders = {},
   postStatus = 405,
@@ -64,9 +78,13 @@ async function checkDeployment(t, {
   const directory = await mkdtemp(join(tmpdir(), "deploy-gate-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const expectedPath = join(directory, "index.html");
-  await writeFile(expectedPath, expectedHtml);
+  if (expectedHtml !== null) await writeFile(expectedPath, expectedHtml);
+  const resources = new Map(scriptPaths.map((path) => [path, {}]));
+  for (const [path, response] of Object.entries(scriptResponses)) resources.set(path, response);
+  const requests = [];
 
   const server = createServer((request, response) => {
+    requests.push(request.url);
     const responseHeaders = { ...approvedHeaders, ...headers };
     if (request.url === "/__deploy-gate-missing-path__/") Object.assign(responseHeaders, notFoundHeaders);
     for (const [name, value] of Object.entries(responseHeaders)) {
@@ -87,11 +105,18 @@ async function checkDeployment(t, {
     } else if (["/contact", "/contact/"].includes(request.url)) {
       response.writeHead(redirectStatus, { Location: redirectLocation });
       response.end();
-    } else if (request.url === "/_astro/LyraGlobe.fixture.js" || request.url === "/_astro/CloudflareAnalytics.fixture.js") {
-      response.writeHead(200, {
-        "Content-Type": "text/javascript",
-        "Content-Encoding": scriptEncoding,
-        "Cache-Control": scriptCache,
+    } else if (resources.has(request.url) && resources.get(request.url) !== null) {
+      const resource = resources.get(request.url);
+      if (resource.disconnect) {
+        response.destroy();
+        return;
+      }
+      response.writeHead(resource.status ?? 200, {
+        "Content-Type": resource.type ?? "text/javascript",
+        "Content-Encoding": resource.encoding ?? "gzip",
+        "Cache-Control": resource.cache ?? "public, max-age=31536000, immutable",
+        ...(resource.location ? { Location: resource.location } : {}),
+        ...(resource.truncate ? { "Content-Length": script.length + 1, Connection: "close" } : {}),
       });
       response.end(script);
     } else {
@@ -99,26 +124,21 @@ async function checkDeployment(t, {
       response.end("Page not found");
     }
   });
-  t.after(() => new Promise((resolve, reject) => {
-    server.closeAllConnections();
-    server.close((error) => error ? reject(error) : resolve());
-  }));
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const origin = await listen(t, server);
 
   try {
     const result = await run(process.execPath, [join(root, "scripts/verify-deploy.mjs")], {
       env: {
         ...process.env,
-        ORIGIN: `http://127.0.0.1:${server.address().port}`,
-        EXPECTED_INDEX: expectedPath,
+        ORIGIN: origin,
+        EXPECTED_INDEX: expectedHtml === null ? "" : expectedPath,
         CHECK_CANONICAL_REDIRECTS: "false",
       },
       timeout: 10_000,
     });
-    return { code: 0, output: result.stdout + result.stderr };
+    return { code: 0, output: result.stdout + result.stderr, requests };
   } catch (error) {
-    return { code: error.code, output: error.stdout + error.stderr };
+    return { code: error.code, output: error.stdout + error.stderr, requests };
   }
 }
 
@@ -127,7 +147,162 @@ test("the live gate accepts the exact verified homepage", async (t) => {
   assert.equal(result.code, 0, result.output);
   assert.match(result.output, /the live homepage matches the verified build/);
   assert.match(result.output, /verify-deploy: OK/);
+  for (const path of scriptPaths) {
+    assert.equal(result.requests.filter((request) => request === path).length, 1, path);
+  }
 });
+
+test("the live gate checks scripts without a local homepage file", async (t) => {
+  const result = await checkDeployment(t, { expectedHtml: null });
+  assert.equal(result.code, 0, result.output);
+  for (const path of scriptPaths) assert.ok(result.requests.includes(path), path);
+});
+
+test("the live gate accepts script URLs without a filename pattern", async (t) => {
+  const path = "/assets/startup";
+  const html = `<!doctype html><SCRIPT SRC="${path}"></SCRIPT>`;
+  const result = await checkDeployment(t, {
+    html,
+    expectedHtml: html,
+    scriptResponses: { [path]: {} },
+  });
+  assert.equal(result.code, 0, result.output);
+  assert.equal(result.requests.filter((request) => request === path).length, 1);
+  for (const path of scriptPaths) assert.ok(!result.requests.includes(path), path);
+});
+
+test("the live gate resolves HTML character references in script URLs", async (t) => {
+  const path = `${scriptPaths[2]}?first=1&second=2`;
+  const html = `<!doctype html><script src="&#47;${scriptPaths[2].slice(1)}?first=1&amp;second=2"></script>`;
+  const result = await checkDeployment(t, {
+    html,
+    expectedHtml: html,
+    scriptResponses: { [path]: {} },
+  });
+  assert.equal(result.code, 0, result.output);
+  assert.equal(result.requests.filter((request) => request === path).length, 1);
+});
+
+test("the live gate rejects an injected script without requesting it", async (t) => {
+  const result = await checkDeployment(t, { html: homepage + '<script src="/injected.js"></script>' });
+  assert.equal(result.code, 1, result.output);
+  assert.match(result.output, /the live homepage does not match the verified build/);
+  assert.ok(!result.requests.includes("/injected.js"));
+});
+
+test("the live gate checks each repeated script URL once", async (t) => {
+  const html = homepage + `<script src=".${scriptPaths[0]}#repeat"></script>`;
+  const result = await checkDeployment(t, { html, expectedHtml: html });
+  assert.equal(result.code, 0, result.output);
+  for (const path of scriptPaths) {
+    assert.equal(result.requests.filter((request) => request === path).length, 1, path);
+  }
+});
+
+test("the live gate ignores resources that the homepage does not load", async (t) => {
+  const unused = "/_astro/unused.deadbeef.js";
+  const html = homepage + '<script type="application/ld+json">{"src":"/unused.js"}</script>'
+    + '<!-- <script src="/comment.js"></script> -->'
+    + '<script-data src="/data.js"></script-data>';
+  const result = await checkDeployment(t, {
+    html,
+    expectedHtml: html,
+    scriptResponses: { [unused]: { status: 500 } },
+  });
+  assert.equal(result.code, 0, result.output);
+  for (const path of [unused, "/unused.js", "/comment.js", "/data.js"]) {
+    assert.ok(!result.requests.includes(path), path);
+  }
+});
+
+test("the live gate does not request external scripts", async (t) => {
+  const requests = [];
+  const server = createServer((request, response) => {
+    requests.push(request.url);
+    response.writeHead(200, {
+      "Content-Type": "text/javascript",
+      "Content-Encoding": "gzip",
+      "Cache-Control": "public, max-age=31536000, immutable",
+    });
+    response.end(script);
+  });
+  const externalOrigin = await listen(t, server);
+  const html = homepage + `<script src="${externalOrigin}/external.js"></script>`
+    + `<script src="${externalOrigin.slice(5)}/other.js"></script>`;
+  const result = await checkDeployment(t, { html, expectedHtml: html });
+  assert.equal(result.code, 0, result.output);
+  assert.deepEqual(requests, []);
+});
+
+test("the live gate accepts a JavaScript type and reordered cache directives", async (t) => {
+  const result = await checkDeployment(t, {
+    scriptResponses: {
+      [scriptPaths[2]]: {
+        type: "Application/JavaScript; charset=utf-8",
+        cache: "Immutable, Public, max-age=31536000",
+      },
+    },
+  });
+  assert.equal(result.code, 0, result.output);
+});
+
+for (const path of scriptPaths) {
+  test(`the live gate rejects a missing script at ${path}`, async (t) => {
+    const result = await checkDeployment(t, { scriptResponses: { [path]: null } });
+    assert.equal(result.code, 1, result.output);
+    assert.ok(result.output.includes(`${path} returned HTTP 404`), result.output);
+    assert.doesNotMatch(result.output, /verify-deploy: OK/);
+  });
+}
+
+for (const [name, response, message] of [
+  ["a script error", { status: 503 }, /returned HTTP 503/],
+  ["a script redirect", { status: 302, location: "https://example.invalid/script.js" }, /returned HTTP 302/],
+  ["a disconnected script", { disconnect: true }, /could not reach/],
+  ["a truncated script response", { truncate: true }, /could not reach/],
+  ["an HTML script response", { type: "text/html" }, /must return a JavaScript content type/],
+  ["a binary script response", { type: "application/octet-stream" }, /must return a JavaScript content type/],
+  ["an invalid JavaScript type", { type: "application/javascript-invalid" }, /must return a JavaScript content type/],
+  ["an empty script type", { type: "" }, /must return a JavaScript content type/],
+  ["an uncompressed script", { encoding: "identity" }, /is not gzip-compressed/],
+  ["an empty script encoding", { encoding: "" }, /is not gzip-compressed/],
+  ["an empty script cache", { cache: "" }, /expected public, max-age=31536000, immutable/],
+  ["a short script cache", { cache: "public, max-age=60, immutable" }, /expected public, max-age=31536000, immutable/],
+  ["a private script cache", { cache: "private, max-age=31536000, immutable" }, /expected public, max-age=31536000, immutable/],
+  ["a script cache without public access", { cache: "max-age=31536000, immutable" }, /expected public, max-age=31536000, immutable/],
+  ["a script cache that blocks storage", { cache: "public, max-age=31536000, immutable, no-store" }, /expected public, max-age=31536000, immutable/],
+  ["conflicting script cache lifetimes", { cache: "public, max-age=31536000, immutable, max-age=0" }, /expected public, max-age=31536000, immutable/],
+]) {
+  test(`the live gate rejects ${name}`, async (t) => {
+    const result = await checkDeployment(t, { scriptResponses: { [scriptPaths[2]]: response } });
+    assert.equal(result.code, 1, result.output);
+    assert.match(result.output, message);
+    assert.ok(result.output.includes(scriptPaths[2]), result.output);
+    assert.doesNotMatch(result.output, /verify-deploy: OK/);
+  });
+}
+
+for (const [name, reference, message] of [
+  ["an empty script reference", 'src=""', /empty src reference/],
+  ["a blank script reference", "src='   '", /empty src reference/],
+  ["a script reference without a value", "src", /empty src reference/],
+  ["an unfinished script reference", 'src="/_astro/unfinished.js', /empty src reference/],
+  ["duplicate script source attributes", `src="${scriptPaths[0]}" src="${scriptPaths[1]}"`, /multiple src attributes/],
+  ["a malformed script URL", 'src="http://["', /invalid src reference/],
+  ["a script URL with a control character", 'src="/_astro/bad\tname.js"', /invalid src reference/],
+  ["an invalid script character reference", 'src="/_astro/&#x110000;.js"', /invalid src reference/],
+  ["a data script URL", 'src="data:text/javascript,console.log(1)"', /unsupported URL/],
+  ["a file script URL", 'src="file:///tmp/script.js"', /unsupported URL/],
+  ["a script URL with credentials", 'src="http://user:pass@example.invalid/script.js"', /must not contain credentials/],
+]) {
+  test(`the live gate rejects ${name}`, async (t) => {
+    const html = homepage + `<script ${reference}></script>`;
+    const result = await checkDeployment(t, { html, expectedHtml: html });
+    assert.equal(result.code, 1, result.output);
+    assert.match(result.output, message);
+    assert.doesNotMatch(result.output, /verify-deploy: OK/);
+  });
+}
 
 test("the live gate accepts a different CSP order on the 404 response", async (t) => {
   const reordered = [...approvedCsp].reverse().map((directive) => {
@@ -246,12 +421,8 @@ for (const [name, options, message] of [
     /\/about\/ must return HTTP 200 as HTML/],
   ["a missing page served with HTTP 200", { missingStatus: 200 },
     /expected 404/],
-  ["a missing analytics loader", { html: withoutAnalytics, expectedHtml: withoutAnalytics },
-    /homepage does not load the analytics loader script/],
-  ["an uncompressed analytics loader", { scriptEncoding: "identity" },
-    /analytics loader.*is not gzip-compressed/],
-  ["a short cache on the analytics loader", { scriptCache: "public, max-age=60" },
-    /analytics loader.*expected public, max-age=31536000, immutable/],
+  ["a homepage without built scripts", { html: "<!doctype html>", expectedHtml: "<!doctype html>" },
+    /homepage does not load a same-origin script/],
   ["a homepage that accepts POST", { postStatus: 200 },
     /the static homepage must reject POST/],
   ["a missing security contact", { securityStatus: 404 },
