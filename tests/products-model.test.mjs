@@ -1,0 +1,120 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { LYRA } from "../src/lib/lyra/constellation.ts";
+import { stagger } from "../src/lib/lyra-render/clock.ts";
+import { LYRA_MAX_SIZE } from "../src/lib/lyra-render/lyra.ts";
+import { FIGURE_INSET } from "../src/lib/lyra-render/inset.ts";
+import { MAX_SLOTS, MIN_SLOTS, fitLyraAtVega, orbitBox, orbitSlot, planOrbit, productProgress } from "../src/lib/lyra-render/pages/products.ts";
+import { figureBox } from "./helpers.mjs";
+
+// A box of a tall side column, and a box of a wide band, as the page graphic meets them.
+const ORBIT_BOXES = [
+  { name: "column", w: 380, h: 720, wide: false },
+  { name: "band", w: 700, h: 150, wide: true },
+];
+
+test("planOrbit keeps six slots and lights one for each product up to the maximum", () => {
+  assert.deepEqual(planOrbit(0), { lit: 0, total: MIN_SLOTS });
+  assert.deepEqual(planOrbit(1), { lit: 1, total: 6 });
+  assert.deepEqual(planOrbit(6), { lit: 6, total: 6 });
+  assert.deepEqual(planOrbit(MAX_SLOTS + 5), { lit: MAX_SLOTS, total: MAX_SLOTS });
+  assert.deepEqual(planOrbit(Number.NaN), { lit: 0, total: 6 });
+});
+
+test("productProgress finishes every active node and link at full progress", () => {
+  for (let count = MAX_SLOTS; count > 0; count -= 1) {
+    for (let index = 0; index < count; index += 1) {
+      for (const part of ["node", "link"]) {
+        assert.equal(productProgress(0, index, count, part), 0, `${count} products: ${part} ${index} must start empty`);
+        assert.equal(productProgress(1, index, count, part), 1, `${count} products: ${part} ${index} must finish`);
+        let previous = 0;
+        for (let progress = 0; progress <= 1; progress += 0.05) {
+          const value = productProgress(progress, index, count, part);
+          assert.ok(value >= previous, `${count} products: ${part} ${index} must not lose progress`);
+          if (index > 0) {
+            assert.ok(value <= productProgress(progress, index - 1, count, part), `${count} products: ${part} ${index} must wait its turn`);
+          }
+          previous = value;
+        }
+      }
+    }
+  }
+});
+
+test("productProgress keeps the entrance timing for one product", () => {
+  for (const progress of [0, 0.42, 0.5, 0.55, 0.58, 0.7, 1]) {
+    assert.ok(Math.abs(productProgress(progress, 0, 1, "node") - stagger(progress, 0.42, 0.16)) < 1e-12);
+    assert.ok(Math.abs(productProgress(progress, 0, 1, "link") - stagger(progress, 0.5, 0.2)) < 1e-12);
+  }
+});
+
+test("orbitSlot gives every supported product its own place inside the box", () => {
+  for (const box of ORBIT_BOXES) {
+    const cx = box.w / 2;
+    const cy = box.h / 2;
+    const hw = box.w * 0.46;
+    const hh = box.h * 0.46;
+    for (let count = 1; count <= MAX_SLOTS; count += 1) {
+      const { total } = planOrbit(count);
+      const spots = Array.from({ length: total }, (_, i) => orbitSlot({ x: 0, y: 0 }, i, box.wide, cx, cy, hw, hh));
+      for (const [i, spot] of spots.entries()) {
+        assert.ok(spot.x > 0 && spot.x < box.w && spot.y > 0 && spot.y < box.h, `${box.name}: slot ${i} must sit inside the box`);
+        assert.ok(Math.hypot(spot.x - cx, spot.y - cy) > 8, `${box.name}: slot ${i} must not sit on Vega`);
+        for (let j = 0; j < i; j += 1) {
+          const apart = Math.hypot(spot.x - spots[j].x, spot.y - spots[j].y);
+          assert.ok(apart >= 16, `${box.name}: slots ${j} and ${i} must be 16 px apart or more, not ${apart}`);
+        }
+      }
+    }
+  }
+});
+
+test("orbitSlot puts a slot on its orbit ellipse", () => {
+  const spot = orbitSlot({ x: 0, y: 0 }, 2, false, 100, 200, 50, 80);
+  // Slot 2 is on the innermost orbit, at 0.36 of the half box.
+  const share = ((spot.x - 100) / 50) ** 2 + ((spot.y - 200) / 80) ** 2;
+  assert.ok(Math.abs(share - 0.36 ** 2) < 1e-9);
+});
+
+test("fitLyraAtVega keeps Vega at the centre and the figure inside the half box", () => {
+  for (const box of ORBIT_BOXES) {
+    const cx = box.w / 2;
+    const cy = box.h / 2;
+    const rx = box.w * 0.46 * 0.8;
+    const ry = box.h * 0.46 * 0.8;
+    const points = fitLyraAtVega([], cx, cy, rx, ry, box.wide);
+    assert.equal(points.length, LYRA.length);
+    assert.deepEqual(points[0], { x: cx, y: cy });
+    for (const point of points) {
+      assert.ok(Math.abs(point.x - cx) <= rx + 1e-9, `${box.name}: x ${point.x} must stay inside the half width`);
+      assert.ok(Math.abs(point.y - cy) <= ry + 1e-9, `${box.name}: y ${point.y} must stay inside the half height`);
+    }
+  }
+});
+
+test("fitLyraAtVega never grows the figure past the cap, and keeps its proportions", () => {
+  assert.ok(LYRA_MAX_SIZE <= 320, "the cap must stay near the size of the homepage and Writing figures");
+  const native = figureBox(LYRA.map((star) => ({ x: star.x, y: star.y })));
+  for (const [rx, ry] of [[100, 150], [500, 900], [2000, 2000]]) {
+    const box = figureBox(fitLyraAtVega([], 0, 0, rx, ry, false));
+    assert.ok(Math.abs(box.aspect - native.aspect) < 1e-9, `${rx}x${ry}: the aspect must match the figure`);
+    assert.ok(Math.max(box.width, box.height) <= LYRA_MAX_SIZE + 1e-9, `${rx}x${ry}: the figure must not grow past the cap`);
+  }
+});
+
+test("fitLyraAtVega turns the figure only in a wide box, and reuses the array it receives", () => {
+  const upright = fitLyraAtVega([], 0, 0, 100, 100, false);
+  const turned = fitLyraAtVega(upright.map((point) => ({ ...point })), 0, 0, 100, 100, true);
+  assert.ok(Math.abs(turned[5].x) > Math.abs(turned[5].y) * 0.5, "the long side of the figure must run across a wide box");
+  const reused = fitLyraAtVega(upright, 0, 0, 50, 50, false);
+  assert.equal(reused, upright);
+});
+
+test("the products orbits keep the outer ellipse inside the figure inset", () => {
+  for (const [w, h] of [[456, 762], [696, 942], [680, 136], [326, 136]]) {
+    const { hw, hh } = orbitBox(w, h);
+    assert.ok(w / 2 - hw * 0.95 >= FIGURE_INSET - 1e-9, `${w}x${h}: the outer orbit must keep the inset on the sides`);
+    assert.ok(h / 2 - hh * 0.95 >= FIGURE_INSET - 1e-9, `${w}x${h}: the outer orbit must keep the inset above and below`);
+  }
+});

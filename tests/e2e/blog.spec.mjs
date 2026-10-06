@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { bandHeight, currentContent, currentPublished, drawnLabels, edgePaint, focusRingAndFade, navLink, settle, tabTo, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { bandHeight, currentContent, currentPublished, drawnLabels, edgePaint, focusRingAndFade, navLink, settle, tabTo, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames, paintedPixels } from "./fixtures.mjs";
 
 const preview = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 const article = "/writing/lorem-ipsum-dolor-sit-amet/";
@@ -275,35 +275,6 @@ test("canvas, fonts, and storage failures keep content readable", async ({ page 
   await expect(page.locator(graphic)).toBeHidden();
 });
 
-/** Play the manual clock forward, in 16 ms frames. A frame counts at most 64 ms of time. */
-const play = (page, ms) =>
-  page.evaluate((span) => {
-    window.__time = window.__time ?? 0;
-    for (let end = window.__time + span; window.__time < end; ) {
-      window.__time += 16;
-      window.__step(window.__time);
-    }
-  }, ms);
-const pending = (page) => page.evaluate(() => window.__pending());
-
-/** The count of canvas pixels that hold any paint. */
-const paintedPixels = (page) =>
-  page.locator(`${graphic} canvas`).evaluate((canvas) => {
-    const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
-    let count = 0;
-    for (let i = 3; i < data.length; i += 4) if (data[i] > 8) count += 1;
-    return count;
-  });
-
-/** The count of near-opaque canvas pixels. A lit route and its halos add them, while the dimmed field loses faint ones. */
-const strongPixels = (page) =>
-  page.locator(`${graphic} canvas`).evaluate((canvas) => {
-    const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
-    let count = 0;
-    for (let i = 3; i < data.length; i += 4) if (data[i] > 200) count += 1;
-    return count;
-  });
-
 /** The count of painted canvas pixels under each box, given in page pixels. */
 const paintUnder = (page, boxes) =>
   page.locator(`${graphic} canvas`).evaluate((canvas, list) => {
@@ -403,7 +374,7 @@ test.describe("the writing graphic never covers text", () => {
         expect(shape.h, `${place}: the graphic has a height`).toBeGreaterThan(150);
         const texts = await textBoxes(page);
         expect(texts.length).toBeGreaterThan(0);
-        expect(await paintedPixels(page), `${place}: the picture is drawn`).toBeGreaterThan(3000);
+        expect(await paintedPixels(page, graphic, 8), `${place}: the picture is drawn`).toBeGreaterThan(3000);
         expect(await paintUnder(page, texts), `${place}: the picture must not paint under text`).toBe(0);
       }
     });
@@ -572,47 +543,6 @@ test.describe("the writing graphic uses page bindings", () => {
 test.describe("the writing graphic entrance", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 
-  test("plays, then rests in the still state", async ({ page }) => {
-    await page.goto(preview + "/writing/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
-    });
-
-  test("paints more as it goes, and ends at rest with no queued frame", async ({ page }) => {
-    await useManualFrames(page);
-    await page.goto(preview + "/writing/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "playing");
-    await play(page, 32);
-    const early = await paintedPixels(page);
-    await play(page, 1000);
-    const middle = await paintedPixels(page);
-    await play(page, 2000);
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
-    const done = await paintedPixels(page);
-    expect(early).toBeLessThan(middle);
-    expect(middle).toBeLessThan(done);
-    await expect.poll(() => pending(page)).toBe(0);
-  });
-
-  test("reduced motion paints the finished picture on the first frame and runs no frames", async ({ page }) => {
-    await useManualFrames(page);
-    await useReducedMotion(page);
-    await page.goto(preview + "/writing/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
-    expect(await pending(page)).toBe(0);
-    expect(await paintedPixels(page), "every star, synapse, and label is drawn at once").toBeGreaterThan(3000);
-  });
-
-  test("a live change to reduced motion finishes the picture at once", async ({ page }) => {
-    await useManualFrames(page);
-    await page.goto(preview + "/writing/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "playing");
-    await useReducedMotion(page);
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
-    expect(await pending(page)).toBe(0);
-  });
-
   test("keeps the canvas as wide as its box after a resize", async ({ page }) => {
     await useReducedMotion(page);
     await page.goto(preview + "/writing/");
@@ -625,63 +555,35 @@ test.describe("the writing graphic entrance", () => {
 });
 
 test.describe("the writing graphic pauses and tears down", () => {
-  test("stops its frames when it scrolls off-screen, and resumes on return", async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.mobile);
-    await useManualFrames(page);
-    await page.goto(preview + "/writing/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    expect(await pending(page), "frames run while the graphic shows").toBe(1);
-    await page.evaluate(() => scrollTo(0, 1500));
-    await expect.poll(() => pending(page), "no frame is queued off-screen").toBe(0);
-    await page.evaluate(() => scrollTo(0, 0));
-    await expect.poll(() => pending(page), "frames resume on return").toBe(1);
-  });
-
-  test("stops its frames while the tab is hidden, and resumes when it shows", async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.desktop);
-    await useManualFrames(page);
-    await page.goto(preview + "/writing/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    expect(await pending(page)).toBe(1);
-    const setHidden = (hidden) =>
-      page.evaluate((value) => {
-        Object.defineProperty(document, "hidden", { configurable: true, get: () => value });
-        document.dispatchEvent(new Event("visibilitychange"));
-      }, hidden);
-    await setHidden(true);
-    expect(await pending(page), "no frame is queued in a hidden tab").toBe(0);
-    await setHidden(false);
-    expect(await pending(page), "frames resume when the tab shows").toBe(1);
-  });
 
   test("cancels its frames and its listeners on pagehide, and sets up again on a restored page", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
     await useManualFrames(page);
     await page.goto(preview + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    await play(page, 3000);
+    await playFrames(page, 3000);
     await page.locator(".post-list__item").nth(1).hover();
     await expect(page.locator(graphic)).toHaveAttribute("data-active-post", /.+/);
-    expect(await pending(page)).toBe(1);
+    expect(await pendingFrames(page)).toBe(1);
 
     await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true })));
-    expect(await pending(page), "no frame stays queued after pagehide").toBe(0);
+    expect(await pendingFrames(page), "no frame stays queued after pagehide").toBe(0);
     await expect(page.locator(graphic)).not.toHaveAttribute("data-ready", /.*/);
     await expect(page.locator(graphic)).not.toHaveAttribute("data-motion-state", /.*/);
     await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
     // The listeners are gone: a post that takes the pointer lights nothing.
     await page.locator(".post-list__item").nth(2).hover();
     await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
-    expect(await pending(page)).toBe(0);
+    expect(await pendingFrames(page)).toBe(0);
 
     // The entrance is over, so a restored page rests with no queued frame. Its listeners return.
     await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })));
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    expect(await pending(page), "a restored page at rest queues no frame").toBe(0);
+    expect(await pendingFrames(page), "a restored page at rest queues no frame").toBe(0);
     await page.mouse.move(2, 2);
     await page.locator(".post-list__item").nth(1).hover();
     await expect(page.locator(graphic)).toHaveAttribute("data-active-post", /.+/);
-    expect(await pending(page), "a lit post asks for frames after a restored page").toBe(1);
+    expect(await pendingFrames(page), "a lit post asks for frames after a restored page").toBe(1);
   });
 });
 
@@ -704,26 +606,26 @@ test.describe("the writing graphic answers a lit post", () => {
     await useManualFrames(page);
     await page.goto(preview + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    await play(page, 3000);
+    await playFrames(page, 3000);
     await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
-    expect(await pending(page), "the picture rests with no lit post").toBe(0);
+    expect(await pendingFrames(page), "the picture rests with no lit post").toBe(0);
     await watchActive(page);
 
     const second = page.locator(".post-list__item").nth(1);
     await second.hover();
     await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await second.getAttribute("data-post-id"));
-    expect(await pending(page), "a lit post asks for frames").toBe(1);
-    const before = await strongPixels(page);
-    for (let i = 0; i < 20; i += 1) await play(page, 16);
+    expect(await pendingFrames(page), "a lit post asks for frames").toBe(1);
+    const before = await paintedPixels(page, graphic, 200);
+    for (let i = 0; i < 20; i += 1) await playFrames(page, 16);
     expect(await writes(page), "twenty frames write no attribute").toBe(1);
-    await play(page, 400);
-    expect(await strongPixels(page), "the path to Vega adds paint").toBeGreaterThan(before);
+    await playFrames(page, 400);
+    expect(await paintedPixels(page, graphic, 200), "the path to Vega adds paint").toBeGreaterThan(before);
 
     await page.mouse.move(2, 2);
     await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
-    await play(page, 2000);
+    await playFrames(page, 2000);
     expect(await writes(page)).toBe(2);
-    expect(await pending(page), "the loop stops once the glow has faded").toBe(0);
+    expect(await pendingFrames(page), "the loop stops once the glow has faded").toBe(0);
   });
 
   test("keyboard focus sets the active post, and leaving clears it", async ({ page }) => {
@@ -753,7 +655,7 @@ test.describe("the writing graphic answers a lit post", () => {
     await page.locator(".post-list__item").nth(1).hover();
     await expect(page.locator(graphic)).toHaveAttribute("data-active-post", /.+/);
     expect(await canvas.evaluate((element) => element.toDataURL()), "the picture changes on the same turn").not.toBe(rest);
-    expect(await pending(page)).toBe(0);
+    expect(await pendingFrames(page)).toBe(0);
     await page.mouse.move(2, 2);
     expect(await canvas.evaluate((element) => element.toDataURL())).toBe(rest);
   });

@@ -1,6 +1,8 @@
 import { chromium, expect, test } from "@playwright/test";
 
-import { currentPublished, settle, tabTo, textBoxes, VIEWPORTS } from "./fixtures.mjs";
+import { bandHeight, openGraphic as open, currentPublished, settle, tabTo, textBoxes, VIEWPORTS } from "./fixtures.mjs";
+
+const dev = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 
 /**
  * Shell contracts that every route owes the reader, checked on all of them at
@@ -126,7 +128,6 @@ test.describe("the footer holds the foot of the viewport", () => {
 });
 
 test.describe("the footer fade", () => {
-  const dev = "http://127.0.0.1:4324";
   const scrolling = [
     "/about/",
     "/no-such-page/",
@@ -358,7 +359,7 @@ test.describe("the compact header", () => {
   });
 
   // Test focus exit with production content and local preview content.
-  for (const [name, url] of [["production", "/"], ["draft", "http://127.0.0.1:4324/"]]) {
+  for (const [name, url] of [["production", "/"], ["draft", dev + "/"]]) {
     test(`closes when focus tabs past the last link on the ${name} homepage`, async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 800 });
       await page.goto(url);
@@ -436,7 +437,7 @@ test.describe("the compact header", () => {
     // The dev server shows drafts, so its nav holds about, writing, products,
     // and the three profile links: the widest header the site can build.
     await page.setViewportSize({ width: 641, height: 800 });
-    await page.goto("http://127.0.0.1:4324/");
+    await page.goto(dev + "/");
     await settle(page);
 
     const state = await page.evaluate(() => {
@@ -516,10 +517,10 @@ test.describe("one site frame at every width", () => {
     "/",
     "/about/",
     "/no-such-page/",
-    "http://127.0.0.1:4324/",
-    "http://127.0.0.1:4324/writing/lorem-ipsum-dolor-sit-amet/",
-    "http://127.0.0.1:4324/products/",
-    "http://127.0.0.1:4324/writing/",
+    dev + "/",
+    dev + "/writing/lorem-ipsum-dolor-sit-amet/",
+    dev + "/products/",
+    dev + "/writing/",
   ];
 
   for (const viewport of WIDE) {
@@ -549,7 +550,7 @@ test.describe("one site frame at every width", () => {
 
   test("keeps the reading column on the frame edge and under 745px on a wide screen", async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
-    for (const route of ["/about/", "http://127.0.0.1:4324/writing/lorem-ipsum-dolor-sit-amet/"]) {
+    for (const route of ["/about/", dev + "/writing/lorem-ipsum-dolor-sit-amet/"]) {
       await page.goto(route);
       await settle(page);
       const column = await page.evaluate(() => {
@@ -659,7 +660,7 @@ test.describe("the desktop nav targets", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 
   test("give every link a 40px tall target and at least 24px width", async ({ page }) => {
-    await page.goto("http://127.0.0.1:4324/");
+    await page.goto(dev + "/");
     await settle(page);
     const links = await page.locator(".nav__link").evaluateAll((nodes) => nodes.map((node) => {
       const box = node.getBoundingClientRect();
@@ -675,7 +676,7 @@ test.describe("the desktop nav targets", () => {
   });
 
   test("centres the divider in the gap between the internal and profile links", async ({ page }) => {
-    await page.goto("http://127.0.0.1:4324/");
+    await page.goto(dev + "/");
     await settle(page);
     const state = await page.evaluate(() => {
       const divided = document.querySelector(".nav__link--divided");
@@ -695,7 +696,7 @@ test.describe("the desktop nav targets", () => {
   });
 
   test("leaves equal visible space around every word and the divider", async ({ page }) => {
-    await page.goto("http://127.0.0.1:4324/");
+    await page.goto(dev + "/");
     await settle(page);
     const words = await page.evaluate(() => [...document.querySelectorAll(".nav__link")].map((link) => {
       const range = document.createRange();
@@ -726,7 +727,7 @@ test.describe("the desktop nav targets", () => {
    The homepage is one screen with no scrolling, so its header does not stick. */
 const STICKY_PAGES = [
   ["about", "/about/"],
-  ["article", "http://127.0.0.1:4324/writing/lorem-ipsum-dolor-sit-amet/"],
+  ["article", dev + "/writing/lorem-ipsum-dolor-sit-amet/"],
 ];
 
 test.describe("the sticky header", () => {
@@ -800,7 +801,7 @@ test.describe("the sticky header", () => {
  * the ground is grid. The screenshot loads into a blank page, so the canvas
  * can read its pixels and the page CSP does not apply.
  */
-const MOTIF_DEV = "http://127.0.0.1:4324";
+const MOTIF_DEV = dev;
 const MOTIF_ROUTES = ["/about/", "/no-such-page/", `${MOTIF_DEV}/products/`, `${MOTIF_DEV}/products/lorem-ipsum-dolor/`];
 const MOTIF_GROUND = [20, 24, 31];
 
@@ -921,7 +922,6 @@ test.describe("the blueprint grid right of the reading column", () => {
 });
 
 test.describe("page headers", () => {
-  const dev = "http://127.0.0.1:4324";
 
   async function headerMetrics(page, url, eyebrow, heading) {
     await page.goto(url);
@@ -1203,6 +1203,27 @@ test.describe("the homepage globe lines up with the inner page graphic", () => {
       for (const label of home.labels) {
         expect(label.left, `${label.text} starts inside the screen`).toBeGreaterThan(0);
         expect(label.right, `${label.text} ends before the fade`).toBeLessThanOrEqual(clearRight);
+      }
+    });
+  }
+});
+
+test.describe("the graphic bands share one height below 1100px", () => {
+  const PAGES = {
+    products: { url: `${dev}/products/`, graphic: "[data-graphic='products']" },
+    notFound: { url: "/no-such-page-for-the-graphic/", graphic: "[data-graphic='404']" },
+  };
+
+  for (const size of [{ width: 1024, height: 768 }, { width: 820, height: 1180 }, VIEWPORTS.mobile, { width: 360, height: 740 }, { width: 820, height: 2000 }]) {
+    test(`about, products, the 404 page, and the homepage hold the shared band height at ${size.width}x${size.height}`, async ({ page }) => {
+      await page.setViewportSize(size);
+      const heights = [];
+      for (const target of [PAGES.products, PAGES.notFound, { url: `${dev}/about/`, graphic: "[data-graphic='about']" }, { url: "/", graphic: ".hero__globe [data-lyra-globe]" }]) {
+        await open(page, target);
+        heights.push(await page.locator(target.graphic).evaluate((el) => el.getBoundingClientRect().height));
+      }
+      for (const height of heights) {
+        expect(Math.abs(height - bandHeight(size.height)), `band heights ${heights}`).toBeLessThanOrEqual(1);
       }
     });
   }

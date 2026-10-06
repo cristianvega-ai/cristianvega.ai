@@ -93,6 +93,14 @@ export const VIEWPORTS = {
   mobile: { width: 390, height: 844 },
 };
 
+/** Check page graphics across the desktop and band layouts. */
+export const GRAPHIC_VIEWPORTS = [
+  VIEWPORTS.desktop,
+  { width: 1024, height: 768 },
+  { width: 820, height: 1180 },
+  VIEWPORTS.mobile,
+];
+
 /**
  * The height of the graphic band below 1100px on a screen of a given height. The band
  * follows the screen height between 144px and 240px, the same clamp as global.css.
@@ -184,6 +192,37 @@ export async function useManualFrames(page) {
       for (const callback of callbacks) callback(time);
     };
   });
+}
+
+/** Run one manual frame at the supplied time. */
+export const stepFrame = (page, time) => page.evaluate((value) => window.__step(value), time);
+
+/** Count the queued manual frames. */
+export const pendingFrames = (page) => page.evaluate(() => window.__pending());
+
+/** Advance the manual clock in 16 ms frames. */
+export const playFrames = (page, ms) =>
+  page.evaluate((span) => {
+    window.__time = window.__time ?? 0;
+    for (let end = window.__time + span; window.__time < end; ) {
+      window.__time += 16;
+      window.__step(window.__time);
+    }
+  }, ms);
+
+/** Count canvas pixels above the supplied alpha threshold. */
+export const paintedPixels = (page, graphic, minAlpha) =>
+  page.locator(`${graphic} canvas`).evaluate((canvas, threshold) => {
+    const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+    let count = 0;
+    for (let i = 3; i < data.length; i += 4) if (data[i] > threshold) count += 1;
+    return count;
+  }, minAlpha);
+
+/** Open a page and wait for its graphic. */
+export async function openGraphic(page, target) {
+  await page.goto(target.url);
+  await expect(page.locator(target.graphic)).toHaveAttribute("data-ready", "true", { timeout: 20_000 });
 }
 
 /** Box of every text run in main, taken before the content is hidden. */

@@ -1,38 +1,14 @@
 import { expect, test } from "@playwright/test";
 
-import { bandHeight, drawnLabels, edgePaint, settle, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { bandHeight, drawnLabels, edgePaint, settle, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames, paintedPixels } from "./fixtures.mjs";
 
 /**
- * The About graphic, "Trajectory": a canvas picture that shares the grid's place
- * right of the reading column, and a short band above the title on narrower
- * screens. The shared module behavior (pause, teardown, reduced motion) is
- * checked here through this page, because it is the first page that uses it.
+ * Check the About graphic beside the reading column and in the narrow band.
+ * Keep reader interaction and marker expectations in this suite.
+ * Keep shared lifecycle checks in page-graphics.spec.mjs.
  */
 
 const graphic = "[data-graphic='about']";
-const pending = (page) => page.evaluate(() => window.__pending());
-
-/**
- * Play the manual clock forward by a number of milliseconds, in 16 ms frames.
- * A frame counts at most 64 ms of time, so a test cannot jump over the entrance in one step.
- */
-const play = (page, ms) =>
-  page.evaluate((span) => {
-    window.__time = window.__time ?? 0;
-    for (let end = window.__time + span; window.__time < end; ) {
-      window.__time += 16;
-      window.__step(window.__time);
-    }
-  }, ms);
-
-/** The count of canvas pixels that hold any paint. */
-const paintedPixels = (page) =>
-  page.locator(`${graphic} canvas`).evaluate((canvas) => {
-    const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
-    let count = 0;
-    for (let i = 3; i < data.length; i += 4) if (data[i] > 8) count += 1;
-    return count;
-  });
 
 test.describe("the about graphic is decorative", () => {
   test.use({ viewport: VIEWPORTS.desktop });
@@ -175,97 +151,16 @@ test.describe("the about graphic without JavaScript", () => {
 test.describe("the about graphic entrance", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 
-  test("plays, then rests in the still state", async ({ page }) => {
-    await page.goto("/about/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
-    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-  });
-
-  test("starts playing, paints more as it goes, and ends at rest", async ({ page }) => {
-    await useManualFrames(page);
-    await page.goto("/about/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "playing");
-    await play(page, 32);
-    const early = await paintedPixels(page);
-    await play(page, 1000);
-    const middle = await paintedPixels(page);
-    await play(page, 2000);
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
-    const done = await paintedPixels(page);
-    expect(early, "the first frame is nearly empty").toBeLessThan(middle);
-    expect(middle, "the middle of the entrance holds part of the picture").toBeLessThan(done);
-    // The entrance is over and the marker has settled, so no frame stays queued.
-    await expect.poll(() => pending(page)).toBe(0);
-  });
-
   test("reduced motion paints the settled picture on the first frame and runs no frames", async ({ page }) => {
     await useManualFrames(page);
     await useReducedMotion(page);
     await page.goto("/about/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
-    expect(await pending(page)).toBe(0);
-    expect(await paintedPixels(page), "the path, the mesh, and the marker are drawn at once").toBeGreaterThan(3000);
+    expect(await pendingFrames(page)).toBe(0);
+    expect(await paintedPixels(page, graphic, 8), "the path, the mesh, and the marker are drawn at once").toBeGreaterThan(3000);
     // At the top of the page the marker rests at the start of the path.
     await expect(page.locator(graphic)).toHaveAttribute("data-progress", "0");
-  });
-
-  test("a live change to reduced motion finishes the picture at once", async ({ page }) => {
-    await useManualFrames(page);
-    await page.goto("/about/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "playing");
-    await useReducedMotion(page);
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
-    expect(await pending(page)).toBe(0);
-  });
-});
-
-test.describe("the about graphic pauses and tears down", () => {
-  test("stops its frames when the band scrolls off-screen, and resumes on return", async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.mobile);
-    await useManualFrames(page);
-    await page.goto("/about/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    await expect.poll(() => pending(page), "frames run while the band shows").toBe(1);
-    await page.evaluate(() => scrollTo(0, 1500));
-    await expect.poll(() => pending(page), "no frame is queued off-screen").toBe(0);
-    await page.evaluate(() => scrollTo(0, 0));
-    await expect.poll(() => pending(page), "frames resume on return").toBe(1);
-  });
-
-  test("stops its frames while the tab is hidden, and resumes when it shows", async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.desktop);
-    await useManualFrames(page);
-    await page.goto("/about/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    await expect.poll(() => pending(page)).toBe(1);
-    const setHidden = (hidden) =>
-      page.evaluate((value) => {
-        Object.defineProperty(document, "hidden", { configurable: true, get: () => value });
-        document.dispatchEvent(new Event("visibilitychange"));
-      }, hidden);
-    await setHidden(true);
-    expect(await pending(page), "no frame is queued in a hidden tab").toBe(0);
-    await setHidden(false);
-    expect(await pending(page), "frames resume when the tab shows").toBe(1);
-  });
-
-  test("cancels its frames on pagehide and sets up again on a restored page", async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.desktop);
-    await useManualFrames(page);
-    await page.goto("/about/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    await expect.poll(() => pending(page)).toBe(1);
-
-    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true })));
-    expect(await pending(page), "no frame stays queued after pagehide").toBe(0);
-    await expect(page.locator(graphic)).not.toHaveAttribute("data-ready", /.*/);
-    await expect(page.locator(graphic)).not.toHaveAttribute("data-motion-state", /.*/);
-
-    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })));
-    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    await expect.poll(() => pending(page), "frames resume after a restored page").toBe(1);
   });
 });
 
@@ -311,11 +206,11 @@ test.describe("the about graphic follows the reader", () => {
         return sum;
       });
     // Step one frame at a time through the end of the entrance.
-    await play(page, 1600);
+    await playFrames(page, 1600);
     let previous = await weight();
     const steps = [];
     for (let time = 1600; time < 2400; time += 16) {
-      await play(page, 16);
+      await playFrames(page, 16);
       const now = await weight();
       steps.push(Math.abs(now - previous) / previous);
       previous = now;
@@ -330,7 +225,7 @@ test.describe("the about graphic follows the reader", () => {
     await page.evaluate(() => scrollTo(0, (document.documentElement.scrollHeight - innerHeight) * 0.5));
     const lit = [];
     for (let time = 0; time < 3200; time += 16) {
-      await play(page, 16);
+      await playFrames(page, 16);
       lit.push(Number(await page.locator(graphic).getAttribute("data-progress")));
     }
     for (let i = 1; i < lit.length; i += 1) {
@@ -347,7 +242,7 @@ test.describe("the about graphic follows the reader", () => {
     await useManualFrames(page);
     await page.goto("/about/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    await play(page, 3200);
+    await playFrames(page, 3200);
     await expect(page.locator(graphic)).toHaveAttribute("data-progress", "0");
   });
 
@@ -356,7 +251,7 @@ test.describe("the about graphic follows the reader", () => {
     await useManualFrames(page);
     await page.goto("/about/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    await play(page, 3200);
+    await playFrames(page, 3200);
     await expect(page.locator(graphic)).toHaveAttribute("data-progress", "1");
   });
 
@@ -369,10 +264,10 @@ test.describe("the about graphic follows the reader", () => {
     await page.evaluate(() => scrollTo(0, (document.documentElement.scrollHeight - innerHeight) * 0.5));
     await expect.poll(async () => Number(await page.locator(graphic).getAttribute("data-progress"))).toBeGreaterThan(0.45);
     expect(Number(await page.locator(graphic).getAttribute("data-progress"))).toBeLessThan(0.55);
-    expect(await pending(page)).toBe(0);
+    expect(await pendingFrames(page)).toBe(0);
     await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
     await expect(page.locator(graphic)).toHaveAttribute("data-progress", "1");
-    expect(await pending(page)).toBe(0);
+    expect(await pendingFrames(page)).toBe(0);
   });
 
   test("reduced motion on a page that cannot scroll lights the whole path", async ({ page }) => {
@@ -392,7 +287,7 @@ test.describe("the about graphic follows the reader", () => {
       window.__observer.observe(document.querySelector("[data-graphic]"), { attributes: true, attributeFilter: ["data-progress"] });
     });
     // Run the entrance to its end. Then scroll to the bottom and step frame by frame.
-    await play(page, 3000);
+    await playFrames(page, 3000);
     await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
     const writes = [];
     for (let i = 0; i < 20; i += 1) {

@@ -17,6 +17,18 @@ import yaml from "js-yaml";
 export const root = fileURLToPath(new URL("..", import.meta.url));
 export const dist = join(root, "dist");
 
+// Read the size and aspect ratio of a figure.
+export const figureBox = (points) => {
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const width = Math.max(...xs) - Math.min(...xs);
+  const height = Math.max(...ys) - Math.min(...ys);
+  return { width, height, aspect: width / height };
+};
+
+// Keep the reference star widths in CSS pixels.
+export const starWidthsCssPx = [66, 0, 0, 0, 42, 42];
+
 // Read Markdown independently from the application content helpers.
 export function readContentInventory(projectRoot = root) {
   const inventory = {};

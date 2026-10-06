@@ -1,56 +1,17 @@
 import { expect, test } from "@playwright/test";
 
-import { bandHeight, drawnLabels, edgePaint, settle, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { currentContent, pendingFrames, playFrames, useManualFrames, drawnLabels, edgePaint, GRAPHIC_VIEWPORTS as SIZES, openGraphic as open, settle, textBoxes, useLabelSpy, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
-/**
- * The products graphic ("Constellation lattice") and the 404 graphic ("Missing star").
- * Both use the shared page graphic module, so the pause and teardown rules are
- * checked through these pages as well. The products pages exist only on the draft
- * preview server. The 404 page exists in the production build.
- */
+// Check product flows and product graphic expectations.
 
 const dev = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
+
 const PAGES = {
   products: { name: "products index", url: `${dev}/products/`, graphic: "[data-graphic='products']", restMs: 31_000 },
   product: { name: "product page", url: `${dev}/products/lorem-ipsum-dolor/`, graphic: "[data-graphic='products']", restMs: 31_000 },
-  notFound: { name: "404 page", url: "/no-such-page-for-the-graphic/", graphic: "[data-graphic='404']", restMs: 31_000 },
 };
-const SIZES = [
-  { width: 1440, height: 900 },
-  { width: 1024, height: 768 },
-  { width: 820, height: 1180 },
-  { width: 390, height: 844 },
-];
 
-const pending = (page) => page.evaluate(() => window.__pending());
-
-/** Open a page and wait for its graphic. The draft server compiles a page on the first visit, so the wait is long. */
-async function open(page, target) {
-  await page.goto(target.url);
-  await expect(page.locator(target.graphic)).toHaveAttribute("data-ready", "true", { timeout: 20_000 });
-}
-
-/**
- * Play the manual clock forward by a number of milliseconds, in 16 ms frames.
- * A frame counts at most 64 ms of time, so a test cannot jump over the entrance in one step.
- */
-const play = (page, ms) =>
-  page.evaluate((span) => {
-    window.__time = window.__time ?? 0;
-    for (let end = window.__time + span; window.__time < end; ) {
-      window.__time += 16;
-      window.__step(window.__time);
-    }
-  }, ms);
-
-/** The count of canvas pixels that hold any paint. */
-const paintedPixels = (page, graphic) =>
-  page.locator(`${graphic} canvas`).evaluate((canvas) => {
-    const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
-    let count = 0;
-    for (let i = 3; i < data.length; i += 4) if (data[i] > 8) count += 1;
-    return count;
-  });
+const WIDTHS = { ...VIEWPORTS, wide: { width: 1920, height: 1080 }, narrow: { width: 360, height: 740 } };
 
 /** Read the product marks from the latest canvas frame. Keep the canvas drawing active. */
 async function useProductMarks(page) {
@@ -132,6 +93,56 @@ async function expectFullOrbit(page) {
     expect(ring.y).toBeLessThanOrEqual(height - 32 + 1e-8);
   }
 }
+
+test.describe("products on the dev server", () => {
+  test.use({ viewport: VIEWPORTS.desktop });
+
+  test("the index and the detail page read like the article pages", async ({ page }) => {
+    await page.goto(dev + "/products/");
+    await expect(page.locator("main h1")).toHaveText("Products");
+    await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "page");
+    if (currentContent.products.some((entry) => entry.data.draft)) {
+      await expect(page.locator("meta[name='robots']")).toHaveAttribute("content", "noindex, follow");
+    } else await expect(page.locator("meta[name='robots']")).toHaveCount(0);
+    await expect(page.locator("meta[name='color-scheme']")).toHaveAttribute("content", "dark");
+    await page.getByRole("link", { name: "Lorem ipsum dolor" }).click();
+
+    await expect(page).toHaveURL(dev + "/products/lorem-ipsum-dolor/");
+    await expect(page.locator("main h1")).toHaveText("Lorem ipsum dolor");
+    await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "location");
+    const product = currentContent.products.find((entry) => entry.id === "lorem-ipsum-dolor");
+    if (product.data.draft) {
+      await expect(page.locator("meta[name='robots']")).toHaveAttribute("content", "noindex, follow");
+    } else await expect(page.locator("meta[name='robots']")).toHaveCount(0);
+    await expect(page.locator(".product__prose")).toContainText("Lorem ipsum dolor sit amet, consectetur adipiscing elit");
+    await expect(page.getByRole("link", { name: "All products →" })).toHaveAttribute("href", "/products/");
+    const outbound = page.locator(".product__link[target='_blank']");
+    if (product.data.url) {
+      await expect(outbound).toHaveAttribute("href", product.data.url);
+      await expect(outbound).toHaveAttribute("rel", "noopener noreferrer");
+    } else await expect(outbound).toHaveCount(0);
+  });
+
+  test("an unknown product is a 404", async ({ request }) => {
+    expect((await request.get(dev + "/products/no-such-product/")).status()).toBe(404);
+  });
+
+  test("the reading edge matches the about page at every width", async ({ page }) => {
+    for (const viewport of Object.values(WIDTHS)) {
+      await page.setViewportSize(viewport);
+      const edges = [];
+      for (const url of [dev + "/products/", "/about/"]) {
+        await page.goto(url);
+        await settle(page);
+        edges.push(await page.locator("main .wrap--read").first().evaluate((el) => {
+          const rect = el.getBoundingClientRect();
+          return Math.round(rect.left + parseFloat(getComputedStyle(el).paddingLeft));
+        }));
+      }
+      expect(edges[0], `at ${viewport.width}px`).toBe(edges[1]);
+    }
+  });
+});
 
 for (const target of Object.values(PAGES)) {
   test.describe(`the ${target.name} graphic is decorative`, () => {
@@ -248,100 +259,6 @@ for (const target of Object.values(PAGES)) {
       expect(mask.composite).toMatch(/intersect|source-in/);
     });
   });
-
-  test.describe(`the ${target.name} graphic entrance`, () => {
-    test.use({ viewport: VIEWPORTS.desktop });
-
-    test("starts playing, paints more as it goes, and rests after the last frame of motion", async ({ page }) => {
-      await useManualFrames(page);
-      await open(page, target);
-      const root = page.locator(target.graphic);
-      await expect(root).toHaveAttribute("data-motion-state", "playing");
-      await play(page, 32);
-      const early = await paintedPixels(page, target.graphic);
-      await play(page, 1200);
-      const middle = await paintedPixels(page, target.graphic);
-      expect(early, "the first frame is nearly empty").toBeLessThan(middle);
-      // The entrance is over at 2.3 s. The picture still moves, so it is not at rest yet.
-      await play(page, 2000);
-      await expect(root).toHaveAttribute("data-motion-state", "playing");
-      expect(await pending(page), "a frame stays queued while the picture moves").toBe(1);
-      // Play on past the end of the motion.
-      await play(page, target.restMs);
-      await expect(root).toHaveAttribute("data-motion-state", "still");
-      await expect.poll(() => pending(page), "no frame stays queued at rest").toBe(0);
-      expect(middle, "the middle of the entrance holds part of the picture").toBeLessThan(await paintedPixels(page, target.graphic));
-    });
-
-    test("reduced motion paints the finished picture on the first frame and runs no frames", async ({ page }) => {
-      await useManualFrames(page);
-      await useReducedMotion(page);
-      await open(page, target);
-      await expect(page.locator(target.graphic)).toHaveAttribute("data-motion-state", "still");
-      expect(await pending(page)).toBe(0);
-      expect(await paintedPixels(page, target.graphic), "the whole picture shows at once").toBeGreaterThan(2500);
-    });
-
-    test("a live change to reduced motion finishes the picture at once", async ({ page }) => {
-      await useManualFrames(page);
-      await open(page, target);
-      await expect(page.locator(target.graphic)).toHaveAttribute("data-motion-state", "playing");
-      await useReducedMotion(page);
-      await expect(page.locator(target.graphic)).toHaveAttribute("data-motion-state", "still");
-      expect(await pending(page)).toBe(0);
-    });
-  });
-
-  test.describe(`the ${target.name} graphic pauses and tears down`, () => {
-    test("stops its frames when the band scrolls off-screen, and resumes on return", async ({ page }) => {
-      await page.setViewportSize(VIEWPORTS.mobile);
-      await useManualFrames(page);
-      await open(page, target);
-      await expect.poll(() => pending(page), "frames run while the band shows").toBe(1);
-      // Make the page longer than the screen, so the band can leave it.
-      await page.evaluate(() => {
-        const spacer = document.createElement("div");
-        spacer.style.height = "3000px";
-        document.querySelector("main").append(spacer);
-      });
-      await page.evaluate(() => scrollTo(0, 1500));
-      await expect.poll(() => pending(page), "no frame is queued off-screen").toBe(0);
-      await page.evaluate(() => scrollTo(0, 0));
-      await expect.poll(() => pending(page), "frames resume on return").toBe(1);
-    });
-
-    test("stops its frames while the tab is hidden, and resumes when it shows", async ({ page }) => {
-      await page.setViewportSize(VIEWPORTS.desktop);
-      await useManualFrames(page);
-      await open(page, target);
-      await expect.poll(() => pending(page)).toBe(1);
-      const setHidden = (hidden) =>
-        page.evaluate((value) => {
-          Object.defineProperty(document, "hidden", { configurable: true, get: () => value });
-          document.dispatchEvent(new Event("visibilitychange"));
-        }, hidden);
-      await setHidden(true);
-      expect(await pending(page), "no frame is queued in a hidden tab").toBe(0);
-      await setHidden(false);
-      expect(await pending(page), "frames resume when the tab shows").toBe(1);
-    });
-
-    test("cancels its frames on pagehide and sets up again on a restored page", async ({ page }) => {
-      await page.setViewportSize(VIEWPORTS.desktop);
-      await useManualFrames(page);
-      await open(page, target);
-      await expect.poll(() => pending(page)).toBe(1);
-
-      await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true })));
-      expect(await pending(page), "no frame stays queued after pagehide").toBe(0);
-      await expect(page.locator(target.graphic)).not.toHaveAttribute("data-ready", /.*/);
-      await expect(page.locator(target.graphic)).not.toHaveAttribute("data-motion-state", /.*/);
-
-      await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })));
-      await expect(page.locator(target.graphic)).toHaveAttribute("data-ready", "true");
-      await expect.poll(() => pending(page), "frames resume after a restored page").toBe(1);
-    });
-  });
 }
 
 test.describe("the products graphic shows the products", () => {
@@ -393,15 +310,15 @@ test.describe("the products graphic fills every active slot", () => {
     test(`finishes eight products after the entrance and keeps the drift at ${size.width}px`, async ({ page }) => {
       await page.setViewportSize(size);
       const errors = await openFullOrbit(page);
-      await expect.poll(() => pending(page)).toBe(1);
-      await play(page, 2400);
+      await expect.poll(() => pendingFrames(page)).toBe(1);
+      await playFrames(page, 2400);
       await expectFullOrbit(page);
       await expect(page.locator(PAGES.product.graphic)).toHaveAttribute("data-motion-state", "playing");
-      expect(await pending(page)).toBe(1);
-      await play(page, PAGES.product.restMs);
+      expect(await pendingFrames(page)).toBe(1);
+      await playFrames(page, PAGES.product.restMs);
       await expectFullOrbit(page);
       await expect(page.locator(PAGES.product.graphic)).toHaveAttribute("data-motion-state", "still");
-      expect(await pending(page)).toBe(0);
+      expect(await pendingFrames(page)).toBe(0);
       expect(errors).toEqual([]);
     });
 
@@ -410,87 +327,8 @@ test.describe("the products graphic fills every active slot", () => {
       const errors = await openFullOrbit(page, true);
       await expectFullOrbit(page);
       await expect(page.locator(PAGES.product.graphic)).toHaveAttribute("data-motion-state", "still");
-      expect(await pending(page)).toBe(0);
+      expect(await pendingFrames(page)).toBe(0);
       expect(errors).toEqual([]);
-    });
-  }
-});
-
-test.describe("the 404 graphic search", () => {
-  test.use({ viewport: VIEWPORTS.desktop });
-
-  test("pulses at about 2.9 s, is calm between pulses, and rests when the last pulse is done", async ({ page }) => {
-    await useManualFrames(page);
-    await open(page, PAGES.notFound);
-    const graphic = PAGES.notFound.graphic;
-    const root = page.locator(graphic);
-    // The first pulse runs from 2.9 s to 5.5 s. Its middle is at 4.2 s.
-    await play(page, 4200);
-    const pulsing = await paintedPixels(page, graphic);
-    // At 8.5 s the entrance is over and the pulse is gone.
-    await play(page, 4300);
-    const calm = await paintedPixels(page, graphic);
-    expect(pulsing, "a pulse adds paint to the resting picture").toBeGreaterThan(calm);
-    await expect(root).toHaveAttribute("data-motion-state", "playing");
-    // The last pulse ends at 29.5 s. The picture rests at 30.5 s.
-    await play(page, 21_500);
-    await expect(root).toHaveAttribute("data-motion-state", "playing");
-    await play(page, 1000);
-    await expect(root).toHaveAttribute("data-motion-state", "still");
-    await expect.poll(() => pending(page)).toBe(0);
-    expect(await paintedPixels(page, graphic), "the resting picture is the picture between pulses").toBe(calm);
-  });
-});
-
-test.describe("the graphics without JavaScript", () => {
-  test.use({ javaScriptEnabled: false });
-
-  for (const size of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
-    test(`take no space and show only the 404 page at ${size.width}px`, async ({ page }) => {
-      await page.setViewportSize(size);
-      await page.goto(PAGES.notFound.url);
-      await expect(page.locator(PAGES.notFound.graphic)).toHaveCSS("display", "none");
-      await expect(page.locator("h1")).toBeVisible();
-    });
-  }
-});
-
-test.describe("the 404 graphic in production", () => {
-  test("runs with no console error and no CSP violation", async ({ page }) => {
-    const problems = [];
-    page.on("console", (message) => {
-      // The browser logs the 404 status of the page itself. It is not a script error.
-      const missingPage = message.location().url.endsWith(PAGES.notFound.url) && message.text().includes("404");
-      if ((message.type() === "error" || message.type() === "warning") && !missingPage) problems.push(message.text());
-    });
-    page.on("pageerror", (error) => problems.push(error.message));
-    await page.addInitScript(() => {
-      window.__csp = [];
-      document.addEventListener("securitypolicyviolation", (event) => window.__csp.push(event.violatedDirective));
-    });
-    for (const size of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
-      await page.setViewportSize(size);
-      const response = await page.goto(PAGES.notFound.url);
-      expect(response.status()).toBe(404);
-      await expect(page.locator(PAGES.notFound.graphic)).toHaveAttribute("data-ready", "true");
-      expect(await page.evaluate(() => window.__csp)).toEqual([]);
-    }
-    expect(problems).toEqual([]);
-  });
-});
-
-test.describe("the graphic bands share one height below 1100px", () => {
-  for (const size of [{ width: 1024, height: 768 }, { width: 820, height: 1180 }, VIEWPORTS.mobile, { width: 360, height: 740 }, { width: 820, height: 2000 }]) {
-    test(`about, products, the 404 page, and the homepage hold the shared band height at ${size.width}x${size.height}`, async ({ page }) => {
-      await page.setViewportSize(size);
-      const heights = [];
-      for (const target of [PAGES.products, PAGES.notFound, { url: `${dev}/about/`, graphic: "[data-graphic='about']" }, { url: "/", graphic: ".hero__globe [data-lyra-globe]" }]) {
-        await open(page, target);
-        heights.push(await page.locator(target.graphic).evaluate((el) => el.getBoundingClientRect().height));
-      }
-      for (const height of heights) {
-        expect(Math.abs(height - bandHeight(size.height)), `band heights ${heights}`).toBeLessThanOrEqual(1);
-      }
     });
   }
 });

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { currentContent, currentPublished, latestWork, setHomepageState, settle, tabTo, useManualFrames, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { currentContent, currentPublished, latestWork, setHomepageState, settle, tabTo, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, stepFrame } from "./fixtures.mjs";
 
 /**
  * The homepage: one screen with the intro, two calls to action for Writing
@@ -27,8 +27,6 @@ const BAND_SCREENS = [
   { width: 390, height: 844 },
   { width: 360, height: 740 },
 ];
-
-const pending = (page) => page.evaluate(() => window.__pending());
 
 test.describe("the globe is decorative", () => {
   test.use({ viewport: VIEWPORTS.desktop });
@@ -242,7 +240,7 @@ test.describe("the globe entrance", () => {
     const levels = [await look()];
     await page.evaluate(() => window.__step(1));
     for (const time of [301, 601, 901, 1201, 1501, 1801, 2101]) {
-      await page.evaluate((value) => window.__step(value), time);
+      await stepFrame(page, time);
       levels.push(await look());
     }
     await page.evaluate(() => window.__step(9000));
@@ -273,7 +271,7 @@ test.describe("the globe entrance", () => {
     await page.goto("/");
     await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "still");
-    expect(await pending(page)).toBe(0);
+    expect(await pendingFrames(page)).toBe(0);
     await settle(page);
 
     const shown = await shootGlobe(page);
@@ -381,27 +379,27 @@ test.describe("the globe motion", () => {
 
     await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "still");
-    expect(await pending(page)).toBe(0);
+    expect(await pendingFrames(page)).toBe(0);
   });
 
   test("runs to the end when its frames run, then queues no more", async ({ page }) => {
     await useManualFrames(page);
     await page.goto("/");
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
-    expect(await pending(page)).toBe(1);
+    expect(await pendingFrames(page)).toBe(1);
 
     await page.evaluate(() => window.__step(1000));
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
     await page.evaluate(() => window.__step(9000));
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "still");
-    expect(await pending(page)).toBe(0);
+    expect(await pendingFrames(page)).toBe(0);
   });
 
   test("stops its frames while the tab is hidden and resumes when it returns", async ({ page }) => {
     await useManualFrames(page);
     await page.goto("/");
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
-    expect(await pending(page)).toBe(1);
+    expect(await pendingFrames(page)).toBe(1);
 
     const setHidden = (hidden) =>
       page.evaluate((value) => {
@@ -410,19 +408,19 @@ test.describe("the globe motion", () => {
       }, hidden);
 
     await setHidden(true);
-    expect(await pending(page)).toBe(0);
+    expect(await pendingFrames(page)).toBe(0);
     await setHidden(false);
-    expect(await pending(page)).toBe(1);
+    expect(await pendingFrames(page)).toBe(1);
   });
 
   test("cancels its frames on pagehide and starts again on a restored page", async ({ page }) => {
     await useManualFrames(page);
     await page.goto("/");
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
-    expect(await pending(page)).toBe(1);
+    expect(await pendingFrames(page)).toBe(1);
 
     await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true })));
-    expect(await pending(page)).toBe(0);
+    expect(await pendingFrames(page)).toBe(0);
     await expect(page.locator(globe)).not.toHaveAttribute("data-ready", /.*/);
     await expect(page.locator(globe)).not.toHaveAttribute("data-motion-state", /.*/);
     await expect(page.locator(`${globe} .lyra-globe__fallback`)).toHaveCount(0);
@@ -430,14 +428,14 @@ test.describe("the globe motion", () => {
     await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })));
     await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
-    await expect.poll(() => pending(page)).toBe(1);
+    await expect.poll(() => pendingFrames(page)).toBe(1);
   });
 
   test("pauses while the globe is off-screen and resumes when it returns", async ({ page }) => {
     await useManualFrames(page);
     await page.goto(dev + "/");
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
-    await expect.poll(() => pending(page)).toBe(1);
+    await expect.poll(() => pendingFrames(page)).toBe(1);
 
     // The homepage fits one screen and does not scroll. Add a tall block below
     // it so the globe can leave the screen.
@@ -448,9 +446,9 @@ test.describe("the globe motion", () => {
     });
 
     await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
-    await expect.poll(() => pending(page)).toBe(0);
+    await expect.poll(() => pendingFrames(page)).toBe(0);
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
-    await expect.poll(() => pending(page)).toBe(1);
+    await expect.poll(() => pendingFrames(page)).toBe(1);
   });
 
   test("resizes the canvas to the globe's box", async ({ page }) => {
@@ -569,56 +567,6 @@ for (const [name, viewport] of Object.entries(WIDTHS)) {
     });
   });
 }
-
-test.describe("products on the dev server", () => {
-  test.use({ viewport: VIEWPORTS.desktop });
-
-  test("the index and the detail page read like the article pages", async ({ page }) => {
-    await page.goto(dev + "/products/");
-    await expect(page.locator("main h1")).toHaveText("Products");
-    await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "page");
-    if (currentContent.products.some((entry) => entry.data.draft)) {
-      await expect(page.locator("meta[name='robots']")).toHaveAttribute("content", "noindex, follow");
-    } else await expect(page.locator("meta[name='robots']")).toHaveCount(0);
-    await expect(page.locator("meta[name='color-scheme']")).toHaveAttribute("content", "dark");
-    await page.getByRole("link", { name: "Lorem ipsum dolor" }).click();
-
-    await expect(page).toHaveURL(dev + "/products/lorem-ipsum-dolor/");
-    await expect(page.locator("main h1")).toHaveText("Lorem ipsum dolor");
-    await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "location");
-    const product = currentContent.products.find((entry) => entry.id === "lorem-ipsum-dolor");
-    if (product.data.draft) {
-      await expect(page.locator("meta[name='robots']")).toHaveAttribute("content", "noindex, follow");
-    } else await expect(page.locator("meta[name='robots']")).toHaveCount(0);
-    await expect(page.locator(".product__prose")).toContainText("Lorem ipsum dolor sit amet, consectetur adipiscing elit");
-    await expect(page.getByRole("link", { name: "All products →" })).toHaveAttribute("href", "/products/");
-    const outbound = page.locator(".product__link[target='_blank']");
-    if (product.data.url) {
-      await expect(outbound).toHaveAttribute("href", product.data.url);
-      await expect(outbound).toHaveAttribute("rel", "noopener noreferrer");
-    } else await expect(outbound).toHaveCount(0);
-  });
-
-  test("an unknown product is a 404", async ({ request }) => {
-    expect((await request.get(dev + "/products/no-such-product/")).status()).toBe(404);
-  });
-
-  test("the reading edge matches the about page at every width", async ({ page }) => {
-    for (const viewport of Object.values(WIDTHS)) {
-      await page.setViewportSize(viewport);
-      const edges = [];
-      for (const url of [dev + "/products/", "/about/"]) {
-        await page.goto(url);
-        await settle(page);
-        edges.push(await page.locator("main .wrap--read").first().evaluate((el) => {
-          const rect = el.getBoundingClientRect();
-          return Math.round(rect.left + parseFloat(getComputedStyle(el).paddingLeft));
-        }));
-      }
-      expect(edges[0], `at ${viewport.width}px`).toBe(edges[1]);
-    }
-  });
-});
 
 for (const viewport of [VIEWPORTS.desktop, VIEWPORTS.mobile, WIDTHS.narrow]) {
   test(`the home eyebrow keeps its clauses whole, clear of the header, at ${viewport.width}px`, async ({ page }) => {
