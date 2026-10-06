@@ -31,7 +31,6 @@ export const DRIFT_MS = 30_000;
 const SAT_RING = [0, 1, 2] as const;
 const SAT_PHASE = [0.4, 3.2, 5.1] as const;
 const SAT_SPEED = [0.00009 * 1.4, -0.00006, 0.00004] as const;
-const PRODUCT_SELECTOR = ".entries--products .entries__item";
 const PRODUCT_NODE_START = 0.42;
 const PRODUCT_NODE_SPAN = 0.16;
 const PRODUCT_LINK_START = 0.5;
@@ -126,9 +125,8 @@ function drawLink(ctx: CanvasRenderingContext2D, sky: string, ax: number, ay: nu
 }
 
 export function mountProducts(container: HTMLElement): CanvasHandle | null {
-  // Read the product count once. A page with no list (a product page) passes it in `data-products`.
-  const listed = document.querySelectorAll(PRODUCT_SELECTOR).length;
-  const { lit, total } = planOrbit(listed || Number(container.dataset.products));
+  // Both product pages pass the count through the graphic component.
+  const { lit, total } = planOrbit(Number(container.dataset.products));
   // The product page marks its own product, so the picture can show which star it is.
   const current = container.dataset.current === undefined ? -1 : Number(container.dataset.current);
   container.dataset.products = String(lit);

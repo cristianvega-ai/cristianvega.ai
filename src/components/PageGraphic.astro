@@ -2,16 +2,29 @@
 // The decorative graphic of an inner page. It is a canvas that one bundled
 // script fills. Without JavaScript the box takes no space, and the faint grid
 // stays. Place it as the first child of <main>. Placement is in global.css.
-interface Props {
-  page: "about" | "products" | "404" | "writing";
-  /** Data for the page module, as data attributes. A product page passes its count and place. */
-  data?: Record<`data-${string}`, string | number>;
-}
+type Props =
+  | {
+      page: "products";
+      productCount: number;
+      /** The index page passes null. A detail page passes its product index. */
+      currentProductIndex: number | null;
+    }
+  | {
+      page: "about" | "404" | "writing";
+      productCount?: never;
+      currentProductIndex?: never;
+    };
 
-const { page, data = {} } = Astro.props;
+const props = Astro.props;
 ---
 
-<div class="page-graphic" data-graphic={page} aria-hidden="true" {...data}>
+<div
+  class="page-graphic"
+  data-graphic={props.page}
+  data-products={props.page === "products" ? props.productCount : undefined}
+  data-current={props.page === "products" ? props.currentProductIndex ?? undefined : undefined}
+  aria-hidden="true"
+>
   <canvas class="page-graphic__canvas"></canvas>
 </div>
 
