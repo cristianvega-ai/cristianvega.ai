@@ -5,8 +5,8 @@ import { settle, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, st
 const dev = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 const lifetimes = (page) => page.evaluate(() => window.__lifetimes());
 const clock = (page) => page.evaluate(() => {
-  const { elapsed, t, reduced, ratio } = window.__handle.state;
-  return { elapsed, t, reduced, ratio };
+  const { elapsed, activeTime, reduced, ratio } = window.__handle.state;
+  return { elapsed, activeTime, reduced, ratio };
 });
 
 /** Count live observers and controller listeners. Keep native observer delivery. */
@@ -69,7 +69,7 @@ async function mountScene(page, policy, { duration = 2300, busy = false, count =
   }));
   await page.goto(url);
   await page.evaluate(async (settings) => {
-    const { mountCanvas } = await import("/src/lib/lyra-render/mount.ts");
+    const { mountCanvas } = await import("/src/lib/page-graphics/mount.ts");
     const { GLOBE_POLICY, mountCanvasController } = await import("/src/lib/motion/canvas-controller.ts");
     Object.defineProperty(window, "devicePixelRatio", { configurable: true, get: () => 3 });
     window.__busy = settings.busy;
@@ -93,7 +93,7 @@ async function mountScene(page, policy, { duration = 2300, busy = false, count =
           firstState = state;
           window.__draws += 1;
           ctx.drawImage(state.glow, 10, 10);
-          ctx.fillRect(0, 0, state.progress * state.w, 1);
+          ctx.fillRect(0, 0, state.progress * state.width, 1);
           return window.__busy && !state.reduced;
         },
         attach(handle) {
@@ -138,7 +138,7 @@ for (const policy of ["page", "globe"]) {
       await page.evaluate(() => { window.__step(0); window.__step(1000); });
       expect(await clock(page)).toEqual({
         elapsed: policy === "page" ? 64 : 1000,
-        t: policy === "page" ? 64 : 1000,
+        activeTime: policy === "page" ? 64 : 1000,
         reduced: false,
         ratio: policy === "page" ? 2 : 1.75,
       });
@@ -152,13 +152,13 @@ for (const policy of ["page", "globe"]) {
       await setHidden(page, true);
       expect(await pendingFrames(page)).toBe(0);
       await page.evaluate(() => window.__step(20000));
-      expect((await clock(page)).t).toBe(32);
+      expect((await clock(page)).activeTime).toBe(32);
       await setHidden(page, false);
       expect(await pendingFrames(page)).toBe(1);
       await page.evaluate(() => window.__step(30000));
-      expect((await clock(page)).t).toBe(32);
+      expect((await clock(page)).activeTime).toBe(32);
       await page.evaluate(() => window.__step(30016));
-      expect((await clock(page)).t).toBe(48);
+      expect((await clock(page)).activeTime).toBe(48);
       await page.evaluate(() => scrollTo(0, 2000));
       await expect.poll(() => pendingFrames(page)).toBe(0);
       await page.evaluate(() => window.__step(40000));
@@ -189,7 +189,7 @@ for (const policy of ["page", "globe"]) {
         expect(await lifetimes(page)).toEqual(activeLifetime);
         expect(await page.evaluate(() => window.__attached)).toBe(cycle + 1);
         expect(await page.evaluate(() => window.__detached)).toBe(cycle);
-        const restored = policy === "page" ? saved : { ...saved, elapsed: 0, t: 0 };
+        const restored = policy === "page" ? saved : { ...saved, elapsed: 0, activeTime: 0 };
         expect(await clock(page)).toEqual(restored);
         const draws = await page.evaluate(() => window.__draws);
         await page.evaluate((old) => {
@@ -225,13 +225,13 @@ for (const policy of ["page", "globe"]) {
         await useReducedMotion(page);
         await expect(page.locator("[data-scene]")).toHaveAttribute("data-motion-state", "still");
         expect(await pendingFrames(page)).toBe(0);
-        expect(await clock(page)).toEqual({ elapsed: 2300, t: 0, reduced: true, ratio: policy === "page" ? 2 : 1.75 });
+        expect(await clock(page)).toEqual({ elapsed: 2300, activeTime: 0, reduced: true, ratio: policy === "page" ? 2 : 1.75 });
         await useReducedMotion(page, "no-preference");
         await expect(page.locator("[data-scene]")).toHaveAttribute("data-motion-state", "playing");
         expect(await pendingFrames(page)).toBe(1);
         expect((await clock(page)).reduced).toBe(false);
         await page.evaluate(() => { window.__step(90000); window.__step(90016); });
-        expect((await clock(page)).t).toBe(16);
+        expect((await clock(page)).activeTime).toBe(16);
         expect(await lifetimes(page)).toEqual(activeLifetime);
       }
     });

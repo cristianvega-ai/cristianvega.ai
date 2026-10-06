@@ -1056,7 +1056,7 @@ const GRAPHIC_PAGES = [
   { name: "product detail", url: `${MOTIF_DEV}/products/lorem-ipsum-dolor/`, graphic: "[data-graphic='products']" },
   { name: "404", url: "/no-such-page/", graphic: "[data-graphic='404']" },
 ];
-/** The shared inset of the figure inside its box. It is FIGURE_INSET in src/lib/lyra-render/inset.ts. */
+/** The shared inset of the figure inside its box. It is FIGURE_INSET in src/lib/page-graphics/inset.ts. */
 const FIGURE_INSET = 32;
 
 /** Read the box, the column edges, and the figure bound of the graphic on the open page. */

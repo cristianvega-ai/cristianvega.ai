@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { LYRA, LYRA_LINKS } from "../src/lib/lyra/constellation.ts";
-import { LYRA_MAX_SIZE, layoutLyra } from "../src/lib/lyra-render/lyra.ts";
-import { FIGURE_INSET, figureRect } from "../src/lib/lyra-render/inset.ts";
-import { makeMesh } from "../src/lib/lyra-render/mesh.ts";
-import { makeRoute } from "../src/lib/lyra-render/marks.ts";
+import { LYRA_MAX_SIZE, layoutLyra } from "../src/lib/page-graphics/lyra.ts";
+import { FIGURE_INSET, figureRect } from "../src/lib/page-graphics/inset.ts";
+import { makeMesh } from "../src/lib/page-graphics/mesh.ts";
+import { makeRoute } from "../src/lib/page-graphics/marks.ts";
 import { figureBox } from "./helpers.mjs";
 
 test("the Lyra figure links only stars that exist", () => {

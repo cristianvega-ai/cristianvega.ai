@@ -225,16 +225,16 @@ export function placeLabel(text: string, x: number, y: number, options: PlaceOpt
  * The area for labels, in canvas pixels: inside the edge fade, and at least `VIEWPORT_INSET` from the
  * viewport edge. `originX` is the shift of the drawing origin in the canvas. It reads the DOM, so call it on resize.
  */
-export function labelBounds(container: HTMLElement, w: number, h: number, originX = 0): Rect {
+export function labelBounds(container: HTMLElement, width: number, height: number, originX = 0): Rect {
   const box = container.getBoundingClientRect();
   const left = box.left + originX;
   const viewport = document.documentElement.clientWidth;
   // A short band gets a smaller top and bottom inset, so the label of a star near its edge still has a place.
-  const inset = Math.min(EDGE_INSET, Math.max(20, h * 0.14));
+  const inset = Math.min(EDGE_INSET, Math.max(20, height * 0.14));
   return {
     x0: Math.max(EDGE_INSET, VIEWPORT_INSET - left),
     y0: inset,
-    x1: Math.min(w - originX - EDGE_INSET, viewport - VIEWPORT_INSET - left),
-    y1: h - inset,
+    x1: Math.min(width - originX - EDGE_INSET, viewport - VIEWPORT_INSET - left),
+    y1: height - inset,
   };
 }

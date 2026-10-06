@@ -54,7 +54,7 @@ npm run generate:touch-icon
 - Use `CONTRIBUTING.md` before you open a pull request.
 - Use `README.md` before you change deployment, Cloudflare domain routes, or image derivatives.
 - `src/styles/global.css` holds the site-wide design system and the responsive behavior.
-- `src/lib/` holds the Lyra globe (`lyra-globe/`), the Lyra star data (`lyra/`), the page graphics (`lyra-render/`, with its own how-to in `lyra-render/index.ts`), shared easing helpers (`motion/`), the article interactions (`article-interactions.ts`), and the content helpers (`blog.ts`, `products.ts`).
+- `src/lib/` holds the Lyra globe (`lyra-globe/`), the Lyra star data (`lyra/`), the page graphics (`page-graphics/`, with its own how-to in `page-graphics/index.ts`), shared easing helpers (`motion/`), the article interactions (`article-interactions.ts`), and the content helpers (`blog.ts`, `products.ts`).
 - `src/content/` holds the Markdown for the `blog` and `products` collections. Both collections hide drafts in production.
 - `public/` copies into the build, including `_headers`, `_redirects`, and `robots.txt`.
 - `assets/` holds build-time source files that must not copy into the static site.

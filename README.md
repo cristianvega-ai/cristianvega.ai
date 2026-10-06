@@ -114,7 +114,7 @@ From 1100px wide, the graphic is fixed in the empty area right of the reading co
 Below 1100px it is a 150px band above the page title. It never overlaps text.
 On About, a marker rests at the reader's place on the path as the page scrolls. Reduced motion shows the whole path lit with no marker.
 The component is `src/components/PageGraphic.astro`, and its placement rules are in `src/styles/global.css`.
-The drawing code is in `src/lib/lyra-render/`. The steps to add a page graphic are in `src/lib/lyra-render/index.ts`.
+The drawing code is in `src/lib/page-graphics/`. The steps to add a page graphic are in `src/lib/page-graphics/index.ts`.
 The browser tests are in `tests/e2e/about.spec.mjs`.
 
 ## Products

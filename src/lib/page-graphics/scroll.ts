@@ -61,8 +61,8 @@ export function createScrollReader(container: HTMLElement): ScrollReader {
         settled = true;
         return 1;
       }
-      const dt = clamp(state.t - last, 0, 64);
-      last = state.t;
+      const dt = clamp(state.activeTime - last, 0, 64);
+      last = state.activeTime;
       // A page that cannot scroll rests at the end, so its graphic shows the whole journey.
       const target = scrolls ? clamp(scrollY / max) : 1;
       // Reduced motion jumps to the reader's place. So does the first read, so a restored scroll does not glide.

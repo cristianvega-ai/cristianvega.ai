@@ -59,12 +59,12 @@ export function productProgress(progress: number, index: number, count: number, 
 }
 
 /** Put a slot on its orbit. `wide` is a band: the figure lies to the left and the slots turn with it. */
-export function orbitSlot(out: Point, index: number, wide: boolean, cx: number, cy: number, hw: number, hh: number): Point {
+export function orbitSlot(out: Point, index: number, wide: boolean, cx: number, cy: number, halfWidth: number, halfHeight: number): Point {
   const away = ((wide ? -145 : -55) * Math.PI) / 180;
   const angle = away + (SLOT_OFFSET[index] * Math.PI) / 180;
   const ring = RINGS[SLOT_RING[index]];
-  out.x = cx + Math.cos(angle) * ring * hw;
-  out.y = cy + Math.sin(angle) * ring * hh;
+  out.x = cx + Math.cos(angle) * ring * halfWidth;
+  out.y = cy + Math.sin(angle) * ring * halfHeight;
   return out;
 }
 
@@ -104,10 +104,10 @@ export function fitLyraAtVega(out: Point[], cx: number, cy: number, rx: number, 
 }
 
 /** The half size that the orbits scale from. The outer orbit fits inside the figure inset. */
-export function orbitBox(w: number, h: number): { hw: number; hh: number } {
+export function orbitBox(width: number, height: number): { halfWidth: number; halfHeight: number } {
   const outer = RINGS[RINGS.length - 1];
-  const hw = (w / 2 - FIGURE_INSET) / outer;
-  return { hw, hh: Math.min((h / 2 - FIGURE_INSET) / outer, hw * MAX_ORBIT_TALL) };
+  const halfWidth = (width / 2 - FIGURE_INSET) / outer;
+  return { halfWidth, halfHeight: Math.min((height / 2 - FIGURE_INSET) / outer, halfWidth * MAX_ORBIT_TALL) };
 }
 
 /** A link from a product to Vega, drawn in from the product. */
@@ -133,8 +133,8 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
 
   let cx = 0;
   let cy = 0;
-  let hw = 0;
-  let hh = 0;
+  let halfWidth = 0;
+  let halfHeight = 0;
   let wide = false;
   let field: FieldStar[] = [];
   let mesh: Mesh | undefined;
@@ -145,19 +145,19 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
 
   // Rebuild the layout from the measured box. Nothing here depends on a CSS breakpoint.
   function build(s: FrameState) {
-    reportFigureLeft(container, s.w, s.h);
-    cx = s.w / 2;
-    cy = s.h / 2;
-    ({ hw, hh } = orbitBox(s.w, s.h));
-    wide = s.w > s.h * 1.6;
-    fitLyraAtVega(stars, cx, cy, hw * 0.8, hh * 0.8, wide);
-    for (let i = 0; i < total; i++) orbitSlot(spots[i], i, wide, cx, cy, hw, hh);
+    reportFigureLeft(container, s.width, s.height);
+    cx = s.width / 2;
+    cy = s.height / 2;
+    ({ halfWidth, halfHeight } = orbitBox(s.width, s.height));
+    wide = s.width > s.height * 1.6;
+    fitLyraAtVega(stars, cx, cy, halfWidth * 0.8, halfHeight * 0.8, wide);
+    for (let i = 0; i < total; i++) orbitSlot(spots[i], i, wide, cx, cy, halfWidth, halfHeight);
     routes.length = 0;
     for (let i = 0; i < Math.min(lit, 3); i++) routes.push(makeRoute([spots[i], stars[0]]));
-    field = makeStarField(s.w, s.h, Math.round((s.w * s.h) / 11_000), 11);
-    mesh = makeMesh(s.w, s.h, 11);
+    field = makeStarField(s.width, s.height, Math.round((s.width * s.height) / 11_000), 11);
+    mesh = makeMesh(s.width, s.height, 11);
     const widthsCssPx = LYRA.map((star) => star.name ? s.labelFont.widthCssPx(star.name) : 0);
-    labels = placeLabels(labelBounds(container, s.w, s.h), s.h > 300, widthsCssPx);
+    labels = placeLabels(labelBounds(container, s.width, s.height), s.height > 300, widthsCssPx);
   }
 
   // Each name takes the side of its star that no link or product line crosses. The rings only break a tie.
@@ -165,7 +165,7 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
     const segments: Segment[] = LYRA_LINKS.map(([a, b]) => ({ ax: stars[a].x, ay: stars[a].y, bx: stars[b].x, by: stars[b].y }));
     for (let i = 0; i < lit; i++) segments.push({ ax: spots[i].x, ay: spots[i].y, bx: stars[0].x, by: stars[0].y });
     const soft: Segment[] = [];
-    for (const ring of RINGS) ellipseSegments(cx, cy, ring * hw, ring * hh, 48, soft);
+    for (const ring of RINGS) ellipseSegments(cx, cy, ring * halfWidth, ring * halfHeight, 48, soft);
     const avoid: Rect[] = stars.map((star) => around(star.x, star.y, 9));
     for (let i = 0; i < total; i++) avoid.push(around(spots[i].x, spots[i].y, 12));
     const placed: PlacedLabel[] = [];
@@ -190,20 +190,20 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
       if (g <= 0) continue;
       ctx.globalAlpha = 0.3 - r * 0.05;
       ctx.beginPath();
-      ctx.ellipse(cx, cy, RINGS[r] * hw, RINGS[r] * hh, 0, -Math.PI / 2, -Math.PI / 2 + TAU * g);
+      ctx.ellipse(cx, cy, RINGS[r] * halfWidth, RINGS[r] * halfHeight, 0, -Math.PI / 2, -Math.PI / 2 + TAU * g);
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
 
     // Satellites: slow, and only until the drift ends. Reduced motion shows them at rest.
     ctx.fillStyle = pal.meta;
-    const drift = s.reduced ? 0 : Math.min(s.t, DRIFT_MS);
+    const drift = s.reduced ? 0 : Math.min(s.activeTime, DRIFT_MS);
     const sat = smooth((p - 0.5) / 0.3);
     for (let i = 0; i < SAT_RING.length; i++) {
       const angle = SAT_PHASE[i] + drift * SAT_SPEED[i];
       ctx.globalAlpha = 0.55 * sat;
       ctx.beginPath();
-      ctx.arc(cx + Math.cos(angle) * RINGS[SAT_RING[i]] * hw, cy + Math.sin(angle) * RINGS[SAT_RING[i]] * hh, 1.1, 0, TAU);
+      ctx.arc(cx + Math.cos(angle) * RINGS[SAT_RING[i]] * halfWidth, cy + Math.sin(angle) * RINGS[SAT_RING[i]] * halfHeight, 1.1, 0, TAU);
       ctx.fill();
     }
     ctx.globalAlpha = 1;
@@ -251,7 +251,7 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
     }
 
     // Comets converge on Vega, then the bloom. Both are part of the entrance only.
-    if (!s.still) {
+    if (!s.entranceComplete) {
       for (let i = 0; i < routes.length; i++) drawComet(ctx, pal, s.glow, routes[i], stagger(p, 0.5 + i * 0.05, 0.4), 46);
       drawVegaBloom(ctx, s.glow, stars[0].x, stars[0].y, smooth((p - 0.66) / 0.2) * (1 - smooth((p - 0.86) / 0.14)));
     }
@@ -260,7 +260,7 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
     for (let i = 0; i < labels.length; i++) drawLabel(ctx, pal, s.labelFont.canvasFont, labels[i].text, labels[i].x, labels[i].y, labels[i].align, label);
 
     // Ask for more frames only while the satellites still drift.
-    return !s.reduced && s.t < DRIFT_MS;
+    return !s.reduced && s.activeTime < DRIFT_MS;
   }
 
   return mountCanvas(container, { draw, onResize: build });

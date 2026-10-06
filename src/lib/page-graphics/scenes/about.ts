@@ -35,20 +35,20 @@ export interface AboutLayout {
 }
 
 /**
- * The layout of the path and Vega for a w by h box. The whole figure fits inside the box: Vega keeps
+ * The path and Vega use the supplied width and height. The whole figure fits inside the box: Vega keeps
  * its outer ring radius plus RING_MARGIN from the right edge and the top, and the path stays inside the
  * figure inset. The control points lie inside the inset too, so the curve cannot leave it.
  */
-export function aboutLayout(w: number, h: number): AboutLayout {
-  const horizontal = w > h * 1.3;
-  const ring = clamp(Math.min(w * 0.4, h * 0.28), 20, RING_MAX);
-  const vx = w - ring - RING_MARGIN;
+export function aboutLayout(width: number, height: number): AboutLayout {
+  const horizontal = width > height * 1.3;
+  const ring = clamp(Math.min(width * 0.4, height * 0.28), 20, RING_MAX);
+  const vx = width - ring - RING_MARGIN;
   const vy = ring + RING_MARGIN;
-  const left = Math.max(FIGURE_INSET, w * 0.1);
-  const bottom = h - FIGURE_INSET;
+  const left = Math.max(FIGURE_INSET, width * 0.1);
+  const bottom = height - FIGURE_INSET;
   const curve = horizontal
-    ? [FIGURE_INSET, bottom, w * 0.4, bottom, w * 0.55, vy, vx, vy]
-    : [left, bottom - 8, w - FIGURE_INSET, h * 0.78, FIGURE_INSET, h * 0.36, vx, vy];
+    ? [FIGURE_INSET, bottom, width * 0.4, bottom, width * 0.55, vy, vx, vy]
+    : [left, bottom - 8, width - FIGURE_INSET, height * 0.78, FIGURE_INSET, height * 0.36, vx, vy];
   return { horizontal, vx, vy, ring, curve };
 }
 
@@ -83,9 +83,9 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
   // Rebuild the layout from the measured box. Nothing here depends on a CSS breakpoint.
   function build(s: FrameState) {
     scroll.measure();
-    const layout = aboutLayout(s.w, s.h);
-    reportFigureLeft(container, s.w, s.h);
-    const { w, h } = s;
+    const layout = aboutLayout(s.width, s.height);
+    reportFigureLeft(container, s.width, s.height);
+    const { width: w, height: h } = s;
     horizontal = layout.horizontal;
     curve = layout.curve;
     ringRadius = layout.ring;

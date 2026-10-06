@@ -39,10 +39,10 @@ export interface Mesh {
   diagonalFrom: number;
 }
 
-/** Build a mesh for a w by h box. The same box and seed give the same mesh. */
-export function makeMesh(w: number, h: number, seed = 0, cell = CELL): Mesh {
-  const cols = Math.max(1, Math.ceil(w / cell));
-  const rows = Math.max(1, Math.ceil(h / cell));
+/** Build a mesh for the supplied width and height. The same box and seed give the same mesh. */
+export function makeMesh(width: number, height: number, seed = 0, cell = CELL): Mesh {
+  const cols = Math.max(1, Math.ceil(width / cell));
+  const rows = Math.max(1, Math.ceil(height / cell));
   const slot = new Int16Array(cols * rows).fill(-1);
   const xs = new Float32Array(cols * rows);
   const ys = new Float32Array(cols * rows);
@@ -54,8 +54,8 @@ export function makeMesh(w: number, h: number, seed = 0, cell = CELL): Mesh {
       const key = (row * cols + col) * 6 + seed * 1000;
       if (unit(key) < EMPTY) continue;
       slot[row * cols + col] = count;
-      xs[count] = clamp((col + 0.15 + unit(key + 1) * 0.7) * cell, 0, w);
-      ys[count] = clamp((row + 0.15 + unit(key + 2) * 0.7) * cell, 0, h);
+      xs[count] = clamp((col + 0.15 + unit(key + 1) * 0.7) * cell, 0, width);
+      ys[count] = clamp((row + 0.15 + unit(key + 2) * 0.7) * cell, 0, height);
       radius[count] = 0.7 + unit(key + 3) * 0.7;
       hot[count] = unit(key + 4) > 0.9 ? 1 : 0;
       count++;
@@ -129,23 +129,23 @@ const GRID_PITCH = 40;
  * A layer of the site's faint blueprint grid with the same elliptical fade as the CSS grid. Build it on
  * resize and draw it with drawImage. Null when a canvas cannot be made.
  */
-export function makeGridLayer(w: number, h: number, ratio: number, palette: Palette): HTMLCanvasElement | null {
+export function makeGridLayer(width: number, height: number, ratio: number, palette: Palette): HTMLCanvasElement | null {
   const layer = document.createElement("canvas");
-  layer.width = Math.max(1, Math.round(w * ratio));
-  layer.height = Math.max(1, Math.round(h * ratio));
+  layer.width = Math.max(1, Math.round(width * ratio));
+  layer.height = Math.max(1, Math.round(height * ratio));
   const ctx = layer.getContext("2d");
   if (!ctx) return null;
   ctx.scale(ratio, ratio);
   ctx.strokeStyle = palette.grid;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let x = GRID_PITCH / 2; x < w; x += GRID_PITCH) {
+  for (let x = GRID_PITCH / 2; x < width; x += GRID_PITCH) {
     ctx.moveTo(Math.round(x) + 0.5, 0);
-    ctx.lineTo(Math.round(x) + 0.5, h);
+    ctx.lineTo(Math.round(x) + 0.5, height);
   }
-  for (let y = GRID_PITCH / 2; y < h; y += GRID_PITCH) {
+  for (let y = GRID_PITCH / 2; y < height; y += GRID_PITCH) {
     ctx.moveTo(0, Math.round(y) + 0.5);
-    ctx.lineTo(w, Math.round(y) + 0.5);
+    ctx.lineTo(width, Math.round(y) + 0.5);
   }
   ctx.stroke();
   ctx.globalCompositeOperation = "destination-in";

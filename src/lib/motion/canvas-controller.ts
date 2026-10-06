@@ -1,11 +1,11 @@
-import { DURATION, entranceProgress } from "../lyra-render/clock.ts";
-import { getGlow, readPalette, type Palette } from "../lyra-render/palette.ts";
+import { DURATION, entranceProgress } from "../page-graphics/clock.ts";
+import { getGlow, readPalette, type Palette } from "../page-graphics/palette.ts";
 
 /** The controller reuses this state for every draw. */
 export interface FrameState {
   /** Canvas width and height use CSS pixels. */
-  w: number;
-  h: number;
+  width: number;
+  height: number;
   /** Device pixels per CSS pixel, capped by the scene policy. */
   ratio: number;
   /** Played entrance time, in milliseconds. */
@@ -13,9 +13,9 @@ export interface FrameState {
   /** Eased entrance progress, from 0 to 1. */
   progress: number;
   /** Active time since mount or replay, in milliseconds. */
-  t: number;
+  activeTime: number;
   /** True when the entrance finishes. */
-  still: boolean;
+  entranceComplete: boolean;
   /** True when the visitor requests reduced motion. */
   reduced: boolean;
   palette: Palette;
@@ -82,13 +82,13 @@ export function mountCanvasController(
 
   const reducedQuery = matchMedia("(prefers-reduced-motion: reduce)");
   const state: FrameState = {
-    w: 0,
-    h: 0,
+    width: 0,
+    height: 0,
     ratio: 1,
     elapsed: reducedQuery.matches ? duration : 0,
     progress: 0,
-    t: 0,
-    still: false,
+    activeTime: 0,
+    entranceComplete: false,
     reduced: reducedQuery.matches,
     palette,
     glow,
@@ -110,10 +110,10 @@ export function mountCanvasController(
     state.reduced = reducedQuery.matches;
     if (state.reduced) {
       state.elapsed = duration;
-      state.t = 0;
+      state.activeTime = 0;
     }
     state.progress = entranceProgress(state.elapsed * (DURATION / duration));
-    state.still = state.elapsed >= duration;
+    state.entranceComplete = state.elapsed >= duration;
     try {
       ctx!.setTransform(1, 0, 0, 1, 0, 0);
       ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
@@ -122,7 +122,7 @@ export function mountCanvasController(
       busy = draw(ctx!, state) === true;
       ctx!.globalAlpha = 1;
       // Write the motion state only when it changes.
-      const next = state.still && !(busy && !state.reduced) ? "still" : "playing";
+      const next = state.entranceComplete && !(busy && !state.reduced) ? "still" : "playing";
       if (next !== motion) {
         motion = next;
         container.dataset.motionState = next;
@@ -145,7 +145,7 @@ export function mountCanvasController(
     if (previous !== undefined) {
       const dt = Math.min(policy.frameIntervalCap, time - previous);
       state.elapsed = Math.min(duration, state.elapsed + dt);
-      state.t += dt;
+      state.activeTime += dt;
     }
     previous = time;
     paint();
@@ -173,8 +173,8 @@ export function mountCanvasController(
   function resize(w: number, h: number) {
     if (!active || !w || !h) return;
     state.ratio = Math.min(devicePixelRatio || 1, dprCap);
-    state.w = w;
-    state.h = h;
+    state.width = w;
+    state.height = h;
     canvas!.width = Math.round(w * state.ratio);
     canvas!.height = Math.round(h * state.ratio);
     sized = true;
@@ -207,7 +207,7 @@ export function mountCanvasController(
     state.reduced = reducedQuery.matches;
     if (restored && policy.restartOnRestore) {
       state.elapsed = state.reduced ? duration : 0;
-      state.t = 0;
+      state.activeTime = 0;
     }
     try {
       const currentSize = new ResizeObserver((entries) => {
@@ -280,7 +280,7 @@ export function mountCanvasController(
       if (!active) return;
       pause();
       state.elapsed = 0;
-      state.t = 0;
+      state.activeTime = 0;
       paint();
       resume();
     },
