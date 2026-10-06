@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
+    "prebuild": "node scripts/check-public.mjs",
     "build": "astro build",
     "preview": "wrangler dev --local",
     "check": "astro check",

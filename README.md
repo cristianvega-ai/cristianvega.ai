@@ -161,6 +161,11 @@ npm test          # builds, then runs tests against that dist/
 
 Or run the full gate with `npm run verify` (one build + type-check + tests). Prefer `verify` or `test` over bare `node --test` so contract tests never read a missing or stale `dist/`.
 
+`npm run build` first checks `public/` for `.DS_Store` and `Thumbs.db` files.
+The check rejects these files before Astro copies public files into `dist/`.
+Remove each reported metadata file, then run the build again.
+The check permits `public/.well-known/security.txt`.
+
 ## Deploy
 
 GitHub Actions is the default deploy path. Every merge to `main` runs
