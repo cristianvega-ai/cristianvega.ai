@@ -1,5 +1,5 @@
 import { LYRA_LINKS } from "../../lyra/constellation.ts";
-import { around, labelWidth as labelWidthOf, placeLabel, type LabelAlign, type PlacedLabel, type Rect, type Segment } from "../labels.ts";
+import { around, placeLabel, type LabelAlign, type PlacedLabel, type Rect, type Segment } from "../labels.ts";
 import { FIGURE_INSET } from "../inset.ts";
 import { layoutLyra, type LyraPoint } from "../lyra.ts";
 import { TAU, unit } from "../math.ts";
@@ -38,6 +38,10 @@ export type FieldLabel = PlacedLabel;
 export interface FieldInput {
   ids: readonly string[];
   labels: readonly string[];
+  /** Measured text widths in CSS pixels, in label order. */
+  labelWidthsCssPx: readonly number[];
+  /** Measured text widths in CSS pixels, in Lyra star order. */
+  starWidthsCssPx: readonly number[];
   /** The box in CSS pixels. Text must not enter the part of the slot outside it. */
   w: number;
   h: number;
@@ -128,10 +132,10 @@ function spread(
   }
 }
 
-export function buildField({ ids, labels, w, h, bounds = { x0: 0, y0: 0, x1: w, y1: h } }: FieldInput): FieldLayout {
+export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w, h, bounds = { x0: 0, y0: 0, x1: w, y1: h } }: FieldInput): FieldLayout {
   const count = ids.length;
   const tall = h > w * 1.05;
-  const labelWidth = labels.reduce((widest, text) => Math.max(widest, labelWidthOf(text)), 0);
+  const labelWidth = labelWidthsCssPx.reduce((widest, width) => Math.max(widest, width), 0);
   const cx = w / 2 + (tall ? 8 : 0);
   const cy = h / 2;
 
@@ -209,13 +213,13 @@ export function buildField({ ids, labels, w, h, bounds = { x0: 0, y0: 0, x1: w, 
   const postLabels = labels.map((text, i) => {
     const { x, y } = points[i];
     const out = x >= cx;
-    return placeLabel(text, x, y, { bounds, segments, avoid: taken, gap: 13, prefer: out ? ["right", "left", "above", "below"] : ["left", "right", "above", "below"] });
+    return placeLabel(text, x, y, { widthCssPx: labelWidthsCssPx[i], bounds, segments, avoid: taken, gap: 13, prefer: out ? ["right", "left", "above", "below"] : ["left", "right", "above", "below"] });
   });
 
-  const starLabels = stars.map((star) => {
+  const starLabels = stars.map((star, i) => {
     if (!star.name) return null;
     // A star name keeps clear of the figure links. A faint synapse under it only breaks a tie, and the halo cuts it out.
-    const label = placeLabel(star.name, star.x, star.y, { bounds, segments: figure, soft: synapses, avoid: taken, gap: 14, lift: star.vega ? -10 : 0 });
+    const label = placeLabel(star.name, star.x, star.y, { widthCssPx: starWidthsCssPx[i], bounds, segments: figure, soft: synapses, avoid: taken, gap: 14, lift: star.vega ? -10 : 0 });
     return label.clear ? label : null;
   });
 

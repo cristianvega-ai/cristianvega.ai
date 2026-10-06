@@ -6,8 +6,6 @@ import type { Palette } from "./palette.ts";
 // Sizes are CSS pixels. Every mark draws with no allocation, so a frame is cheap.
 // Each mark leaves globalAlpha at 1, and the comet restores the blend mode.
 
-const MONO = '"IBM Plex Mono", ui-monospace, monospace';
-
 /** A neuron: a soft halo when hot (`halo` 0..1 sets its strength), a bright core, and an extra ring on Vega. `grow` 0..1 is the appear share. */
 export function drawNode(
   ctx: CanvasRenderingContext2D,
@@ -198,17 +196,6 @@ export function drawComet(
   ctx.globalCompositeOperation = previousOp;
 }
 
-// One font string for each size, so a label draw builds no string.
-const fonts = new Map<number, string>();
-function fontFor(size: number): string {
-  let font = fonts.get(size);
-  if (!font) {
-    font = `400 ${size}px ${MONO}`;
-    fonts.set(size, font);
-  }
-  return font;
-}
-
 /** The width of the ink halo round a label. */
 const HALO_WIDTH = 3.5;
 
@@ -216,15 +203,15 @@ const HALO_WIDTH = 3.5;
 export function drawLabel(
   ctx: CanvasRenderingContext2D,
   palette: Palette,
+  canvasFont: string,
   text: string,
   x: number,
   y: number,
   align: CanvasTextAlign = "left",
   alpha = 1,
-  size = 10,
 ): void {
   if (alpha <= 0) return;
-  ctx.font = fontFor(size);
+  ctx.font = canvasFont;
   ctx.textAlign = align;
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";

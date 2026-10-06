@@ -220,7 +220,15 @@ export async function useLabelSpy(page) {
     const proto = CanvasRenderingContext2D.prototype;
     const fillText = proto.fillText;
     const strokeText = proto.strokeText;
+    const measureText = proto.measureText;
     window.__labels = new Map();
+    window.__labelMeasureCount = 0;
+    const canvases = new WeakMap();
+    let canvasId = 0;
+    proto.measureText = function (...args) {
+      window.__labelMeasureCount += 1;
+      return measureText.apply(this, args);
+    };
     let halo = null;
     proto.strokeText = function (text, x, y, ...rest) {
       halo = { text, x, y, lineWidth: this.lineWidth, lineJoin: this.lineJoin, style: normalise(this.strokeStyle) };
@@ -228,13 +236,15 @@ export async function useLabelSpy(page) {
     };
     proto.fillText = function (text, x, y, ...rest) {
       const transform = this.getTransform();
-      const key = `${text}@${this.canvas.width}`;
+      if (!canvases.has(this.canvas)) canvases.set(this.canvas, ++canvasId);
+      const key = `${text}@${canvases.get(this.canvas)}`;
       window.__labels.set(key, {
         text,
         x: x + transform.e / transform.a,
         y: y + transform.f / transform.d,
         align: this.textAlign,
-        width: this.measureText(text).width,
+        font: this.font,
+        width: measureText.call(this, text).width,
         canvas: this.canvas,
         halo: halo && halo.text === text && halo.x === x && halo.y === y ? halo : null,
       });
@@ -255,6 +265,7 @@ export async function drawnLabels(page) {
       const left = label.align === "left" ? label.x : label.align === "right" ? label.x - label.width : label.x - label.width / 2;
       return {
         text: label.text,
+        font: label.font,
         left: box.left + left,
         right: box.left + left + label.width,
         top: box.top + label.y - 6,

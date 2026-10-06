@@ -1,4 +1,5 @@
 import { cubicPoint, type Point } from "../../motion/easing.ts";
+import { LYRA } from "../../lyra/constellation.ts";
 import { stagger } from "../clock.ts";
 import { reportFigureLeft } from "../inset.ts";
 import { labelBounds } from "../labels.ts";
@@ -78,7 +79,15 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     boxW = s.w - originX;
     boxH = s.h;
     reportFigureLeft(container, boxW, boxH, originX);
-    field = buildField({ ids: posts.map((post) => post.id), labels: posts.map((post) => post.label), w: boxW, h: boxH, bounds: labelBounds(container, s.w, s.h, originX) });
+    field = buildField({
+      ids: posts.map((post) => post.id),
+      labels: posts.map((post) => post.label),
+      labelWidthsCssPx: posts.map((post) => s.labelFont.widthCssPx(post.label)),
+      starWidthsCssPx: LYRA.map((star) => star.name ? s.labelFont.widthCssPx(star.name) : 0),
+      w: boxW,
+      h: boxH,
+      bounds: labelBounds(container, s.w, s.h, originX),
+    });
     grid = makeGridLayer(boxW, boxH, s.ratio, s.palette);
     const { stars, points } = field;
 
@@ -251,7 +260,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     const starIn = smooth((p - 0.72) / 0.2);
     for (let i = 0; i < count; i++) {
       const label = postLabels[i];
-      drawLabel(ctx, pal, label.text, label.x, label.y, label.align, labelIn);
+      drawLabel(ctx, pal, s.labelFont.canvasFont, label.text, label.x, label.y, label.align, labelIn);
       const v = weights[i];
       if (v > 0.02) {
         ctx.globalAlpha = v * labelIn;
@@ -262,7 +271,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     }
     for (let i = 0; i < starLabels.length; i++) {
       const label = starLabels[i];
-      if (label) drawLabel(ctx, pal, label.text, label.x, label.y, label.align, starIn);
+      if (label) drawLabel(ctx, pal, s.labelFont.canvasFont, label.text, label.x, label.y, label.align, starIn);
     }
     ctx.restore();
 

@@ -7,6 +7,7 @@
  *   palette.ts  readPalette(), getGlow(): the site colours and a cached glow sprite
  *   lyra.ts     layoutLyra(w, h): the Lyra figure fitted into a box with one uniform scale, capped at
  *               LYRA_MAX_SIZE, so its proportions are the same on every canvas (data: ../lyra/constellation.ts)
+ *   label-font.ts caches label widths in CSS pixels from the CSS font family token during layout.
  *   labels.ts   placeLabel(): the side of a node (right, left, above, below) that no edge crosses, inside
  *               labelBounds(). Use it for every label. drawLabel() adds an ink halo in the ground colour.
  *   inset.ts    FIGURE_INSET (32px), figureRect(): the one bounding rule. The figure (path, stars, rings, posts)
@@ -27,7 +28,9 @@
  *      `mountCanvas(container, { draw, onResize })`. Build the layout in `onResize` from
  *      `state.w` and `state.h`. Draw from `state.progress` (the entrance, 0 to 1). Do not copy a
  *      CSS breakpoint: read the box, or read `getComputedStyle(container)` once in `onResize`.
- *      Place each label with `placeLabel` and `labelBounds`, and draw the neural mesh first with `drawMesh`.
+ *      Measure label widths with `state.labelFont.widthCssPx(text)` during layout.
+ *      Pass each width to `placeLabel`, and pass `state.labelFont.canvasFont` to `drawLabel`.
+ *      Use `labelBounds` for each label, and draw the neural mesh first with `drawMesh`.
  *   2. Draw the finished picture when `state.reduced` is true. Show no drift and no marker.
  *   3. Return true from `draw` only while the picture still moves after the entrance
  *      (a drift, or a scroll that settles). Return nothing at rest, and the loop stops.
@@ -44,6 +47,7 @@
  * What `mountCanvas` guarantees, so a page module does not repeat it
  *   - `data-ready="true"` after the first frame, and `data-motion-state` of "playing" or "still".
  *   - A device pixel ratio cap of 2, and a rebuild on every box change (ResizeObserver).
+ *   - Fresh label measurements and layout after fonts load or fail.
  *   - No frames while the box is off-screen or the tab is hidden (IntersectionObserver, visibilitychange).
  *   - Reduced motion: the finished picture on the first frame, no frames. A live change applies.
  *   - Teardown on pagehide, and a new setup on a persisted pageshow.
@@ -56,7 +60,6 @@ export {
   around,
   ellipseSegments,
   labelBounds,
-  labelWidth,
   placeLabel,
   polylineSegments,
   rectsOverlap,

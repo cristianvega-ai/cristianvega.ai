@@ -156,11 +156,12 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
     for (let i = 0; i < Math.min(lit, 3); i++) routes.push(makeRoute([spots[i], stars[0]]));
     field = makeStarField(s.w, s.h, Math.round((s.w * s.h) / 11_000), 11);
     mesh = makeMesh(s.w, s.h, 11);
-    labels = placeLabels(labelBounds(container, s.w, s.h), s.h > 300);
+    const widthsCssPx = LYRA.map((star) => star.name ? s.labelFont.widthCssPx(star.name) : 0);
+    labels = placeLabels(labelBounds(container, s.w, s.h), s.h > 300, widthsCssPx);
   }
 
   // Each name takes the side of its star that no link or product line crosses. The rings only break a tie.
-  function placeLabels(bounds: Rect, showNames: boolean): PlacedLabel[] {
+  function placeLabels(bounds: Rect, showNames: boolean, widthsCssPx: readonly number[]): PlacedLabel[] {
     const segments: Segment[] = LYRA_LINKS.map(([a, b]) => ({ ax: stars[a].x, ay: stars[a].y, bx: stars[b].x, by: stars[b].y }));
     for (let i = 0; i < lit; i++) segments.push({ ax: spots[i].x, ay: spots[i].y, bx: stars[0].x, by: stars[0].y });
     const soft: Segment[] = [];
@@ -170,7 +171,7 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
     const placed: PlacedLabel[] = [];
     for (const i of [0, 4, 5]) {
       const name = LYRA[i].name;
-      if (name && (i === 0 || showNames)) placed.push(placeLabel(name, stars[i].x, stars[i].y, { bounds, segments, soft, avoid, gap: i ? 12 : 14 }));
+      if (name && (i === 0 || showNames)) placed.push(placeLabel(name, stars[i].x, stars[i].y, { widthCssPx: widthsCssPx[i], bounds, segments, soft, avoid, gap: i ? 12 : 14 }));
     }
     return placed;
   }
@@ -256,7 +257,7 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
     }
 
     const label = smooth((p - 0.7) / 0.2);
-    for (let i = 0; i < labels.length; i++) drawLabel(ctx, pal, labels[i].text, labels[i].x, labels[i].y, labels[i].align, label);
+    for (let i = 0; i < labels.length; i++) drawLabel(ctx, pal, s.labelFont.canvasFont, labels[i].text, labels[i].x, labels[i].y, labels[i].align, label);
 
     // Ask for more frames only while the satellites still drift.
     return !s.reduced && s.t < DRIFT_MS;
