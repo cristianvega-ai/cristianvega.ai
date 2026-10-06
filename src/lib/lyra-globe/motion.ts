@@ -1,9 +1,8 @@
 import { clamp, easeOutCubic, FULL_TURN_RADIANS, type Point } from "../motion/easing.ts";
+import { GLOBE_POLICY, mountCanvasController, type FrameState } from "../motion/canvas-controller.ts";
+import type { Palette } from "../lyra-render/palette.ts";
 import { buildGlobe, EDGE_SPAN, GLOBE_HEIGHT, GLOBE_WIDTH, NODE_SPAN, type Globe, type GlobeRoute } from "./model.ts";
 
-const DURATION_MS = 2300;
-const MAX_PIXEL_RATIO = 1.75;
-const GLOW_SIZE = 96;
 /** How far behind its head a comet leaves light, in grid units, and in how many soft slices. */
 const TAIL_LENGTH = 120;
 const TAIL_SLICES = 16;
@@ -31,41 +30,6 @@ function pointAt(route: GlobeRoute, distance: number, out: Point): Point {
   out.x = points[i - 1].x + (points[i].x - points[i - 1].x) * share;
   out.y = points[i - 1].y + (points[i].y - points[i - 1].y) * share;
   return out;
-}
-
-interface Palette {
-  sky: string;
-  meta: string;
-  text: string;
-  /** Sky as "r, g, b", for the glow gradient stops. */
-  skyChannels: string;
-}
-
-function readPalette(root: HTMLElement): Palette {
-  const style = getComputedStyle(root);
-  const sky = style.getPropertyValue("--sky").trim();
-  const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(sky.slice(i, i + 2), 16));
-  return {
-    sky,
-    meta: style.getPropertyValue("--mast-meta").trim(),
-    text: style.getPropertyValue("--mast-text").trim(),
-    skyChannels: `${r}, ${g}, ${b}`,
-  };
-}
-
-// The same halo the SVG paints: sky at 45% in the centre, clear at the edge.
-function makeGlow(palette: Palette): HTMLCanvasElement | null {
-  const glow = document.createElement("canvas");
-  glow.width = glow.height = GLOW_SIZE;
-  const ctx = glow.getContext("2d");
-  if (!ctx) return null;
-  const half = GLOW_SIZE / 2;
-  const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
-  gradient.addColorStop(0, `rgba(${palette.skyChannels}, 0.45)`);
-  gradient.addColorStop(1, `rgba(${palette.skyChannels}, 0)`);
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, GLOW_SIZE, GLOW_SIZE);
-  return glow;
 }
 
 // The globe at one point of the entrance, mark for mark as the build-time SVG
@@ -166,67 +130,54 @@ export function setupLyraGlobe(root = document.querySelector<HTMLElement>("[data
   }
 }
 
-/** The canvas globe. Returns nothing when the browser cannot draw it. */
+/** Draw the globe scene. Restart its entrance after a restored page. */
 function drawGlobe(root: HTMLElement): (() => void) | undefined {
-  const canvas = root.querySelector("canvas");
-  const ctx = canvas?.getContext("2d");
-  const palette = readPalette(root);
-  const glow = makeGlow(palette);
-  if (!canvas || !ctx || !glow || !("ResizeObserver" in window) || !("IntersectionObserver" in window)) return undefined;
-
-  const reduced = matchMedia("(prefers-reduced-motion: reduce)");
-  let elapsed = reduced.matches ? DURATION_MS : 0;
   let globe: Globe | undefined;
-  // Canvas pixels per globe unit. The SVG scales its viewBox the same way.
+  let vega: Globe["hotNodes"][number] | undefined;
   let scale = 1;
-  let frame = 0;
-  let previous = 0;
-  let visible = false;
-  let disposed = false;
+  let removeFallback: (() => void) | undefined;
 
-  function draw() {
-    if (!globe) return;
-    // The clock runs a little fast at the start, so the first marks show at once.
-    // It still starts at 0 and ends at 1, so the last frame is the finished picture.
-    const progress = 1 - (1 - elapsed / DURATION_MS) ** 1.3;
-    const ease = easeOutCubic(progress);
-    ctx!.setTransform(1, 0, 0, 1, 0, 0);
-    ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
-    ctx!.setTransform(scale, 0, 0, scale, 0, 0);
-    ctx!.save();
-    // A small settle. It starts a few percent from the finished pose and ends on it.
-    ctx!.translate(GLOBE_WIDTH / 2, GLOBE_HEIGHT / 2);
-    ctx!.rotate(globe.rotation * (1 - ease));
-    ctx!.scale(0.985 + 0.015 * ease, 0.985 + 0.015 * ease);
-    ctx!.translate(-GLOBE_WIDTH / 2, -GLOBE_HEIGHT / 2);
-    paintGlobe(ctx!, globe, palette, glow!, progress);
-    if (elapsed < DURATION_MS) drawSignals(progress);
-    ctx!.restore();
-    ctx!.globalAlpha = 1;
-    if (elapsed === DURATION_MS) root.dataset.motionState = "still";
+  function resize(state: FrameState) {
+    // Keep the canvas projection equal to the SVG projection.
+    scale = Math.round(state.w * state.ratio) / GLOBE_WIDTH;
+    globe = globe ?? buildGlobe();
+    vega = globe.hotNodes.find((node) => node.vega);
   }
 
-  // Comets run their routes to Vega with a soft tail, drawn with added light.
-  // Vega blooms as they arrive, and the bloom is gone when the entrance ends.
-  function drawSignals(progress: number) {
-    ctx!.globalCompositeOperation = "lighter";
-    ctx!.lineCap = "round";
-    ctx!.strokeStyle = palette.sky;
-    for (let i = 0; i < globe!.routes.length; i++) drawComet(globe!.routes[i], progress);
-    const vega = globe!.hotNodes.find((node) => node.vega);
+  function draw(ctx: CanvasRenderingContext2D, state: FrameState) {
+    if (!globe) return;
+    const ease = easeOutCubic(state.progress);
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.save();
+    // Settle the globe on its finished pose.
+    ctx.translate(GLOBE_WIDTH / 2, GLOBE_HEIGHT / 2);
+    ctx.rotate(globe.rotation * (1 - ease));
+    ctx.scale(0.985 + 0.015 * ease, 0.985 + 0.015 * ease);
+    ctx.translate(-GLOBE_WIDTH / 2, -GLOBE_HEIGHT / 2);
+    paintGlobe(ctx, globe, state.palette, state.glow, state.progress);
+    if (!state.still) drawSignals(ctx, state.progress, state.palette, state.glow);
+    ctx.restore();
+  }
+
+  /** Draw comets and the temporary Vega bloom. */
+  function drawSignals(ctx: CanvasRenderingContext2D, progress: number, palette: Palette, glow: HTMLCanvasElement) {
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineCap = "round";
+    ctx.strokeStyle = palette.sky;
+    for (let i = 0; i < globe!.routes.length; i++) drawComet(ctx, globe!.routes[i], progress, palette, glow);
     const bloom = smooth((progress - 0.62) / 0.22) * (1 - smooth((progress - 0.84) / 0.16));
     if (vega && bloom > 0) {
-      ctx!.globalAlpha = 0.5 * bloom;
-      ctx!.drawImage(glow!, vega.x - VEGA_GLOW / 2, vega.y - VEGA_GLOW / 2, VEGA_GLOW, VEGA_GLOW);
+      ctx.globalAlpha = 0.5 * bloom;
+      ctx.drawImage(glow, vega.x - VEGA_GLOW / 2, vega.y - VEGA_GLOW / 2, VEGA_GLOW, VEGA_GLOW);
     }
-    ctx!.globalAlpha = 1;
-    ctx!.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
   }
 
-  function drawComet(route: GlobeRoute, progress: number) {
+  function drawComet(ctx: CanvasRenderingContext2D, route: GlobeRoute, progress: number, palette: Palette, glow: HTMLCanvasElement) {
     const travel = (progress - route.start) / route.span;
     if (travel <= 0 || travel >= 1) return;
-    // The comet eases into its run and slows as it meets the star.
+    // Slow each comet as it reaches the star.
     const distance = route.length * (1 - (1 - travel) ** 1.6);
     const strength = smooth(travel / 0.16) * (1 - smooth((travel - 0.86) / 0.14));
     pointAt(route, distance, head);
@@ -237,89 +188,30 @@ function drawGlobe(root: HTMLElement): (() => void) | undefined {
       if (behind < 0) break;
       const fade = 1 - slice / TAIL_SLICES;
       pointAt(route, behind, tailEnd);
-      ctx!.globalAlpha = 0.75 * strength * fade * fade;
-      ctx!.lineWidth = 0.5 + 1.3 * fade;
-      ctx!.beginPath();
-      ctx!.moveTo(tailStart.x, tailStart.y);
-      ctx!.lineTo(tailEnd.x, tailEnd.y);
-      ctx!.stroke();
+      ctx.globalAlpha = 0.75 * strength * fade * fade;
+      ctx.lineWidth = 0.5 + 1.3 * fade;
+      ctx.beginPath();
+      ctx.moveTo(tailStart.x, tailStart.y);
+      ctx.lineTo(tailEnd.x, tailEnd.y);
+      ctx.stroke();
       tailStart.x = tailEnd.x;
       tailStart.y = tailEnd.y;
     }
-    ctx!.globalAlpha = 0.85 * strength;
-    ctx!.drawImage(glow!, head.x - COMET_GLOW / 2, head.y - COMET_GLOW / 2, COMET_GLOW, COMET_GLOW);
-    ctx!.globalAlpha = strength;
-    ctx!.fillStyle = palette.text;
-    ctx!.beginPath();
-    ctx!.arc(head.x, head.y, 1.2, 0, FULL_TURN_RADIANS);
-    ctx!.fill();
+    ctx.globalAlpha = 0.85 * strength;
+    ctx.drawImage(glow, head.x - COMET_GLOW / 2, head.y - COMET_GLOW / 2, COMET_GLOW, COMET_GLOW);
+    ctx.globalAlpha = strength;
+    ctx.fillStyle = palette.text;
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, 1.2, 0, FULL_TURN_RADIANS);
+    ctx.fill();
   }
 
-  function tick(time: number) {
-    frame = 0;
-    if (previous) elapsed = Math.min(DURATION_MS, elapsed + time - previous);
-    previous = time;
-    draw();
-    resume();
-  }
-
-  function resume() {
-    if (frame || !globe || !visible || document.hidden || disposed || elapsed >= DURATION_MS) return;
-    if (!previous) root.dataset.motionState = "playing";
-    frame = requestAnimationFrame(tick);
-  }
-
-  function pause() {
-    cancelAnimationFrame(frame);
-    frame = 0;
-    previous = 0;
-  }
-
-  function resize() {
-    if (disposed) return;
-    const box = canvas!.getBoundingClientRect();
-    if (!box.width || !box.height) return;
-    const ratio = Math.min(devicePixelRatio || 1, MAX_PIXEL_RATIO);
-    canvas!.width = Math.round(box.width * ratio);
-    canvas!.height = Math.round(box.height * ratio);
-    // The model keeps the SVG's own size, so the canvas and the SVG share one
-    // projection and one label grid at every box size.
-    scale = canvas!.width / GLOBE_WIDTH;
-    globe = globe ?? buildGlobe();
-    draw();
-    // Show the canvas once it holds its first frame.
-    root.dataset.ready = "true";
-    if (elapsed >= DURATION_MS) root!.dataset.motionState = "still";
-    resume();
-  }
-
-  const size = new ResizeObserver(resize);
-  size.observe(canvas);
-  const intersection = new IntersectionObserver((entries) => {
-    visible = entries[entries.length - 1].isIntersecting;
-    if (visible) resume();
-    else pause();
+  const handle = mountCanvasController(root, { draw, onResize: resize }, GLOBE_POLICY, () => {
+    removeFallback = showFallback(root);
   });
-  intersection.observe(root);
-  const onVisibility = () => (document.hidden ? pause() : resume());
-  const onPreference = () => {
-    if (!reduced.matches) return;
-    pause();
-    elapsed = DURATION_MS;
-    draw();
-    root.dataset.motionState = "still";
-  };
-  document.addEventListener("visibilitychange", onVisibility);
-  reduced.addEventListener("change", onPreference);
+  if (!handle) return undefined;
   return () => {
-    disposed = true;
-    pause();
-    size.disconnect();
-    intersection.disconnect();
-    document.removeEventListener("visibilitychange", onVisibility);
-    reduced.removeEventListener("change", onPreference);
-    glow.width = glow.height = 0;
-    root.removeAttribute("data-ready");
-    root.removeAttribute("data-motion-state");
+    handle.destroy();
+    removeFallback?.();
   };
 }
