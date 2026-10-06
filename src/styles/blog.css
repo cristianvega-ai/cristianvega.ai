@@ -6,7 +6,6 @@ body[data-page="blog"] {
 body[data-page="post"] {
   --article-text: #c5cdd9;
   --fg: var(--mast-text);
-  --ink-2: var(--article-text);
   --muted: var(--mast-meta);
   --line: var(--mast-line);
   --surface-well: var(--ink);
@@ -296,7 +295,7 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 }
 
 .prose {
-  color: var(--ink-2);
+  color: var(--article-text);
   overflow-wrap: break-word;
 }
 
