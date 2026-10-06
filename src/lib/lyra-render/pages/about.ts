@@ -175,7 +175,7 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
     }
     const avoid: Rect[] = [around(vx, vy, 10)];
     for (let k = 0; k < nodeCount - 1; k++) avoid.push(around(nx[k], ny[k], 6));
-    vegaLabel = placeLabel("VEGA · α LYR", vx, vy, { bounds: labelBounds(container, w, h), segments, avoid, gap: 16 });
+    vegaLabel = placeLabel("VEGA · α LYR", vx, vy, { widthCssPx: s.labelFont.widthCssPx("VEGA · α LYR"), bounds: labelBounds(container, w, h), segments, avoid, gap: 16 });
   }
 
   function pointAt(share: number, out: Point): Point {
@@ -277,7 +277,7 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
       drawVegaBloom(ctx, s.glow, vx, vy, smooth((p - 0.62) / 0.22) * (1 - smooth((p - 0.84) / 0.16)) * smooth((reach - 0.9) / 0.1));
     }
     const labelIn = smooth((p - 0.7) / 0.2);
-    if (vegaLabel) drawLabel(ctx, pal, vegaLabel.text, vegaLabel.x, vegaLabel.y, vegaLabel.align, labelIn);
+    if (vegaLabel) drawLabel(ctx, pal, s.labelFont.canvasFont, vegaLabel.text, vegaLabel.x, vegaLabel.y, vegaLabel.align, labelIn);
 
     // The marker place for the tests, written when the value changes, and at most once per frame.
     if (scroll.linked) {

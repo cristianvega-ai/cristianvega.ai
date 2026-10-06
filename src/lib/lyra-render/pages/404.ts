@@ -1,6 +1,6 @@
-import { LYRA_LINKS } from "../../lyra/constellation.ts";
+import { LYRA, LYRA_LINKS } from "../../lyra/constellation.ts";
 import { entranceProgress, stagger } from "../clock.ts";
-import { around, labelBounds, labelWidth, placeLabel, type PlacedLabel, type Rect, type Segment } from "../labels.ts";
+import { around, labelBounds, placeLabel, type PlacedLabel, type Rect, type Segment } from "../labels.ts";
 import { FIGURE_INSET, reportFigureLeft } from "../inset.ts";
 import { layoutLyra, type LyraPoint } from "../lyra.ts";
 import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
@@ -50,13 +50,13 @@ export function missingLayout(w: number, h: number): MissingLayout {
  * Place the star names. Each takes the side of its star that no link crosses, clear of the other stars,
  * the empty ring, and the box edge. Vega always has its name, and the others only when the box is tall.
  */
-export function placeLabels(bounds: Rect, stars: readonly LyraPoint[], showNames: boolean): PlacedLabel[] {
+export function placeLabels(bounds: Rect, stars: readonly LyraPoint[], showNames: boolean, widthsCssPx: readonly number[]): PlacedLabel[] {
   const segments: Segment[] = LYRA_LINKS.map(([a, b]) => ({ ax: stars[a].x, ay: stars[a].y, bx: stars[b].x, by: stars[b].y }));
   const avoid: Rect[] = stars.map((star, i) => around(star.x, star.y, i === MISSING ? RING_RADIUS + 5 : 9));
   const placed: PlacedLabel[] = [];
   for (let i = 0; i < stars.length; i++) {
     const name = stars[i].name;
-    if (name && (i === 0 || showNames)) placed.push(placeLabel(name, stars[i].x, stars[i].y, { bounds, segments, avoid, gap: stars[i].vega ? 14 : 12 }));
+    if (name && (i === 0 || showNames)) placed.push(placeLabel(name, stars[i].x, stars[i].y, { widthCssPx: widthsCssPx[i], bounds, segments, avoid, gap: stars[i].vega ? 14 : 12 }));
   }
   return placed;
 }
@@ -65,12 +65,12 @@ export function placeLabels(bounds: Rect, stars: readonly LyraPoint[], showNames
  * Fit the figure and place its names. When Vega finds no clear side, as in a narrow column, the figure
  * moves left by the room that its name needs, and the names are placed again.
  */
-export function layoutMissing(w: number, h: number, layout: MissingLayout, bounds: Rect, out: LyraPoint[] = []) {
+export function layoutMissing(w: number, h: number, layout: MissingLayout, bounds: Rect, widthsCssPx: readonly number[], out: LyraPoint[] = []) {
   let stars = layoutLyra(w, h, { pad: layout.pad, rotate: layout.rotate, out });
-  let labels = placeLabels(bounds, stars, layout.showNames);
+  let labels = placeLabels(bounds, stars, layout.showNames, widthsCssPx);
   if (labels[0] && !labels[0].clear) {
-    stars = layoutLyra(w - labelWidth(labels[0].text) - 24, h, { pad: layout.pad, rotate: layout.rotate, out });
-    labels = placeLabels(bounds, stars, layout.showNames);
+    stars = layoutLyra(w - widthsCssPx[0] - 24, h, { pad: layout.pad, rotate: layout.rotate, out });
+    labels = placeLabels(bounds, stars, layout.showNames, widthsCssPx);
   }
   return { stars, labels };
 }
@@ -90,7 +90,8 @@ export function mountNotFound(container: HTMLElement): CanvasHandle | null {
     reach = layout.reach;
     reportFigureLeft(container, s.w, s.h);
     const bounds = labelBounds(container, s.w, s.h);
-    const placed = layoutMissing(s.w, s.h, layout, bounds, stars);
+    const widthsCssPx = LYRA.map((star) => star.name ? s.labelFont.widthCssPx(star.name) : 0);
+    const placed = layoutMissing(s.w, s.h, layout, bounds, widthsCssPx, stars);
     stars = placed.stars;
     labels = placed.labels;
     field = makeStarField(s.w, s.h, Math.round((s.w * s.h) / 8000), 3);
@@ -173,7 +174,7 @@ export function mountNotFound(container: HTMLElement): CanvasHandle | null {
     }
 
     const label = smooth((p - 0.7) / 0.2);
-    for (let i = 0; i < labels.length; i++) drawLabel(ctx, pal, labels[i].text, labels[i].x, labels[i].y, labels[i].align, label);
+    for (let i = 0; i < labels.length; i++) drawLabel(ctx, pal, s.labelFont.canvasFont, labels[i].text, labels[i].x, labels[i].y, labels[i].align, label);
   }
 
   return mountCanvas(container, { draw, onResize: build, duration: REST_MS });

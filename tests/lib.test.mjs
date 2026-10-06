@@ -5,7 +5,7 @@ import { clamp, cubicPoint, easeOutCubic } from "../src/lib/motion/easing.ts";
 import { LYRA, LYRA_LINKS } from "../src/lib/lyra/constellation.ts";
 import { DURATION, entranceProgress, stagger } from "../src/lib/lyra-render/clock.ts";
 import { LYRA_MAX_SIZE, layoutLyra } from "../src/lib/lyra-render/lyra.ts";
-import { around, placeLabel, rectsOverlap, segmentHitsRect, labelWidth } from "../src/lib/lyra-render/labels.ts";
+import { around, placeLabel, rectsOverlap, segmentHitsRect } from "../src/lib/lyra-render/labels.ts";
 import { FIGURE_INSET, figureRect } from "../src/lib/lyra-render/inset.ts";
 import { RING_MARGIN, aboutLayout } from "../src/lib/lyra-render/pages/about.ts";
 import { makeMesh } from "../src/lib/lyra-render/mesh.ts";
@@ -352,11 +352,11 @@ test("the search pulses start at 2.9 s, come at most every 8 s, and all end befo
 });
 
 const fieldSizes = [[480, 600], [480, 900], [820, 340], [390, 340], [320, 340]];
+const starWidthsCssPx = [66, 0, 0, 0, 42, 42];
 const fieldPosts = (count) => {
   const ids = Array.from({ length: count }, (_, i) => `post-${i}-lorem-ipsum`);
-  return { ids, labels: ids.map((_, i) => `N\u00b0 ${String(count - i).padStart(2, "0")}`) };
+  return { ids, labels: ids.map((_, i) => `N\u00b0 ${String(count - i).padStart(2, "0")}`), labelWidthsCssPx: new Array(count).fill(30) };
 };
-const measureMono = (text) => text.length * 6;
 
 test("hashUnit gives one stable value in [0, 1) for a text and a salt", () => {
   assert.equal(hashUnit("a-post", 1), hashUnit("a-post", 1));
@@ -382,20 +382,20 @@ test("pathToVega walks the Lyra links from a star to Vega", () => {
 });
 
 test("the reading field places the same posts in the same spots on every call", () => {
-  const { ids, labels } = fieldPosts(8);
-  const first = buildField({ ids, labels, w: 480, h: 640, measure: measureMono });
-  const second = buildField({ ids, labels, w: 480, h: 640, measure: measureMono });
+  const { ids, labels, labelWidthsCssPx } = fieldPosts(8);
+  const first = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w: 480, h: 640 });
+  const second = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w: 480, h: 640 });
   assert.deepEqual(first.points, second.points);
   assert.deepEqual(first.postLabels, second.postLabels);
-  const other = buildField({ ids: ids.map((id) => `${id}-b`), labels, w: 480, h: 640, measure: measureMono });
+  const other = buildField({ ids: ids.map((id) => `${id}-b`), labels, labelWidthsCssPx, starWidthsCssPx, w: 480, h: 640 });
   assert.notDeepEqual(other.points.slice(0, 8), first.points.slice(0, 8), "a different id must give a different spot");
 });
 
 test("the reading field keeps every post inside its box and out of the Lyra figure", () => {
   for (const [w, h] of fieldSizes) {
     for (const count of [1, 3, 8, 12]) {
-      const { ids, labels } = fieldPosts(count);
-      const field = buildField({ ids, labels, w, h, measure: measureMono });
+      const { ids, labels, labelWidthsCssPx } = fieldPosts(count);
+      const field = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w, h });
       assert.equal(field.points.filter((point) => point.post).length, count);
       assert.ok(field.points.slice(0, count).every((point) => point.post), "posts must come first");
       for (const post of field.points.slice(0, count)) {
@@ -411,8 +411,8 @@ test("the reading field keeps every post inside its box and out of the Lyra figu
 test("the reading field labels never collide, never leave the box, and never cover a star", () => {
   for (const [w, h] of fieldSizes) {
     for (const count of [1, 3, 8, 12]) {
-      const { ids, labels } = fieldPosts(count);
-      const field = buildField({ ids, labels, w, h, measure: measureMono });
+      const { ids, labels, labelWidthsCssPx } = fieldPosts(count);
+      const field = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w, h });
       const where = `${w}x${h}, ${count} posts`;
       const shown = [...field.postLabels, ...field.starLabels.filter(Boolean)];
       assert.equal(field.postLabels.length, count, `${where}: every post keeps a label`);
@@ -430,8 +430,8 @@ test("the reading field labels never collide, never leave the box, and never cov
 });
 
 test("the reading field links each point once, and every link joins two real points", () => {
-  const { ids, labels } = fieldPosts(8);
-  const field = buildField({ ids, labels, w: 480, h: 640, measure: measureMono });
+  const { ids, labels, labelWidthsCssPx } = fieldPosts(8);
+  const field = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w: 480, h: 640 });
   const seen = new Set();
   for (const link of field.links) {
     assert.ok(link.from !== link.to);
@@ -454,11 +454,11 @@ test("segmentHitsRect finds a segment that crosses, touches, or lies inside a bo
 });
 
 test("placeLabel takes the first side that no edge crosses", () => {
-  const free = placeLabel("VEGA", 200, 150, { bounds: HERE });
+  const free = placeLabel("VEGA", 200, 150, { widthCssPx: 24, bounds: HERE });
   assert.equal(free.side, "right", "with nothing in the way, the label goes right");
   assert.equal(free.align, "left");
   const blocked = [{ ax: 200, ay: 150, bx: 320, by: 150 }];
-  const around = placeLabel("VEGA", 200, 150, { bounds: HERE, segments: blocked });
+  const around = placeLabel("VEGA", 200, 150, { widthCssPx: 24, bounds: HERE, segments: blocked });
   assert.notEqual(around.side, "right", "an edge to the right must move the label");
   assert.ok(!blocked.some((segment) => segmentHitsRect(segment, around.rect)), "the chosen box must not touch the edge");
   assert.equal(around.clear, true);
@@ -466,17 +466,16 @@ test("placeLabel takes the first side that no edge crosses", () => {
 
 test("placeLabel stays inside the bounds and keeps clear of earlier labels", () => {
   const bounds = { x0: 30, y0: 30, x1: 170, y1: 100 };
-  const nearRight = placeLabel("VEGA · α LYR", 160, 60, { bounds });
+  const nearRight = placeLabel("VEGA · α LYR", 160, 60, { widthCssPx: 66, bounds });
   assert.ok(nearRight.rect.x0 >= bounds.x0 && nearRight.rect.x1 <= bounds.x1, "the label must not pass the right bound");
   assert.notEqual(nearRight.side, "right");
   const avoid = [];
-  const first = placeLabel("ONE", 100, 60, { bounds: HERE, avoid });
-  const second = placeLabel("TWO", 100, 60, { bounds: HERE, avoid });
+  const first = placeLabel("ONE", 100, 60, { widthCssPx: 18, bounds: HERE, avoid });
+  const second = placeLabel("TWO", 100, 60, { widthCssPx: 18, bounds: HERE, avoid });
   assert.equal(avoid.length, 2, "each label must reserve its box");
   assert.ok(!rectsOverlap(first.rect, second.rect), "two labels must not overlap");
-  const none = placeLabel("VEGA", 5, 5, { bounds: { x0: 0, y0: 0, x1: 20, y1: 20 } });
+  const none = placeLabel("VEGA", 5, 5, { widthCssPx: 24, bounds: { x0: 0, y0: 0, x1: 20, y1: 20 } });
   assert.equal(none.clear, false, "a label with no free place must say so");
-  assert.equal(labelWidth("ABC"), 18);
   assert.ok(around(5, 5, 3).x1 === 8);
 });
 
@@ -484,7 +483,7 @@ test("the 404 star names never sit on a Lyra link and stay inside the box", () =
   for (const [w, h] of [[380, 720], [286, 770], [700, 150], [350, 150], [460, 800], [1000, 150]]) {
     const layout = missingLayout(w, h);
     const bounds = { x0: 28, y0: 20, x1: w - 28, y1: h - 20 };
-    const { stars, labels } = layoutMissing(w, h, layout, bounds);
+    const { stars, labels } = layoutMissing(w, h, layout, bounds, starWidthsCssPx);
     assert.ok(labels.length >= 1 && labels[0].text === LYRA[0].name, `${w}x${h}: Vega must have its name`);
     for (const label of labels) {
       assert.ok(label.clear, `${w}x${h}: "${label.text}" must find a clear place`);
@@ -499,9 +498,9 @@ test("the 404 star names never sit on a Lyra link and stay inside the box", () =
 
 test("the reading field labels never sit on a figure link, post labels never on a synapse, and all keep 24px from the edge", () => {
   for (const [w, h] of fieldSizes) {
-    const { ids, labels } = fieldPosts(8);
+    const { ids, labels, labelWidthsCssPx } = fieldPosts(8);
     const bounds = { x0: 28, y0: 28, x1: w - 28, y1: h - 28 };
-    const field = buildField({ ids, labels, w, h, bounds });
+    const field = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w, h, bounds });
     const hits = (label, a, b) => segmentHitsRect({ ax: a.x, ay: a.y, bx: b.x, by: b.y }, label.rect);
     const shown = [...field.postLabels.map((label) => [label, true]), ...field.starLabels.filter(Boolean).map((label) => [label, false])];
     for (const [label, isPost] of shown) {
@@ -595,8 +594,8 @@ test("the 404 figure keeps every star inside the figure inset", () => {
 
 test("the reading field keeps every post and field star inside the figure inset", () => {
   for (const [w, h] of fieldSizes) {
-    const { ids, labels } = fieldPosts(8);
-    const field = buildField({ ids, labels, w, h });
+    const { ids, labels, labelWidthsCssPx } = fieldPosts(8);
+    const field = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w, h });
     for (const point of field.points) {
       assert.ok(point.x >= FIGURE_INSET - 1e-9 && point.x <= w - FIGURE_INSET + 1e-9, `${w}x${h}: x ${point.x} must sit inside the inset`);
       assert.ok(point.y >= FIGURE_INSET - 1e-9 && point.y <= h - FIGURE_INSET + 1e-9, `${w}x${h}: y ${point.y} must sit inside the inset`);

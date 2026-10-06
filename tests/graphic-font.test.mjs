@@ -1,0 +1,87 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { makeLabelFont } from "../src/lib/lyra-render/label-font.ts";
+import { placeLabel } from "../src/lib/lyra-render/labels.ts";
+import { buildField } from "../src/lib/lyra-render/pages/writing-layout.ts";
+import { layoutMissing, missingLayout } from "../src/lib/lyra-render/pages/404.ts";
+
+function context() {
+  return {
+    font: "10px sans-serif",
+    measurements: 0,
+    scale: 1,
+    measureText(text) {
+      this.measurements += 1;
+      const proportional = this.font.includes("Proportional");
+      const width = [...text].reduce((total, letter) => total + (proportional ? letter === "W" ? 11 : 3 : 6), 0);
+      return { width: width * this.scale };
+    },
+  };
+}
+
+test("uses the supplied family and caches each measured label", () => {
+  const ctx = context();
+  const font = makeLabelFont(ctx, '"Proportional", sans-serif');
+  assert.equal(font.canvasFont, '400 10px "Proportional", sans-serif');
+  assert.equal(font.widthCssPx("WWWW"), 44);
+  assert.equal(font.widthCssPx("iiii"), 12);
+  assert.equal(font.widthCssPx("WWWW"), 44);
+  assert.equal(ctx.measurements, 2);
+});
+
+test("keeps fallback labels readable and refreshes loaded font metrics", () => {
+  const ctx = context();
+  const fallback = makeLabelFont(ctx, " ");
+  assert.equal(fallback.canvasFont, "400 10px ui-monospace, monospace");
+  assert.equal(fallback.widthCssPx("VEGA"), 24);
+  ctx.scale = 1.8;
+  assert.equal(fallback.widthCssPx("VEGA"), 24);
+  const loaded = makeLabelFont(ctx, '"Loaded Family", monospace');
+  assert.equal(loaded.widthCssPx("VEGA"), 43.2);
+  assert.equal(ctx.measurements, 2);
+});
+
+test("uses measured widths to keep wide labels inside placement bounds", () => {
+  const bounds = { x0: 20, y0: 20, x1: 260, y1: 150 };
+  const narrow = placeLabel("WWWW", 160, 80, { bounds, widthCssPx: 12 });
+  const wide = placeLabel("WWWW", 160, 80, { bounds, widthCssPx: 120 });
+  assert.equal(narrow.side, "right");
+  assert.equal(wide.side, "left");
+  assert.equal(wide.rect.x1 - wide.rect.x0, 126);
+  assert.equal(wide.clear, true);
+  assert.ok(wide.rect.x0 >= bounds.x0 && wide.rect.x1 <= bounds.x1);
+});
+
+test("uses supplied widths in Writing margins and label boxes", () => {
+  const input = {
+    ids: ["post-one", "post-two"],
+    labels: ["WWWW", "iiii"],
+    labelWidthsCssPx: [44, 12],
+    starWidthsCssPx: [96, 0, 0, 0, 64, 64],
+    w: 480,
+    h: 640,
+  };
+  const wide = buildField(input);
+  const narrow = buildField({ ...input, labelWidthsCssPx: [12, 12] });
+  assert.notDeepEqual(wide.points.slice(0, 2), narrow.points.slice(0, 2));
+  for (const [index, label] of wide.postLabels.entries()) {
+    assert.equal(label.rect.x1 - label.rect.x0, input.labelWidthsCssPx[index] + 6);
+    assert.ok(label.rect.x0 >= 0 && label.rect.x1 <= input.w);
+  }
+  const vega = wide.starLabels[0];
+  assert.ok(vega);
+  assert.equal(vega.rect.x1 - vega.rect.x0, 102);
+});
+
+test("fits the 404 figure with measured wide star names", () => {
+  const w = 286;
+  const h = 770;
+  const bounds = { x0: 28, y0: 20, x1: w - 28, y1: h - 20 };
+  const { labels } = layoutMissing(w, h, missingLayout(w, h), bounds, [108, 0, 0, 0, 72, 72]);
+  assert.equal(labels[0].rect.x1 - labels[0].rect.x0, 114);
+  for (const label of labels) {
+    assert.equal(label.clear, true);
+    assert.ok(label.rect.x0 >= bounds.x0 && label.rect.x1 <= bounds.x1);
+  }
+});

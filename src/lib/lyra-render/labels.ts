@@ -51,11 +51,6 @@ const OUTSIDE = 10_000;
 
 const SIDES: readonly LabelSide[] = ["right", "left", "above", "below", "above-right", "above-left", "below-right", "below-left"];
 
-/** The width of a label in the mono font. The advance of IBM Plex Mono is 0.6 em, so no measure is needed. */
-export function labelWidth(text: string, size = LABEL_SIZE): number {
-  return text.length * size * 0.6;
-}
-
 export function rectsOverlap(a: Rect, b: Rect): boolean {
   return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
 }
@@ -116,6 +111,8 @@ export function ellipseSegments(cx: number, cy: number, rx: number, ry: number, 
 }
 
 export interface PlaceOptions {
+  /** The measured text width in CSS pixels, without the halo. */
+  widthCssPx: number;
   /** The area that the label box must stay inside. */
   bounds: Rect;
   /** Edges that must stay clear of the label. A node's own edges belong here. */
@@ -128,7 +125,6 @@ export interface PlaceOptions {
   gap?: number;
   /** The order of sides to try. */
   prefer?: readonly LabelSide[];
-  size?: number;
   /** Move the label along its side, for example above the node's own line. */
   lift?: number;
 }
@@ -206,13 +202,12 @@ function cost(label: PlacedLabel, options: PlaceOptions): number {
  * When none is free, it takes the cheapest, so a label always has a place, and `clear` says whether it is free.
  */
 export function placeLabel(text: string, x: number, y: number, options: PlaceOptions): PlacedLabel {
-  const { gap = 12, prefer = SIDES, size = LABEL_SIZE, lift = 0 } = options;
-  const width = labelWidth(text, size);
+  const { gap = 12, prefer = SIDES, widthCssPx, lift = 0 } = options;
   const order = prefer.length >= SIDES.length ? prefer : [...prefer, ...SIDES.filter((side) => !prefer.includes(side))];
   let best: PlacedLabel | undefined;
   let bestCost = Infinity;
   for (const side of order) {
-    const label = candidate(text, x, y, side, width, gap, side === "right" || side === "left" ? lift : 0);
+    const label = candidate(text, x, y, side, widthCssPx, gap, side === "right" || side === "left" ? lift : 0);
     const price = cost(label, options);
     if (price < bestCost) {
       best = label;
