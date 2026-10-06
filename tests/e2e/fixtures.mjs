@@ -1,3 +1,79 @@
+import { expect, test as base } from "@playwright/test";
+import { spawn } from "node:child_process";
+import { cp } from "node:fs/promises";
+import { createServer } from "node:net";
+import { join } from "node:path";
+import { createContentBuild, latestWork, publishedContent, readContentInventory, root } from "../helpers.mjs";
+
+export const currentContent = readContentInventory();
+export const currentPublished = publishedContent(currentContent);
+export { latestWork };
+
+// Serve the isolated build through the same local Cloudflare runtime.
+export const publicationTest = base.extend({
+  publication: [async ({}, use) => {
+    const fixture = await createContentBuild("mixed");
+    let server;
+    let closed;
+    try {
+      await cp(join(root, "wrangler.jsonc"), join(fixture.root, "wrangler.jsonc"));
+      const port = await new Promise((resolve, reject) => {
+        const probe = createServer();
+        probe.once("error", reject);
+        probe.listen(0, "127.0.0.1", () => {
+          const address = probe.address();
+          probe.close((error) => error ? reject(error) : resolve(address.port));
+        });
+      });
+      const origin = `http://127.0.0.1:${port}`;
+      server = spawn(process.execPath, [join(root, "node_modules", "wrangler", "bin", "wrangler.js"),
+        "dev", "--local", "--env", "test", "--port", String(port), "--ip", "127.0.0.1",
+        "--inspector-port", "0", "--show-interactive-dev-session", "false",
+        "--persist-to", join(fixture.root, ".wrangler", "state")], {
+        cwd: fixture.root,
+        env: { ...process.env, WRANGLER_SEND_METRICS: "false" },
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      closed = new Promise((resolve) => server.once("close", resolve));
+      let output = "";
+      const record = (chunk) => { output = `${output}${chunk}`.slice(-6000); };
+      server.stdout.on("data", record);
+      server.stderr.on("data", record);
+      server.on("error", (error) => record(error.message));
+      await expect.poll(async () => {
+        if (server.exitCode !== null) throw new Error(`Publication runtime stopped: ${output}`);
+        try {
+          return (await fetch(origin, { signal: AbortSignal.timeout(1000) })).status;
+        } catch {
+          return 0;
+        }
+      }, { timeout: 60_000, message: "publication runtime must serve the isolated build" }).toBe(200);
+      await use({ ...fixture, origin });
+    } finally {
+      if (server && server.exitCode === null) {
+        server.kill("SIGTERM");
+        const timeout = setTimeout(() => server.kill("SIGKILL"), 5000);
+        await closed;
+        clearTimeout(timeout);
+      }
+      await fixture.cleanup();
+    }
+  }, { scope: "worker", timeout: 90_000 }],
+});
+
+// Change only call-to-action markup for paired layout checks.
+export async function setHomepageState(page, state) {
+  await page.locator(".hero__next-item").evaluateAll((nodes, { state, items }) => {
+    for (const [index, node] of nodes.entries()) {
+      const item = items[index];
+      node.dataset.state = state;
+      node.innerHTML = state === "live"
+        ? `<a class="hero__next-link" href="${item.href}">${item.label} <span class="hero__next-arrow" aria-hidden="true">→</span></a>`
+        : `<span class="hero__next-soon">${item.soon}</span>`;
+    }
+  }, { state, items: latestWork });
+}
+
 /**
  * Shared helpers for the browser suite.
  *

@@ -1,13 +1,97 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { assertPageBasics, dist, readDistFile } from "./helpers.mjs";
+import { assertPageBasics, dist, escapeAttribute, escapeHtml, latestWork, publishedContent, readContentInventory, readDistFile, withContentBuild } from "./helpers.mjs";
 
 // What each rendered page must say, and the contracts every page shares:
 // accessibility landmarks, SEO metadata, navigation state, and truthful links.
 // Globe behavior belongs to tests/e2e/home.spec.mjs, even on the homepage.
+
+const inventory = readContentInventory();
+
+function assertPublicationNavigation(html, sourceInventory) {
+  const published = publishedContent(sourceInventory);
+  const expected = ["/about/", ...latestWork.filter((item) => published[item.section].length > 0).map((item) => item.href)];
+  for (const label of ["Primary", "Menu"]) {
+    const nav = html.match(new RegExp(`<nav\\b[^>]*aria-label="${label}"[\\s\\S]*?</nav>`))?.[0];
+    assert.ok(nav, `${label} navigation must exist`);
+    const internal = [...nav.matchAll(/<a\b[^>]*href="(\/[^\"]*)"/g)].map(([, href]) => href);
+    assert.deepEqual(internal, expected, `${label} navigation must follow publication`);
+  }
+}
+
+function assertHomepagePublication(html, sourceInventory) {
+  assert.equal((html.match(/<h2\b/g) ?? []).length, 0, "the homepage must hold no section heading");
+  assert.doesNotMatch(html, /home-writing|home-products|entries__item|data-post-id|data-product-id/);
+  assert.doesNotMatch(html, /href="#"/);
+  const list = html.match(/<ul class="hero__next"[^>]*>[\s\S]*?<\/ul>/)?.[0];
+  assert.ok(list, "the homepage must hold the calls to action");
+  const items = [...list.matchAll(/<li class="hero__next-item" data-state="(\w+)">([\s\S]*?)<\/li>/g)];
+  assert.equal(items.length, 2, "the homepage must hold two calls to action");
+  const published = publishedContent(sourceInventory);
+  for (const [index, expected] of latestWork.entries()) {
+    const live = published[expected.section].length > 0;
+    assert.equal(items[index][1], live ? "live" : "soon", `${expected.section} state must follow publication`);
+    if (live) {
+      assert.ok(items[index][2].includes(`href="${expected.href}"`), `${expected.section} must link to its index`);
+      assert.ok(items[index][2].includes(expected.label), `${expected.section} link must keep its label`);
+      assert.match(items[index][2], /class="hero__next-arrow" aria-hidden="true">→<\/span>/);
+    } else {
+      assert.equal(items[index][2], `<span class="hero__next-soon">${expected.soon}</span>`);
+      assert.doesNotMatch(items[index][2], /<a\b|href=|tabindex/, "coming-soon text must not take focus");
+      assert.ok(!html.includes(`href="${expected.href}"`), `${expected.section} must not link to an absent index`);
+    }
+  }
+  assertPublicationNavigation(html, sourceInventory);
+  assert.doesNotMatch(html, /class="path"|path__|Coming soon|Explore/, "the old cards must not return");
+}
+
+function assertPublishedPages(buildDirectory, sourceInventory) {
+  const read = (...segments) => readFileSync(join(buildDirectory, ...segments), "utf8");
+  const published = publishedContent(sourceInventory);
+  assertHomepagePublication(read("index.html"), sourceInventory);
+  for (const [section, entries] of Object.entries(published)) {
+    if (!entries.length) continue;
+    const index = read(section, "index.html");
+    assertPageBasics(index);
+    assertPublicationNavigation(index, sourceInventory);
+    assert.doesNotMatch(index, /name="robots" content="noindex|class="draft-label"|local preview/i);
+    const attribute = section === "writing" ? "data-post-id" : "data-product-id";
+    const listed = [...index.matchAll(new RegExp(`<li\\b[^>]*${attribute}="([^"]+)"`, "g"))].map(([, id]) => id);
+    assert.deepEqual(listed, entries.map((entry) => entry.id), `${section} list must follow its content order`);
+    for (const draft of sourceInventory[section].filter((entry) => entry.data.draft)) {
+      assert.ok(!index.includes(`href="${draft.href}"`), `${draft.id} draft must stay out of the index`);
+    }
+    for (const [position, entry] of entries.entries()) {
+      const html = read(section, entry.id, "index.html");
+      assertPageBasics(html);
+      assertPublicationNavigation(html, sourceInventory);
+      assert.ok(html.includes(`>${escapeHtml(entry.data.title)}</h1>`), `${entry.id} must show its title`);
+      assert.ok(html.includes(`name="description" content="${escapeAttribute(entry.data.description)}"`), `${entry.id} must keep its description`);
+      assert.ok(html.includes(`rel="canonical" href="https://cristianvega.ai${entry.href}"`), `${entry.id} must keep its canonical URL`);
+      assert.doesNotMatch(html, /name="robots" content="noindex|class="article__draft"|class="draft-label"/);
+      const current = html.match(new RegExp(`<a\\b[^>]*href="/${section}/"[^>]*aria-current="location"[^>]*>`));
+      assert.ok(current, `${entry.id} navigation must mark its section`);
+      if (section === "writing") {
+        assert.ok(html.includes(`property="article:published_time" content="${entry.data.date.toISOString()}"`));
+        assert.match(html, /class="author__share"/);
+        assert.ok(html.includes(`data-copy-link="https://cristianvega.ai${entry.href}" hidden`));
+        const adjacent = html.match(/<nav class="read-next[^>]*>[\s\S]*?<\/nav>/)?.[0] ?? "";
+        const hrefs = [...adjacent.matchAll(/href="([^"]+)"/g)].map(([, href]) => href);
+        assert.deepEqual(hrefs, [entries[position + 1]?.href, entries[position - 1]?.href].filter(Boolean));
+      } else {
+        assert.ok(html.includes(`<p class="eyebrow">${escapeHtml(entry.data.status)}</p>`));
+        const outbound = html.match(/<a class="product__link"[^>]*target="_blank"[^>]*>/)?.[0];
+        if (entry.data.url) {
+          assert.ok(outbound?.includes(`href="${escapeAttribute(entry.data.url)}"`));
+          assert.match(outbound, /rel="noopener noreferrer"/);
+        } else assert.equal(outbound, undefined, `${entry.id} must omit an absent outbound address`);
+      }
+    }
+  }
+}
 
 test("about holds the profile and marks its own navigation link", () => {
   const html = readDistFile("about", "index.html");
@@ -88,24 +172,31 @@ test("homepage holds the intro, the globe, and a link to about", () => {
   assert.doesNotMatch(html, /html\.js|classList\.add\(["']js["']\)/);
 });
 
-test("homepage lists no writing or products and shows two coming-soon lines in production", () => {
-  const html = readDistFile("index.html");
-  assert.equal((html.match(/<h2\b/g) ?? []).length, 0, "the homepage must hold no section heading");
-  assert.doesNotMatch(html, /home-writing|home-products|entries__item|data-post-id|data-product-id/);
-  // Every entry is a draft, so no line may point at a route the build omits.
-  assert.doesNotMatch(html, /href="\/(?:writing|products)\//);
-  assert.doesNotMatch(html, /href="#"/);
-
-  const list = html.match(/<ul class="hero__next"[^>]*>[\s\S]*?<\/ul>/)?.[0];
-  assert.ok(list, "the homepage must hold the list of calls to action");
-  const items = [...list.matchAll(/<li class="hero__next-item" data-state="(\w+)">([\s\S]*?)<\/li>/g)];
-  assert.equal(items.length, 2, "the homepage must hold two calls to action");
-  assert.deepEqual(items.map((item) => item[1]), ["soon", "soon"]);
-  assert.equal(items[0][2], '<span class="hero__next-soon">Latest writing · coming soon</span>');
-  assert.equal(items[1][2], '<span class="hero__next-soon">Latest products · coming soon</span>');
-  assert.doesNotMatch(list, /<a\b|href=|tabindex/, "a coming-soon line must not be a link or take focus");
-  assert.doesNotMatch(html, /class="path"|path__|Coming soon|Explore/, "the old cards must not return");
+test("homepage calls to action follow current publication", () => {
+  assertHomepagePublication(readDistFile("index.html"), inventory);
 });
+
+test("current published pages keep content, sorting, metadata, and navigation", () => {
+  assertPublishedPages(dist, inventory);
+});
+
+for (const kind of ["all-draft", "mixed"]) {
+  test(`${kind} fixture preserves publication page contracts`, { timeout: 90_000 }, async () => {
+    await withContentBuild(kind, (fixture) => {
+      assertPublishedPages(fixture.dist, fixture.inventory);
+      if (kind === "mixed") {
+        assert.deepEqual(publishedContent(fixture.inventory).writing.map((entry) => entry.id), ["newer-writing", "alpha-tied", "zulu-tied"]);
+        assert.deepEqual(publishedContent(fixture.inventory).products.map((entry) => entry.id), ["default-order", "alpha-product", "zulu-product"]);
+        for (const section of ["writing", "products"]) {
+          assert.equal(fixture.inventory[section].find((entry) => entry.id === "default-draft").data.draft, true);
+        }
+        const product = fixture.inventory.products.find((entry) => entry.id === "default-order");
+        assert.equal(product.data.order, 0);
+        assert.equal(product.data.status, "Product");
+      }
+    });
+  });
+}
 
 test("the header keeps one primary nav and a menu with the same links", () => {
   for (const segments of [["index.html"], ["about", "index.html"], ["404.html"]]) {

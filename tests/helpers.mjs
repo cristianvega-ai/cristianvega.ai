@@ -1,7 +1,12 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { cp, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import assert from "node:assert/strict";
+import yaml from "js-yaml";
 
 // Fixtures more than one Node test file needs: the repository and build paths,
 // the two file readers, and the page contract every rendered document must meet.
@@ -11,6 +16,137 @@ import assert from "node:assert/strict";
 // checkout under a path with spaces or non-ASCII characters would ENOENT.
 export const root = fileURLToPath(new URL("..", import.meta.url));
 export const dist = join(root, "dist");
+
+// Read Markdown independently from the application content helpers.
+export function readContentInventory(projectRoot = root) {
+  const inventory = {};
+  for (const [section, collection] of [["writing", "blog"], ["products", "products"]]) {
+    const directory = join(projectRoot, "src", "content", collection);
+    inventory[section] = readdirSync(directory).filter((file) => file.endsWith(".md")).map((file) => {
+      const markdown = readFileSync(join(directory, file), "utf8");
+      const frontmatter = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+      assert.ok(frontmatter, `${file} must have YAML frontmatter`);
+      const data = yaml.load(frontmatter[1]);
+      data.draft ??= true;
+      if (section === "writing") data.date = new Date(data.date);
+      else {
+        data.order ??= 0;
+        data.status ??= "Product";
+      }
+      return { id: file.slice(0, -3), data, body: markdown.slice(frontmatter[0].length), href: `/${section}/${file.slice(0, -3)}/` };
+    });
+  }
+  inventory.writing.sort((a, b) => b.data.date - a.data.date || a.id.localeCompare(b.id));
+  inventory.products.sort((a, b) => a.data.order - b.data.order || a.data.title.localeCompare(b.data.title));
+  return inventory;
+}
+
+export function publishedContent(inventory = readContentInventory()) {
+  return Object.fromEntries(Object.entries(inventory).map(([section, entries]) => [section, entries.filter((entry) => !entry.data.draft)]));
+}
+
+export const latestWork = [
+  { section: "writing", href: "/writing/", label: "Read my latest writing", soon: "Latest writing · coming soon" },
+  { section: "products", href: "/products/", label: "See my latest products", soon: "Latest products · coming soon" },
+];
+
+export function listBuiltRoutes(directory = dist, prefix = "/") {
+  const routes = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (entry.isDirectory() && entry.name !== "_astro") {
+      routes.push(...listBuiltRoutes(join(directory, entry.name), `${prefix}${entry.name}/`));
+    } else if (entry.name === "index.html") routes.push(prefix);
+  }
+  return routes.sort();
+}
+
+export function sitemapPaths(buildDirectory = dist) {
+  return [...readFileSync(join(buildDirectory, "sitemap-0.xml"), "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)]
+    .map(([, location]) => new URL(location).pathname).sort();
+}
+
+export function contentRoutes(inventory) {
+  return Object.entries(publishedContent(inventory)).flatMap(([section, entries]) =>
+    entries.length ? [`/${section}/`, ...entries.map((entry) => entry.href)] : []).sort();
+}
+
+export function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+}
+
+export function escapeAttribute(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
+const publicationEntries = {
+  blog: [
+    { id: "zulu-tied", title: "Zulu tied writing", date: "2026-09-28", draft: false },
+    { id: "explicit-draft", title: "Unreleased writing", date: "2026-09-30", draft: true },
+    { id: "alpha-tied", title: "Alpha tied writing", date: "2026-09-28", draft: false },
+    { id: "default-draft", title: "Default draft writing", date: "2026-10-01" },
+    { id: "newer-writing", title: "Newer's \"quoted\" & writing", date: "2026-09-29", draft: false, series: "Publication fixtures" },
+  ],
+  products: [
+    { id: "zulu-product", title: "Zulu's \"quoted\" & product", draft: false, order: 4 },
+    { id: "explicit-draft", title: "Unreleased product", draft: true, order: -2 },
+    { id: "alpha-product", title: "Alpha product", draft: false, order: 4, status: "Available", url: "https://example.com/alpha?owner=owner's&state=ready" },
+    { id: "default-draft", title: "Default draft product", order: -3 },
+    { id: "default-order", title: "Default order product", draft: false },
+  ],
+};
+
+// Build fixture content in a temporary project. Keep source content and caches separate.
+export async function createContentBuild(kind) {
+  assert.ok(["all-draft", "mixed"].includes(kind), "select an approved publication fixture");
+  const projectRoot = await realpath(await mkdtemp(join(tmpdir(), "cristianai-publication-")));
+  const cleanup = () => rm(projectRoot, { recursive: true, force: true });
+  try {
+    await Promise.all([
+      cp(join(root, "src"), join(projectRoot, "src"), { recursive: true }),
+      cp(join(root, "public"), join(projectRoot, "public"), { recursive: true }),
+      cp(join(root, "tsconfig.json"), join(projectRoot, "tsconfig.json")),
+      cp(join(root, "package.json"), join(projectRoot, "package.json")),
+      symlink(join(root, "node_modules"), join(projectRoot, "node_modules"), "dir"),
+    ]);
+    await rm(join(projectRoot, "src", "content"), { recursive: true });
+    for (const [collection, entries] of Object.entries(publicationEntries)) {
+      const directory = join(projectRoot, "src", "content", collection);
+      await mkdir(directory, { recursive: true });
+      for (const entry of entries) {
+        const { id, ...data } = entry;
+        if (kind === "all-draft" && "draft" in data) data.draft = true;
+        data.description = `Description for ${data.title}.`;
+        if (collection === "blog") data.topic = "Systems";
+        const body = `## Fixture content\n\nBody for ${id}.\n\n` + (collection === "blog"
+          ? "```js\nconst signal = 1;\n```\n\n<div class=\"figure__panel\" role=\"img\" aria-label=\"Fixture signal path\">Signal path</div>\n"
+          : "");
+        await writeFile(join(directory, `${id}.md`), `---\n${yaml.dump(data)}---\n\n${body}`);
+      }
+    }
+    const configUrl = pathToFileURL(join(root, "astro.config.mjs")).href;
+    await writeFile(join(projectRoot, "astro.config.mjs"),
+      `import config from ${JSON.stringify(configUrl)};\nexport default { ...config, cacheDir: "./.cache/", vite: { ...config.vite, cacheDir: "./.cache/vite/" } };\n`);
+    await promisify(execFile)(process.execPath, [join(root, "node_modules", "astro", "bin", "astro.mjs"), "build", "--root", projectRoot], {
+      cwd: projectRoot,
+      env: { ...process.env, ASTRO_TELEMETRY_DISABLED: "1" },
+      timeout: 60_000,
+      maxBuffer: 5_000_000,
+    });
+    return { root: projectRoot, dist: join(projectRoot, "dist"), inventory: readContentInventory(projectRoot), cleanup };
+  } catch (error) {
+    await cleanup();
+    throw error;
+  }
+}
+
+export async function withContentBuild(kind, use) {
+  const fixture = await createContentBuild(kind);
+  try {
+    return await use(fixture);
+  } finally {
+    await fixture.cleanup();
+  }
+}
 
 export const blockedBrowserFeatures = [
   "accelerometer", "autoplay", "camera", "display-capture", "encrypted-media",
@@ -34,10 +170,10 @@ function countH1(html) {
 }
 
 export function assertPageBasics(html, { titleFragment, descriptionFragment } = {}) {
-  assert.match(html, /<html\b[^>]*\blang="en"/i, "document language should be en");
+  assert.match(html, /<html\b[^>]*\blang="en"/i, "document language must be en");
   assert.match(html, /<link\b[^>]*rel="canonical"/i, "canonical URL required");
   assert.match(html, /<meta\b[^>]*name="description"/i, "meta description required");
-  assert.equal(countH1(html), 1, "each page should have exactly one H1");
+  assert.equal(countH1(html), 1, "each page must have exactly one H1");
   if (titleFragment) assert.match(html, new RegExp(titleFragment, "i"));
   if (descriptionFragment) assert.match(html, new RegExp(descriptionFragment, "i"));
 }
