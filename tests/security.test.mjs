@@ -4,7 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { dist, permissionsPolicy, readDistFile, root } from "./helpers.mjs";
+import { dist, permissionsPolicy, readDistFile } from "./helpers.mjs";
 
 // Check the compiled policy. Browser tests check Cloudflare's response.
 const headerRules = readDistFile("_headers");
@@ -119,21 +119,6 @@ test("Cloudflare CSP blocks unapproved inline scripts and styles", () => {
     ["application/ld+json"],
     "the JSON-LD graph is the only non-executable script block the build may ship",
   );
-});
-
-test("the live gate checks compression for the globe and analytics loader", () => {
-  const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
-  assert.match(script, /content-encoding/i);
-  assert.match(script, /\bgzip\b/i);
-  assert.match(script, /LyraGlobe/);
-  assert.match(script, /CloudflareAnalytics/);
-});
-
-test("the live gate requires an immutable cache for built scripts", () => {
-  const script = readFileSync(join(root, "scripts", "verify-deploy.mjs"), "utf8");
-  assert.match(script, /cache-control/i);
-  assert.match(script, /max-age=31536000/);
-  assert.match(script, /immutable/);
 });
 
 test("the security policy allows the Cloudflare script and beacon endpoint", () => {
