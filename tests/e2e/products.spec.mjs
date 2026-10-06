@@ -9,7 +9,7 @@ import { bandHeight, drawnLabels, edgePaint, settle, textBoxes, useLabelSpy, use
  * preview server. The 404 page exists in the production build.
  */
 
-const dev = "http://127.0.0.1:4324";
+const dev = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 const PAGES = {
   products: { name: "products index", url: `${dev}/products/`, graphic: "[data-graphic='products']", restMs: 31_000 },
   product: { name: "product page", url: `${dev}/products/lorem-ipsum-dolor/`, graphic: "[data-graphic='products']", restMs: 31_000 },
@@ -51,6 +51,87 @@ const paintedPixels = (page, graphic) =>
     for (let i = 3; i < data.length; i += 4) if (data[i] > 8) count += 1;
     return count;
   });
+
+/** Read the product marks from the latest canvas frame. Keep the canvas drawing active. */
+async function useProductMarks(page) {
+  await page.addInitScript(() => {
+    const proto = CanvasRenderingContext2D.prototype;
+    let path = null;
+    for (const method of ["clearRect", "beginPath", "arc", "moveTo", "lineTo", "fill", "stroke"]) {
+      const original = proto[method];
+      proto[method] = function (...args) {
+        if (this.canvas.parentElement?.dataset.graphic === "products") {
+          if (method === "clearRect") window.__productMarks = { cores: [], rings: [], links: [] };
+          if (method === "beginPath") path = null;
+          if (method === "arc") path = { kind: "arc", x: args[0], y: args[1], radius: args[2] };
+          if (method === "moveTo") path = { kind: "line", ax: args[0], ay: args[1] };
+          if (method === "lineTo" && path?.kind === "line") Object.assign(path, { bx: args[0], by: args[1] });
+          if (method === "fill" && path?.kind === "arc") {
+            window.__productMarks.cores.push({ ...path, alpha: this.globalAlpha });
+          }
+          if (method === "stroke" && path?.kind === "arc" && path.radius === 7.5) {
+            window.__productMarks.rings.push({ ...path, alpha: this.globalAlpha });
+          }
+          if (method === "stroke" && path?.kind === "line" && Math.abs(this.lineWidth - 0.8) < 1e-6) {
+            window.__productMarks.links.push({ ...path, alpha: this.globalAlpha });
+          }
+        }
+        return original.apply(this, args);
+      };
+    }
+  });
+}
+
+/** Give the test page eight products before its graphic mounts. Keep the content files unchanged. */
+async function openFullOrbit(page, reduced = false) {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  await useManualFrames(page);
+  await useProductMarks(page);
+  if (reduced) await useReducedMotion(page);
+  await page.addInitScript(() => {
+    const observer = new MutationObserver(() => {
+      const root = document.querySelector("[data-graphic='products']");
+      if (!root) return;
+      root.dataset.products = "8";
+      observer.disconnect();
+    });
+    observer.observe(document, { childList: true, subtree: true });
+  });
+  await open(page, PAGES.product);
+  await settle(page);
+  await expect(page.locator(PAGES.product.graphic)).toHaveAttribute("data-products", "8");
+  return errors;
+}
+
+/** Check each product core, ring, and link in the latest frame. */
+async function expectFullOrbit(page) {
+  const { marks, width, height } = await page.locator(`${PAGES.product.graphic} canvas`).evaluate((canvas) => {
+    const box = canvas.getBoundingClientRect();
+    return { marks: window.__productMarks, width: box.width, height: box.height };
+  });
+  expect(marks.rings, "all eight products have a ring").toHaveLength(8);
+  expect(marks.links, "all eight products have a link").toHaveLength(8);
+  for (const [index, ring] of marks.rings.entries()) {
+    const core = marks.cores.find((mark) => mark.x === ring.x && mark.y === ring.y);
+    const link = marks.links.find((mark) => mark.ax === ring.x && mark.ay === ring.y);
+    expect(core, `product ${index} has a core`).toBeDefined();
+    expect(link, `product ${index} has a link`).toBeDefined();
+    expect(core.radius, `product ${index} has its full size`).toBeCloseTo(2.6, 12);
+    expect(core.alpha, `product ${index} has its full light`).toBe(1);
+    expect(ring.alpha, `product ${index} has its full ring`).toBeCloseTo(0.5, 12);
+    expect(link.bx, `product ${index} reaches Vega on x`).toBeCloseTo(width / 2, 8);
+    expect(link.by, `product ${index} reaches Vega on y`).toBeCloseTo(height / 2, 8);
+    expect(link.alpha, `product ${index} has its full link`).toBeCloseTo(0.32, 6);
+    expect(ring.x).toBeGreaterThanOrEqual(32 - 1e-8);
+    expect(ring.x).toBeLessThanOrEqual(width - 32 + 1e-8);
+    expect(ring.y).toBeGreaterThanOrEqual(32 - 1e-8);
+    expect(ring.y).toBeLessThanOrEqual(height - 32 + 1e-8);
+  }
+}
 
 for (const target of Object.values(PAGES)) {
   test.describe(`the ${target.name} graphic is decorative`, () => {
@@ -281,6 +362,34 @@ test.describe("the products graphic shows the products", () => {
     await expect(root).toHaveAttribute("data-products", String(listed));
     await expect(root).toHaveAttribute("data-current", "0");
   });
+});
+
+test.describe("the products graphic fills every active slot", () => {
+  for (const size of Object.values(VIEWPORTS)) {
+    test(`finishes eight products after the entrance and keeps the drift at ${size.width}px`, async ({ page }) => {
+      await page.setViewportSize(size);
+      const errors = await openFullOrbit(page);
+      await expect.poll(() => pending(page)).toBe(1);
+      await play(page, 2400);
+      await expectFullOrbit(page);
+      await expect(page.locator(PAGES.product.graphic)).toHaveAttribute("data-motion-state", "playing");
+      expect(await pending(page)).toBe(1);
+      await play(page, PAGES.product.restMs);
+      await expectFullOrbit(page);
+      await expect(page.locator(PAGES.product.graphic)).toHaveAttribute("data-motion-state", "still");
+      expect(await pending(page)).toBe(0);
+      expect(errors).toEqual([]);
+    });
+
+    test(`finishes eight products on the first frame with reduced motion at ${size.width}px`, async ({ page }) => {
+      await page.setViewportSize(size);
+      const errors = await openFullOrbit(page, true);
+      await expectFullOrbit(page);
+      await expect(page.locator(PAGES.product.graphic)).toHaveAttribute("data-motion-state", "still");
+      expect(await pending(page)).toBe(0);
+      expect(errors).toEqual([]);
+    });
+  }
 });
 
 test.describe("the 404 graphic search", () => {
