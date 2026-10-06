@@ -51,6 +51,7 @@ Set `draft: false` only when the owner approves publication.
 
 The eight lorem ipsum fixtures remain drafts.
 Only the lorem ipsum dolor sit amet fixture contains a full-length article.
+Read its [fixture contract](src/content/article-fixture.md) before you change article presentation.
 The other fixtures contain short text for layout review.
 The production index shows an empty state until a post is published.
 
