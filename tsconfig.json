@@ -1,5 +1,13 @@
 {
   "extends": "astro/tsconfigs/strict",
+  "exclude": [
+    "node_modules",
+    "dist",
+    "playwright-report",
+    "test-results",
+    "coverage",
+    ".nyc_output"
+  ],
   "compilerOptions": {
     "baseUrl": "."
   }
