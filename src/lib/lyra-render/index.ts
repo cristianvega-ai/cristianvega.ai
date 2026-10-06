@@ -16,6 +16,9 @@
  *   marks.ts    drawNode, drawEdge, drawCurve, makeRoute, drawComet, drawLabel, drawVegaBloom,
  *               makeStarField, drawStarField. A curve point comes from cubicPoint() in ../motion/easing.ts.
  *   mount.ts    mountCanvas(container, { draw, onResize?, attach?, duration?, dprCap? })
+ *               ../motion/canvas-controller.ts owns clocks, observers, frames, listeners, and cleanup for page scenes and the globe.
+ *               Page scenes cap frame intervals at 64 ms and DPR at 2. They preserve entrance time across restores.
+ *               The globe uses full frame intervals and caps DPR at 1.75. It restarts its entrance after restores.
  *   scroll.ts   createScrollReader(container): a smoothed scroll share for a graphic that follows the reader
  *   pages/      one file for each page, and the registry in pages/index.ts
  *

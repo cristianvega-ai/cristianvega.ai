@@ -22,9 +22,5 @@ const globe = buildGlobe();
 <script>
   import { setupLyraGlobe } from "../lib/lyra-globe/motion";
 
-  let cleanup = setupLyraGlobe();
-  window.addEventListener("pagehide", () => cleanup());
-  window.addEventListener("pageshow", (event) => {
-    if (event.persisted) cleanup = setupLyraGlobe();
-  });
+  setupLyraGlobe();
 </script>
