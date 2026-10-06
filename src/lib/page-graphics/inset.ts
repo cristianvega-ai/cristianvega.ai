@@ -8,9 +8,9 @@ import type { Rect } from "./labels.ts";
  */
 export const FIGURE_INSET = 32;
 
-/** The box that holds the figure, in the pixels of a w by h canvas. */
-export function figureRect(w: number, h: number): Rect {
-  return { x0: FIGURE_INSET, y0: FIGURE_INSET, x1: w - FIGURE_INSET, y1: h - FIGURE_INSET };
+/** The figure box uses the supplied canvas width and height. */
+export function figureRect(width: number, height: number): Rect {
+  return { x0: FIGURE_INSET, y0: FIGURE_INSET, x1: width - FIGURE_INSET, y1: height - FIGURE_INSET };
 }
 
 /**
@@ -18,6 +18,6 @@ export function figureRect(w: number, h: number): Rect {
  * A page module calls it once for each layout, so a test can read where the figure starts.
  * `origin` is the left edge of the drawing area inside the box, which is 0 unless the figure shares the box.
  */
-export function reportFigureLeft(container: HTMLElement, w: number, h: number, origin = 0): void {
-  container.dataset.figureLeft = String(origin + figureRect(w, h).x0);
+export function reportFigureLeft(container: HTMLElement, width: number, height: number, origin = 0): void {
+  container.dataset.figureLeft = String(origin + figureRect(width, height).x0);
 }

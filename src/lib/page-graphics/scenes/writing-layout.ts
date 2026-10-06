@@ -43,8 +43,8 @@ export interface FieldInput {
   /** Measured text widths in CSS pixels, in Lyra star order. */
   starWidthsCssPx: readonly number[];
   /** The box in CSS pixels. Text must not enter the part of the slot outside it. */
-  w: number;
-  h: number;
+  width: number;
+  height: number;
   /** Where labels may sit, in the same pixels. It defaults to the box. */
   bounds?: Rect;
 }
@@ -132,15 +132,15 @@ function spread(
   }
 }
 
-export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w, h, bounds = { x0: 0, y0: 0, x1: w, y1: h } }: FieldInput): FieldLayout {
+export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, width, height, bounds = { x0: 0, y0: 0, x1: width, y1: height } }: FieldInput): FieldLayout {
   const count = ids.length;
-  const tall = h > w * 1.05;
+  const tall = height > width * 1.05;
   const labelWidth = labelWidthsCssPx.reduce((widest, width) => Math.max(widest, width), 0);
-  const cx = w / 2 + (tall ? 8 : 0);
-  const cy = h / 2;
+  const cx = width / 2 + (tall ? 8 : 0);
+  const cy = height / 2;
 
   // The Lyra figure sits in the middle. Upright in a tall box, on its side in a wide one.
-  const stars = layoutLyra(Math.min(w * 0.42, 220), Math.min(h * (tall ? 0.3 : 0.4), 260), { pad: 2, rotate: tall ? 0 : Math.PI / 2 });
+  const stars = layoutLyra(Math.min(width * 0.42, 220), Math.min(height * (tall ? 0.3 : 0.4), 260), { pad: 2, rotate: tall ? 0 : Math.PI / 2 });
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;
@@ -161,8 +161,8 @@ export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w, 
 
   // Posts: the angle slots follow the hash order, so the ids place the stars and the ring stays even.
   const margins = { l: labelWidth + 26, r: labelWidth + 26, t: Math.max(40, FIGURE_INSET), b: Math.max(40, FIGURE_INSET) };
-  const rx = (w - margins.l - margins.r) / 2;
-  const ry = (h - margins.t - margins.b) / 2;
+  const rx = (width - margins.l - margins.r) / 2;
+  const ry = (height - margins.t - margins.b) / 2;
   const order = ids.map((id, index) => ({ index, angle: hashUnit(id, 1) })).sort((a, b) => a.angle - b.angle);
   const points: FieldPoint[] = new Array(count);
   order.forEach(({ index }, rank) => {
@@ -171,12 +171,12 @@ export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w, 
     const reach = 0.66 + 0.34 * hashUnit(id, 2);
     points[index] = { x: cx + Math.cos(angle) * rx * reach * 1.1, y: cy + Math.sin(angle) * ry * reach, radius: 0, alpha: 1, post: true };
   });
-  spread(points, { x: cx, y: cy }, zone, Math.min(w, h) * 0.2 + 10, margins, w, h);
+  spread(points, { x: cx, y: cy }, zone, Math.min(width, height) * 0.2 + 10, margins, width, height);
 
   // Filler stars fill the gaps, clear of the Lyra zone and of every point placed before.
   for (let i = 0; i < FILLER; i++) {
-    const x = FIGURE_INSET + unit(i * 5 + 9) * (w - 2 * FIGURE_INSET);
-    const y = FIGURE_INSET + unit(i * 5 + 10) * (h - 2 * FIGURE_INSET);
+    const x = FIGURE_INSET + unit(i * 5 + 9) * (width - 2 * FIGURE_INSET);
+    const y = FIGURE_INSET + unit(i * 5 + 10) * (height - 2 * FIGURE_INSET);
     const nx = (x - cx) / zone.x;
     const ny = (y - cy) / zone.y;
     if (nx * nx + ny * ny < 1.1) continue;
@@ -187,7 +187,7 @@ export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w, 
   // Synapses: each point links to its two nearest neighbours, once for each pair.
   const links: FieldLink[] = [];
   const seen = new Set<number>();
-  const maxDistance = Math.max(w, h) * 0.24;
+  const maxDistance = Math.max(width, height) * 0.24;
   points.forEach((p, i) => {
     const ranked = points
       .map((q, j) => ({ j, d: Math.hypot(q.x - p.x, q.y - p.y) }))

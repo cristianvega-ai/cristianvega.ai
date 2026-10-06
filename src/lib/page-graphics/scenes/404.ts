@@ -35,14 +35,14 @@ export interface MissingLayout {
 }
 
 /** The layout choices for a box, from its measured size. */
-export function missingLayout(w: number, h: number): MissingLayout {
-  const wide = w > h * 1.6;
+export function missingLayout(width: number, height: number): MissingLayout {
+  const wide = width > height * 1.6;
   return {
     wide,
     pad: wide ? FIGURE_INSET : 56,
     rotate: wide ? -Math.PI / 2 : 0,
-    showNames: h > 300,
-    reach: Math.min(58, Math.min(w, h) * 0.2),
+    showNames: height > 300,
+    reach: Math.min(58, Math.min(width, height) * 0.2),
   };
 }
 
@@ -65,11 +65,11 @@ export function placeLabels(bounds: Rect, stars: readonly LyraPoint[], showNames
  * Fit the figure and place its names. When Vega finds no clear side, as in a narrow column, the figure
  * moves left by the room that its name needs, and the names are placed again.
  */
-export function layoutMissing(w: number, h: number, layout: MissingLayout, bounds: Rect, widthsCssPx: readonly number[], out: LyraPoint[] = []) {
-  let stars = layoutLyra(w, h, { pad: layout.pad, rotate: layout.rotate, out });
+export function layoutMissing(width: number, height: number, layout: MissingLayout, bounds: Rect, widthsCssPx: readonly number[], out: LyraPoint[] = []) {
+  let stars = layoutLyra(width, height, { pad: layout.pad, rotate: layout.rotate, out });
   let labels = placeLabels(bounds, stars, layout.showNames, widthsCssPx);
   if (labels[0] && !labels[0].clear) {
-    stars = layoutLyra(w - widthsCssPx[0] - 24, h, { pad: layout.pad, rotate: layout.rotate, out });
+    stars = layoutLyra(width - widthsCssPx[0] - 24, height, { pad: layout.pad, rotate: layout.rotate, out });
     labels = placeLabels(bounds, stars, layout.showNames, widthsCssPx);
   }
   return { stars, labels };
@@ -86,16 +86,16 @@ export function mountNotFound(container: HTMLElement): CanvasHandle | null {
 
   // Rebuild the layout from the measured box. Nothing here depends on a CSS breakpoint.
   function build(s: FrameState) {
-    const layout = missingLayout(s.w, s.h);
+    const layout = missingLayout(s.width, s.height);
     reach = layout.reach;
-    reportFigureLeft(container, s.w, s.h);
-    const bounds = labelBounds(container, s.w, s.h);
+    reportFigureLeft(container, s.width, s.height);
+    const bounds = labelBounds(container, s.width, s.height);
     const widthsCssPx = LYRA.map((star) => star.name ? s.labelFont.widthCssPx(star.name) : 0);
-    const placed = layoutMissing(s.w, s.h, layout, bounds, widthsCssPx, stars);
+    const placed = layoutMissing(s.width, s.height, layout, bounds, widthsCssPx, stars);
     stars = placed.stars;
     labels = placed.labels;
-    field = makeStarField(s.w, s.h, Math.round((s.w * s.h) / 8000), 3);
-    mesh = makeMesh(s.w, s.h, 3);
+    field = makeStarField(s.width, s.height, Math.round((s.width * s.height) / 8000), 3);
+    mesh = makeMesh(s.width, s.height, 3);
     bright.length = 0;
     for (const i of [5, 4, 2, 0]) bright.push(stars[i]);
     comet = makeRoute(bright);

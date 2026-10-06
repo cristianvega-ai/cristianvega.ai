@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { around, placeLabel, rectsOverlap, segmentHitsRect } from "../src/lib/lyra-render/labels.ts";
+import { around, placeLabel, rectsOverlap, segmentHitsRect } from "../src/lib/page-graphics/labels.ts";
 
 const HERE = { x0: 0, y0: 0, x1: 400, y1: 300 };
 

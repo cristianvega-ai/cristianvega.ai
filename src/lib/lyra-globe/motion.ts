@@ -1,7 +1,7 @@
 import { clamp, easeOutCubic, FULL_TURN_RADIANS, type Point } from "../motion/easing.ts";
 import { GLOBE_POLICY, mountCanvasController, type FrameState } from "../motion/canvas-controller.ts";
-import type { Palette } from "../lyra-render/palette.ts";
-import { entranceProgress } from "../lyra-render/clock.ts";
+import type { Palette } from "../page-graphics/palette.ts";
+import { entranceProgress } from "../page-graphics/clock.ts";
 import { buildGlobe, EDGE_SPAN, GLOBE_HEIGHT, GLOBE_WIDTH, NODE_SPAN, type Globe, type GlobeRoute } from "./model.ts";
 
 /** How far behind its head a comet leaves light, in grid units, and in how many soft slices. */
@@ -169,14 +169,14 @@ function drawGlobe(root: HTMLElement): (() => void) | undefined {
 
   function resize(state: FrameState) {
     // Keep the canvas projection equal to the SVG projection.
-    scale = Math.round(state.w * state.ratio) / GLOBE_WIDTH;
+    scale = Math.round(state.width * state.ratio) / GLOBE_WIDTH;
     globe = globe ?? buildGlobe();
     vega = globe.hotNodes.find((node) => node.vega);
   }
 
   function draw(ctx: CanvasRenderingContext2D, state: FrameState) {
     if (!globe) return;
-    if (state.still) {
+    if (state.entranceComplete) {
       for (let i = 0; i < labelAnimations.length; i++) labelAnimations[i].animation.finish();
       // Restore the model opacity after the entrance.
       detachLabels();
@@ -194,7 +194,7 @@ function drawGlobe(root: HTMLElement): (() => void) | undefined {
     ctx.scale(0.985 + 0.015 * ease, 0.985 + 0.015 * ease);
     ctx.translate(-GLOBE_WIDTH / 2, -GLOBE_HEIGHT / 2);
     paintGlobe(ctx, globe, state.palette, state.glow, state.progress);
-    if (!state.still) drawSignals(ctx, state.progress, state.palette, state.glow);
+    if (!state.entranceComplete) drawSignals(ctx, state.progress, state.palette, state.glow);
     ctx.restore();
   }
 

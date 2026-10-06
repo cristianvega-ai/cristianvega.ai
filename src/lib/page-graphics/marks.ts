@@ -50,7 +50,7 @@ function edgeStyle(ctx: CanvasRenderingContext2D, palette: Palette, t: number, h
   ctx.lineWidth = hot ? 1.1 : 0.65;
 }
 
-/** A straight edge drawn in from a to b. `t` 0..1 is the draw-in share. */
+/** A straight edge drawn in from a to b. `progress` 0..1 is the draw-in share. */
 export function drawEdge(
   ctx: CanvasRenderingContext2D,
   palette: Palette,
@@ -58,13 +58,13 @@ export function drawEdge(
   ay: number,
   bx: number,
   by: number,
-  t: number,
+  progress: number,
   hot = false,
   alpha = 0.35,
 ): void {
-  if (t <= 0) return;
-  const g = easeOutCubic(clamp(t));
-  edgeStyle(ctx, palette, t, hot, alpha);
+  if (progress <= 0) return;
+  const g = easeOutCubic(clamp(progress));
+  edgeStyle(ctx, palette, progress, hot, alpha);
   ctx.beginPath();
   ctx.moveTo(ax, ay);
   ctx.lineTo(ax + (bx - ax) * g, ay + (by - ay) * g);
@@ -84,12 +84,12 @@ export function drawCurve(
   c2y: number,
   bx: number,
   by: number,
-  t: number,
+  progress: number,
   hot = false,
   alpha = 0.35,
 ): void {
-  if (t <= 0) return;
-  const g = easeOutCubic(clamp(t));
+  if (progress <= 0) return;
+  const g = easeOutCubic(clamp(progress));
   const q0x = ax + (c1x - ax) * g;
   const q0y = ay + (c1y - ay) * g;
   const q1x = c1x + (c2x - c1x) * g;
@@ -100,7 +100,7 @@ export function drawCurve(
   const r0y = q0y + (q1y - q0y) * g;
   const r1x = q1x + (q2x - q1x) * g;
   const r1y = q1y + (q2y - q1y) * g;
-  edgeStyle(ctx, palette, t, hot, alpha);
+  edgeStyle(ctx, palette, progress, hot, alpha);
   ctx.beginPath();
   ctx.moveTo(ax, ay);
   ctx.bezierCurveTo(q0x, q0y, r0x, r0y, r0x + (r1x - r0x) * g, r0y + (r1y - r0y) * g);
@@ -251,12 +251,12 @@ export interface FieldStar {
 }
 
 /** Field stars fixed by a seed. Build them on resize. */
-export function makeStarField(w: number, h: number, count: number, seed = 0): FieldStar[] {
+export function makeStarField(width: number, height: number, count: number, seed = 0): FieldStar[] {
   const field: FieldStar[] = [];
   for (let i = 0; i < count; i++) {
     field.push({
-      x: unit(i * 3 + seed) * w,
-      y: unit(i * 3 + 1 + seed) * h,
+      x: unit(i * 3 + seed) * width,
+      y: unit(i * 3 + 1 + seed) * height,
       radius: 0.5 + unit(i * 3 + 2 + seed) * 0.8,
       alpha: 0.15 + unit(i * 7 + seed) * 0.35,
     });

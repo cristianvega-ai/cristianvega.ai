@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { hexChannels } from "../src/lib/lyra-render/palette.ts";
+import { hexChannels } from "../src/lib/page-graphics/palette.ts";
 
 test("hex channels convert six digits with either letter case", () => {
   for (const [color, channels] of [

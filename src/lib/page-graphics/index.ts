@@ -5,7 +5,7 @@
  * Modules
  *   math.ts     clamp, easeOutCubic, TAU (from ../motion/easing.ts), smooth, lerp, unit
  *   palette.ts  readPalette(), getGlow(): the site colours and a cached glow sprite
- *   lyra.ts     layoutLyra(w, h): the Lyra figure fitted into a box with one uniform scale, capped at
+ *   lyra.ts     layoutLyra(width, height): the Lyra figure fitted into a box with one uniform scale, capped at
  *               LYRA_MAX_SIZE, so its proportions are the same on every canvas (data: ../lyra/constellation.ts)
  *   label-font.ts caches label widths in CSS pixels from the CSS font family token during layout.
  *   labels.ts   placeLabel(): the side of a node (right, left, above, below) that no edge crosses, inside
@@ -21,12 +21,12 @@
  *               Page scenes cap frame intervals at 64 ms and DPR at 2. They preserve entrance time across restores.
  *               The globe uses full frame intervals and caps DPR at 1.75. It restarts its entrance after restores.
  *   scroll.ts   createScrollReader(container): a smoothed scroll share for a graphic that follows the reader
- *   pages/      one file for each page, and the registry in pages/index.ts
+ *   scenes/     one file for each page, and the registry in scenes/index.ts
  *
  * How to add a page graphic
- *   1. Write `pages/<page>.ts`. Export `mount<Page>(container: HTMLElement)` that returns
+ *   1. Write `scenes/<page>.ts`. Export `mount<Page>(container: HTMLElement)` that returns
  *      `mountCanvas(container, { draw, onResize })`. Build the layout in `onResize` from
- *      `state.w` and `state.h`. Draw from `state.progress` (the entrance, 0 to 1). Do not copy a
+ *      `state.width` and `state.height`. Draw from `state.progress` (the entrance, 0 to 1). Do not copy a
  *      CSS breakpoint: read the box, or read `getComputedStyle(container)` once in `onResize`.
  *      Measure label widths with `state.labelFont.widthCssPx(text)` during layout.
  *      Pass each width to `placeLabel`, and pass `state.labelFont.canvasFont` to `drawLabel`.
@@ -34,7 +34,7 @@
  *   2. Draw the finished picture when `state.reduced` is true. Show no drift and no marker.
  *   3. Return true from `draw` only while the picture still moves after the entrance
  *      (a drift, or a scroll that settles). Return nothing at rest, and the loop stops.
- *   4. Add one line to the registry in `pages/index.ts`:
+ *   4. Add one line to the registry in `scenes/index.ts`:
  *      `<page>: () => import("./<page>.ts").then((module) => module.mount<Page>)`.
  *      Add the page name to the `Page` type of `src/components/PageGraphic.astro`.
  *   5. Put `<PageGraphic page="<page>" />` as the first child of `<main>`.

@@ -75,18 +75,18 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     const box = container.getBoundingClientRect();
     const listBox = list.getBoundingClientRect();
     const beside = listBox.top < box.bottom - 1 && listBox.bottom > box.top + 1;
-    originX = beside ? Math.min(Math.max(0, listBox.right - box.left), s.w * 0.6) : 0;
-    boxW = s.w - originX;
-    boxH = s.h;
+    originX = beside ? Math.min(Math.max(0, listBox.right - box.left), s.width * 0.6) : 0;
+    boxW = s.width - originX;
+    boxH = s.height;
     reportFigureLeft(container, boxW, boxH, originX);
     field = buildField({
       ids: posts.map((post) => post.id),
       labels: posts.map((post) => post.label),
       labelWidthsCssPx: posts.map((post) => s.labelFont.widthCssPx(post.label)),
       starWidthsCssPx: LYRA.map((star) => star.name ? s.labelFont.widthCssPx(star.name) : 0),
-      w: boxW,
-      h: boxH,
-      bounds: labelBounds(container, s.w, s.h, originX),
+      width: boxW,
+      height: boxH,
+      bounds: labelBounds(container, s.width, s.height, originX),
     });
     grid = makeGridLayer(boxW, boxH, s.ratio, s.palette);
     const { stars, points } = field;
@@ -139,7 +139,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     const p = s.progress;
     const pal = s.palette;
     const glow = s.glow;
-    const t = s.t;
+    const t = s.activeTime;
     const any = ease(Math.max(0, Math.min(64, t - previousT)), s.reduced);
     previousT = t;
     const dim = 1 - 0.6 * any;
@@ -287,7 +287,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     function select(index: number) {
       if (index === active) return;
       active = index;
-      since = canvasHandle.state.t;
+      since = canvasHandle.state.activeTime;
       if (index >= 0) container.dataset.activePost = posts[index].id;
       else delete container.dataset.activePost;
       // Reduced motion runs no frames, so the change draws at once.

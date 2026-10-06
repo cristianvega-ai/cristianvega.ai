@@ -193,7 +193,7 @@ test("wakes a resting scene when refreshed labels need more motion", async ({ pa
   }));
   await page.goto(target);
   await page.evaluate(async () => {
-    const { mountCanvas } = await import("/src/lib/lyra-render/mount.ts");
+    const { mountCanvas } = await import("/src/lib/page-graphics/mount.ts");
     const root = document.querySelector("#scene");
     root.style.cssText = "width:240px;height:160px";
     root.firstElementChild.style.cssText = "width:100%;height:100%";

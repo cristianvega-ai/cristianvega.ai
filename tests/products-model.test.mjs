@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { LYRA } from "../src/lib/lyra/constellation.ts";
-import { stagger } from "../src/lib/lyra-render/clock.ts";
-import { LYRA_MAX_SIZE } from "../src/lib/lyra-render/lyra.ts";
-import { FIGURE_INSET } from "../src/lib/lyra-render/inset.ts";
-import { MAX_SLOTS, MIN_SLOTS, fitLyraAtVega, orbitBox, orbitSlot, planOrbit, productProgress } from "../src/lib/lyra-render/pages/products.ts";
+import { stagger } from "../src/lib/page-graphics/clock.ts";
+import { LYRA_MAX_SIZE } from "../src/lib/page-graphics/lyra.ts";
+import { FIGURE_INSET } from "../src/lib/page-graphics/inset.ts";
+import { MAX_SLOTS, MIN_SLOTS, fitLyraAtVega, orbitBox, orbitSlot, planOrbit, productProgress } from "../src/lib/page-graphics/scenes/products.ts";
 import { figureBox } from "./helpers.mjs";
 
 // A box of a tall side column, and a box of a wide band, as the page graphic meets them.
@@ -113,7 +113,7 @@ test("fitLyraAtVega turns the figure only in a wide box, and reuses the array it
 
 test("the products orbits keep the outer ellipse inside the figure inset", () => {
   for (const [w, h] of [[456, 762], [696, 942], [680, 136], [326, 136]]) {
-    const { hw, hh } = orbitBox(w, h);
+    const { halfWidth: hw, halfHeight: hh } = orbitBox(w, h);
     assert.ok(w / 2 - hw * 0.95 >= FIGURE_INSET - 1e-9, `${w}x${h}: the outer orbit must keep the inset on the sides`);
     assert.ok(h / 2 - hh * 0.95 >= FIGURE_INSET - 1e-9, `${w}x${h}: the outer orbit must keep the inset above and below`);
   }

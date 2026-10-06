@@ -213,7 +213,7 @@ body[data-page="home"] main {
 
 /* The globe box starts where the graphic box of every inner page starts: the reading column plus
    --graphic-gap from the left edge of the frame. Its figure starts --figure-inset inside the box,
-   as the figure of an inner page does (FIGURE_INSET in src/lib/lyra-render/inset.ts). The box runs
+   as the figure of an inner page does (FIGURE_INSET in src/lib/page-graphics/inset.ts). The box runs
    past the right edge of the screen, and the mask below fades the sphere out at the screen edge,
    as the inner pages fade their graphics. Its top is level with the eyebrow, and the height cap
    keeps its bottom clear of the footer bar on a short screen.

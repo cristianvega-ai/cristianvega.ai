@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { LYRA, LYRA_LINKS } from "../src/lib/lyra/constellation.ts";
-import { layoutLyra } from "../src/lib/lyra-render/lyra.ts";
-import { segmentHitsRect } from "../src/lib/lyra-render/labels.ts";
-import { FIGURE_INSET } from "../src/lib/lyra-render/inset.ts";
-import { MISSING, PULSE_MS, PULSE_STARTS, REST_MS, missingLayout, layoutMissing } from "../src/lib/lyra-render/pages/404.ts";
+import { layoutLyra } from "../src/lib/page-graphics/lyra.ts";
+import { segmentHitsRect } from "../src/lib/page-graphics/labels.ts";
+import { FIGURE_INSET } from "../src/lib/page-graphics/inset.ts";
+import { MISSING, PULSE_MS, PULSE_STARTS, REST_MS, missingLayout, layoutMissing } from "../src/lib/page-graphics/scenes/404.ts";
 import { starWidthsCssPx } from "./helpers.mjs";
 
 test("missingLayout chooses a turned figure and tight padding only for a band", () => {

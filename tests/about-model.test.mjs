@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { FIGURE_INSET } from "../src/lib/lyra-render/inset.ts";
-import { RING_MARGIN, aboutLayout } from "../src/lib/lyra-render/pages/about.ts";
+import { FIGURE_INSET } from "../src/lib/page-graphics/inset.ts";
+import { RING_MARGIN, aboutLayout } from "../src/lib/page-graphics/scenes/about.ts";
 
 const aboutBoxes = [[456, 762], [696, 942], [680, 136], [326, 136], [326, 150], [560, 800]];
 

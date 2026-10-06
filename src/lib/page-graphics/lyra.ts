@@ -24,13 +24,13 @@ export interface LyraLayoutOptions {
 }
 
 /**
- * Fit the Lyra figure into a w by h box with one uniform scale. The proportions stay the same on every
+ * Fit the Lyra figure into the supplied width and height with one uniform scale. The proportions stay the same on every
  * canvas. The figure never grows past `maxSize`, so it sits centred in a tall or wide box with space round it.
  * Call it on resize, not per frame.
  */
 export function layoutLyra(
-  w: number,
-  h: number,
+  width: number,
+  height: number,
   { pad = 16, rotate = 0, maxSize = LYRA_MAX_SIZE, out = [] }: LyraLayoutOptions = {},
 ): LyraPoint[] {
   const cos = Math.cos(rotate);
@@ -47,9 +47,9 @@ export function layoutLyra(
     minY = Math.min(minY, ry);
     maxY = Math.max(maxY, ry);
   }
-  const scale = Math.min((w - pad * 2) / (maxX - minX || 1), (h - pad * 2) / (maxY - minY || 1), maxSize / Math.max(maxX - minX, maxY - minY, 1e-9));
-  const offsetX = (w - (maxX - minX) * scale) / 2 - minX * scale;
-  const offsetY = (h - (maxY - minY) * scale) / 2 - minY * scale;
+  const scale = Math.min((width - pad * 2) / (maxX - minX || 1), (height - pad * 2) / (maxY - minY || 1), maxSize / Math.max(maxX - minX, maxY - minY, 1e-9));
+  const offsetX = (width - (maxX - minX) * scale) / 2 - minX * scale;
+  const offsetY = (height - (maxY - minY) * scale) / 2 - minY * scale;
   LYRA.forEach((star, i) => {
     const point = out[i] ?? (out[i] = { x: 0, y: 0, mag: 0, name: undefined, vega: false });
     point.x = (star.x * cos - star.y * sin) * scale + offsetX;

@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { LYRA } from "../src/lib/lyra/constellation.ts";
-import { segmentHitsRect } from "../src/lib/lyra-render/labels.ts";
-import { FIGURE_INSET } from "../src/lib/lyra-render/inset.ts";
-import { buildField, hashUnit, overlaps, pathToVega, LYRA_EDGES } from "../src/lib/lyra-render/pages/writing-layout.ts";
+import { segmentHitsRect } from "../src/lib/page-graphics/labels.ts";
+import { FIGURE_INSET } from "../src/lib/page-graphics/inset.ts";
+import { buildField, hashUnit, overlaps, pathToVega, LYRA_EDGES } from "../src/lib/page-graphics/scenes/writing-layout.ts";
 import { starWidthsCssPx } from "./helpers.mjs";
 
 const fieldSizes = [[480, 600], [480, 900], [820, 340], [390, 340], [320, 340]];
@@ -39,11 +39,11 @@ test("pathToVega walks the Lyra links from a star to Vega", () => {
 
 test("the reading field places the same posts in the same spots on every call", () => {
   const { ids, labels, labelWidthsCssPx } = fieldPosts(8);
-  const first = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w: 480, h: 640 });
-  const second = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w: 480, h: 640 });
+  const first = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, width: 480, height: 640 });
+  const second = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, width: 480, height: 640 });
   assert.deepEqual(first.points, second.points);
   assert.deepEqual(first.postLabels, second.postLabels);
-  const other = buildField({ ids: ids.map((id) => `${id}-b`), labels, labelWidthsCssPx, starWidthsCssPx, w: 480, h: 640 });
+  const other = buildField({ ids: ids.map((id) => `${id}-b`), labels, labelWidthsCssPx, starWidthsCssPx, width: 480, height: 640 });
   assert.notDeepEqual(other.points.slice(0, 8), first.points.slice(0, 8), "a different id must give a different spot");
 });
 
@@ -51,7 +51,7 @@ test("the reading field keeps every post inside its box and out of the Lyra figu
   for (const [w, h] of fieldSizes) {
     for (const count of [1, 3, 8, 12]) {
       const { ids, labels, labelWidthsCssPx } = fieldPosts(count);
-      const field = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w, h });
+      const field = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, width: w, height: h });
       assert.equal(field.points.filter((point) => point.post).length, count);
       assert.ok(field.points.slice(0, count).every((point) => point.post), "posts must come first");
       for (const post of field.points.slice(0, count)) {
@@ -68,7 +68,7 @@ test("the reading field labels never collide, never leave the box, and never cov
   for (const [w, h] of fieldSizes) {
     for (const count of [1, 3, 8, 12]) {
       const { ids, labels, labelWidthsCssPx } = fieldPosts(count);
-      const field = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w, h });
+      const field = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, width: w, height: h });
       const where = `${w}x${h}, ${count} posts`;
       const shown = [...field.postLabels, ...field.starLabels.filter(Boolean)];
       assert.equal(field.postLabels.length, count, `${where}: every post keeps a label`);
@@ -87,7 +87,7 @@ test("the reading field labels never collide, never leave the box, and never cov
 
 test("the reading field links each point once, and every link joins two real points", () => {
   const { ids, labels, labelWidthsCssPx } = fieldPosts(8);
-  const field = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w: 480, h: 640 });
+  const field = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, width: 480, height: 640 });
   const seen = new Set();
   for (const link of field.links) {
     assert.ok(link.from !== link.to);
@@ -103,7 +103,7 @@ test("the reading field keeps labels clear of links, synapses, and the 24px edge
   for (const [w, h] of fieldSizes) {
     const { ids, labels, labelWidthsCssPx } = fieldPosts(8);
     const bounds = { x0: 28, y0: 28, x1: w - 28, y1: h - 28 };
-    const field = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w, h, bounds });
+    const field = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, width: w, height: h, bounds });
     const hits = (label, a, b) => segmentHitsRect({ ax: a.x, ay: a.y, bx: b.x, by: b.y }, label.rect);
     const shown = [...field.postLabels.map((label) => [label, true]), ...field.starLabels.filter(Boolean).map((label) => [label, false])];
     for (const [label, isPost] of shown) {
@@ -119,7 +119,7 @@ test("the reading field keeps labels clear of links, synapses, and the 24px edge
 test("the reading field keeps every post and field star inside the figure inset", () => {
   for (const [w, h] of fieldSizes) {
     const { ids, labels, labelWidthsCssPx } = fieldPosts(8);
-    const field = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, w, h });
+    const field = buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, width: w, height: h });
     for (const point of field.points) {
       assert.ok(point.x >= FIGURE_INSET - 1e-9 && point.x <= w - FIGURE_INSET + 1e-9, `${w}x${h}: x ${point.x} must sit inside the inset`);
       assert.ok(point.y >= FIGURE_INSET - 1e-9 && point.y <= h - FIGURE_INSET + 1e-9, `${w}x${h}: y ${point.y} must sit inside the inset`);
