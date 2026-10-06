@@ -362,6 +362,30 @@ test.describe("the products graphic shows the products", () => {
     await expect(root).toHaveAttribute("data-products", String(listed));
     await expect(root).toHaveAttribute("data-current", "0");
   });
+
+  for (const target of [PAGES.products, PAGES.product]) {
+    test(`the ${target.name} uses its count when list classes change or unrelated products appear`, async ({ page }) => {
+      await open(page, PAGES.products);
+      const listed = await page.locator("[data-product-id]").count();
+      expect(listed).toBeGreaterThan(0);
+      await useProductMarks(page);
+      await useReducedMotion(page);
+      await page.route(target.url, async (route) => {
+        const response = await route.fetch();
+        const body = (await response.text())
+          .replace('class="entries entries--products"', 'class="entries binding-products"')
+          .replaceAll('class="entries__item"', 'class="binding-product"')
+          .replace("</main>", '</main><ol class="entries--products" hidden><li class="entries__item"></li><li class="entries__item"></li></ol>');
+        await route.fulfill({ response, body });
+      });
+      await open(page, target);
+      await settle(page);
+      await expect(page.locator(target.graphic)).toHaveAttribute("data-products", String(listed));
+      const marks = await page.evaluate(() => window.__productMarks);
+      expect(marks.rings).toHaveLength(listed);
+      expect(marks.links).toHaveLength(listed);
+    });
+  }
 });
 
 test.describe("the products graphic fills every active slot", () => {

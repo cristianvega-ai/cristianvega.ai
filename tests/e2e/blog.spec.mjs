@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { bandHeight, drawnLabels, edgePaint, focusRingAndFade, navLink, settle, tabTo, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
-const preview = "http://127.0.0.1:4324";
+const preview = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 const article = "/writing/lorem-ipsum-dolor-sit-amet/";
 const qualityArticle = "/writing/nisi-ut-aliquip-ex-ea/";
 const shortArticle = "/writing/exercitation-ullamco-laboris/";
@@ -485,6 +485,72 @@ test.describe("the writing graphic labels and family look", () => {
     });
     expect(painted).toEqual([0, 0]);
   });
+});
+
+test.describe("the writing graphic uses page bindings", () => {
+  for (const size of Object.values(VIEWPORTS)) {
+    test(`reads labels after presentation classes change at ${size.width}px`, async ({ page }) => {
+      await page.setViewportSize(size);
+      await useReducedMotion(page);
+      await useLabelSpy(page);
+      await page.route(`${preview}/writing/`, async (route) => {
+        const response = await route.fetch();
+        const body = (await response.text())
+          .replace('class="blog-index__list"', 'class="binding-list"')
+          .replaceAll('class="post-list__num"', 'class="binding-label"')
+          .replace(/(class="binding-label"[^>]*>)[^<]*/, "$1Entry A");
+        await route.fulfill({ response, body });
+      });
+      await page.goto(`${preview}/writing/`);
+      await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+      await settle(page);
+      const labels = (await drawnLabels(page)).labels.map((label) => label.text);
+      expect(labels).toContain("Entry A");
+      const expected = (await page.locator("[data-writing-label]").allTextContents()).map((label) => label.trim());
+      expect(labels).toEqual(expect.arrayContaining(expected));
+    });
+
+    test(`reads entry IDs through writing hooks at ${size.width}px`, async ({ page }) => {
+      await page.setViewportSize(size);
+      await useReducedMotion(page);
+      await page.route(`${preview}/writing/`, async (route) => {
+        const response = await route.fetch();
+        const body = (await response.text()).replaceAll("data-post-id=", "data-old-entry=");
+        await route.fulfill({ response, body });
+      });
+      await page.goto(`${preview}/writing/`);
+      await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+      const row = page.locator("[data-writing-entry-id]").first();
+      await row.dispatchEvent("pointerenter");
+      await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await row.getAttribute("data-writing-entry-id"));
+      await row.dispatchEvent("pointerleave");
+      await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
+      await row.locator("a").focus();
+      await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await row.getAttribute("data-writing-entry-id"));
+    });
+
+    test(`ignores entries and labels outside its page at ${size.width}px`, async ({ page }) => {
+      await page.setViewportSize(size);
+      await useReducedMotion(page);
+      await useLabelSpy(page);
+      await page.route(`${preview}/writing/`, async (route) => {
+        const response = await route.fetch();
+        const outside = '<aside data-writing-page hidden><section class="blog-index__list" data-writing-list><ol><li data-post-id="outside" data-writing-entry-id="outside"><span class="post-list__num" data-writing-label>Outside entry</span></li></ol></section></aside>';
+        const body = (await response.text()).replace('<main class="blog-index"', `${outside}<main class="blog-index"`);
+        await route.fulfill({ response, body });
+      });
+      await page.goto(`${preview}/writing/`);
+      await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+      await settle(page);
+      const labels = (await drawnLabels(page)).labels.map((label) => label.text);
+      expect(labels).not.toContain("Outside entry");
+      const outside = page.locator("[data-writing-entry-id='outside']");
+      await outside.dispatchEvent("pointerenter");
+      await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
+      await outside.dispatchEvent("focusin");
+      await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
+    });
+  }
 });
 
 test.describe("the writing graphic entrance", () => {

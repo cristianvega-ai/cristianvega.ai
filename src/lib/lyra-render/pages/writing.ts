@@ -30,20 +30,25 @@ interface Post {
   label: string;
 }
 
-/** Read the posts once, in list order. The label comes from the page, so nothing is invented. */
-function collectPosts(): Post[] {
-  return [...document.querySelectorAll<HTMLElement>("[data-post-id]")].map((element, index) => ({
-    id: element.dataset.postId ?? String(index),
+/** Read the owning list once. The page supplies each entry ID and label. */
+function readWritingBindings(container: HTMLElement): { list: HTMLElement; posts: Post[] } | null {
+  const page = container.closest<HTMLElement>("[data-writing-page]");
+  const list = page?.querySelector<HTMLElement>("[data-writing-list]");
+  if (!list) return null;
+  const posts = [...list.querySelectorAll<HTMLElement>("[data-writing-entry-id]")].map((element) => ({
+    id: element.dataset.writingEntryId!,
     element,
-    label: element.querySelector(".post-list__num")?.textContent?.trim() || `N° ${String(index + 1).padStart(2, "0")}`,
+    label: element.querySelector("[data-writing-label]")?.textContent?.trim() ?? "",
   }));
+  return { list, posts };
 }
 
 export function mountWriting(container: HTMLElement): CanvasHandle | null {
-  const posts = collectPosts();
+  const bindings = readWritingBindings(container);
+  if (!bindings) return null;
+  const { list, posts } = bindings;
   const count = posts.length;
   if (!count) return null;
-  const list = document.querySelector<HTMLElement>(".blog-index__list");
 
   let field: FieldLayout | undefined;
   let grid: HTMLCanvasElement | null = null;
@@ -67,9 +72,9 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
   // Rebuild the layout from the measured box. The list, when it sits beside the graphic, takes the left part.
   function build(s: FrameState) {
     const box = container.getBoundingClientRect();
-    const listBox = list?.getBoundingClientRect();
-    const beside = Boolean(listBox) && listBox!.top < box.bottom - 1 && listBox!.bottom > box.top + 1;
-    originX = beside ? Math.min(Math.max(0, listBox!.right - box.left), s.w * 0.6) : 0;
+    const listBox = list.getBoundingClientRect();
+    const beside = listBox.top < box.bottom - 1 && listBox.bottom > box.top + 1;
+    originX = beside ? Math.min(Math.max(0, listBox.right - box.left), s.w * 0.6) : 0;
     boxW = s.w - originX;
     boxH = s.h;
     reportFigureLeft(container, boxW, boxH, originX);
@@ -287,8 +292,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
       post.element.addEventListener(
         "pointerleave",
         () => {
-          const focused = document.activeElement?.closest<HTMLElement>("[data-post-id]");
-          select(focused ? posts.findIndex((other) => other.element === focused) : -1);
+          select(posts.findIndex((other) => other.element.contains(container.ownerDocument.activeElement)));
         },
         options,
       );
