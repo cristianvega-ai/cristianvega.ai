@@ -5,7 +5,7 @@ import { settle, useReducedMotion } from "./fixtures.mjs";
 // One type scale runs the whole site. These tests read computed styles, so a
 // page that drifts from the scale fails here. Drafts and the writing pages
 // exist only on the dev server.
-const dev = "http://127.0.0.1:4324";
+const dev = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 const WIDTHS = [
   { width: 1920, height: 1080 },
   { width: 1440, height: 900 },

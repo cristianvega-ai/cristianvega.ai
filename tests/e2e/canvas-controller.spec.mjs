@@ -1,9 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-import { settle, useManualFrames, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { settle, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, stepFrame } from "./fixtures.mjs";
 
 const dev = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
-const pending = (page) => page.evaluate(() => window.__pending());
 const lifetimes = (page) => page.evaluate(() => window.__lifetimes());
 const clock = (page) => page.evaluate(() => {
   const { elapsed, t, reduced, ratio } = window.__handle.state;
@@ -118,7 +117,7 @@ async function mountScene(page, policy, { duration = 2300, busy = false, count =
     document.body.append(spacer);
   }, { policy, duration, busy, count });
   await expect(page.locator("[data-scene][data-ready='true']")).toHaveCount(count);
-  await expect.poll(() => pending(page)).toBe(count);
+  await expect.poll(() => pendingFrames(page)).toBe(count);
 }
 
 const setHidden = (page, hidden) => page.evaluate((value) => {
@@ -151,21 +150,21 @@ for (const policy of ["page", "globe"]) {
       await mountScene(page, policy);
       await page.evaluate(() => { window.__step(0); window.__step(32); });
       await setHidden(page, true);
-      expect(await pending(page)).toBe(0);
+      expect(await pendingFrames(page)).toBe(0);
       await page.evaluate(() => window.__step(20000));
       expect((await clock(page)).t).toBe(32);
       await setHidden(page, false);
-      expect(await pending(page)).toBe(1);
+      expect(await pendingFrames(page)).toBe(1);
       await page.evaluate(() => window.__step(30000));
       expect((await clock(page)).t).toBe(32);
       await page.evaluate(() => window.__step(30016));
       expect((await clock(page)).t).toBe(48);
       await page.evaluate(() => scrollTo(0, 2000));
-      await expect.poll(() => pending(page)).toBe(0);
+      await expect.poll(() => pendingFrames(page)).toBe(0);
       await page.evaluate(() => window.__step(40000));
       expect((await clock(page)).elapsed).toBe(48);
       await page.evaluate(() => scrollTo(0, 0));
-      await expect.poll(() => pending(page)).toBe(1);
+      await expect.poll(() => pendingFrames(page)).toBe(1);
       await page.evaluate(() => window.__step(50000));
       expect((await clock(page)).elapsed).toBe(48);
       await page.evaluate(() => window.__step(50016));
@@ -179,13 +178,13 @@ for (const policy of ["page", "globe"]) {
         const saved = await clock(page);
         await transition(page, "pagehide");
         expect(await lifetimes(page)).toEqual(pausedLifetime);
-        expect(await pending(page)).toBe(0);
+        expect(await pendingFrames(page)).toBe(0);
         await expect(page.locator("[data-scene]")).not.toHaveAttribute("data-ready", /.*/);
         await transition(page, "pageshow", false);
         expect(await lifetimes(page)).toEqual(pausedLifetime);
         await transition(page, "pageshow");
         await expect(page.locator("[data-scene]")).toHaveAttribute("data-ready", "true");
-        await expect.poll(() => pending(page)).toBe(1);
+        await expect.poll(() => pendingFrames(page)).toBe(1);
         await transition(page, "pageshow");
         expect(await lifetimes(page)).toEqual(activeLifetime);
         expect(await page.evaluate(() => window.__attached)).toBe(cycle + 1);
@@ -198,8 +197,8 @@ for (const policy of ["page", "globe"]) {
           window.__observers.intersection[old].callback([{ isIntersecting: false }]);
         }, cycle - 1);
         expect(await page.evaluate(() => window.__draws)).toBe(draws);
-        expect(await pending(page)).toBe(1);
-        await page.evaluate((time) => window.__step(time), cycle * 10000);
+        expect(await pendingFrames(page)).toBe(1);
+        await stepFrame(page, cycle * 10000);
         expect(await clock(page)).toEqual(restored);
         await page.evaluate((time) => window.__step(time + 16), cycle * 10000);
       }
@@ -213,7 +212,7 @@ for (const policy of ["page", "globe"]) {
       });
       await transition(page, "pageshow");
       expect(await lifetimes(page)).toEqual(emptyLifetime);
-      expect(await pending(page)).toBe(0);
+      expect(await pendingFrames(page)).toBe(0);
       expect(await page.evaluate(() => window.__draws)).toBe(draws);
       expect(await page.evaluate(() => window.__detached)).toBe(4);
       await expect(page.locator("[data-scene]")).not.toHaveAttribute("data-ready", /.*/);
@@ -225,11 +224,11 @@ for (const policy of ["page", "globe"]) {
       for (let cycle = 0; cycle < 2; cycle += 1) {
         await useReducedMotion(page);
         await expect(page.locator("[data-scene]")).toHaveAttribute("data-motion-state", "still");
-        expect(await pending(page)).toBe(0);
+        expect(await pendingFrames(page)).toBe(0);
         expect(await clock(page)).toEqual({ elapsed: 2300, t: 0, reduced: true, ratio: policy === "page" ? 2 : 1.75 });
         await useReducedMotion(page, "no-preference");
         await expect(page.locator("[data-scene]")).toHaveAttribute("data-motion-state", "playing");
-        expect(await pending(page)).toBe(1);
+        expect(await pendingFrames(page)).toBe(1);
         expect((await clock(page)).reduced).toBe(false);
         await page.evaluate(() => { window.__step(90000); window.__step(90016); });
         expect((await clock(page)).t).toBe(16);
@@ -240,16 +239,16 @@ for (const policy of ["page", "globe"]) {
     test("wakes an idle scene without consuming idle time", async ({ page }) => {
       await mountScene(page, policy, { duration: 32 });
       await page.evaluate(() => { window.__step(0); window.__step(16); window.__step(32); });
-      expect(await pending(page)).toBe(0);
+      expect(await pendingFrames(page)).toBe(0);
       await expect(page.locator("[data-scene]")).toHaveAttribute("data-motion-state", "still");
       const saved = await clock(page);
       const draws = await page.evaluate(() => window.__draws);
       await page.evaluate(() => window.dispatchEvent(new Event("scenechange")));
-      expect(await pending(page)).toBe(1);
+      expect(await pendingFrames(page)).toBe(1);
       await page.evaluate(() => window.__step(90000));
       expect(await clock(page)).toEqual(saved);
       expect(await page.evaluate(() => window.__draws)).toBe(draws + 1);
-      expect(await pending(page)).toBe(0);
+      expect(await pendingFrames(page)).toBe(0);
     });
   });
 }
@@ -268,7 +267,7 @@ test("keeps a shared cached glow after one scene stops", async ({ page }) => {
     return { width: glow.width, height: glow.height };
   })).toEqual({ width: 96, height: 96 });
   expect(await lifetimes(page)).toEqual(activeLifetime);
-  expect(await pending(page)).toBe(1);
+  expect(await pendingFrames(page)).toBe(1);
   await expect(page.locator("[data-scene='1']")).toHaveAttribute("data-ready", "true");
 });
 
@@ -288,10 +287,10 @@ for (const scene of scenes) {
       await useManualFrames(page);
       await page.goto(scene.route);
       await expect(page.locator(scene.selector)).toHaveAttribute("data-ready", "true");
-      await expect.poll(() => pending(page)).toBe(1);
+      await expect.poll(() => pendingFrames(page)).toBe(1);
       await useReducedMotion(page);
       await expect(page.locator(scene.selector)).toHaveAttribute("data-motion-state", "still");
-      expect(await pending(page)).toBe(0);
+      expect(await pendingFrames(page)).toBe(0);
       await settle(page);
       await expect(page.locator("h1")).toHaveText(scene.heading);
       await expect(page.locator("h1")).toBeVisible();
@@ -302,16 +301,16 @@ for (const scene of scenes) {
       })).toBe(true);
       await useReducedMotion(page, "no-preference");
       await expect(page.locator(scene.selector)).toHaveAttribute("data-motion-state", "still");
-      expect(await pending(page)).toBe(0);
+      expect(await pendingFrames(page)).toBe(0);
       await transition(page, "pagehide");
       await transition(page, "pageshow");
       await expect(page.locator(scene.selector)).toHaveAttribute("data-ready", "true");
-      await expect.poll(() => pending(page)).toBe(1);
+      await expect.poll(() => pendingFrames(page)).toBe(1);
       if (scene.name === "page") {
         // The scroll reader requests one refresh when it reconnects.
         await page.evaluate(() => window.__step(90000));
         await expect(page.locator(scene.selector)).toHaveAttribute("data-motion-state", "still");
-        expect(await pending(page)).toBe(0);
+        expect(await pendingFrames(page)).toBe(0);
       }
       expect(problems).toEqual([]);
     });
@@ -322,13 +321,13 @@ test("resumes product drift after reduced motion ends", async ({ page }) => {
   await useManualFrames(page);
   await page.goto(`${dev}/products/`);
   await expect(page.locator("[data-graphic='products']")).toHaveAttribute("data-motion-state", "playing");
-  await expect.poll(() => pending(page)).toBe(1);
+  await expect.poll(() => pendingFrames(page)).toBe(1);
   await useReducedMotion(page);
   await expect(page.locator("[data-graphic='products']")).toHaveAttribute("data-motion-state", "still");
-  expect(await pending(page)).toBe(0);
+  expect(await pendingFrames(page)).toBe(0);
   await useReducedMotion(page, "no-preference");
   await expect(page.locator("[data-graphic='products']")).toHaveAttribute("data-motion-state", "playing");
-  expect(await pending(page)).toBe(1);
+  expect(await pendingFrames(page)).toBe(1);
 });
 
 for (const failure of ["canvas", "resize", "intersection", "setup"]) {
@@ -352,14 +351,14 @@ for (const failure of ["canvas", "resize", "intersection", "setup"]) {
     expect(await fallback.locator("path.is-hot").count()).toBeGreaterThanOrEqual(10);
     await expect(page.locator("h1")).toBeVisible();
     await expect(page.locator(".hero__lede")).toBeVisible();
-    expect(await pending(page)).toBe(0);
+    expect(await pendingFrames(page)).toBe(0);
     expect(await lifetimes(page)).toEqual(emptyLifetime);
     await transition(page, "pageshow");
     await expect(fallback).toHaveCount(1);
     await page.goto("/about/");
     await expect(page.locator("[data-graphic]")).toBeHidden();
     await expect(page.locator("h1")).toBeVisible();
-    expect(await pending(page)).toBe(0);
+    expect(await pendingFrames(page)).toBe(0);
     expect(await lifetimes(page)).toEqual(emptyLifetime);
     expect(problems).toEqual([]);
   });
@@ -370,14 +369,14 @@ test("cleans a failed restore and keeps one finished SVG", async ({ page }) => {
   await useLifetimeSpy(page);
   await page.goto("/");
   await expect(page.locator("[data-lyra-globe]")).toHaveAttribute("data-ready", "true");
-  await expect.poll(() => pending(page)).toBe(1);
+  await expect.poll(() => pendingFrames(page)).toBe(1);
   await transition(page, "pagehide");
   await page.evaluate(() => { window.__failIntersection = true; });
   await transition(page, "pageshow");
   await expect(page.locator("[data-lyra-globe] .lyra-globe__fallback")).toHaveCount(1);
   await expect(page.locator("[data-lyra-globe] .lyra-globe__fallback")).toBeVisible();
   expect(await lifetimes(page)).toEqual(emptyLifetime);
-  expect(await pending(page)).toBe(0);
+  expect(await pendingFrames(page)).toBe(0);
   await transition(page, "pageshow");
   await expect(page.locator("[data-lyra-globe] .lyra-globe__fallback")).toHaveCount(1);
   await expect(page.locator("[data-lyra-globe]")).not.toHaveAttribute("data-ready", /.*/);

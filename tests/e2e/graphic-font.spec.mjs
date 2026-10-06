@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, test as base } from "@playwright/test";
 
-import { drawnLabels, settle, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { drawnLabels, settle, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames } from "./fixtures.mjs";
 
 const dev = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 const missingPath = "/__graphic-font-missing__/";
@@ -127,20 +127,20 @@ test("keeps label measurement outside animation frames", async ({ page, problems
     await page.goto(target);
     await expect(page.locator("[data-graphic]")).toHaveAttribute("data-ready", "true");
     await settle(page);
-    await expect.poll(() => page.evaluate(() => window.__pending())).toBe(1);
+    await expect.poll(() => pendingFrames(page)).toBe(1);
     const measures = await page.evaluate(() => window.__labelMeasureCount);
     await page.evaluate(() => {
       for (let time = 0; time <= 3000; time += 16) window.__step(time);
     });
     expect(await page.evaluate(() => window.__labelMeasureCount)).toBe(measures);
     await expect(page.locator("[data-graphic]")).toHaveAttribute("data-motion-state", "still");
-    expect(await page.evaluate(() => window.__pending())).toBe(0);
+    expect(await pendingFrames(page)).toBe(0);
     await page.evaluate(() => {
       document.documentElement.style.setProperty("--font-mono", '"IBM Plex Sans", sans-serif');
       document.fonts.dispatchEvent(new Event("loadingdone"));
     });
     expect(await page.evaluate(() => window.__labelMeasureCount)).toBeGreaterThan(measures);
-    expect(await page.evaluate(() => window.__pending())).toBe(0);
+    expect(await pendingFrames(page)).toBe(0);
     await assertLabels(page);
   }
   expect(problems).toEqual([]);
@@ -167,7 +167,7 @@ test("defers font redraws until the controller applies a motion preference", asy
   await page.goto("/about/");
   await expect(page.locator("[data-graphic]")).toHaveAttribute("data-ready", "true");
   await settle(page);
-  await expect.poll(() => page.evaluate(() => window.__pending())).toBe(1);
+  await expect.poll(() => pendingFrames(page)).toBe(1);
   await useReducedMotion(page);
   await expect.poll(() => page.evaluate(() => window.__preferenceJobs.length)).toBe(1);
   await page.evaluate(() => {
@@ -175,10 +175,10 @@ test("defers font redraws until the controller applies a motion preference", asy
     document.fonts.dispatchEvent(new Event("loadingdone"));
   });
   await expect(page.locator("[data-graphic]")).toHaveAttribute("data-motion-state", "playing");
-  expect(await page.evaluate(() => window.__pending())).toBe(1);
+  expect(await pendingFrames(page)).toBe(1);
   await page.evaluate(() => window.__preferenceJobs.shift()());
   await expect(page.locator("[data-graphic]")).toHaveAttribute("data-motion-state", "still");
-  expect(await page.evaluate(() => window.__pending())).toBe(0);
+  expect(await pendingFrames(page)).toBe(0);
   const labels = await assertLabels(page);
   expect(labels[0].font).toContain("IBM Plex Sans");
   expect(problems).toEqual([]);
@@ -211,25 +211,25 @@ test("wakes a resting scene when refreshed labels need more motion", async ({ pa
     });
   });
   await expect(page.locator("#scene")).toHaveAttribute("data-ready", "true");
-  await expect.poll(() => page.evaluate(() => window.__pending())).toBe(1);
+  await expect.poll(() => pendingFrames(page)).toBe(1);
   await page.evaluate(() => {
     window.__step(0);
     window.__step(16);
   });
   await expect(page.locator("#scene")).toHaveAttribute("data-motion-state", "still");
-  expect(await page.evaluate(() => window.__pending())).toBe(0);
+  expect(await pendingFrames(page)).toBe(0);
   await page.evaluate(() => {
     document.querySelector("#scene").style.setProperty("--font-mono", "serif");
     document.fonts.dispatchEvent(new Event("loadingdone"));
   });
   await expect(page.locator("#scene")).toHaveAttribute("data-motion-state", "playing");
-  expect(await page.evaluate(() => window.__pending())).toBe(1);
+  expect(await pendingFrames(page)).toBe(1);
   await page.evaluate(() => {
     window.__step(32);
     window.__step(48);
   });
   await expect(page.locator("#scene")).toHaveAttribute("data-motion-state", "still");
-  expect(await page.evaluate(() => window.__pending())).toBe(0);
+  expect(await pendingFrames(page)).toBe(0);
   expect(problems).toEqual([]);
 });
 
