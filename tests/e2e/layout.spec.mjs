@@ -1,6 +1,6 @@
 import { chromium, expect, test } from "@playwright/test";
 
-import { settle, tabTo, textBoxes, VIEWPORTS } from "./fixtures.mjs";
+import { currentPublished, settle, tabTo, textBoxes, VIEWPORTS } from "./fixtures.mjs";
 
 /**
  * Shell contracts that every route owes the reader, checked on all of them at
@@ -357,8 +357,7 @@ test.describe("the compact header", () => {
     await expect(page.locator(".nav-menu")).not.toHaveAttribute("open", /.*/);
   });
 
-  // The draft homepage has links after the header, so focus moves to a target. On the production
-  // homepage nothing follows the menu, and Tab leaves the page with no new focus target.
+  // Test focus exit with production content and local preview content.
   for (const [name, url] of [["production", "/"], ["draft", "http://127.0.0.1:4324/"]]) {
     test(`closes when focus tabs past the last link on the ${name} homepage`, async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 800 });
@@ -412,7 +411,8 @@ test.describe("the compact header", () => {
     const page = await context.newPage();
     await page.goto(new URL("/", baseURL).href);
     await page.locator(".nav-menu__toggle").click();
-    await expect(page.locator(".nav-menu__panel").getByRole("link")).toHaveCount(4);
+    const sections = Object.values(currentPublished).filter((entries) => entries.length > 0).length;
+    await expect(page.locator(".nav-menu__panel").getByRole("link")).toHaveCount(4 + sections);
     await context.close();
   });
 

@@ -1,0 +1,164 @@
+import { expect } from "@playwright/test";
+import { permissionsPolicy, publishedContent } from "../helpers.mjs";
+import { latestWork, navLink, publicationTest as test, settle, tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+
+function expectProductionHeaders(headers) {
+  expect(headers["x-content-type-options"]).toBe("nosniff");
+  expect(headers["x-frame-options"]).toBe("DENY");
+  expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+  expect(headers["permissions-policy"]).toBe(permissionsPolicy);
+  expect(headers["strict-transport-security"]).toBe("max-age=31536000");
+  expect(headers["content-security-policy"]).toContain("script-src 'self'");
+  expect(headers["content-security-policy"]).toContain("style-src-attr 'none'");
+  expect(headers["cache-control"]).toContain("must-revalidate");
+}
+
+test.describe("mixed published content in the production runtime", () => {
+  test.describe.configure({ mode: "default" });
+
+  for (const [name, viewport] of Object.entries(VIEWPORTS)) {
+    test(`${name} opens published writing and products with working scripts`, async ({ page, publication }) => {
+      const errors = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      page.on("console", (message) => {
+        if (message.type() === "error" || message.type() === "warning") errors.push(message.text());
+      });
+      await page.addInitScript(() => {
+        window.__publicationCsp = [];
+        window.__publicationCopies = [];
+        document.addEventListener("securitypolicyviolation", (event) => window.__publicationCsp.push(event.violatedDirective));
+        Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
+          async writeText(text) { window.__publicationCopies.push(text); },
+        } });
+      });
+      await page.setViewportSize(viewport);
+      await useReducedMotion(page);
+      const response = await page.goto(publication.origin);
+      expect(response.status()).toBe(200);
+      expectProductionHeaders(response.headers());
+      await settle(page);
+      await expect(page.locator(".hero__next-item")).toHaveText(latestWork.map((item) => `${item.label} →`));
+      await expect(page.locator(".hero__next a")).toHaveCount(2);
+      await expect(page.locator(".hero__next-soon, [data-post-id], [data-product-id]")).toHaveCount(0);
+      await expect(page.locator("[data-lyra-globe]")).toHaveAttribute("data-ready", "true");
+
+      const published = publishedContent(publication.inventory);
+      expect(published.writing.map((entry) => entry.id)).toEqual(["newer-writing", "alpha-tied", "zulu-tied"]);
+      expect(published.products.map((entry) => entry.id)).toEqual(["default-order", "alpha-product", "zulu-product"]);
+      await navLink(page, "writing").click();
+      await expect(page.locator(".nav__link[href='/writing/']")).toHaveAttribute("aria-current", "page");
+      await expect(page.locator("meta[name='robots'], .draft-label")).toHaveCount(0);
+      await expect(page.locator("[data-graphic='writing']")).toHaveAttribute("data-ready", "true");
+      expect(await page.locator(".post-list__item").evaluateAll((rows) => rows.map((row) => row.dataset.postId)))
+        .toEqual(published.writing.map((entry) => entry.id));
+      expect(await page.locator(".post-list__link").evaluateAll((links) => links.map((link) => link.getAttribute("href"))))
+        .toEqual(published.writing.map((entry) => entry.href));
+      expect(await tabTo(page, ".post-list__link >> nth=1")).toBe(true);
+      await expect(page.locator("[data-graphic='writing']")).toHaveAttribute("data-active-post", "alpha-tied");
+      await page.keyboard.press("Enter");
+      const post = published.writing[1];
+      await expect(page).toHaveURL(publication.origin + post.href);
+      await expect(page.locator("#post-title")).toHaveText(post.data.title);
+      await expect(page.locator(".article__dek")).toHaveText(post.data.description);
+      await expect(page.locator(".article__draft, .draft-label, meta[name='robots']")).toHaveCount(0);
+      await expect(page.locator(".nav__link[href='/writing/']")).toHaveAttribute("aria-current", "location");
+      await expect(page.locator("link[rel='canonical']")).toHaveAttribute("href", `https://cristianvega.ai${post.href}`);
+      await expect(page.locator("meta[property='article:published_time']")).toHaveAttribute("content", post.data.date.toISOString());
+      await expect(page.locator(".prose")).toContainText(`Body for ${post.id}.`);
+      await expect(page.locator(".prose pre")).toHaveAttribute("aria-label", "Code example");
+      await expect(page.locator(".figure__panel")).toHaveAttribute("aria-label", "Fixture signal path");
+      await expect(page.locator(".figure__panel")).toHaveAttribute("role", "img");
+      await expect(page.locator(".author__share a")).toHaveCount(2);
+      for (const link of await page.locator(".author__share a").all()) {
+        await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+      }
+      await page.getByRole("button", { name: "copy link" }).click();
+      await expect(page.locator(".share-status")).toHaveText("Link copied.");
+      expect(await page.evaluate(() => window.__publicationCopies)).toEqual([`https://cristianvega.ai${post.href}`]);
+      expect(await page.locator(".read-next a").evaluateAll((links) => links.map((link) => link.getAttribute("href"))))
+        .toEqual([published.writing[2].href, published.writing[0].href]);
+      await page.getByRole("link", { name: /Older/ }).click();
+      await expect(page.locator("#post-title")).toHaveText(published.writing[2].data.title);
+
+      await navLink(page, "products").click();
+      await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "page");
+      await expect(page.locator("meta[name='robots'], .draft-label")).toHaveCount(0);
+      await expect(page.locator("[data-graphic='products']")).toHaveAttribute("data-ready", "true");
+      expect(await page.locator(".entries__item").evaluateAll((rows) => rows.map((row) => row.dataset.productId)))
+        .toEqual(published.products.map((entry) => entry.id));
+      for (const product of published.products) {
+        await page.getByRole("link", { name: product.data.title, exact: true }).click();
+        await expect(page.locator("#product-title")).toHaveText(product.data.title);
+        await expect(page.locator(".product__lede")).toHaveText(product.data.description);
+        await expect(page.locator(".product__head .eyebrow")).toHaveText(product.data.status);
+        await expect(page.locator(".product__prose")).toContainText(`Body for ${product.id}.`);
+        await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "location");
+        await expect(page.locator("meta[name='robots'], .draft-label")).toHaveCount(0);
+        await expect(page.locator("link[rel='canonical']")).toHaveAttribute("href", `https://cristianvega.ai${product.href}`);
+        await expect(page.locator("[data-graphic='products']")).toHaveAttribute("data-ready", "true");
+        const outbound = page.locator(".product__link[target='_blank']");
+        if (product.data.url) {
+          await expect(outbound).toHaveAttribute("href", product.data.url);
+          await expect(outbound).toHaveAttribute("rel", "noopener noreferrer");
+        } else await expect(outbound).toHaveCount(0);
+        expect(await page.evaluate(() => window.__publicationCsp)).toEqual([]);
+        await page.getByRole("link", { name: "All products →" }).click();
+      }
+      expect(await page.evaluate(() => window.__publicationCsp)).toEqual([]);
+      expect(errors).toEqual([]);
+    });
+  }
+
+  test("production routes and sitemap exclude explicit and default drafts", async ({ request, publication }) => {
+    const published = publishedContent(publication.inventory);
+    const expected = ["/", "/about/", "/writing/", "/products/", ...Object.values(published).flat().map((entry) => entry.href)].sort();
+    const sitemap = await request.get(`${publication.origin}/sitemap-0.xml`);
+    expect(sitemap.status()).toBe(200);
+    const paths = [...(await sitemap.text()).matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, location]) => new URL(location).pathname).sort();
+    expect(paths).toEqual(expected);
+    for (const entries of Object.values(publication.inventory)) {
+      for (const draft of entries.filter((entry) => entry.data.draft)) {
+        const response = await request.get(publication.origin + draft.href);
+        expect(response.status(), draft.href).toBe(404);
+        expectProductionHeaders(response.headers());
+        expect(await response.text()).toContain("Page not found");
+        expect(paths).not.toContain(draft.href);
+      }
+    }
+  });
+
+  test("published pages use noindex only on the Cloudflare preview host", async ({ request, publication }) => {
+    const published = publishedContent(publication.inventory);
+    const paths = ["/", "/writing/", "/products/", ...Object.values(published).flat().map((entry) => entry.href)];
+    for (const path of paths) {
+      for (const [host, robots] of [["cristianvega.ai", undefined], ["cristianvega-ai.preview.workers.dev", "noindex"]]) {
+        const response = await request.get(publication.origin + path, { headers: { host } });
+        expect(response.status(), path).toBe(200);
+        expectProductionHeaders(response.headers());
+        expect(response.headers()["x-robots-tag"], `${host}${path}`).toBe(robots);
+        expect(await response.text()).not.toMatch(/name="robots" content="noindex/);
+      }
+    }
+  });
+
+  test("published content and navigation work without JavaScript", async ({ browser, publication }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false, viewport: VIEWPORTS.mobile });
+    try {
+      const page = await context.newPage();
+      await page.goto(publication.origin);
+      await page.getByRole("link", { name: "Read my latest writing", exact: true }).click();
+      await expect(page.locator("[data-graphic='writing']")).toBeHidden();
+      await page.getByRole("link", { name: "Alpha tied writing", exact: true }).click();
+      await expect(page.locator(".prose")).toContainText("Body for alpha-tied.");
+      await expect(page.getByRole("button", { name: "copy link" })).toBeHidden();
+      await expect(page.getByRole("link", { name: "Share on LinkedIn" })).toBeVisible();
+      await navLink(page, "products").click();
+      await page.getByRole("link", { name: "Alpha product", exact: true }).click();
+      await expect(page.locator(".product__prose")).toContainText("Body for alpha-product.");
+      const product = publishedContent(publication.inventory).products.find((entry) => entry.id === "alpha-product");
+      await expect(page.locator(".product__link[target='_blank']")).toHaveAttribute("href", product.data.url);
+    } finally {
+      await context.close();
+    }
+  });
+});

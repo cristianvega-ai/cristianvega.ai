@@ -1,16 +1,16 @@
 import { expect, test } from "@playwright/test";
 
-import { settle, tabTo, useManualFrames, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { currentContent, currentPublished, latestWork, setHomepageState, settle, tabTo, useManualFrames, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 /**
  * The homepage: one screen with the intro, two calls to action for Writing
  * and Products, and the Lyra globe. A call to action links only when its
  * section has visible content. Production comes from the built site on the
- * base URL, where both lines say "coming soon". The dev server holds the
- * drafts, so both link.
+ * base URL. The Markdown publication state controls each entry link.
+ * The dev server also shows drafts.
  */
 
-const dev = "http://127.0.0.1:4324";
+const dev = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 const globe = "[data-lyra-globe]";
 const WIDTHS = { ...VIEWPORTS, wide: { width: 1920, height: 1080 }, narrow: { width: 360, height: 740 } };
 /** The screens where the homepage must fit with no scrolling. Below 1100px the page can scroll. */
@@ -513,27 +513,30 @@ for (const [name, viewport] of Object.entries(WIDTHS)) {
       }
     });
 
-    test("lists no writing or products and shows two coming-soon lines in production", async ({ page, request }) => {
+    test("keeps entry links and navigation consistent with current publication", async ({ page, request }) => {
       await page.goto("/");
       await expect(page.locator("h1")).toHaveCount(1);
       await expect(page.locator("main h2")).toHaveCount(0);
       await expect(page.locator("[data-post-id], [data-product-id]")).toHaveCount(0);
-      await expect(page.locator(".nav__link[href='/products/'], .nav-menu__link[href='/products/']")).toHaveCount(0);
-      await expect(page.locator(".nav__link[href='/writing/'], .nav-menu__link[href='/writing/']")).toHaveCount(0);
-      // No link on the page may point at a route that is not built.
-      await expect(page.locator("a[href^='/writing'], a[href^='/products'], a[href='#']")).toHaveCount(0);
+      await expect(page.locator("a[href='#']")).toHaveCount(0);
       await expect(page.getByText("More about me")).toHaveCount(0);
 
       const items = page.locator(".hero__next-item");
-      await expect(items).toHaveText(["Latest writing · coming soon", "Latest products · coming soon"]);
-      expect(await items.evaluateAll((nodes) => nodes.map((node) => node.dataset.state))).toEqual(["soon", "soon"]);
-
-      // A line that is not a link takes no keyboard focus and no click.
+      const live = latestWork.map((item) => currentPublished[item.section].length > 0);
+      await expect(items).toHaveText(latestWork.map((item, index) => live[index] ? `${item.label} →` : item.soon));
+      expect(await items.evaluateAll((nodes) => nodes.map((node) => node.dataset.state))).toEqual(live.map((visible) => visible ? "live" : "soon"));
       const focusable = await page.locator(".hero__next").evaluate((list) => list.querySelectorAll("a, button, [tabindex]").length);
-      expect(focusable).toBe(0);
-      expect((await request.get("/products/")).status()).toBe(404);
-      expect((await request.get("/products/lorem-ipsum-dolor/")).status()).toBe(404);
-      expect((await request.get("/writing/")).status()).toBe(404);
+      expect(focusable).toBe(live.filter(Boolean).length);
+      for (const [index, item] of latestWork.entries()) {
+        await expect(page.locator(`.nav__link[href='${item.href}'], .nav-menu__link[href='${item.href}']`)).toHaveCount(live[index] ? 2 : 0);
+        await expect(page.locator(`a[href^='/${item.section}']`)).toHaveCount(live[index] ? 3 : 0);
+        await expect(items.nth(index).locator("a")).toHaveCount(live[index] ? 1 : 0);
+        if (live[index]) await expect(items.nth(index).locator("a")).toHaveAttribute("href", item.href);
+        expect((await request.get(item.href)).status()).toBe(live[index] ? 200 : 404);
+        for (const draft of currentContent[item.section].filter((entry) => entry.data.draft)) {
+          expect((await request.get(draft.href)).status(), draft.href).toBe(404);
+        }
+      }
     });
 
     test("shows two links and no lists with the drafts on the dev server", async ({ page }) => {
@@ -574,18 +577,26 @@ test.describe("products on the dev server", () => {
     await page.goto(dev + "/products/");
     await expect(page.locator("main h1")).toHaveText("Products");
     await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "page");
-    await expect(page.locator("meta[name='robots']")).toHaveAttribute("content", "noindex, follow");
+    if (currentContent.products.some((entry) => entry.data.draft)) {
+      await expect(page.locator("meta[name='robots']")).toHaveAttribute("content", "noindex, follow");
+    } else await expect(page.locator("meta[name='robots']")).toHaveCount(0);
     await expect(page.locator("meta[name='color-scheme']")).toHaveAttribute("content", "dark");
     await page.getByRole("link", { name: "Lorem ipsum dolor" }).click();
 
     await expect(page).toHaveURL(dev + "/products/lorem-ipsum-dolor/");
     await expect(page.locator("main h1")).toHaveText("Lorem ipsum dolor");
     await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "location");
-    await expect(page.locator("meta[name='robots']")).toHaveAttribute("content", "noindex, follow");
+    const product = currentContent.products.find((entry) => entry.id === "lorem-ipsum-dolor");
+    if (product.data.draft) {
+      await expect(page.locator("meta[name='robots']")).toHaveAttribute("content", "noindex, follow");
+    } else await expect(page.locator("meta[name='robots']")).toHaveCount(0);
     await expect(page.locator(".product__prose")).toContainText("Lorem ipsum dolor sit amet, consectetur adipiscing elit");
     await expect(page.getByRole("link", { name: "All products →" })).toHaveAttribute("href", "/products/");
-    // A draft with no address shows no outbound link.
-    await expect(page.locator(".product__link[target='_blank']")).toHaveCount(0);
+    const outbound = page.locator(".product__link[target='_blank']");
+    if (product.data.url) {
+      await expect(outbound).toHaveAttribute("href", product.data.url);
+      await expect(outbound).toHaveAttribute("rel", "noopener noreferrer");
+    } else await expect(outbound).toHaveCount(0);
   });
 
   test("an unknown product is a 404", async ({ request }) => {
@@ -678,9 +689,9 @@ for (const viewport of [WIDTHS.wide, VIEWPORTS.desktop, VIEWPORTS.tablet, VIEWPO
     test("keep one box in both states, so the layout never shifts", async ({ page }) => {
       await page.goto("/");
       await settle(page);
+      await setHomepageState(page, "soon");
       const soon = await readNext(page);
-      await page.goto(dev + "/");
-      await settle(page);
+      await setHomepageState(page, "live");
       const live = await readNext(page);
 
       expect(soon.items).toHaveLength(2);
@@ -699,10 +710,11 @@ for (const viewport of [WIDTHS.wide, VIEWPORTS.desktop, VIEWPORTS.tablet, VIEWPO
       expect(live.items[1].top).toBeGreaterThanOrEqual(live.items[0].bottom - 1);
     });
 
-    for (const [state, origin] of [["coming-soon", ""], ["live", dev]]) {
+    for (const [state, markup] of [["coming-soon", "soon"], ["live", "live"]]) {
       test(`stay clear of the globe and inside the screen in the ${state} state`, async ({ page }) => {
-        await page.goto(origin + "/");
+        await page.goto("/");
         await settle(page);
+        await setHomepageState(page, markup);
         const read = await readNext(page);
         const width = await page.evaluate(() => document.documentElement.clientWidth);
         for (const row of read.items) {
@@ -717,6 +729,7 @@ for (const viewport of [WIDTHS.wide, VIEWPORTS.desktop, VIEWPORTS.tablet, VIEWPO
     test("read as text with no arrow when a section is not live", async ({ page }) => {
       await page.goto("/");
       await settle(page);
+      await setHomepageState(page, "soon");
       const state = await page.evaluate(() => {
         const soon = document.querySelector(".hero__next-soon");
         const style = getComputedStyle(soon);

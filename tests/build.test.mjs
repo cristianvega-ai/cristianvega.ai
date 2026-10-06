@@ -3,7 +3,7 @@ import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { assertPageBasics, dist, readDistFile, root } from "./helpers.mjs";
+import { assertPageBasics, contentRoutes, dist, listBuiltRoutes, publishedContent, readContentInventory, readDistFile, root, sitemapPaths, withContentBuild } from "./helpers.mjs";
 
 // Build output contract: the files the static deploy uploads must exist and be
 // complete. Page copy lives in tests/pages.test.mjs; this suite only asks
@@ -14,21 +14,8 @@ function assertDistPath(...segments) {
   assert.equal(existsSync(path), true, `missing build output: ${path} (run \`npm test\` or \`npm run build\`)`);
 }
 
-/** Every public route the build emits, as absolute paths with trailing slashes. */
-function listBuiltRoutes(dir = dist, prefix = "/") {
-  const routes = [];
-
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isDirectory()) {
-      if (entry.name === "_astro") continue;
-      routes.push(...listBuiltRoutes(join(dir, entry.name), `${prefix}${entry.name}/`));
-    } else if (entry.name === "index.html") {
-      routes.push(prefix);
-    }
-  }
-
-  return routes;
-}
+const inventory = readContentInventory();
+const published = publishedContent(inventory);
 
 test("dist build is present for contract tests", () => {
   assert.equal(
@@ -68,20 +55,23 @@ test("sitemap enumerates every public route the build produces", () => {
   );
 });
 
-test("navigation links to about, hides writing while no post is published, and keeps outbound links safe", () => {
+test("navigation follows published content and keeps outbound links safe", () => {
   const home = readDistFile("index.html");
   const nav = home.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
   assert.ok(nav, "primary navigation required");
 
   const anchors = [...nav.matchAll(/<a\b[^>]*>/gi)].map(([tag]) => tag);
-  assert.equal(anchors.length, 4, `navigation must hold about and three profile links: ${nav}`);
+  const sections = Object.keys(published).filter((section) => published[section].length > 0);
+  assert.equal(anchors.length, 4 + sections.length, `navigation must match published sections: ${nav}`);
   const about = anchors.filter((tag) => /href="\/about\/"/.test(tag));
   assert.equal(about.length, 1, "navigation must link to about once");
   assert.doesNotMatch(about[0], /target=/, "about must open in the current tab");
-  // Every fixture post is a draft, so a production build hides the writing link.
-  assert.doesNotMatch(nav, /href="\/writing\/"/, "navigation must hide writing while no post is published");
-  assert.doesNotMatch(nav, /href="\/products\/"/, "navigation must hide products while no product is published");
-  const outbound = anchors.filter((tag) => !about.includes(tag));
+  for (const section of Object.keys(published)) {
+    const sectionLinks = anchors.filter((tag) => tag.includes(`href="/${section}/"`));
+    assert.equal(sectionLinks.length, published[section].length > 0 ? 1 : 0, `${section} navigation must match publication`);
+    for (const tag of sectionLinks) assert.doesNotMatch(tag, /target=/, `${section} must open in the current tab`);
+  }
+  const outbound = anchors.filter((tag) => /href="https:\/\//.test(tag));
   assert.equal(outbound.length, 3, "navigation must keep all three profile links");
 
   for (const host of ["linkedin.com", "x.com", "github.com"]) {
@@ -109,31 +99,36 @@ test("the narrow-screen menu holds the same links as the primary navigation", ()
   assert.deepEqual(links(menu), links(primary), "the menu must reach every link the primary navigation reaches");
 });
 
-test("writing and products build no routes while every entry is a draft", () => {
-  // The fixture posts and the sample product are drafts, so production emits
-  // neither index. The routes exist only once an entry is published.
-  assert.equal(existsSync(join(dist, "writing")), false, "writing must not build while every post is a draft");
-  assert.equal(existsSync(join(dist, "products")), false, "products must not build while every product is a draft");
-  assert.equal(existsSync(join(dist, "blog")), false, "the old blog routes must not be built");
-  // Read each sitemap entry as a URL, so the check compares the exact path.
-  const sitemapPaths = [...readDistFile("sitemap-0.xml").matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => new URL(match[1]).pathname);
-  assert.ok(sitemapPaths.length > 0, "the sitemap must list the pages");
-  for (const [route, message] of [["writing", "the writing index"], ["products", "the products index"], ["blog", "the old blog routes"]]) {
-    assert.ok(!sitemapPaths.some((path) => path === `/${route}` || path.startsWith(`/${route}/`)), `${message} must stay out of the sitemap`);
-  }
-  // The homepage calls to action must not link to a route that the build omits.
-  assert.doesNotMatch(readDistFile("index.html"), /href="\/(?:writing|products)\//, "the homepage must not link to an omitted route");
-  for (const [collection, route] of [["blog", "writing"], ["products", "products"]]) {
-    const source = join(root, "src", "content", collection);
-    for (const file of readdirSync(source).filter((name) => name.endsWith(".md"))) {
-      const frontmatter = readFileSync(join(source, file), "utf8").split("---")[1];
-      if (/^draft: false$/m.test(frontmatter)) continue;
-      const slug = file.slice(0, -3);
-      assert.equal(existsSync(join(dist, route, slug)), false, `${slug} must remain a draft`);
-      assert.ok(!sitemapPaths.includes(`/${route}/${slug}/`), `${slug} must stay out of the sitemap`);
+function assertContentBuild(buildDirectory, sourceInventory) {
+  const routes = listBuiltRoutes(buildDirectory);
+  const locations = sitemapPaths(buildDirectory);
+  const expected = ["/", "/about/", ...contentRoutes(sourceInventory)].sort();
+  assert.deepEqual(routes, expected, "build routes must match published content");
+  assert.deepEqual(locations, expected, "sitemap routes must match published content");
+  const home = readFileSync(join(buildDirectory, "index.html"), "utf8");
+  for (const [section, entries] of Object.entries(sourceInventory)) {
+    const visible = entries.filter((entry) => !entry.data.draft);
+    assert.equal(existsSync(join(buildDirectory, section, "index.html")), visible.length > 0, `${section} index must follow visibility`);
+    assert.equal(home.includes(`href="/${section}/"`), visible.length > 0, `${section} homepage links must follow visibility`);
+    for (const entry of entries.filter((entry) => entry.data.draft)) {
+      assert.equal(existsSync(join(buildDirectory, section, entry.id)), false, `${entry.id} draft route must be absent`);
+      assert.ok(!locations.includes(entry.href), `${entry.id} draft must stay out of the sitemap`);
+      assert.ok(!home.includes(`href="${entry.href}"`), `${entry.id} draft link must stay off the homepage`);
     }
   }
+}
+
+test("content routes follow publication and omit every current draft", () => {
+  assertContentBuild(dist, inventory);
+  assert.equal(existsSync(join(dist, "blog")), false, "the old blog routes must not be built");
+  assert.ok(!sitemapPaths().some((path) => path.startsWith("/blog/")), "old blog routes must stay out of the sitemap");
 });
+
+for (const kind of ["all-draft", "mixed"]) {
+  test(`${kind} fixture emits only published routes and sitemap entries`, { timeout: 90_000 }, async () => {
+    await withContentBuild(kind, (fixture) => assertContentBuild(fixture.dist, fixture.inventory));
+  });
+}
 
 test("static ops assets ship with the build", () => {
   assert.equal(existsSync(join(dist, "robots.txt")), true);

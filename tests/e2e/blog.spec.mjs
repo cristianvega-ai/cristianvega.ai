@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { bandHeight, drawnLabels, edgePaint, focusRingAndFade, navLink, settle, tabTo, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { bandHeight, currentContent, currentPublished, drawnLabels, edgePaint, focusRingAndFade, navLink, settle, tabTo, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 const preview = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 const article = "/writing/lorem-ipsum-dolor-sit-amet/";
@@ -97,31 +97,39 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
 
 test("drafts appear locally and stay unavailable in production", async ({ page, request }) => {
   await page.goto(preview + "/writing/");
-  await expect(page.locator(".post-list__item")).toHaveCount(8);
-  await expect(page.locator(".draft-label")).toHaveCount(8);
+  await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+  await settle(page);
+  await expect(page.locator(".post-list__item")).toHaveCount(currentContent.writing.length);
+  await expect(page.locator(".draft-label")).toHaveCount(currentContent.writing.filter((entry) => entry.data.draft).length);
   const links = await page.locator(".post-list__link").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("href")));
-  for (const link of links) {
-    expect(link).toMatch(/^\/writing\/[^/]+\/$/);
-    const response = await request.get(link);
-    expect(response.status()).toBe(404);
+  expect(links).toEqual(currentContent.writing.map((entry) => entry.href));
+  for (const entry of currentContent.writing) {
+    const response = await request.get(entry.href);
+    expect(response.status(), entry.href).toBe(entry.data.draft ? 404 : 200);
   }
-  // Production has no published post, so it builds no writing index.
   const index = await request.get("/writing/");
-  expect(index.status()).toBe(404);
+  expect(index.status()).toBe(currentPublished.writing.length > 0 ? 200 : 404);
 });
 
 test("keyboard focus lights a post and opens its article", async ({ page }) => {
   await useReducedMotion(page);
   await page.goto(preview + "/writing/");
+  await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+  await settle(page);
   expect(await tabTo(page, ".post-list__link >> nth=0")).toBe(true);
   const row = page.locator(".post-list__item").first();
   await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await row.getAttribute("data-post-id"));
   await expect(row).toHaveCSS("outline-style", "solid");
   await expect(row).toHaveCSS("outline-width", "3px");
   await page.keyboard.press("Enter");
-  await expect(page.locator(".article__draft")).toHaveText("Draft preview · not published");
-  await expect(page.locator("meta[name='robots']")).toHaveAttribute("content", "noindex, follow");
-  await expect(page.locator(".author__share")).toHaveCount(0);
+  if (currentContent.writing[0].data.draft) {
+    await expect(page.locator(".article__draft")).toHaveText("Draft preview · not published");
+    await expect(page.locator("meta[name='robots']")).toHaveAttribute("content", "noindex, follow");
+    await expect(page.locator(".author__share")).toHaveCount(0);
+  } else {
+    await expect(page.locator(".article__draft, meta[name='robots']")).toHaveCount(0);
+    await expect(page.locator(".author__share")).toHaveCount(1);
+  }
   await page.getByRole("link", { name: "← All posts" }).click();
   await expect(page.locator("#blog-title")).toBeVisible();
 });
@@ -134,9 +142,17 @@ test("article sections and adjacent posts work", async ({ page }) => {
   await expect(page.locator(".prose pre")).toHaveAttribute("tabindex", "0");
   await expect(page.locator(".prose pre")).toHaveAttribute("aria-label", "Code example");
   await expect(page.locator(".reading-hud")).toHaveCount(0);
-  await page.getByRole("link", { name: /Newer · Draft/ }).click();
-  await expect(page.locator("#post-title")).toHaveText("Consectetur adipiscing elit");
-  await page.getByRole("link", { name: /Older · Draft/ }).click();
+  const position = currentContent.writing.findIndex((entry) => entry.href === article);
+  const newer = currentContent.writing[position - 1];
+  const current = currentContent.writing[position];
+  const newerLink = page.locator(".read-next__newer");
+  await expect(newerLink).toHaveAttribute("href", newer.href);
+  await expect(newerLink.locator("span")).toHaveText(`Newer${newer.data.draft ? " · Draft" : ""} →`);
+  await newerLink.click();
+  await expect(page.locator("#post-title")).toHaveText(newer.data.title);
+  const olderLink = page.locator(`.read-next a[href='${article}']`);
+  await expect(olderLink.locator("span")).toHaveText(`← Older${current.data.draft ? " · Draft" : ""}`);
+  await olderLink.click();
   await expect(page.locator("#post-title")).toHaveText(title);
 });
 
@@ -236,7 +252,7 @@ test("content and links work without JavaScript", async ({ browser }) => {
   await expect(page.locator(".prose pre")).toContainText("LoremIpsum");
   await expect(page.locator("[data-graphic]")).toHaveCount(0);
   await page.getByRole("link", { name: "← All posts" }).click();
-  await expect(page.locator(".post-list__link")).toHaveCount(8);
+  await expect(page.locator(".post-list__link")).toHaveCount(currentContent.writing.length);
   await expect(page.locator(graphic)).toHaveCSS("display", "none");
   await context.close();
 });
@@ -254,7 +270,7 @@ test("canvas, fonts, and storage failures keep content readable", async ({ page 
   await expect(page.locator(".prose h2")).toHaveCount(3);
   await expect(page.locator("[data-graphic]")).toHaveCount(0);
   await page.getByRole("link", { name: "← All posts" }).click();
-  await expect(page.locator(".post-list__link")).toHaveCount(8);
+  await expect(page.locator(".post-list__link")).toHaveCount(currentContent.writing.length);
   // With no canvas, the graphic hides itself and the list stays.
   await expect(page.locator(graphic)).toBeHidden();
 });
@@ -336,7 +352,7 @@ test.describe("the writing graphic is decorative", () => {
     await page.goto(preview + "/writing/");
     await expect(page.locator("main h1")).toHaveText("Writing");
     await expect(page.locator(`${graphic} :is(h1, h2, h3, a)`)).toHaveCount(0);
-    await expect(page.locator(".post-list__item")).toHaveCount(8);
+    await expect(page.locator(".post-list__item")).toHaveCount(currentContent.writing.length);
   });
 
   test("draws every label at 10px or larger", async ({ page }) => {
@@ -743,7 +759,7 @@ test.describe("the writing graphic answers a lit post", () => {
   });
 });
 
-test.describe("the writing graphic in production", () => {
+test.describe("the writing graphic in preview", () => {
   test("runs with no console error and no CSP violation", async ({ page }) => {
     const problems = [];
     page.on("console", (message) => {
@@ -766,14 +782,16 @@ test.describe("the writing graphic in production", () => {
   });
 });
 
-test("production has no writing index and keeps the security policy on its 404", async ({ page }) => {
+test("production writing follows publication and keeps the security policy", async ({ page }) => {
   const response = await page.goto("/writing/");
-  expect(response.status()).toBe(404);
+  const visible = currentPublished.writing.length > 0;
+  expect(response.status()).toBe(visible ? 200 : 404);
   expect(response.headers()["content-security-policy"]).toContain("style-src-attr 'none'");
-  // The 404 page has its own graphic, and it is not the writing graphic.
-  await expect(page.locator("[data-graphic='writing']")).toHaveCount(0);
-  await expect(page.locator("[data-graphic='404']")).toHaveCount(1);
-  await expect(page.locator(".post-list")).toHaveCount(0);
+  await expect(page.locator("[data-graphic='writing']")).toHaveCount(visible ? 1 : 0);
+  await expect(page.locator("[data-graphic='404']")).toHaveCount(visible ? 0 : 1);
+  await expect(page.locator(".post-list")).toHaveCount(visible ? 1 : 0);
+  await expect(page.locator(".post-list__item")).toHaveCount(currentPublished.writing.length);
+  if (visible) await expect(page.locator("meta[name='robots'], .draft-label")).toHaveCount(0);
 });
 
 test("wide code and diagrams scroll inside the column and show a focus ring", async ({ page }) => {
