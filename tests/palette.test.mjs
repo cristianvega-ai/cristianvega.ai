@@ -1,27 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { hexChannels } from "../src/lib/motion/palette.ts";
+import { glowStops } from "../src/lib/motion/palette.ts";
 
-test("hex channels convert six digits with either letter case", () => {
-  for (const [color, channels] of [
-    ["#000000", "0, 0, 0"],
-    ["#FFFFFF", "255, 255, 255"],
-    ["#38BDF8", "56, 189, 248"],
-    ["#38bdf8", "56, 189, 248"],
-    ["#aBcDeF", "171, 205, 239"],
-    ["#010203", "1, 2, 3"],
+test("glow stops keep the sky channels and scale the glow by the color alpha", () => {
+  for (const [color, stops] of [
+    [{ r: 56, g: 189, b: 248, a: 1 }, ["rgba(56, 189, 248, 0.45)", "rgba(56, 189, 248, 0)"]],
+    [{ r: 0, g: 0, b: 0, a: 1 }, ["rgba(0, 0, 0, 0.45)", "rgba(0, 0, 0, 0)"]],
+    [{ r: 255, g: 128, b: 1, a: 128 / 255 }, ["rgba(255, 128, 1, 0.226)", "rgba(255, 128, 1, 0)"]],
+    [{ r: 0, g: 0, b: 0, a: 0 }, ["rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0)"]],
   ]) {
-    assert.equal(hexChannels(color), channels, color);
-  }
-});
-
-test("hex channels reject unsupported color formats", () => {
-  for (const color of [
-    "", "#3bf", "#38BDF", "#38BDF80", "#38BDF880", "#38BDGG", "38BDF8",
-    "rgb(56, 189, 248)", "hsl(198, 93%, 60%)", "color(srgb 0.2 0.7 1)", "skyblue", "transparent",
-    " #38BDF8", "#38BDF8 ", "#38BDF8\n",
-  ]) {
-    assert.equal(hexChannels(color), null, JSON.stringify(color));
+    assert.deepEqual(glowStops(color), stops, JSON.stringify(color));
   }
 });

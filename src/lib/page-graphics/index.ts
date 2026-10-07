@@ -45,10 +45,10 @@
  *   Font completion, failure, and resizing rebuild these measurements.
  *   placeLabel() uses measured widths.
  *   drawLabel() uses labelFont.canvasFont.
- *   Use #RRGGBB for --sky.
- *   readPalette() accepts six hexadecimal digits in either letter case.
- *   Unsupported formats use #38BDF8 for sky marks and glow gradients.
- *   Use palette.skyChannels when a gradient needs RGB channels.
+ *   The color tokens can use any CSS color that the browser parses, such as hex, rgb(), hsl(), or oklch().
+ *   readPalette() resolves each one through a 1x1 canvas.
+ *   A token that the canvas cannot parse logs a console warning, and the canvas draws its fallback color.
+ *   Use palette.skyColor when a gradient needs channels. glowStops() keeps the alpha of the token.
  *
  * Globe presentation
  *   ../lyra-globe/model.ts owns globe geometry and label anchors.
