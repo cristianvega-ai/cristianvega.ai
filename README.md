@@ -100,8 +100,12 @@ It sits in a `noscript` for visitors without JavaScript.
 It sits in a `template`, and the script copies it in when canvas is missing or the setup fails.
 A successful canvas setup keeps the fallback SVG hidden.
 The [globe model](src/lib/lyra-globe/model.ts) supplies drawing geometry and label anchors.
-The [projection module](src/lib/lyra-globe/projection.ts) generates a versioned external stylesheet from model measurements.
+The [projection module](src/lib/lyra-globe/projection.ts) measures the model and rounds the values at build time.
+It owns the crop margins above the outer ring and below the caption.
+It writes the values to a versioned external stylesheet.
+The homepage links that stylesheet from the `head` slot of [BaseLayout.astro](src/layouts/BaseLayout.astro).
 [home.css](src/styles/home.css) controls responsive placement.
+If the stylesheet does not load, `home.css` uses fallback values from the current model.
 The globe restarts its entrance after page restoration.
 The Lyra star data lives in [src/lib/lyra/](src/lib/lyra/).
 
@@ -126,7 +130,7 @@ Reduced motion completes the entrance immediately and runs no continuous frames.
 
 | Scene | Motion after the visual entrance | Reduced motion |
 | --- | --- | --- |
-| About | Fixed graphics follow the reader's scroll. Bands rest at Vega. | A static marker shows the reader's place. Scroll updates it immediately, without easing. |
+| About | Fixed graphics follow the reader's scroll. Bands rest at Vega. | In a fixed graphic, a static marker shows the reader's place. Scroll updates it immediately, without easing. A band shows the lit path to Vega and no marker. |
 | Writing | Pointer or keyboard focus lights a post's path and runs comets. The scene rests after the glow fades. | Selection updates immediately, with no comet. |
 | Products | Satellites drift until 30 active seconds from mount, then rest. | Satellites stay at their initial positions. |
 | 404 | Four search pulses follow the entrance. The scene rests after 30.5 active seconds. | The missing-star gap stays static, without pulses. |
@@ -163,10 +167,14 @@ The Markdown body becomes the detail page.
 Drafts appear only in `npm run dev`.
 Draft pages show a label and request `noindex`.
 A production build has no `/products/` route while every product is a draft.
-The build also leaves products out of the navigation and the sitemap, and the homepage card is not a link.
+The build also leaves products out of the navigation and the sitemap.
+The homepage then shows "Latest products · coming soon" without a link.
 An omitted `draft` value defaults to `true`.
 To announce a product, set `draft: false` when the owner approves.
 The `lorem-ipsum-dolor` file is a draft sample for layout review.
+
+The products graphic has eight slots.
+A build that publishes more than eight products fails.
 
 ## Navigation
 
@@ -197,7 +205,7 @@ Use `verify` or `test` when contract tests need current `dist/` output.
 The checker still includes source, configuration, scripts, and tests.
 Generated reports and build output must remain ignored.
 
-`npm run build` first checks `public/` for `.DS_Store` and `Thumbs.db` files.
+`npm run build` first checks `public/` for `.DS_Store`, `Thumbs.db`, and AppleDouble (`._*`) files.
 The check rejects these files before Astro copies public files into `dist/`.
 Remove each reported metadata file, then run the build again.
 The [public-file guard](scripts/check-public.mjs) permits `public/.well-known/security.txt`.
@@ -365,8 +373,9 @@ a pull request before enabling publication again.
 ### Hosting rules and local checks
 
 `public/_headers` preserves the six security headers and CSP. It gives
-hashed `/_astro/` assets a one-year immutable cache. Stable images use one
-week. HTML revalidates. HSTS applies to
+hashed `/_astro/` assets a one-year immutable cache. The versioned
+`/globe-projection/*` stylesheet also has a one-year immutable cache.
+Stable images use one week. HTML revalidates. HSTS applies to
 the current host only. Do not add `includeSubDomains` until all subdomains
 support valid HTTPS.
 
@@ -390,6 +399,12 @@ must fail the comparison.
 The [live verifier](scripts/verify-deploy.mjs) reads script URLs from the verified homepage when `EXPECTED_INDEX` is set.
 Otherwise, it reads the live homepage.
 It checks each script URL from the same origin once, without relying on component filenames.
+
+The gate checks the security headers on `/`, `/about/`, `/writing/`, and the 404 response.
+`/writing/` can return HTTP 200 or 404, because the build omits it while every post is a draft.
+`npm run verify` also runs the gate against the local Wrangler build of `dist/`.
+Keep `APPROVED_SECURITY_HEADERS` in the live verifier equal to the global rule in `public/_headers`.
+Change both in the same commit. Otherwise, `npm run verify` fails.
 
 ### Web analytics
 
@@ -422,6 +437,12 @@ and [security policy guidance](https://developers.cloudflare.com/web-analytics/f
 GitHub dependency alerts, security update pull requests, CodeQL default setup,
 and private vulnerability reporting must stay enabled. Dependabot checks npm
 packages and GitHub Actions each week. Review each update before merge.
+
+`package.json` has an npm `overrides` entry for `sharp` under `miniflare`.
+The miniflare release in Wrangler 4.144.0 pins sharp 0.35.4, which has
+advisory GHSA-wq5f-xc86-pv6w. The `$sharp` value gives miniflare the root
+`sharp` version. Remove the entry when a Wrangler release has a miniflare
+that accepts sharp 0.35.5 or later.
 
 `public/.well-known/security.txt` directs reports to GitHub's private form.
 `SECURITY.md` explains that process. Renew the file's `Expires` date before it
