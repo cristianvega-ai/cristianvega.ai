@@ -349,10 +349,14 @@ test.describe("the writing graphic never covers text", () => {
       await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
       await settle(page);
       for (const place of ["top", "middle"]) {
-        await page.evaluate((where) => {
-          const max = document.documentElement.scrollHeight - innerHeight;
-          scrollTo(0, where === "top" ? 0 : Math.min(max, 300));
+        // The site scrolls smoothly. Scroll at once, so every measurement sees the same place.
+        const scroll = await page.evaluate((where) => {
+          const max = Math.max(0, document.documentElement.scrollHeight - document.documentElement.clientHeight);
+          const top = where === "top" ? 0 : Math.min(max, 300);
+          scrollTo({ top, behavior: "instant" });
+          return { top, now: scrollY };
         }, place);
+        expect(Math.abs(scroll.now - scroll.top), `${place}: the page is at the ${place}`).toBeLessThanOrEqual(1);
         const shape = await page.locator(graphic).evaluate((el) => {
           const rect = el.getBoundingClientRect();
           return { w: rect.width, h: rect.height };
