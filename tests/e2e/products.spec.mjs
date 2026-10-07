@@ -18,20 +18,29 @@ async function useProductMarks(page) {
   await page.addInitScript(() => {
     const proto = CanvasRenderingContext2D.prototype;
     let path = null;
-    for (const method of ["clearRect", "beginPath", "arc", "moveTo", "lineTo", "fill", "stroke"]) {
+    for (const method of ["clearRect", "beginPath", "arc", "ellipse", "moveTo", "lineTo", "fill", "stroke", "drawImage"]) {
       const original = proto[method];
       proto[method] = function (...args) {
         if (this.canvas.parentElement?.dataset.graphic === "products") {
-          if (method === "clearRect") window.__productMarks = { cores: [], rings: [], links: [] };
+          if (method === "clearRect") window.__productMarks = { cores: [], rings: [], links: [], marks: [], orbits: [] };
           if (method === "beginPath") path = null;
           if (method === "arc") path = { kind: "arc", x: args[0], y: args[1], radius: args[2] };
+          if (method === "ellipse") path = { kind: "ellipse", x: args[0], y: args[1], rx: args[2], ry: args[3] };
           if (method === "moveTo") path = { kind: "line", ax: args[0], ay: args[1] };
           if (method === "lineTo" && path?.kind === "line") Object.assign(path, { bx: args[0], by: args[1] });
           if (method === "fill" && path?.kind === "arc") {
             window.__productMarks.cores.push({ ...path, alpha: this.globalAlpha });
+            window.__productMarks.marks.push({ x: path.x, y: path.y, reach: path.radius });
           }
-          if (method === "stroke" && path?.kind === "arc" && path.radius === 7.5) {
-            window.__productMarks.rings.push({ ...path, alpha: this.globalAlpha });
+          if (method === "stroke" && path?.kind === "arc") {
+            if (path.radius === 7.5) window.__productMarks.rings.push({ ...path, alpha: this.globalAlpha });
+            window.__productMarks.marks.push({ x: path.x, y: path.y, reach: path.radius + this.lineWidth / 2, radius: path.radius });
+          }
+          if (method === "stroke" && path?.kind === "ellipse") {
+            window.__productMarks.orbits.push({ x: path.x, y: path.y, rx: path.rx + this.lineWidth / 2, ry: path.ry + this.lineWidth / 2 });
+          }
+          if (method === "drawImage" && args.length === 5) {
+            window.__productMarks.marks.push({ x: args[1] + args[3] / 2, y: args[2] + args[4] / 2, reach: args[3] / 2 });
           }
           if (method === "stroke" && path?.kind === "line" && Math.abs(this.lineWidth - 0.8) < 1e-6) {
             window.__productMarks.links.push({ ...path, alpha: this.globalAlpha });
@@ -43,8 +52,8 @@ async function useProductMarks(page) {
   });
 }
 
-/** Give the test page eight products before its graphic mounts. Keep the content files unchanged. */
-async function openFullOrbit(page, reduced = false) {
+/** Give the test page a product count and a current product before its graphic mounts. Keep the content files unchanged. */
+async function openOrbit(page, { count, current, reduced = false }) {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => {
@@ -53,20 +62,24 @@ async function openFullOrbit(page, reduced = false) {
   await useManualFrames(page);
   await useProductMarks(page);
   if (reduced) await useReducedMotion(page);
-  await page.addInitScript(() => {
+  await page.addInitScript((inputs) => {
     const observer = new MutationObserver(() => {
       const root = document.querySelector("[data-graphic='products']");
       if (!root) return;
-      root.dataset.products = "8";
+      root.dataset.products = String(inputs.count);
+      root.dataset.current = String(inputs.current);
       observer.disconnect();
     });
     observer.observe(document, { childList: true, subtree: true });
-  });
+  }, { count, current });
   await open(page, PAGES.product);
   await settle(page);
-  await expect(page.locator(PAGES.product.graphic)).toHaveAttribute("data-products", "8");
+  await expect(page.locator(PAGES.product.graphic)).toHaveAttribute("data-products", String(count));
   return errors;
 }
+
+/** Give the test page eight products before its graphic mounts. */
+const openFullOrbit = (page, reduced = false) => openOrbit(page, { count: 8, current: 0, reduced });
 
 /** Check each product core, ring, and link in the latest frame. */
 async function expectFullOrbit(page) {
@@ -277,7 +290,10 @@ test.describe("the products graphic shows the products", () => {
     await open(page, PAGES.product);
     const root = page.locator(PAGES.product.graphic);
     await expect(root).toHaveAttribute("data-products", String(listed));
-    await expect(root).toHaveAttribute("data-current", "0");
+    // The dev server lists drafts too, in the same order as the content inventory.
+    const current = currentContent.products.findIndex((entry) => entry.id === "lorem-ipsum-dolor");
+    expect(current).toBeGreaterThanOrEqual(0);
+    await expect(root).toHaveAttribute("data-current", String(current));
   });
 
   for (const target of [PAGES.products, PAGES.product]) {
@@ -330,5 +346,50 @@ test.describe("the products graphic fills every active slot", () => {
       expect(await pendingFrames(page)).toBe(0);
       expect(errors).toEqual([]);
     });
+  }
+});
+
+test.describe("the products graphic keeps every mark inside the figure inset", () => {
+  // Slot 1 sits on the outer orbit at the right edge of a column and at the top of a band.
+  // Slot 3 sits on the outer orbit at the left edge of a column and at the bottom of a band.
+  for (const { count, current } of [{ count: 1, current: 0 }, { count: 2, current: 1 }, { count: 8, current: 3 }]) {
+    for (const size of SIZES) {
+      test(`keeps ${count} product marks and the current ring inside the inset at ${size.width}px`, async ({ page }) => {
+        await page.setViewportSize(size);
+        const errors = await openOrbit(page, { count, current, reduced: true });
+        const { marks, width, height } = await page.locator(`${PAGES.product.graphic} canvas`).evaluate((canvas) => {
+          const box = canvas.getBoundingClientRect();
+          return { marks: window.__productMarks, width: box.width, height: box.height };
+        });
+        const inset = 32;
+        // A lit slot draws a 7.5px ring, in product order. An empty slot draws a 4.5px ring.
+        const lit = marks.rings;
+        const empty = marks.marks.filter((mark) => mark.radius === 4.5);
+        expect(lit, "every product has a ring").toHaveLength(count);
+        expect(lit.length + empty.length, "the picture shows six slots or more").toBe(Math.max(6, count));
+        const ringed = marks.marks.filter((mark) => mark.radius === 11.5);
+        expect(ringed, "the current product has its own ring").toHaveLength(1);
+        expect(ringed[0].x).toBe(lit[current].x);
+        expect(ringed[0].y).toBe(lit[current].y);
+        for (const [index, slot] of [...lit, ...empty].entries()) {
+          const around = marks.marks.filter((mark) => Math.abs(mark.x - slot.x) < 1e-6 && Math.abs(mark.y - slot.y) < 1e-6);
+          if (index < count) expect(around.length, `product ${index} has a ring, a core, and a halo`).toBeGreaterThanOrEqual(3);
+          const reach = Math.max(...around.map((mark) => mark.reach));
+          const where = `slot ${index} at (${slot.x.toFixed(1)}, ${slot.y.toFixed(1)}) with a reach of ${reach}`;
+          expect(slot.x - reach, `${where}: left`).toBeGreaterThanOrEqual(inset - 1e-6);
+          expect(slot.x + reach, `${where}: right`).toBeLessThanOrEqual(width - inset + 1e-6);
+          expect(slot.y - reach, `${where}: top`).toBeGreaterThanOrEqual(inset - 1e-6);
+          expect(slot.y + reach, `${where}: bottom`).toBeLessThanOrEqual(height - inset + 1e-6);
+        }
+        expect(marks.orbits, "the three orbits").toHaveLength(3);
+        for (const orbit of marks.orbits) {
+          expect(orbit.x - orbit.rx, "orbit left").toBeGreaterThanOrEqual(inset - 1e-6);
+          expect(orbit.x + orbit.rx, "orbit right").toBeLessThanOrEqual(width - inset + 1e-6);
+          expect(orbit.y - orbit.ry, "orbit top").toBeGreaterThanOrEqual(inset - 1e-6);
+          expect(orbit.y + orbit.ry, "orbit bottom").toBeLessThanOrEqual(height - inset + 1e-6);
+        }
+        expect(errors).toEqual([]);
+      });
+    }
   }
 });
