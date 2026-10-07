@@ -8,6 +8,7 @@
  *   Pass the visible product count on both product routes.
  *   Pass null for currentProductIndex on the product index.
  *   Pass the visible product's list index on detail pages.
+ *   The products picture has MAX_SLOTS (8) slots. getProducts() fails the build when more products are published.
  *   Writing reads hooks inside the closest [data-writing-page].
  *   Use [data-writing-list], [data-writing-entry-id], and [data-writing-label].
  *   Keep page bindings separate from geometry helpers and drawing.
@@ -52,8 +53,11 @@
  *
  * Globe presentation
  *   ../lyra-globe/model.ts owns globe geometry and label anchors.
- *   ../lyra-globe/projection.ts generates a versioned external stylesheet from model measurements.
- *   ../../styles/home.css owns responsive placement.
+ *   ../lyra-globe/projection.ts measures the model at build time and rounds the values. It owns the crop margins
+ *   and the picture scale, and it writes a versioned stylesheet of --globe-* properties.
+ *   The homepage links that stylesheet in the head slot of BaseLayout.astro. Its URL has an immutable cache rule.
+ *   ../../styles/home.css owns responsive placement. Each --globe-* var() falls back to the current model value.
+ *   The backdrop behind the sphere sits on the sphere centre.
  *   Globe labels use canvas entrance progress and pause with the drawing.
  *
  * Modules
@@ -64,9 +68,11 @@
  *   label-font.ts: measured label widths and the canvas font.
  *   labels.ts: placeLabel() uses measured widths and labelBounds().
  *   inset.ts: FIGURE_INSET and figureRect() keep the figure inside the edge fade.
+ *     A scene must keep the reach of its marks inside the inset, not only the mark centres.
+ *     The products scene keeps SLOT_REACH, the largest ring or halo round a slot.
  *   mesh.ts: sparse neural meshes and cached site grids.
  *   marks.ts: nodes, edges, curves, routes, comets, labels, blooms, and star fields.
- *   mount.ts: page policies, scene mounting, and font refreshes.
+ *   mount.ts: page policies, scene mounting, and font refreshes through handle.rebuild().
  *   scroll.ts: measured page geometry and a smoothed reader position.
  *   scenes/: page drawings and the lazy registry in scenes/index.ts.
  *
@@ -90,6 +96,8 @@
  *      Return false or nothing at rest.
  *      Call handle.wake() when an idle scene needs animated interaction updates.
  *      Call handle.redraw() for immediate reduced-motion updates.
+ *      Call handle.rebuild() when layout inputs change outside a resize.
+ *      It applies a pending motion preference before it draws.
  *   4. Add a lazy import to scenes/index.ts:
  *      <scene>: () => import("./<scene>.ts").then((module) => module.mount<Scene>).
  *      Add its name and required inputs to the Props union in src/components/PageGraphic.astro.
@@ -109,7 +117,8 @@
  *   - data-ready="true" after the first frame.
  *   - data-motion-state="playing" or "still" reports whether motion continues.
  *   - ResizeObserver rebuilds changed canvas boxes.
- *   - Font completion or failure refreshes label measurements and layout.
+ *   - Font completion or failure refreshes label measurements and layout through handle.rebuild().
+ *   - handle.rebuild() applies a motion preference change before it draws, whatever the event order.
  *   - IntersectionObserver and visibilitychange pause frames outside the viewport or in hidden tabs.
  *   - Reduced motion draws the completed entrance immediately, including live preference changes.
  *   - pagehide tears down observers and scene listeners.
