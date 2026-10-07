@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { LYRA, LYRA_LINKS } from "../src/lib/lyra/constellation.ts";
 import { buildGlobe, EDGE_SPAN, NODE_SPAN } from "../src/lib/lyra-globe/model.ts";
+import { globeProjectionCss, projectGlobe } from "../src/lib/lyra-globe/projection.ts";
 
 test("the globe holds 70 neurons, the Lyra figure, and one hot route", () => {
   const globe = buildGlobe(600, 500);
@@ -92,3 +93,37 @@ test("the globe keeps every node inside its box at both build sizes", () => {
 test("the globe builds the same geometry on every call", () => {
   assert.deepEqual(buildGlobe(600, 500), buildGlobe(600, 500));
 });
+
+test("the globe projection keeps the approved desktop crop for the current model", () => {
+  const projection = projectGlobe(buildGlobe(600, 500));
+  assert.deepEqual(
+    { pictureHeight: projection.pictureHeight, pictureTop: projection.pictureTop, boxAspect: projection.boxAspect, ringInset: projection.ringInset, centerReach: projection.centerReach },
+    { pictureHeight: 1.2019, pictureTop: -0.1106, boxAspect: 0.9013, ringInset: 0.2468, centerReach: 0.4162 },
+  );
+  assert.equal(projection.captionLength, "LYRA / NEURAL SPHERE".length);
+});
+
+test("the globe projection crop shows the outer ring and the caption at every build size", () => {
+  for (const [width, height] of [[600, 500], [720, 560], [600, 600]]) {
+    const globe = buildGlobe(width, height);
+    const projection = projectGlobe(globe);
+    const ring = globe.rings.reduce((outer, candidate) => candidate.rx * candidate.ry > outer.rx * outer.ry ? candidate : outer);
+    const caption = globe.labels.find((label) => label.align === "center");
+    // Grid units per box height, and the top of the box in grid units.
+    const unit = height / projection.pictureHeight;
+    const boxTop = -projection.pictureTop * unit;
+    const above = (ring.y - ring.ry - boxTop) / ring.ry;
+    const below = (boxTop + unit - caption.y) / ring.ry;
+    assert.ok(above > 0 && above < 0.06, `${width}x${height}: the box must start just above the outer ring, not ${above}`);
+    assert.ok(below > 0 && below < 0.06, `${width}x${height}: the box must end just below the caption, not ${below}`);
+  }
+});
+
+test("the globe projection writes the desktop values with four decimal places", () => {
+  const css = globeProjectionCss(buildGlobe(600, 500));
+  assert.match(css, /^\.hero__globe\{(--globe-[a-z-]+:-?[0-9.]+;)+\}$/);
+  for (const [, value] of css.matchAll(/--globe-(?:picture-height|picture-top|box-aspect|ring-inset|center-reach):(-?[0-9.]+);/g)) {
+    assert.ok(Math.abs(Number(value) * 10_000 - Math.round(Number(value) * 10_000)) < 1e-6, `${value} must have four decimal places or fewer`);
+  }
+});
+

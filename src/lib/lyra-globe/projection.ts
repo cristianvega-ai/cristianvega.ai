@@ -3,8 +3,12 @@ import { buildGlobe, type Globe } from "./model.ts";
 
 /** The picture is this many times as wide as the globe box. It is a design choice. */
 export const PICTURE_SCALE = 1.3;
-/** The box shows this share of the picture height. It is a design choice. */
-export const PICTURE_HEIGHT = 1.2019;
+/**
+ * The box crops the picture from a little above the outer ring to a little below the caption anchor.
+ * The margins are shares of the outer ring radius, so the crop follows the sphere. They are design choices.
+ */
+export const CROP_ABOVE_RING = 0.0359;
+export const CROP_BELOW_CAPTION = 0.05;
 
 /** Round to the precision of the projection: four decimal places. */
 const round = (value: number) => Math.round(value * 10_000) / 10_000;
@@ -17,6 +21,8 @@ export interface GlobeProjection {
   pictureAspect: number;
   /** Picture height per box height. */
   pictureHeight: number;
+  /** Picture top per box height. It is negative, because the box crops the top of the picture. */
+  pictureTop: number;
   /** Box height per box width. */
   boxAspect: number;
   /** Distance from the picture edge to the left of the outer ring, per box width. */
@@ -29,6 +35,8 @@ export interface GlobeProjection {
   centerY: number;
   /** Vega per picture width, for the band below 1100px. */
   vegaY: number;
+  /** Characters in the caption under the sphere. CSS measures its reach in the label font. */
+  captionLength: number;
 }
 
 /**
@@ -38,17 +46,24 @@ export interface GlobeProjection {
 export function projectGlobe(globe: Globe): GlobeProjection {
   const ring = globe.rings.reduce((outer, candidate) => candidate.rx * candidate.ry > outer.rx * outer.ry ? candidate : outer);
   const vega = globe.nodes.find((node) => node.vega)!;
+  const caption = globe.labels.find((label) => label.align === "center")!;
+  // The part of the picture that the box shows, in grid units.
+  const cropTop = ring.y - ring.ry * (1 + CROP_ABOVE_RING);
+  const cropBottom = caption.y + ring.ry * CROP_BELOW_CAPTION;
   const pictureAspect = round(globe.height / globe.width);
+  const pictureHeight = round(globe.height / (cropBottom - cropTop));
   return {
     pictureScale: PICTURE_SCALE,
     pictureAspect,
-    pictureHeight: PICTURE_HEIGHT,
-    boxAspect: round((pictureAspect * PICTURE_SCALE) / PICTURE_HEIGHT),
+    pictureHeight,
+    pictureTop: round(-cropTop / (cropBottom - cropTop)),
+    boxAspect: round((pictureAspect * PICTURE_SCALE) / pictureHeight),
     ringInset: round(((ring.x - ring.rx) / globe.width) * PICTURE_SCALE),
     centerReach: round((ring.rx / globe.width) * PICTURE_SCALE),
     centerX: ring.x / globe.width,
     centerY: ring.y / globe.height,
     vegaY: vega.y / globe.width,
+    captionLength: caption.text.length,
   };
 }
 

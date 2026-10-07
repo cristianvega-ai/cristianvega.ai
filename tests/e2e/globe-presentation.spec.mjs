@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { CROP_ABOVE_RING, CROP_BELOW_CAPTION, PICTURE_SCALE } from "../../src/lib/lyra-globe/projection.ts";
 import { root } from "../helpers.mjs";
 import { settle, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, stepFrame } from "./fixtures.mjs";
 
@@ -230,7 +231,11 @@ async function createGlobeBuild() {
       ["Math.min(width, height) * 0.34", "Math.min(width, height) * 0.29"],
       ["VEGA_OFFSET_X = 0.12", "VEGA_OFFSET_X = 0.16"],
       ["radius * 1.13", "radius * 1.2"],
-    ]) model = model.replaceAll(before, after);
+      ['"LYRA / NEURAL SPHERE"', '"LYRA / NEURAL SPHERE / MODEL"'],
+    ]) {
+      expect(model, `the model must hold ${before}`).toContain(before);
+      model = model.replaceAll(before, after);
+    }
     await writeFile(modelPath, model);
     await writeFile(join(directory, "astro.config.mjs"),
       `import config from ${JSON.stringify(pathToFileURL(join(root, "astro.config.mjs")).href)};\n` +
@@ -257,6 +262,13 @@ async function readProjection(page) {
     const svg = document.querySelector("[data-lyra-globe] template").content.querySelector("svg");
     const ring = [...svg.querySelectorAll("ellipse")].sort((a, b) => b.rx.baseVal.value * b.ry.baseVal.value - a.rx.baseVal.value * a.ry.baseVal.value)[0];
     const vega = svg.querySelector('circle.is-hot[r="4.1"]');
+    const caption = document.querySelector("[data-lyra-globe] .lyra-globe__label--caption");
+    // 1ch is the advance of one character in the font of the host. A long probe averages out layout rounding.
+    const probe = document.createElement("div");
+    probe.style.width = "1000ch";
+    host.append(probe);
+    const ch = probe.getBoundingClientRect().width / 1000;
+    probe.remove();
     return {
       width: svg.viewBox.baseVal.width,
       height: svg.viewBox.baseVal.height,
@@ -264,6 +276,10 @@ async function readProjection(page) {
       cy: ring.cy.baseVal.value,
       radius: ring.rx.baseVal.value,
       vegaY: vega.cy.baseVal.value,
+      // The caption y is a share of the picture height, in percent.
+      captionY: (parseFloat(caption.getAttribute("y")) / 100) * svg.viewBox.baseVal.height,
+      captionLength: caption.textContent.length,
+      ch,
       inset: parseFloat(style.getPropertyValue("--figure-inset")),
       limits: {
         max: parseFloat(style.getPropertyValue("--globe-max")),
@@ -304,9 +320,6 @@ test("updates served globe geometry when the model changes", async ({ page }) =>
       } catch { await route.continue(); }
     });
     const round = (value) => Math.round(value * 10000) / 10000;
-    // Keep the approved crop during the model change.
-    const pictureScale = 1.3;
-    const pictureHeight = 1.2019;
     for (const viewport of [VIEWPORTS.desktop, { width: 1100, height: 800 }, VIEWPORTS.tablet, VIEWPORTS.mobile,
       { width: 1920, height: 1080 }, { width: 360, height: 740 }]) {
       await page.setViewportSize(viewport);
@@ -322,14 +335,31 @@ test("updates served globe geometry when the model changes", async ({ page }) =>
       expect(read.href).not.toBe(original.href);
       const aspect = round(read.height / read.width);
       if (viewport.width >= 1100) {
-        const ringInset = round((read.cx - read.radius) / read.width * pictureScale);
-        const boxAspect = round(aspect * pictureScale / pictureHeight);
-        const centerReach = round(read.radius / read.width * pictureScale);
+        // The crop runs from just above the outer ring to just below the caption anchor.
+        const cropTop = read.cy - read.radius * (1 + CROP_ABOVE_RING);
+        const cropBottom = read.captionY + read.radius * CROP_BELOW_CAPTION;
+        const pictureHeight = round(read.height / (cropBottom - cropTop));
+        const pictureTop = round(-cropTop / (cropBottom - cropTop));
+        const ringInset = round((read.cx - read.radius) / read.width * PICTURE_SCALE);
+        const boxAspect = round(aspect * PICTURE_SCALE / pictureHeight);
+        const centerReach = round(read.radius / read.width * PICTURE_SCALE);
+        // The caption is centred on the sphere. It reaches half its length past the centre, plus 2px of slack.
+        const captionReach = read.captionLength * 0.5 * read.ch + 2;
         const expectedWidth = Math.min(read.limits.max, read.limits.size, Math.max(260, read.limits.height / boxAspect),
-          (read.limits.room - read.inset - 68 - read.limits.fade) / centerReach);
+          (read.limits.room - read.inset - captionReach - read.limits.fade) / centerReach);
         expect(Math.abs(read.host.width - expectedWidth)).toBeLessThan(0.03);
         expect(Math.abs(read.canvas.x - (read.inset - ringInset * read.host.width))).toBeLessThan(0.03);
+        expect(Math.abs(read.canvas.y - pictureTop * read.host.height)).toBeLessThan(0.03);
+        expect(Math.abs(read.canvas.height - pictureHeight * read.host.height)).toBeLessThan(0.03);
         expect(Math.abs(read.host.height - read.host.width * boxAspect)).toBeLessThan(0.03);
+        // The box shows the whole outer ring and the caption anchor, with a small margin.
+        const unit = read.canvas.height / read.height;
+        const ringTop = read.canvas.y + (read.cy - read.radius) * unit;
+        const captionBase = read.canvas.y + read.captionY * unit;
+        expect(ringTop).toBeGreaterThan(0);
+        expect(ringTop).toBeLessThan(read.radius * 0.06 * unit);
+        expect(captionBase).toBeLessThan(read.host.height);
+        expect(read.host.height - captionBase).toBeLessThan(read.radius * 0.06 * unit);
         expect(Math.abs(read.underlay.x - read.host.width * read.cx / read.width)).toBeLessThan(0.03);
         expect(Math.abs(read.underlay.y - read.host.height * read.cy / read.height)).toBeLessThan(0.03);
       } else {
