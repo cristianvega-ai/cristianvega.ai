@@ -5,7 +5,7 @@ import { around, ellipseSegments, labelBounds, placeLabel, type PlacedLabel, typ
 import { FIGURE_INSET, reportFigureLeft } from "../inset.ts";
 import { LYRA_MAX_SIZE } from "../lyra.ts";
 import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
-import { drawComet, drawEdge, drawLabel, drawNode, drawStarField, drawVegaBloom, makeRoute, makeStarField, type FieldStar, type Route } from "../marks.ts";
+import { drawComet, drawEdge, drawLabel, drawNode, drawStarField, drawVegaBloom, makeRoute, makeStarField, NODE_HALO, type FieldStar, type Route } from "../marks.ts";
 import { easeOutCubic, smooth, TAU } from "../math.ts";
 import { mountCanvas, type CanvasHandle, type FrameState } from "../mount.ts";
 
@@ -35,6 +35,16 @@ const PRODUCT_NODE_START = 0.42;
 const PRODUCT_NODE_SPAN = 0.16;
 const PRODUCT_LINK_START = 0.5;
 const PRODUCT_LINK_SPAN = 0.2;
+/** The mark radii around a slot, in CSS pixels, and the width of their lines. */
+const EMPTY_RING = 4.5;
+const PRODUCT_RING = 7.5;
+const CURRENT_RING = 11.5;
+const MARK_LINE = 0.8;
+/**
+ * The largest reach of any mark from its slot centre: the ring of the current product with half its
+ * line, or the halo of a lit product. The orbits keep this room inside the figure inset.
+ */
+export const SLOT_REACH = Math.max(CURRENT_RING + MARK_LINE / 2, NODE_HALO);
 
 export interface OrbitPlan {
   /** The lit products: one for each published product, at most `MAX_SLOTS`. */
@@ -103,11 +113,27 @@ export function fitLyraAtVega(out: Point[], cx: number, cy: number, rx: number, 
   return out;
 }
 
-/** The half size that the orbits scale from. The outer orbit fits inside the figure inset. */
-export function orbitBox(width: number, height: number): { halfWidth: number; halfHeight: number } {
+export interface OrbitBox {
+  /** The half size that the orbits scale from. */
+  halfWidth: number;
+  halfHeight: number;
+  /** A band: the figure lies to the left and the slots turn with it. */
+  wide: boolean;
+}
+
+/**
+ * Size the orbits from the measured box. Slots sit on the outer orbit, so the outer orbit keeps
+ * SLOT_REACH inside the figure inset. Then every mark of every slot stays inside the inset.
+ */
+export function orbitBox(width: number, height: number): OrbitBox {
   const outer = RINGS[RINGS.length - 1];
-  const halfWidth = (width / 2 - FIGURE_INSET) / outer;
-  return { halfWidth, halfHeight: Math.min((height / 2 - FIGURE_INSET) / outer, halfWidth * MAX_ORBIT_TALL) };
+  const room = FIGURE_INSET + SLOT_REACH;
+  const halfWidth = Math.max(0, width / 2 - room) / outer;
+  return {
+    halfWidth,
+    halfHeight: Math.min(Math.max(0, height / 2 - room) / outer, halfWidth * MAX_ORBIT_TALL),
+    wide: width > height * 1.6,
+  };
 }
 
 /** A link from a product to Vega, drawn in from the product. */
@@ -148,8 +174,7 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
     reportFigureLeft(container, s.width, s.height);
     cx = s.width / 2;
     cy = s.height / 2;
-    ({ halfWidth, halfHeight } = orbitBox(s.width, s.height));
-    wide = s.width > s.height * 1.6;
+    ({ halfWidth, halfHeight, wide } = orbitBox(s.width, s.height));
     fitLyraAtVega(stars, cx, cy, halfWidth * 0.8, halfHeight * 0.8, wide);
     for (let i = 0; i < total; i++) orbitSlot(spots[i], i, wide, cx, cy, halfWidth, halfHeight);
     routes.length = 0;
@@ -223,7 +248,7 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
       if (g <= 0) continue;
       ctx.globalAlpha = 0.42 * g;
       ctx.beginPath();
-      ctx.arc(spots[i].x, spots[i].y, 4.5, 0, TAU);
+      ctx.arc(spots[i].x, spots[i].y, EMPTY_RING, 0, TAU);
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
@@ -235,15 +260,15 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
       drawNode(ctx, pal, s.glow, spots[i].x, spots[i].y, 2.6, g, true, 1, false);
       if (g > 0) {
         ctx.strokeStyle = pal.sky;
-        ctx.lineWidth = 0.8;
+        ctx.lineWidth = MARK_LINE;
         ctx.globalAlpha = 0.5 * easeOutCubic(g);
         ctx.beginPath();
-        ctx.arc(spots[i].x, spots[i].y, 7.5, 0, TAU);
+        ctx.arc(spots[i].x, spots[i].y, PRODUCT_RING, 0, TAU);
         ctx.stroke();
         if (i === current) {
           ctx.globalAlpha = 0.9 * easeOutCubic(g);
           ctx.beginPath();
-          ctx.arc(spots[i].x, spots[i].y, 11.5, 0, TAU);
+          ctx.arc(spots[i].x, spots[i].y, CURRENT_RING, 0, TAU);
           ctx.stroke();
         }
         ctx.globalAlpha = 1;

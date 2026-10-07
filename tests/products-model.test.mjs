@@ -5,7 +5,7 @@ import { LYRA } from "../src/lib/lyra/constellation.ts";
 import { stagger } from "../src/lib/motion/clock.ts";
 import { LYRA_MAX_SIZE } from "../src/lib/page-graphics/lyra.ts";
 import { FIGURE_INSET } from "../src/lib/page-graphics/inset.ts";
-import { MAX_SLOTS, MIN_SLOTS, fitLyraAtVega, orbitBox, orbitSlot, planOrbit, productProgress } from "../src/lib/page-graphics/scenes/products.ts";
+import { MAX_SLOTS, MIN_SLOTS, SLOT_REACH, fitLyraAtVega, orbitBox, orbitSlot, planOrbit, productProgress } from "../src/lib/page-graphics/scenes/products.ts";
 import { figureBox } from "./helpers.mjs";
 
 // A box of a tall side column, and a box of a wide band, as the page graphic meets them.
@@ -111,10 +111,37 @@ test("fitLyraAtVega turns the figure only in a wide box, and reuses the array it
   assert.equal(reused, upright);
 });
 
+// Graphic boxes that the product pages measure: side columns from 1100px, and bands below it.
+const GRAPHIC_BOXES = [[408, 762], [456, 762], [696, 942], [680, 154], [680, 136], [326, 169], [326, 136]];
+
 test("the products orbits keep the outer ellipse inside the figure inset", () => {
-  for (const [w, h] of [[456, 762], [696, 942], [680, 136], [326, 136]]) {
+  for (const [w, h] of GRAPHIC_BOXES) {
     const { halfWidth: hw, halfHeight: hh } = orbitBox(w, h);
     assert.ok(w / 2 - hw * 0.95 >= FIGURE_INSET - 1e-9, `${w}x${h}: the outer orbit must keep the inset on the sides`);
     assert.ok(h / 2 - hh * 0.95 >= FIGURE_INSET - 1e-9, `${w}x${h}: the outer orbit must keep the inset above and below`);
+  }
+});
+
+test("the products slot reach covers the current product ring and the halo", () => {
+  // The current product ring has a radius of 11.5 and a line of 0.8. A lit product halo reaches 8.
+  assert.ok(SLOT_REACH >= 11.5 + 0.8 / 2 - 1e-9, "the reach must cover the current product ring");
+  assert.ok(SLOT_REACH >= 8, "the reach must cover the halo of a lit product");
+});
+
+test("the products marks stay inside the figure inset for one, two, and eight products", () => {
+  for (const [w, h] of GRAPHIC_BOXES) {
+    const { halfWidth: hw, halfHeight: hh, wide } = orbitBox(w, h);
+    assert.equal(wide, w > h * 1.6, `${w}x${h}: a band must turn the slots`);
+    for (const count of [1, 2, MAX_SLOTS]) {
+      const { total } = planOrbit(count);
+      for (let i = 0; i < total; i += 1) {
+        const spot = orbitSlot({ x: 0, y: 0 }, i, wide, w / 2, h / 2, hw, hh);
+        const where = `${w}x${h}, ${count} products: slot ${i}`;
+        assert.ok(spot.x - SLOT_REACH >= FIGURE_INSET - 1e-9, `${where} must keep its marks inside the left inset`);
+        assert.ok(spot.x + SLOT_REACH <= w - FIGURE_INSET + 1e-9, `${where} must keep its marks inside the right inset`);
+        assert.ok(spot.y - SLOT_REACH >= FIGURE_INSET - 1e-9, `${where} must keep its marks inside the top inset`);
+        assert.ok(spot.y + SLOT_REACH <= h - FIGURE_INSET + 1e-9, `${where} must keep its marks inside the bottom inset`);
+      }
+    }
   }
 });

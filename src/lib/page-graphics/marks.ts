@@ -6,6 +6,10 @@ import type { Palette } from "../motion/palette.ts";
 // Sizes are CSS pixels. Every mark draws with no allocation, so a frame is cheap.
 // Each mark leaves globalAlpha at 1, and the comet restores the blend mode.
 
+/** The halo reach of a hot neuron and of Vega, in CSS pixels. */
+export const NODE_HALO = 8;
+export const VEGA_HALO = 18;
+
 /** A neuron: a soft halo when hot (`halo` 0..1 sets its strength), a bright core, and an extra ring on Vega. `grow` 0..1 is the appear share. */
 export function drawNode(
   ctx: CanvasRenderingContext2D,
@@ -23,7 +27,7 @@ export function drawNode(
   if (grow <= 0) return;
   const g = easeOutCubic(grow);
   if (hot && halo > 0) {
-    const reach = (vega ? 18 : 8) * g;
+    const reach = (vega ? VEGA_HALO : NODE_HALO) * g;
     ctx.globalAlpha = g * halo;
     ctx.drawImage(glow, x - reach, y - reach, reach * 2, reach * 2);
   }
