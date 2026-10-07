@@ -180,13 +180,16 @@ export function mountCanvasController(
     resume();
   }
 
-  function resize(w: number, h: number) {
+  function resize(w: number, h: number, device?: ResizeObserverSize) {
     if (!active || !w || !h) return;
     state.ratio = Math.min(devicePixelRatio || 1, dprCap);
     state.width = w;
     state.height = h;
-    canvas!.width = Math.round(w * state.ratio);
-    canvas!.height = Math.round(h * state.ratio);
+    // The screen shows a box at a fractional position on whole device pixels, for example 567 rows on 566.
+    // It then resamples the bitmap, and thin lines become dimmer. Below the cap, use the device pixels of the box.
+    const exact = device && state.ratio === devicePixelRatio;
+    canvas!.width = exact ? device.inlineSize : Math.round(w * state.ratio);
+    canvas!.height = exact ? device.blockSize : Math.round(h * state.ratio);
     sized = true;
     try {
       onResize?.(state);
@@ -238,8 +241,8 @@ export function mountCanvasController(
     try {
       const currentSize = new ResizeObserver((entries) => {
         if (size !== currentSize) return;
-        const box = entries[entries.length - 1].contentRect;
-        resize(box.width, box.height);
+        const entry = entries[entries.length - 1];
+        resize(entry.contentRect.width, entry.contentRect.height, entry.devicePixelContentBoxSize?.[0]);
       });
       size = currentSize;
       const currentIntersection = new IntersectionObserver((entries) => {
@@ -249,7 +252,12 @@ export function mountCanvasController(
         else pause();
       });
       intersection = currentIntersection;
-      size.observe(canvas!);
+      // Also report a change of device pixels without a change of CSS size. Some browsers do not know this box.
+      try {
+        size.observe(canvas!, { box: "device-pixel-content-box" });
+      } catch {
+        size.observe(canvas!);
+      }
       intersection.observe(container);
       document.addEventListener("visibilitychange", onVisibility);
       reducedQuery.addEventListener("change", onPreference);

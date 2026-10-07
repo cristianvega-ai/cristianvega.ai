@@ -23,6 +23,7 @@
  *   A long frame then slows the motion for a moment instead of skipping part of it.
  *   Page scenes cap device pixel ratios at 2 and preserve their clocks across restored pages.
  *   The globe caps device pixel ratios at 1.75 and restarts its entrance after a restored page.
+ *   Below the cap, each canvas bitmap has the device pixel size of its box, so the screen does not resample it.
  *   state.entranceComplete reports completion of the configured controller duration.
  *   data-motion-state stays "playing" while the scene requests more motion.
  *

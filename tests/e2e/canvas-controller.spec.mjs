@@ -356,11 +356,15 @@ for (const scene of scenes) {
       await settle(page);
       await expect(page.locator("h1")).toHaveText(scene.heading);
       await expect(page.locator("h1")).toBeVisible();
-      expect(await page.locator(`${scene.selector} canvas`).evaluate((canvas) => {
-        const box = canvas.getBoundingClientRect();
-        return canvas.width === Math.round(box.width * devicePixelRatio)
-          && canvas.height === Math.round(box.height * devicePixelRatio);
-      })).toBe(true);
+      const sizes = await page.locator(`${scene.selector} canvas`).evaluate((canvas) => new Promise((resolve) => {
+        const observer = new ResizeObserver(([entry]) => {
+          observer.disconnect();
+          const [device] = entry.devicePixelContentBoxSize;
+          resolve({ bitmap: [canvas.width, canvas.height], device: [device.inlineSize, device.blockSize] });
+        });
+        observer.observe(canvas, { box: "device-pixel-content-box" });
+      }));
+      expect(sizes.bitmap, "the bitmap has the device pixels that show the canvas, so the screen does not resample it").toEqual(sizes.device);
       await useReducedMotion(page, "no-preference");
       await expect(page.locator(scene.selector)).toHaveAttribute("data-motion-state", "still");
       expect(await pendingFrames(page)).toBe(0);
