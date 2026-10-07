@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { bandHeight, currentContent, currentPublished, drawnLabels, edgePaint, focusRingAndFade, navLink, settle, tabTo, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames, paintedPixels } from "./fixtures.mjs";
+import { bandHeight, cspViolations, currentContent, currentPublished, decorativeState, DRAFT_ORIGIN as preview, drawnLabels, edgePaint, focusRingAndFade, navLink, pageProblems, recordCspViolations, settle, tabTo, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames, paintedPixels } from "./fixtures.mjs";
 
-const preview = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 const article = "/writing/lorem-ipsum-dolor-sit-amet/";
 const qualityArticle = "/writing/nisi-ut-aliquip-ex-ea/";
 const shortArticle = "/writing/exercitation-ullamco-laboris/";
@@ -36,9 +35,7 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     test(`${name} ${route} keeps readable content and clear navigation`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await useReducedMotion(page);
-      const errors = [];
-      page.on("pageerror", (error) => errors.push(error.message));
-      page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+      const errors = pageProblems(page);
       await page.goto(preview + route);
       await settle(page);
       await expect(page.locator("main h1")).toHaveCount(1);
@@ -300,17 +297,7 @@ test.describe("the writing graphic is decorative", () => {
   test("hides from assistive technology and takes no pointer input", async ({ page }) => {
     await page.goto(preview + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    const state = await page.evaluate((selector) => {
-      const root = document.querySelector(selector);
-      return {
-        hidden: root.getAttribute("aria-hidden"),
-        pointerEvents: [root, root.querySelector("canvas")].map((part) => getComputedStyle(part).pointerEvents),
-        canvases: root.querySelectorAll("canvas").length,
-        focusable: root.querySelectorAll("a, button, input, select, textarea, [tabindex]").length,
-        text: root.textContent.trim(),
-        styled: root.querySelectorAll("[style]").length + (root.hasAttribute("style") ? 1 : 0),
-      };
-    }, graphic);
+    const state = await decorativeState(page, graphic);
     expect(state.hidden).toBe("true");
     expect(state.pointerEvents).toEqual(["none", "none"]);
     expect(state.canvases).toBe(1);
@@ -663,22 +650,15 @@ test.describe("the writing graphic answers a lit post", () => {
 
 test.describe("the writing graphic in preview", () => {
   test("runs with no console error and no CSP violation", async ({ page }) => {
-    const problems = [];
-    page.on("console", (message) => {
-      if (message.type() === "error" || message.type() === "warning") problems.push(message.text());
-    });
-    page.on("pageerror", (error) => problems.push(error.message));
-    await page.addInitScript(() => {
-      window.__csp = [];
-      document.addEventListener("securitypolicyviolation", (event) => window.__csp.push(event.violatedDirective));
-    });
+    const problems = pageProblems(page, ["error", "warning"]);
+    await recordCspViolations(page);
     for (const size of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
       await page.setViewportSize(size);
       await page.goto(preview + "/writing/");
       await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
       await page.locator(".post-list__item").nth(1).hover();
       await expect(page.locator(graphic)).toHaveAttribute("data-active-post", /.+/);
-      expect(await page.evaluate(() => window.__csp)).toEqual([]);
+      expect(await cspViolations(page)).toEqual([]);
     }
     expect(problems).toEqual([]);
   });

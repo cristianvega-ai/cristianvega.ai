@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { bandHeight, drawnLabels, edgePaint, settle, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames, paintedPixels } from "./fixtures.mjs";
+import { bandHeight, cspViolations, decorativeState, drawnLabels, edgePaint, pageProblems, recordCspViolations, settle, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames, paintedPixels } from "./fixtures.mjs";
 
 /**
  * Check the About graphic beside the reading column and in the narrow band.
@@ -16,17 +16,7 @@ test.describe("the about graphic is decorative", () => {
   test("hides from assistive technology and takes no pointer input", async ({ page }) => {
     await page.goto("/about/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    const state = await page.evaluate((selector) => {
-      const root = document.querySelector(selector);
-      return {
-        hidden: root.getAttribute("aria-hidden"),
-        pointerEvents: [root, root.querySelector("canvas")].map((part) => getComputedStyle(part).pointerEvents),
-        canvases: root.querySelectorAll("canvas").length,
-        focusable: root.querySelectorAll("a, button, input, select, textarea, [tabindex]").length,
-        text: root.textContent.trim(),
-        styled: root.querySelectorAll("[style]").length + (root.hasAttribute("style") ? 1 : 0),
-      };
-    }, graphic);
+    const state = await decorativeState(page, graphic);
     expect(state.hidden).toBe("true");
     expect(state.pointerEvents).toEqual(["none", "none"]);
     expect(state.canvases).toBe(1);
@@ -311,22 +301,15 @@ test.describe("the about graphic follows the reader", () => {
 
 test.describe("the about graphic in production", () => {
   test("runs with no console error and no CSP violation", async ({ page }) => {
-    const problems = [];
-    page.on("console", (message) => {
-      if (message.type() === "error" || message.type() === "warning") problems.push(message.text());
-    });
-    page.on("pageerror", (error) => problems.push(error.message));
-    await page.addInitScript(() => {
-      window.__csp = [];
-      document.addEventListener("securitypolicyviolation", (event) => window.__csp.push(event.violatedDirective));
-    });
+    const problems = pageProblems(page, ["error", "warning"]);
+    await recordCspViolations(page);
     for (const size of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
       await page.setViewportSize(size);
       await page.goto("/about/");
       await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
       await page.evaluate(() => scrollTo(0, 1e6));
       await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-      expect(await page.evaluate(() => window.__csp)).toEqual([]);
+      expect(await cspViolations(page)).toEqual([]);
     }
     expect(problems).toEqual([]);
   });

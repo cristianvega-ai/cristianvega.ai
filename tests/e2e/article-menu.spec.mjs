@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { settle, tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { DRAFT_ORIGIN, pageProblems, settle, tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 const article = "/writing/lorem-ipsum-dolor-sit-amet/";
 
@@ -30,15 +30,9 @@ async function menuContrast(link) {
 }
 
 test.beforeEach(async ({ page }, testInfo) => {
-  const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
-  page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text());
-  });
-  testInfo.errorsOnPage = errors;
+  testInfo.errorsOnPage = pageProblems(page);
   await useReducedMotion(page);
-  const preview = testInfo.project.metadata.previewURL ?? "http://127.0.0.1:4324";
-  await page.goto(new URL(article, preview).href);
+  await page.goto(new URL(article, DRAFT_ORIGIN).href);
   await settle(page);
 });
 

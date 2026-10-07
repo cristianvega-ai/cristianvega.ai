@@ -1,9 +1,7 @@
 import { chromium, expect, test } from "@playwright/test";
 
 import { headerLinks } from "../helpers.mjs";
-import { bandHeight, openGraphic as open, currentContent, currentPublished, settle, tabTo, textBoxes, VIEWPORTS } from "./fixtures.mjs";
-
-const dev = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
+import { bandHeight, openGraphic as open, currentContent, currentPublished, DRAFT_ORIGIN as dev, settle, tabTo, textBoxes, VIEWPORTS } from "./fixtures.mjs";
 
 /**
  * Shell contracts that every route owes the reader, checked on all of them at
