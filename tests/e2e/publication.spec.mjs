@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { permissionsPolicy, publishedContent } from "../helpers.mjs";
-import { latestWork, navLink, publicationTest as test, settle, tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { cspViolations, latestWork, navLink, pageProblems, publicationTest as test, recordCspViolations, settle, tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 function expectProductionHeaders(headers) {
   expect(headers["x-content-type-options"]).toBe("nosniff");
@@ -18,15 +18,10 @@ test.describe("mixed published content in the production runtime", () => {
 
   for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     test(`${name} opens published writing and products with working scripts`, async ({ page, publication }) => {
-      const errors = [];
-      page.on("pageerror", (error) => errors.push(error.message));
-      page.on("console", (message) => {
-        if (message.type() === "error" || message.type() === "warning") errors.push(message.text());
-      });
+      const errors = pageProblems(page, ["error", "warning"]);
+      await recordCspViolations(page);
       await page.addInitScript(() => {
-        window.__publicationCsp = [];
         window.__publicationCopies = [];
-        document.addEventListener("securitypolicyviolation", (event) => window.__publicationCsp.push(event.violatedDirective));
         Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
           async writeText(text) { window.__publicationCopies.push(text); },
         } });
@@ -101,10 +96,10 @@ test.describe("mixed published content in the production runtime", () => {
           await expect(outbound).toHaveAttribute("href", product.data.url);
           await expect(outbound).toHaveAttribute("rel", "noopener noreferrer");
         } else await expect(outbound).toHaveCount(0);
-        expect(await page.evaluate(() => window.__publicationCsp)).toEqual([]);
+        expect(await cspViolations(page)).toEqual([]);
         await page.getByRole("link", { name: "All products →" }).click();
       }
-      expect(await page.evaluate(() => window.__publicationCsp)).toEqual([]);
+      expect(await cspViolations(page)).toEqual([]);
       expect(errors).toEqual([]);
     });
   }
@@ -144,11 +139,7 @@ test.describe("mixed published content in the production runtime", () => {
   // The share block exists only on a published post, so the copy checks use the real markup here.
   for (const fails of [false, true]) {
     test(`a published post copies its link and reports ${fails ? "a failure" : "success"} in its own status`, async ({ page, publication }) => {
-      const errors = [];
-      page.on("pageerror", (error) => errors.push(error.message));
-      page.on("console", (message) => {
-        if (message.type() === "error") errors.push(message.text());
-      });
+      const errors = pageProblems(page);
       await page.addInitScript((fails) => {
         window.__copiedLinks = [];
         Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
@@ -176,11 +167,7 @@ test.describe("mixed published content in the production runtime", () => {
   }
 
   test("a published post keeps its copy button hidden without a clipboard", async ({ page, publication }) => {
-    const errors = [];
-    page.on("pageerror", (error) => errors.push(error.message));
-    page.on("console", (message) => {
-      if (message.type() === "error") errors.push(message.text());
-    });
+    const errors = pageProblems(page);
     await page.addInitScript(() => {
       Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
     });

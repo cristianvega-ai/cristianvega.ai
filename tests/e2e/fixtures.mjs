@@ -83,6 +83,46 @@ export async function setHomepageState(page, state) {
  * them.
  */
 
+/** The dev server that shows drafts. Playwright starts it on this port. */
+export const DRAFT_ORIGIN = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
+
+/**
+ * Collect uncaught page errors and the console messages of the given types.
+ * Call it before the page loads, and read the returned list at the end of the test.
+ */
+export function pageProblems(page, types = ["error"]) {
+  const problems = [];
+  page.on("pageerror", (error) => problems.push(error.message));
+  page.on("console", (message) => {
+    if (types.includes(message.type())) problems.push(message.text());
+  });
+  return problems;
+}
+
+/** Record each CSP violation of the page. Call it before the page loads. */
+export const recordCspViolations = (page) =>
+  page.addInitScript(() => {
+    window.__csp = [];
+    document.addEventListener("securitypolicyviolation", (event) => window.__csp.push(event.violatedDirective));
+  });
+
+/** The directives the page violated since `recordCspViolations`. */
+export const cspViolations = (page) => page.evaluate(() => window.__csp);
+
+/** Read the facts that keep a page graphic decorative: hidden, inert, one canvas, and no text or style. */
+export const decorativeState = (page, selector) =>
+  page.evaluate((graphicSelector) => {
+    const root = document.querySelector(graphicSelector);
+    return {
+      hidden: root.getAttribute("aria-hidden"),
+      pointerEvents: [root, root.querySelector("canvas")].map((part) => getComputedStyle(part).pointerEvents),
+      canvases: root.querySelectorAll("canvas").length,
+      focusable: root.querySelectorAll("a, button, input, select, textarea, [tabindex]").length,
+      text: root.textContent.trim(),
+      styled: root.querySelectorAll("[style]").length + (root.hasAttribute("style") ? 1 : 0),
+    };
+  }, selector);
+
 /** Widths and heights that each select a distinct branch of the design system. */
 export const VIEWPORTS = {
   /** Comfortably above every breakpoint. */

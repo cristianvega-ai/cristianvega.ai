@@ -1,17 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { settle, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { DRAFT_ORIGIN, pageProblems, settle, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
-test.use({ baseURL: process.env.ARTICLE_PREVIEW_URL ?? "http://127.0.0.1:4324" });
+test.use({ baseURL: DRAFT_ORIGIN });
 
 const article = "/writing/lorem-ipsum-dolor-sit-amet/";
 
 // Add test content to the browser and run the article setup.
 async function loadArticle(page, content, outside = "") {
-  const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
-  page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text());
-  });
+  const errors = pageProblems(page);
   await useReducedMotion(page);
   await page.goto(article);
   await settle(page);
