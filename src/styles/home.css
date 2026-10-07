@@ -217,16 +217,11 @@ body[data-page="home"] main {
    past the right edge of the screen, and the mask below fades the sphere out at the screen edge,
    as the inner pages fade their graphics. Its top is level with the eyebrow, and the height cap
    keeps its bottom clear of the footer bar on a short screen.
-   The external model stylesheet supplies the sphere measurements.
-   CSS keeps the crop, picture scale, and responsive placement.
-   The width cap keeps the caption clear of the fade. */
+   The projection stylesheet (src/lib/lyra-globe/projection.ts) supplies the --globe-* sphere
+   measurements from the model, rounded at build time. Each var() falls back to the value of the
+   current model, so the globe keeps its size when that stylesheet fails to load.
+   CSS keeps the responsive placement. The width cap keeps the caption clear of the fade. */
 .hero__globe {
-  --globe-picture-scale: 1.3;
-  --globe-picture-height: 1.2019;
-  --globe-picture-aspect: round(nearest, var(--globe-model-aspect), .0001);
-  --globe-box-aspect: round(nearest, calc(var(--globe-picture-aspect) * var(--globe-picture-scale) / var(--globe-picture-height)), .0001);
-  --globe-ring-inset: round(nearest, calc(var(--globe-model-ring-left) * var(--globe-picture-scale)), .0001);
-  --globe-center-reach: round(nearest, calc((var(--globe-model-center-x) - var(--globe-model-ring-left)) * var(--globe-picture-scale)), .0001);
   --globe-max: 720px;
   /* The size the owner approved: a little over half of the frame. */
   --globe-size: calc(var(--frame) * .55 - 5px);
@@ -249,8 +244,8 @@ body[data-page="home"] main {
   width: min(
     var(--globe-max),
     var(--globe-size),
-    max(260px, calc((100svh - var(--header-height) - var(--head-top) - var(--footer-reserve) - 2 * var(--globe-gap)) / var(--globe-box-aspect))),
-    calc((var(--globe-room) - var(--figure-inset) - 68px - var(--fade)) / var(--globe-center-reach))
+    max(260px, calc((100svh - var(--header-height) - var(--head-top) - var(--footer-reserve) - 2 * var(--globe-gap)) / var(--globe-box-aspect, .9013))),
+    calc((var(--globe-room) - var(--figure-inset) - 68px - var(--fade)) / var(--globe-center-reach, .4162))
   );
   justify-self: start;
   /* The globe starts level with the eyebrow. Its bottom sits clear of the footer. */
@@ -264,8 +259,8 @@ body[data-page="home"] main {
   content: "";
   position: absolute;
   z-index: -1;
-  left: calc(var(--globe-model-center-x) * 100%);
-  top: calc(var(--globe-model-center-y) * 100%);
+  left: calc(var(--globe-center-x, .51) * 100%);
+  top: calc(var(--globe-center-y, .49) * 100%);
   width: 96%;
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
@@ -304,7 +299,7 @@ body[data-page="home"] main {
 .lyra-globe {
   position: relative;
   container-type: inline-size;
-  aspect-ratio: 1 / var(--globe-box-aspect);
+  aspect-ratio: 1 / var(--globe-box-aspect, .9013);
   overflow: clip;
   pointer-events: none;
   /* The soft edge of the inner page graphics. The box runs past the screen, so the fade
@@ -318,18 +313,17 @@ body[data-page="home"] main {
    it, so the sphere fills the box: the box shows 83% of the picture's height.
    The picture and the labels keep their full size. Horizontally, the picture sits so
    the sphere ring starts --figure-inset from the box edge.
-   The model supplies the ring boundary. CSS rounds it to the existing projection precision.
    The caption sits 7px above the bottom edge of the box. */
 .lyra-globe__fallback,
 .lyra-globe__canvas,
 .lyra-globe__labels {
   position: absolute;
-  left: calc(var(--figure-inset) - var(--globe-ring-inset) * 100cqw);
+  left: calc(var(--figure-inset) - var(--globe-ring-inset, .2468) * 100cqw);
   top: -11.06%;
   /* The base reset caps a picture at the width of its box. */
   max-width: none;
-  width: calc(var(--globe-picture-scale) * 100%);
-  height: calc(var(--globe-picture-height) * 100%);
+  width: calc(var(--globe-picture-scale, 1.3) * 100%);
+  height: calc(var(--globe-picture-height, 1.2019) * 100%);
   pointer-events: none;
 }
 
@@ -469,10 +463,10 @@ body[data-page="home"] main {
   .lyra-globe__fallback,
   .lyra-globe__canvas,
   .lyra-globe__labels {
-    left: calc(50cqw - var(--pw) * var(--globe-model-center-x));
-    top: calc(var(--vega-y) - var(--pw) * var(--globe-model-vega-y));
+    left: calc(50cqw - var(--pw) * var(--globe-center-x, .51));
+    top: calc(var(--vega-y) - var(--pw) * var(--globe-vega-y, .2525));
     width: var(--pw);
-    height: calc(var(--pw) * var(--globe-picture-aspect));
+    height: calc(var(--pw) * var(--globe-picture-aspect, .8333));
   }
 
   /* The edge fade of the inner page graphics: every edge of the band fades
