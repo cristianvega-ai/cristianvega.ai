@@ -1,5 +1,5 @@
 import { cubicPoint, type Point } from "../../motion/easing.ts";
-import { stagger } from "../clock.ts";
+import { stagger } from "../../motion/clock.ts";
 import { around, labelBounds, placeLabel, polylineSegments, type PlacedLabel, type Rect, type Segment } from "../labels.ts";
 import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
 import { drawCurve, drawLabel, drawNode, drawVegaBloom } from "../marks.ts";

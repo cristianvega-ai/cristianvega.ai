@@ -1,4 +1,4 @@
-import { clamp } from "./math.ts";
+import { clamp } from "./easing.ts";
 
 /** The entrance length in milliseconds. It matches the homepage globe. */
 export const DURATION = 2300;

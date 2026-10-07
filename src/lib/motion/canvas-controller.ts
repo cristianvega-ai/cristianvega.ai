@@ -1,5 +1,5 @@
-import { DURATION, entranceProgress } from "../page-graphics/clock.ts";
-import { getGlow, readPalette, type Palette } from "../page-graphics/palette.ts";
+import { DURATION, entranceProgress } from "./clock.ts";
+import { getGlow, readPalette, type Palette } from "./palette.ts";
 
 /** The controller reuses this state for every draw. */
 export interface FrameState {

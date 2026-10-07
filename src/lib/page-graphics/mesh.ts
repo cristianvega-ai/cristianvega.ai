@@ -1,5 +1,5 @@
 import { clamp, easeOutCubic, smooth, TAU, unit } from "./math.ts";
-import type { Palette } from "./palette.ts";
+import type { Palette } from "../motion/palette.ts";
 
 // The neural mesh: a sparse field of faint nodes and synapses behind a page graphic, so each page
 // reads as a slice of the same neural sky as the homepage. It is fixed by a seed, it draws in during the

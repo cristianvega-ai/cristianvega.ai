@@ -14,6 +14,7 @@
  *
  * Lifecycle and clocks
  *   ../motion/canvas-controller.ts owns active clocks, observers, frames, listeners, and cleanup.
+ *   ../motion/ is the shared canvas layer. It does not import from page-graphics/ or lyra-globe/.
  *   Scenes own layout, drawing, and interaction listeners.
  *   Active time excludes hidden tabs and periods outside the viewport.
  *   Page scenes cap frame intervals at 64 milliseconds and device pixel ratios at 2.
@@ -55,14 +56,14 @@
  *   Globe labels use canvas entrance progress and pause with the drawing.
  *
  * Modules
+ *   ../motion/clock.ts: DURATION, entranceProgress(), and stagger(). The globe uses the same clock.
+ *   ../motion/palette.ts: validated site colors and a cached glow sprite. The globe uses the same palette.
  *   math.ts: easing, interpolation, and stable numeric samples.
- *   palette.ts: validated site colors and a cached glow sprite.
  *   lyra.ts: layoutLyra(width, height) preserves proportions and caps the figure at LYRA_MAX_SIZE.
  *   label-font.ts: measured label widths and the canvas font.
  *   labels.ts: placeLabel() uses measured widths and labelBounds().
  *   inset.ts: FIGURE_INSET and figureRect() keep the figure inside the edge fade.
  *   mesh.ts: sparse neural meshes and cached site grids.
- *   clock.ts: DURATION, entranceProgress(), and stagger().
  *   marks.ts: nodes, edges, curves, routes, comets, labels, blooms, and star fields.
  *   mount.ts: page policies, scene mounting, and font refreshes.
  *   scroll.ts: measured page geometry and a smoothed reader position.
@@ -117,7 +118,7 @@
  * Build arrays and strings during layout.
  * Measure labels and geometry during layout.
  */
-export { DURATION, entranceProgress, stagger } from "./clock.ts";
+export { DURATION, entranceProgress, stagger } from "../motion/clock.ts";
 export { layoutLyra, LYRA_MAX_SIZE, type LyraLayoutOptions, type LyraPoint } from "./lyra.ts";
 export {
   around,
@@ -151,5 +152,5 @@ export {
 } from "./marks.ts";
 export { clamp, easeOutCubic, lerp, smooth, TAU, unit } from "./math.ts";
 export { mountCanvas, type CanvasHandle, type FrameState, type MountOptions } from "./mount.ts";
-export { getGlow, readPalette, type Palette } from "./palette.ts";
+export { getGlow, readPalette, type Palette } from "../motion/palette.ts";
 export { createScrollReader, type ScrollReader } from "./scroll.ts";
