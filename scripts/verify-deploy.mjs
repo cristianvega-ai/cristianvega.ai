@@ -19,6 +19,8 @@ const origin = (process.env.ORIGIN ?? "https://cristianvega.ai").replace(/\/$/, 
 const USER_AGENT = "cristianvega-verify-deploy (+https://cristianvega.ai)";
 
 // Keep these values equal to the approved global rule in public/_headers.
+// tests/deploy-gate.test.mjs runs this gate on the local Cloudflare build,
+// so a difference stops `npm run verify` before the deploy.
 const APPROVED_SECURITY_HEADERS = new Map([
   ["x-content-type-options", "nosniff"],
   ["x-frame-options", "DENY"],

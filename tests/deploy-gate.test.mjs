@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -135,21 +135,69 @@ async function checkDeployment(t, {
     }
   });
   const origin = await listen(t, server);
+  const expectedIndex = expectedHtml === null ? "" : expectedPath;
+  return { ...await runGate({ ORIGIN: origin, EXPECTED_INDEX: expectedIndex }), requests };
+}
 
+async function runGate(env, timeout = 10_000) {
   try {
     const result = await run(process.execPath, [join(root, "scripts/verify-deploy.mjs")], {
-      env: {
-        ...process.env,
-        ORIGIN: origin,
-        EXPECTED_INDEX: expectedHtml === null ? "" : expectedPath,
-        CHECK_CANONICAL_REDIRECTS: "false",
-      },
-      timeout: 10_000,
+      env: { ...process.env, CHECK_CANONICAL_REDIRECTS: "false", ...env },
+      timeout,
     });
-    return { code: 0, output: result.stdout + result.stderr, requests };
+    return { code: 0, output: result.stdout + result.stderr };
   } catch (error) {
-    return { code: error.code, output: error.stdout + error.stderr, requests };
+    return { code: error.code, output: error.stdout + error.stderr };
   }
+}
+
+// Serve dist/ with the local Cloudflare runtime on a free port.
+// Wrangler applies dist/_headers with the same rules as Cloudflare.
+async function startLocalCloudflare(t) {
+  const wrangler = spawn(process.execPath, [
+    join(root, "node_modules/wrangler/bin/wrangler.js"), "dev", "--local", "--env", "test",
+    "--ip", "127.0.0.1", "--port", "0", "--inspector-port", "0",
+    "--show-interactive-dev-session", "false",
+  ], {
+    cwd: root,
+    detached: true,
+    env: { ...process.env, WRANGLER_SEND_METRICS: "false" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const exited = new Promise((resolve) => wrangler.once("exit", resolve));
+  const stop = (signal) => {
+    try {
+      process.kill(-wrangler.pid, signal);
+    } catch (error) {
+      if (error.code !== "ESRCH") throw error;
+    }
+  };
+  t.after(async () => {
+    if (wrangler.exitCode !== null || wrangler.signalCode !== null) return;
+    stop("SIGTERM");
+    const timer = setTimeout(() => stop("SIGKILL"), 10_000);
+    await exited;
+    clearTimeout(timer);
+  });
+
+  let output = "";
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Wrangler did not start:\n${output}`)), 60_000);
+    const read = (chunk) => {
+      output += chunk;
+      const ready = output.match(/Ready on (http:\/\/127\.0\.0\.1:\d+)/);
+      if (ready) {
+        clearTimeout(timer);
+        resolve(ready[1]);
+      }
+    };
+    wrangler.stdout.setEncoding("utf8").on("data", read);
+    wrangler.stderr.setEncoding("utf8").on("data", read);
+    wrangler.on("exit", (code, signal) => {
+      clearTimeout(timer);
+      reject(new Error(`Wrangler stopped (${signal ?? code}):\n${output}`));
+    });
+  });
 }
 
 test("the live gate accepts the exact verified homepage", async (t) => {
@@ -159,6 +207,18 @@ test("the live gate accepts the exact verified homepage", async (t) => {
   assert.match(result.output, /verify-deploy: OK/);
   for (const path of scriptPaths) {
     assert.equal(result.requests.filter((request) => request === path).length, 1, path);
+  }
+});
+
+// Run the gate against the build before deploy. A difference between
+// public/_headers and the approved policy then stops the verification
+// before Cloudflare receives the build. Compare only the security headers,
+// so a change to a cache rule does not change this result.
+test("the live gate accepts the security headers of the local Cloudflare build", async (t) => {
+  const origin = await startLocalCloudflare(t);
+  const result = await runGate({ ORIGIN: origin, EXPECTED_INDEX: "" }, 30_000);
+  for (const label of ["homepage", "404 response", "/about/", "/writing/"]) {
+    assert.ok(result.output.includes(`verify-deploy: ${label} security headers match the approved policy`), result.output);
   }
 });
 
