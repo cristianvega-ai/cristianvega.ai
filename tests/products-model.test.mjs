@@ -5,7 +5,8 @@ import { LYRA } from "../src/lib/lyra/constellation.ts";
 import { stagger } from "../src/lib/motion/clock.ts";
 import { LYRA_MAX_SIZE } from "../src/lib/page-graphics/lyra.ts";
 import { FIGURE_INSET } from "../src/lib/page-graphics/inset.ts";
-import { MAX_SLOTS, MIN_SLOTS, SLOT_REACH, assertProductCapacity, fitLyraAtVega, orbitBox, orbitSlot, planOrbit, productProgress } from "../src/lib/page-graphics/scenes/products.ts";
+import { MAX_SLOTS, assertProductCapacity } from "../src/lib/page-graphics/scenes/product-slots.ts";
+import { MIN_SLOTS, SLOT_REACH, fitLyraAtVega, orbitBox, orbitSlot, planOrbit, productProgress } from "../src/lib/page-graphics/scenes/products.ts";
 import { figureBox } from "./helpers.mjs";
 
 // A box of a tall side column, and a box of a wide band, as the page graphic meets them.

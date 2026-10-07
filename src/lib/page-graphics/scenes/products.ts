@@ -8,6 +8,7 @@ import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
 import { drawComet, drawEdge, drawLabel, drawNode, drawStarField, drawVegaBloom, makeRoute, makeStarField, NODE_HALO, type FieldStar, type Route } from "../marks.ts";
 import { easeOutCubic, smooth, TAU } from "../math.ts";
 import { mountCanvas, type CanvasHandle, type FrameState } from "../mount.ts";
+import { MAX_SLOTS, SLOT_OFFSET, SLOT_RING } from "./product-slots.ts";
 
 // Constellation lattice: the products are ringed stars on elliptical orbits round Vega,
 // and each one links to the Lyra figure. A published product is lit. Faint empty rings
@@ -16,13 +17,8 @@ import { mountCanvas, type CanvasHandle, type FrameState } from "../mount.ts";
 
 /** The orbit radii, as a share of the half box. */
 const RINGS = [0.36, 0.66, 0.95] as const;
-/** The angle of each slot from the direction away from the figure, in degrees. */
-const SLOT_OFFSET = [0, 52, -52, -112, 112, 172, -165, 30] as const;
-/** The orbit that each slot sits on. */
-const SLOT_RING = [1, 2, 0, 2, 0, 2, 1, 2] as const;
-/** The picture always shows this many slots, and never more than the maximum. */
+/** The picture always shows this many slots, and never more than MAX_SLOTS in product-slots.ts. */
 export const MIN_SLOTS = 6;
-export const MAX_SLOTS = SLOT_OFFSET.length;
 /** A tall box gives the orbits at most this ratio of height to width, so a column does not stretch them. */
 const MAX_ORBIT_TALL = 1.3;
 /** The drift stops after this time. Then the picture rests and the loop ends. */
@@ -51,19 +47,6 @@ export interface OrbitPlan {
   lit: number;
   /** All slots drawn: the lit ones and the empty rings. */
   total: number;
-}
-
-/**
- * Reject a published product count that the picture cannot show. getProducts() calls it, so a build
- * with more published products than slots fails with this message instead of a picture with a missing star.
- */
-export function assertProductCapacity(count: number): void {
-  if (count > MAX_SLOTS) {
-    throw new Error(
-      `The site publishes ${count} products, but the products graphic has ${MAX_SLOTS} slots. ` +
-        "Set draft: true on a product, or add a slot to SLOT_OFFSET and SLOT_RING in src/lib/page-graphics/scenes/products.ts.",
-    );
-  }
 }
 
 /**

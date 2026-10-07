@@ -9,6 +9,7 @@
  *   Pass null for currentProductIndex on the product index.
  *   Pass the visible product's list index on detail pages.
  *   The products picture has MAX_SLOTS (8) slots. getProducts() fails the build when more products are published.
+ *   scenes/product-slots.ts holds the slots and the build check. It has no DOM, so the build does not load the scene.
  *   Writing reads hooks inside the closest [data-writing-page].
  *   Use [data-writing-list], [data-writing-entry-id], and [data-writing-label].
  *   Keep page bindings separate from geometry helpers and drawing.
