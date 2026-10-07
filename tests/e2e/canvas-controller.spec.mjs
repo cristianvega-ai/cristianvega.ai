@@ -74,6 +74,7 @@ async function mountScene(page, policy, { duration = 2300, busy = false, count =
     Object.defineProperty(window, "devicePixelRatio", { configurable: true, get: () => 3 });
     window.__busy = settings.busy;
     window.__draws = 0;
+    window.__builds = 0;
     window.__attached = 0;
     window.__detached = 0;
     window.__handles = [];
@@ -88,6 +89,9 @@ async function mountScene(page, policy, { duration = 2300, busy = false, count =
       let firstState;
       const options = {
         duration: settings.duration,
+        onResize() {
+          window.__builds += 1;
+        },
         draw(ctx, state) {
           if (firstState && firstState !== state) window.__stateChanged = true;
           firstState = state;
@@ -251,6 +255,68 @@ for (const policy of ["page", "globe"]) {
       expect(await page.evaluate(() => window.__draws)).toBe(draws + 1);
       expect(await pendingFrames(page)).toBe(0);
     });
+  });
+}
+
+/** Hold reduced-motion change events until the test runs them, so a rebuild can come first. */
+async function useDeferredPreference(page) {
+  await page.addInitScript(() => {
+    const add = MediaQueryList.prototype.addEventListener;
+    const remove = MediaQueryList.prototype.removeEventListener;
+    const wrappers = new WeakMap();
+    window.__preferenceJobs = [];
+    MediaQueryList.prototype.addEventListener = function (type, listener, options) {
+      if (type !== "change" || !this.media.includes("prefers-reduced-motion")) return add.call(this, type, listener, options);
+      const wrapped = (event) => window.__preferenceJobs.push(() => listener.call(this, event));
+      wrappers.set(listener, wrapped);
+      return add.call(this, type, wrapped, options);
+    };
+    MediaQueryList.prototype.removeEventListener = function (type, listener, options) {
+      return remove.call(this, type, wrappers.get(listener) ?? listener, options);
+    };
+  });
+}
+
+for (const policy of ["page", "globe"]) {
+  test(`${policy} rebuild applies a pending motion preference before it draws`, async ({ page }) => {
+    await useDeferredPreference(page);
+    await mountScene(page, policy, { busy: true });
+    const scene = page.locator("[data-scene]");
+    const ratio = policy === "page" ? 2 : 1.75;
+    await page.evaluate(() => { window.__step(0); window.__step(32); });
+    const builds = await page.evaluate(() => window.__builds);
+
+    // The preference changes, but its event waits. A rebuild comes first.
+    await useReducedMotion(page);
+    await expect.poll(() => page.evaluate(() => window.__preferenceJobs.length)).toBe(1);
+    expect((await clock(page)).reduced).toBe(false);
+    await page.evaluate(() => window.__handle.rebuild());
+    expect(await page.evaluate(() => window.__builds)).toBe(builds + 1);
+    expect(await clock(page)).toEqual({ elapsed: 2300, activeTime: 0, reduced: true, ratio });
+    await expect(scene).toHaveAttribute("data-motion-state", "still");
+    expect(await pendingFrames(page)).toBe(0);
+    // The late event finds the preference applied and changes nothing.
+    await page.evaluate(() => window.__preferenceJobs.shift()());
+    expect(await clock(page)).toEqual({ elapsed: 2300, activeTime: 0, reduced: true, ratio });
+    await expect(scene).toHaveAttribute("data-motion-state", "still");
+    expect(await pendingFrames(page)).toBe(0);
+
+    // The same order works when motion comes back.
+    await useReducedMotion(page, "no-preference");
+    await expect.poll(() => page.evaluate(() => window.__preferenceJobs.length)).toBe(1);
+    await page.evaluate(() => window.__handle.rebuild());
+    expect((await clock(page)).reduced).toBe(false);
+    await expect(scene).toHaveAttribute("data-motion-state", "playing");
+    expect(await pendingFrames(page)).toBe(1);
+    await page.evaluate(() => window.__preferenceJobs.shift()());
+    expect(await pendingFrames(page)).toBe(1);
+
+    // A rebuild after teardown does nothing.
+    await transition(page, "pagehide");
+    const draws = await page.evaluate(() => window.__draws);
+    await page.evaluate(() => window.__handle.rebuild());
+    expect(await page.evaluate(() => [window.__draws, window.__builds])).toEqual([draws, builds + 2]);
+    expect(await pendingFrames(page)).toBe(0);
   });
 }
 

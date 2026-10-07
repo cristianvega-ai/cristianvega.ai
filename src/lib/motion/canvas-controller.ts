@@ -41,6 +41,12 @@ export interface CanvasHandle {
   replay: () => void;
   /** Draw the current state. */
   redraw: () => void;
+  /**
+   * Run onResize for the current box, then draw. A preference change that the controller has not
+   * handled yet applies first, so a caller such as a font refresh does not depend on event order.
+   * It does nothing before the first size or after teardown.
+   */
+  rebuild: () => void;
   /** Request a frame when the scene is idle and visible. */
   wake: () => void;
   /** Stop the controller permanently. */
@@ -201,6 +207,22 @@ export function mountCanvasController(
     resume();
   };
 
+  function rebuild() {
+    if (!active || !sized) return;
+    try {
+      onResize?.(state);
+    } catch {
+      fail();
+      return;
+    }
+    if (state.reduced !== reducedQuery.matches) {
+      onPreference();
+      return;
+    }
+    paint();
+    resume();
+  }
+
   function setup(restored = false): boolean {
     if (active) return true;
     if (destroyed) return false;
@@ -280,6 +302,7 @@ export function mountCanvasController(
     destroy,
     wake,
     redraw: paint,
+    rebuild,
     replay() {
       if (!active) return;
       pause();
