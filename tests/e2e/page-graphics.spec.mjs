@@ -1,10 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-import { openGraphic as open, paintedPixels, pendingFrames, playFrames, useManualFrames, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { DRAFT_ORIGIN as dev, openGraphic as open, paintedPixels, pendingFrames, playFrames, useManualFrames, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 // Check shared entrance, pause, and restore contracts through page graphics.
 
-const dev = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 const preview = dev;
 
 const PAGES = {

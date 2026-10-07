@@ -1,9 +1,8 @@
 import { readFileSync } from "node:fs";
 import { expect, test as base } from "@playwright/test";
 
-import { drawnLabels, settle, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames } from "./fixtures.mjs";
+import { DRAFT_ORIGIN as dev, drawnLabels, settle, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames } from "./fixtures.mjs";
 
-const dev = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 const missingPath = "/__graphic-font-missing__/";
 const pages = ["/about/", `${dev}/writing/`, `${dev}/products/`, missingPath];
 const wideFontPath = "/__graphic-wide-font__.woff2";

@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync } from "node:fs";
-import { cp, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -119,10 +119,17 @@ const publicationEntries = {
   ],
 };
 
-// Build fixture content in a temporary project. Keep source content and caches separate.
-export async function createContentBuild(kind) {
-  assert.ok(["all-draft", "mixed"].includes(kind), "select an approved publication fixture");
-  const projectRoot = await realpath(await mkdtemp(join(tmpdir(), "cristianai-publication-")));
+/**
+ * Build a copy of the project in a temporary directory. The source, the build
+ * output, and the caches of the repository stay unchanged.
+ *
+ * `edits` maps a file path below the project root to a list of [before, after]
+ * replacements. Each `before` must occur in the file, so a stale edit fails
+ * instead of building the unchanged source. `prepare` receives the copy's root
+ * and can change it further before the build.
+ */
+export async function createIsolatedBuild({ prefix = "cristianai-build-", edits = {}, prepare } = {}) {
+  const projectRoot = await realpath(await mkdtemp(join(tmpdir(), prefix)));
   const cleanup = () => rm(projectRoot, { recursive: true, force: true });
   try {
     await Promise.all([
@@ -132,21 +139,16 @@ export async function createContentBuild(kind) {
       cp(join(root, "package.json"), join(projectRoot, "package.json")),
       symlink(join(root, "node_modules"), join(projectRoot, "node_modules"), "dir"),
     ]);
-    await rm(join(projectRoot, "src", "content"), { recursive: true });
-    for (const [collection, entries] of Object.entries(publicationEntries)) {
-      const directory = join(projectRoot, "src", "content", collection);
-      await mkdir(directory, { recursive: true });
-      for (const entry of entries) {
-        const { id, ...data } = entry;
-        if (kind === "all-draft" && "draft" in data) data.draft = true;
-        data.description = `Description for ${data.title}.`;
-        if (collection === "blog") data.topic = "Systems";
-        const body = `## Fixture content\n\nBody for ${id}.\n\n` + (collection === "blog"
-          ? "```js\nconst signal = 1;\n```\n\n<div class=\"figure__panel\" role=\"img\" aria-label=\"Fixture signal path\">Signal path</div>\n"
-          : "");
-        await writeFile(join(directory, `${id}.md`), `---\n${yaml.dump(data)}---\n\n${body}`);
+    for (const [path, replacements] of Object.entries(edits)) {
+      const file = join(projectRoot, path);
+      let source = await readFile(file, "utf8");
+      for (const [before, after] of replacements) {
+        assert.ok(source.includes(before), `${path} must hold ${before}`);
+        source = source.replaceAll(before, after);
       }
+      await writeFile(file, source);
     }
+    if (prepare) await prepare(projectRoot);
     const configUrl = pathToFileURL(join(root, "astro.config.mjs")).href;
     await writeFile(join(projectRoot, "astro.config.mjs"),
       `import config from ${JSON.stringify(configUrl)};\nexport default { ...config, cacheDir: "./.cache/", vite: { ...config.vite, cacheDir: "./.cache/vite/" } };\n`);
@@ -156,11 +158,39 @@ export async function createContentBuild(kind) {
       timeout: 60_000,
       maxBuffer: 5_000_000,
     });
-    return { root: projectRoot, dist: join(projectRoot, "dist"), inventory: readContentInventory(projectRoot), cleanup };
+    return { root: projectRoot, dist: join(projectRoot, "dist"), cleanup };
   } catch (error) {
     await cleanup();
     throw error;
   }
+}
+
+// Build fixture content in a temporary project. Keep source content and caches separate.
+export async function createContentBuild(kind) {
+  assert.ok(["all-draft", "mixed"].includes(kind), "select an approved publication fixture");
+  let inventory;
+  const build = await createIsolatedBuild({
+    prefix: "cristianai-publication-",
+    async prepare(projectRoot) {
+      await rm(join(projectRoot, "src", "content"), { recursive: true });
+      for (const [collection, entries] of Object.entries(publicationEntries)) {
+        const directory = join(projectRoot, "src", "content", collection);
+        await mkdir(directory, { recursive: true });
+        for (const entry of entries) {
+          const { id, ...data } = entry;
+          if (kind === "all-draft" && "draft" in data) data.draft = true;
+          data.description = `Description for ${data.title}.`;
+          if (collection === "blog") data.topic = "Systems";
+          const body = `## Fixture content\n\nBody for ${id}.\n\n` + (collection === "blog"
+            ? "```js\nconst signal = 1;\n```\n\n<div class=\"figure__panel\" role=\"img\" aria-label=\"Fixture signal path\">Signal path</div>\n"
+            : "");
+          await writeFile(join(directory, `${id}.md`), `---\n${yaml.dump(data)}---\n\n${body}`);
+        }
+      }
+      inventory = readContentInventory(projectRoot);
+    },
+  });
+  return { ...build, inventory };
 }
 
 export async function withContentBuild(kind, use) {

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { settle, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { pageProblems, settle, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 const graphic = "[data-graphic='about']";
 
@@ -28,11 +28,9 @@ async function useSkyToken(page, token) {
 }
 
 function watchProblems(page) {
-  const problems = [];
+  const problems = pageProblems(page);
   const warnings = [];
-  page.on("pageerror", (error) => problems.push(error.message));
   page.on("console", (message) => {
-    if (message.type() === "error") problems.push(message.text());
     if (message.type() === "warning") warnings.push(message.text());
   });
   return { problems, warnings };
