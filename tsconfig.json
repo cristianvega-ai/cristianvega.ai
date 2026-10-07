@@ -6,7 +6,9 @@
     "playwright-report",
     "test-results",
     "coverage",
-    ".nyc_output"
+    ".nyc_output",
+    "docs/superpowers",
+    "worktrees"
   ],
   "compilerOptions": {
     "baseUrl": "."

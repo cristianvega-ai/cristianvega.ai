@@ -1,58 +1,76 @@
 import assert from "node:assert/strict";
-import { copyFile, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { cp, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
-import ts from "typescript";
+import { pathToFileURL } from "node:url";
 
 import { root } from "./helpers.mjs";
 
-test("diagnostics include source files and skip generated output", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "diagnostics-scope-"));
-  t.after(() => rm(directory, { recursive: true, force: true }));
-  const configPath = join(directory, "tsconfig.json");
-  await copyFile(join(root, "tsconfig.json"), configPath);
-  await symlink(join(root, "node_modules"), join(directory, "node_modules"), "junction");
+// Each probe has an error that the checker reports when the file is in scope.
+const brokenScript = "export const broken = ;\n";
+const brokenPage = "---\nconst count: number = \"text\";\n---\n<p>{count}</p>\n";
 
-  const sourceFiles = [
-    "src/pages/index.astro",
-    "src/lib/probe.ts",
-    "astro.config.mjs",
-    "scripts/probe.mjs",
-    "tests/probe.test.mjs",
-    ".astro/types.d.ts",
-  ];
-  const generatedFiles = [
-    "dist/assets/probe.js",
-    "playwright-report/data/probe.js",
-    "test-results/browser/probe.js",
-    "coverage/assets/probe.js",
-    ".nyc_output/probe.js",
-  ];
-  await Promise.all([...sourceFiles, ...generatedFiles].map(async (file) => {
-    const path = join(directory, file);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, "");
-  }));
+// Run the real Astro checker. It exits with 1 when it finds an error, so keep the output either way.
+function astroCheck(projectRoot) {
+  return new Promise((resolve) => {
+    execFile(process.execPath, [join(root, "node_modules", "astro", "bin", "astro.mjs"), "check", "--root", projectRoot], {
+      cwd: projectRoot,
+      env: { ...process.env, ASTRO_TELEMETRY_DISABLED: "1", NO_COLOR: "1", FORCE_COLOR: "0" },
+      timeout: 60_000,
+      maxBuffer: 5_000_000,
+    }, (error, stdout, stderr) => resolve({ code: error ? error.code : 0, output: `${stdout}\n${stderr}`.replace(/\x1b\[[0-9;]*m/g, "") }));
+  });
+}
 
-  const config = ts.readConfigFile(configPath, ts.sys.readFile);
-  assert.equal(config.error, undefined);
-  const parsed = ts.parseJsonConfigFileContent(
-    config.config,
-    ts.sys,
-    directory,
-    undefined,
-    configPath,
-    undefined,
-    [{ extension: ".astro", isMixedContent: true, scriptKind: ts.ScriptKind.Deferred }],
-  );
-  assert.deepEqual(parsed.errors, []);
-  const included = new Set(parsed.fileNames);
+test("astro check reports source files and skips generated output", { timeout: 90_000 }, async (t) => {
+  const projectRoot = await realpath(await mkdtemp(join(tmpdir(), "diagnostics-scope-")));
+  t.after(() => rm(projectRoot, { recursive: true, force: true }));
 
-  for (const file of sourceFiles) {
-    assert.ok(included.has(join(directory, file)), `${file} must remain in the diagnostics scope`);
-  }
-  for (const file of generatedFiles) {
-    assert.ok(!included.has(join(directory, file)), `${file} must stay out of the diagnostics scope`);
-  }
+  // The checker must report every one of these files.
+  const sourceFiles = {
+    "src/pages/index.astro": brokenPage,
+    "src/lib/probe.ts": brokenScript,
+    "scripts/probe.mjs": brokenScript,
+    "tests/probe.test.mjs": brokenScript,
+  };
+  // The checker must report none of these. The dot directories stand for the local tool state.
+  const generatedFiles = {
+    "dist/assets/probe.js": brokenScript,
+    "playwright-report/data/probe.js": brokenScript,
+    "test-results/browser/probe.ts": brokenScript,
+    "coverage/assets/probe.js": brokenScript,
+    ".nyc_output/probe.js": brokenScript,
+    "docs/superpowers/plans/probe.js": brokenScript,
+    "worktrees/feature/src/lib/probe.ts": brokenScript,
+    "worktrees/feature/src/pages/index.astro": brokenPage,
+    ".superpowers/probe.js": brokenScript,
+    ".wrangler/tmp/probe.js": brokenScript,
+  };
+
+  await Promise.all([
+    cp(join(root, "tsconfig.json"), join(projectRoot, "tsconfig.json")),
+    cp(join(root, "package.json"), join(projectRoot, "package.json")),
+    symlink(join(root, "node_modules"), join(projectRoot, "node_modules"), "junction"),
+    ...Object.entries({ ...sourceFiles, ...generatedFiles }).map(async ([file, content]) => {
+      await mkdir(dirname(join(projectRoot, file)), { recursive: true });
+      await writeFile(join(projectRoot, file), content);
+    }),
+  ]);
+  // Use the site configuration, keep the caches in the temporary project, and add one type error.
+  const configUrl = pathToFileURL(join(root, "astro.config.mjs")).href;
+  await writeFile(join(projectRoot, "astro.config.mjs"), [
+    "// @ts-check",
+    `import config from ${JSON.stringify(configUrl)};`,
+    "/** @type {number} */",
+    "export const probe = \"text\";",
+    "export default { ...config, cacheDir: \"./.cache/\", vite: { ...config.vite, cacheDir: \"./.cache/vite/\" } };",
+    "",
+  ].join("\n"));
+
+  const { code, output } = await astroCheck(projectRoot);
+  const reported = [...new Set([...output.matchAll(/^(\S+):\d+:\d+ - error\b/gm)].map(([, file]) => file))].sort();
+  assert.equal(code, 1, `astro check must fail on the source probes:\n${output}`);
+  assert.deepEqual(reported, ["astro.config.mjs", ...Object.keys(sourceFiles)].sort(), `astro check must report exactly the source probes:\n${output}`);
 });
