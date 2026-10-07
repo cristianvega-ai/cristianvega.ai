@@ -107,8 +107,7 @@ test.describe("the footer holds the foot of the viewport", () => {
 
       // Still there at the bottom of the scroll. Position fixed makes the
       // check above pass for free, so on its own it proves nothing.
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-      await page.waitForTimeout(120);
+      await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "instant" }));
 
       const afterScroll = await page.evaluate(() => {
         const footer = document.querySelector(".site-footer");
@@ -142,7 +141,7 @@ test.describe("the footer fade", () => {
         await page.setViewportSize(viewport);
         await page.goto(route);
         await settle(page);
-        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "instant" }));
 
         const state = await page.evaluate(() => {
           const footer = document.querySelector(".site-footer");
@@ -214,7 +213,7 @@ test.describe("the footer disclaimer on narrow screens", () => {
       expect(state.scrollWidth).toBeLessThanOrEqual(state.width);
 
       // At the end of the page the bar must not cover the content.
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "instant" }));
       const clear = await page.evaluate(() =>
         document.querySelector(".site-footer").getBoundingClientRect().top -
         document.querySelector("#main-content").getBoundingClientRect().bottom);

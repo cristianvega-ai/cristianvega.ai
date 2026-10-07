@@ -62,10 +62,14 @@ test.describe("the about graphic never overlaps text", () => {
         });
       // The fixed box stays in view. The band scrolls, so it is checked at the top and at the bottom of the page.
       for (const place of ["top", "middle", "bottom"]) {
-        await page.evaluate((where) => {
+        // The site scrolls smoothly. Scroll at once, so both measurements see the same place.
+        const scroll = await page.evaluate((where) => {
           const max = document.documentElement.scrollHeight - innerHeight;
-          scrollTo(0, where === "top" ? 0 : where === "middle" ? max / 2 : max);
+          const top = where === "top" ? 0 : where === "middle" ? max / 2 : max;
+          scrollTo({ top, behavior: "instant" });
+          return { top, now: scrollY };
         }, place);
+        expect(Math.abs(scroll.now - scroll.top), `${place}: the page is at the ${place}`).toBeLessThanOrEqual(1);
         const shape = await box();
         expect(shape.w, `${place}: the box has a width`).toBeGreaterThan(100);
         expect(shape.h, `${place}: the box has a height`).toBeGreaterThan(100);
