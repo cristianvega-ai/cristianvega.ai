@@ -29,8 +29,8 @@ export function mountCanvas(container: HTMLElement, options: MountOptions): Canv
 
   function prepareFont(state: ControllerState): FrameState {
     const pageState = state as FrameState;
-    const family = getComputedStyle(container).getPropertyValue("--font-mono");
-    pageState.labelFont = makeLabelFont(ctx!, family);
+    const style = getComputedStyle(container);
+    pageState.labelFont = makeLabelFont(ctx!, style.getPropertyValue("--font-mono"), style.getPropertyValue("--fs-graphic-label"));
     return pageState;
   }
 

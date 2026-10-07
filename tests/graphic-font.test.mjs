@@ -22,7 +22,7 @@ function context() {
 
 test("uses the supplied family and caches each measured label", () => {
   const ctx = context();
-  const font = makeLabelFont(ctx, '"Proportional", sans-serif');
+  const font = makeLabelFont(ctx, '"Proportional", sans-serif', "10px");
   assert.equal(font.canvasFont, '400 10px "Proportional", sans-serif');
   assert.equal(font.widthCssPx("WWWW"), 44);
   assert.equal(font.widthCssPx("iiii"), 12);
@@ -32,14 +32,22 @@ test("uses the supplied family and caches each measured label", () => {
 
 test("keeps fallback labels readable and refreshes loaded font metrics", () => {
   const ctx = context();
-  const fallback = makeLabelFont(ctx, " ");
+  const fallback = makeLabelFont(ctx, " ", " 10px ");
   assert.equal(fallback.canvasFont, "400 10px ui-monospace, monospace");
   assert.equal(fallback.widthCssPx("VEGA"), 24);
   ctx.scale = 1.8;
   assert.equal(fallback.widthCssPx("VEGA"), 24);
-  const loaded = makeLabelFont(ctx, '"Loaded Family", monospace');
+  const loaded = makeLabelFont(ctx, '"Loaded Family", monospace', "10px");
   assert.equal(loaded.widthCssPx("VEGA"), 43.2);
   assert.equal(ctx.measurements, 2);
+});
+
+test("uses the label size token in px and falls back to 10px", () => {
+  assert.equal(makeLabelFont(context(), "monospace", "13px").canvasFont, "400 13px monospace");
+  assert.equal(makeLabelFont(context(), "monospace", "10.5px").canvasFont, "400 10.5px monospace");
+  for (const size of ["", " ", "1em", "large", "-2px", "12"]) {
+    assert.equal(makeLabelFont(context(), "monospace", size).canvasFont, "400 10px monospace", JSON.stringify(size));
+  }
 });
 
 test("uses measured widths to keep wide labels inside placement bounds", () => {

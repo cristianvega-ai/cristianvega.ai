@@ -167,6 +167,17 @@ test("loads the projection stylesheet from the head with a long cache", async ({
   expect(response.headers()["cache-control"], "the versioned URL can stay cached").toBe("public, max-age=31536000, immutable");
 });
 
+test("sizes the globe labels with the graphic label token", async ({ page }) => {
+  // The band box is narrower than 460px, so the labels keep the graphic label size.
+  await page.setViewportSize(VIEWPORTS.mobile);
+  await page.goto("/");
+  await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
+  const size = () => page.locator(`${labels}:not(.lyra-globe__label--caption)`).evaluate((label) => getComputedStyle(label).fontSize);
+  expect(await size()).toBe(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--fs-graphic-label").trim()));
+  await page.evaluate(() => document.documentElement.style.setProperty("--fs-graphic-label", "13px"));
+  expect(await size()).toBe("13px");
+});
+
 /** Read the globe boxes in page pixels. */
 const globeBoxes = (page) => page.evaluate(() => Object.fromEntries([".hero__globe", ".lyra-globe", ".lyra-globe__canvas"].map((selector) => {
   const { left, top, width, height } = document.querySelector(selector).getBoundingClientRect();
