@@ -87,8 +87,8 @@ export function mountCanvasController(
   const ctx = canvas?.getContext("2d");
   if (!canvas || !ctx || !("ResizeObserver" in window) || !("IntersectionObserver" in window)) return null;
   const palette = readPalette(container);
-  const glow = getGlow(palette);
-  if (!glow) return null;
+  const glow = palette && getGlow(palette);
+  if (!palette || !glow) return null;
 
   const reducedQuery = matchMedia("(prefers-reduced-motion: reduce)");
   const state: FrameState = {
