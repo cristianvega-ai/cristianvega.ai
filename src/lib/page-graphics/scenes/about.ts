@@ -175,7 +175,7 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
     }
     const avoid: Rect[] = [around(vx, vy, 10)];
     for (let k = 0; k < nodeCount - 1; k++) avoid.push(around(nx[k], ny[k], 6));
-    vegaLabel = placeLabel("VEGA · α LYR", vx, vy, { widthCssPx: s.labelFont.widthCssPx("VEGA · α LYR"), bounds: labelBounds(container, w, h), segments, avoid, gap: 16 });
+    vegaLabel = placeLabel("VEGA · α LYR", vx, vy, { widthCssPx: s.labelFont.widthCssPx("VEGA · α LYR"), lineCssPx: s.labelFont.lineCssPx, bounds: labelBounds(container, w, h), segments, avoid, gap: 16 });
   }
 
   function pointAt(share: number, out: Point): Point {

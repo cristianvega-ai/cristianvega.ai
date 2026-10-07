@@ -181,11 +181,11 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
     field = makeStarField(s.width, s.height, Math.round((s.width * s.height) / 11_000), 11);
     mesh = makeMesh(s.width, s.height, 11);
     const widthsCssPx = LYRA.map((star) => star.name ? s.labelFont.widthCssPx(star.name) : 0);
-    labels = placeLabels(labelBounds(container, s.width, s.height), s.height > 300, widthsCssPx);
+    labels = placeLabels(labelBounds(container, s.width, s.height), s.height > 300, widthsCssPx, s.labelFont.lineCssPx);
   }
 
   // Each name takes the side of its star that no link or product line crosses. The rings only break a tie.
-  function placeLabels(bounds: Rect, showNames: boolean, widthsCssPx: readonly number[]): PlacedLabel[] {
+  function placeLabels(bounds: Rect, showNames: boolean, widthsCssPx: readonly number[], lineCssPx: number): PlacedLabel[] {
     const segments: Segment[] = LYRA_LINKS.map(([a, b]) => ({ ax: stars[a].x, ay: stars[a].y, bx: stars[b].x, by: stars[b].y }));
     for (let i = 0; i < lit; i++) segments.push({ ax: spots[i].x, ay: spots[i].y, bx: stars[0].x, by: stars[0].y });
     const soft: Segment[] = [];
@@ -195,7 +195,7 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
     const placed: PlacedLabel[] = [];
     for (const i of [0, 4, 5]) {
       const name = LYRA[i].name;
-      if (name && (i === 0 || showNames)) placed.push(placeLabel(name, stars[i].x, stars[i].y, { widthCssPx: widthsCssPx[i], bounds, segments, soft, avoid, gap: i ? 12 : 14 }));
+      if (name && (i === 0 || showNames)) placed.push(placeLabel(name, stars[i].x, stars[i].y, { widthCssPx: widthsCssPx[i], lineCssPx, bounds, segments, soft, avoid, gap: i ? 12 : 14 }));
     }
     return placed;
   }

@@ -1,4 +1,5 @@
 import { FIGURE_INSET } from "./inset.ts";
+import { FALLBACK_LINE_CSS_PX } from "./label-font.ts";
 
 // Label placement for the page graphics. It has no DOM read in `placeLabel`, so a test can run it.
 // A label takes the first side of its node (right, left, above, or below) that no edge crosses,
@@ -34,8 +35,6 @@ export interface PlacedLabel {
   clear: boolean;
 }
 
-/** The height of one label line in CSS pixels: 1.2 times the --fs-graphic-label size in global.css. */
-export const LABEL_LINE = 12;
 const HALO_PAD = 3;
 /** The space that a label keeps from the canvas edge. It is the figure inset, so a label follows the one bounding rule. */
 export const EDGE_INSET = FIGURE_INSET;
@@ -112,6 +111,11 @@ export function ellipseSegments(cx: number, cy: number, rx: number, ry: number, 
 export interface PlaceOptions {
   /** The measured text width in CSS pixels, without the halo. */
   widthCssPx: number;
+  /**
+   * The height of one label line in CSS pixels, without the halo. Pass labelFont.lineCssPx, so the box follows
+   * the --fs-graphic-label token. It defaults to the line of the fallback label size.
+   */
+  lineCssPx?: number;
   /** The area that the label box must stay inside. */
   bounds: Rect;
   /** Edges that must stay clear of the label. A node's own edges belong here. */
@@ -128,8 +132,8 @@ export interface PlaceOptions {
   lift?: number;
 }
 
-function candidate(text: string, x: number, y: number, side: LabelSide, width: number, gap: number, lift: number): PlacedLabel {
-  const rise = gap + LABEL_LINE / 2;
+function candidate(text: string, x: number, y: number, side: LabelSide, width: number, line: number, gap: number, lift: number): PlacedLabel {
+  const rise = gap + line / 2;
   const corner = gap * 0.75;
   let cx = x;
   let cy = y + lift;
@@ -178,7 +182,7 @@ function candidate(text: string, x: number, y: number, side: LabelSide, width: n
     align,
     side,
     clear: false,
-    rect: { x0: left - HALO_PAD, y0: cy - LABEL_LINE / 2 - HALO_PAD, x1: left + width + HALO_PAD, y1: cy + LABEL_LINE / 2 + HALO_PAD },
+    rect: { x0: left - HALO_PAD, y0: cy - line / 2 - HALO_PAD, x1: left + width + HALO_PAD, y1: cy + line / 2 + HALO_PAD },
   };
 }
 
@@ -201,12 +205,12 @@ function cost(label: PlacedLabel, options: PlaceOptions): number {
  * When none is free, it takes the cheapest, so a label always has a place, and `clear` says whether it is free.
  */
 export function placeLabel(text: string, x: number, y: number, options: PlaceOptions): PlacedLabel {
-  const { gap = 12, prefer = SIDES, widthCssPx, lift = 0 } = options;
+  const { gap = 12, prefer = SIDES, widthCssPx, lineCssPx = FALLBACK_LINE_CSS_PX, lift = 0 } = options;
   const order = prefer.length >= SIDES.length ? prefer : [...prefer, ...SIDES.filter((side) => !prefer.includes(side))];
   let best: PlacedLabel | undefined;
   let bestCost = Infinity;
   for (const side of order) {
-    const label = candidate(text, x, y, side, widthCssPx, gap, side === "right" || side === "left" ? lift : 0);
+    const label = candidate(text, x, y, side, widthCssPx, lineCssPx, gap, side === "right" || side === "left" ? lift : 0);
     const price = cost(label, options);
     if (price < bestCost) {
       best = label;
