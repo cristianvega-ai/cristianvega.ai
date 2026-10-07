@@ -30,6 +30,8 @@ pnpm-debug.log*
 
 # Operating-system and editor state
 .DS_Store
+# macOS AppleDouble files. scripts/check-public.mjs rejects them in public/.
+._*
 Thumbs.db
 .idea/
 .vscode/
