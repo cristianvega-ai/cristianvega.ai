@@ -1,13 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { execFile } from "node:child_process";
-import { cp, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
-import { pathToFileURL } from "node:url";
-import { promisify } from "node:util";
 import { CROP_ABOVE_RING, CROP_BELOW_CAPTION, PICTURE_SCALE } from "../../src/lib/lyra-globe/projection.ts";
-import { root } from "../helpers.mjs";
-import { settle, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames } from "./fixtures.mjs";
+import { createIsolatedBuild } from "../helpers.mjs";
+import { pageProblems, settle, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames } from "./fixtures.mjs";
 
 const globe = "[data-lyra-globe]";
 const labels = `${globe} .lyra-globe__label`;
@@ -20,10 +16,7 @@ const transition = (page, type) => page.evaluate((name) => {
 test.use({ viewport: VIEWPORTS.desktop });
 
 test.beforeEach(async ({ page }) => {
-  const errors = [];
-  problems.set(page, errors);
-  page.on("pageerror", (error) => errors.push(error.message));
-  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+  problems.set(page, pageProblems(page));
 });
 
 test.afterEach(async ({ page }) => {
@@ -232,20 +225,10 @@ for (const viewport of [{ width: 1100, height: 800 }, VIEWPORTS.desktop, { width
 }
 
 /** Change model inputs in an isolated build. Keep the production source intact. */
-async function createGlobeBuild() {
-  const directory = await realpath(await mkdtemp(join(tmpdir(), "cristianai-globe-")));
-  const cleanup = () => rm(directory, { recursive: true, force: true });
-  try {
-    await Promise.all([
-      cp(join(root, "src"), join(directory, "src"), { recursive: true }),
-      cp(join(root, "public"), join(directory, "public"), { recursive: true }),
-      cp(join(root, "package.json"), join(directory, "package.json")),
-      cp(join(root, "tsconfig.json"), join(directory, "tsconfig.json")),
-      symlink(join(root, "node_modules"), join(directory, "node_modules"), "dir"),
-    ]);
-    const modelPath = join(directory, "src", "lib", "lyra-globe", "model.ts");
-    let model = await readFile(modelPath, "utf8");
-    for (const [before, after] of [
+const createGlobeBuild = () => createIsolatedBuild({
+  prefix: "cristianai-globe-",
+  edits: {
+    "src/lib/lyra-globe/model.ts": [
       ["GLOBE_WIDTH = 600", "GLOBE_WIDTH = 720"],
       ["GLOBE_HEIGHT = 500", "GLOBE_HEIGHT = 560"],
       ["width * 0.51", "width * 0.54"],
@@ -254,26 +237,9 @@ async function createGlobeBuild() {
       ["VEGA_OFFSET_X = 0.12", "VEGA_OFFSET_X = 0.16"],
       ["radius * 1.13", "radius * 1.2"],
       ['"LYRA / NEURAL SPHERE"', '"LYRA / NEURAL SPHERE / MODEL"'],
-    ]) {
-      expect(model, `the model must hold ${before}`).toContain(before);
-      model = model.replaceAll(before, after);
-    }
-    await writeFile(modelPath, model);
-    await writeFile(join(directory, "astro.config.mjs"),
-      `import config from ${JSON.stringify(pathToFileURL(join(root, "astro.config.mjs")).href)};\n` +
-      "export default { ...config, cacheDir: './.cache/', vite: { ...config.vite, cacheDir: './.cache/vite/' } };\n");
-    await promisify(execFile)(process.execPath, [join(root, "node_modules", "astro", "bin", "astro.mjs"), "build", "--root", directory], {
-      cwd: directory,
-      env: { ...process.env, ASTRO_TELEMETRY_DISABLED: "1" },
-      timeout: 60000,
-      maxBuffer: 5000000,
-    });
-    return { dist: join(directory, "dist"), cleanup };
-  } catch (error) {
-    await cleanup();
-    throw error;
-  }
-}
+    ],
+  },
+});
 
 async function readProjection(page) {
   return page.evaluate(() => {

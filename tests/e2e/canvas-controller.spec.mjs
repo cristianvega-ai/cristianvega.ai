@@ -1,8 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-import { settle, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, stepFrame } from "./fixtures.mjs";
+import { DRAFT_ORIGIN as dev, pageProblems, settle, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, stepFrame } from "./fixtures.mjs";
 
-const dev = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 const lifetimes = (page) => page.evaluate(() => window.__lifetimes());
 const clock = (page) => page.evaluate(() => {
   const { elapsed, activeTime, reduced, ratio } = window.__handle.state;
@@ -345,11 +344,7 @@ const scenes = [
 for (const scene of scenes) {
   for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     test(`${scene.name} keeps its canvas and content at ${name} width`, async ({ page }) => {
-      const problems = [];
-      page.on("pageerror", (error) => problems.push(error.message));
-      page.on("console", (message) => {
-        if (["warning", "error"].includes(message.type())) problems.push(message.text());
-      });
+      const problems = pageProblems(page, ["warning", "error"]);
       await page.setViewportSize(viewport);
       await useManualFrames(page);
       await page.goto(scene.route);

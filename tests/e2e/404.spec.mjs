@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { paintedPixels, pendingFrames, playFrames, useManualFrames, drawnLabels, edgePaint, GRAPHIC_VIEWPORTS as SIZES, openGraphic as open, settle, textBoxes, useLabelSpy, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { cspViolations, paintedPixels, recordCspViolations, pendingFrames, playFrames, useManualFrames, drawnLabels, edgePaint, GRAPHIC_VIEWPORTS as SIZES, openGraphic as open, settle, textBoxes, useLabelSpy, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 // Check the 404 graphic, search pulses, and fallback.
 
@@ -179,16 +179,13 @@ test.describe("the 404 graphic in production", () => {
       if ((message.type() === "error" || message.type() === "warning") && !missingPage) problems.push(message.text());
     });
     page.on("pageerror", (error) => problems.push(error.message));
-    await page.addInitScript(() => {
-      window.__csp = [];
-      document.addEventListener("securitypolicyviolation", (event) => window.__csp.push(event.violatedDirective));
-    });
+    await recordCspViolations(page);
     for (const size of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
       await page.setViewportSize(size);
       const response = await page.goto(PAGES.notFound.url);
       expect(response.status()).toBe(404);
       await expect(page.locator(PAGES.notFound.graphic)).toHaveAttribute("data-ready", "true");
-      expect(await page.evaluate(() => window.__csp)).toEqual([]);
+      expect(await cspViolations(page)).toEqual([]);
     }
     expect(problems).toEqual([]);
   });

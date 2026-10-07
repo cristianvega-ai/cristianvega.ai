@@ -1,10 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-import { currentContent, pendingFrames, playFrames, useManualFrames, drawnLabels, edgePaint, GRAPHIC_VIEWPORTS as SIZES, openGraphic as open, settle, textBoxes, useLabelSpy, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { currentContent, DRAFT_ORIGIN as dev, pageProblems, pendingFrames, playFrames, useManualFrames, drawnLabels, edgePaint, GRAPHIC_VIEWPORTS as SIZES, openGraphic as open, settle, textBoxes, useLabelSpy, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 // Check product flows and product graphic expectations.
-
-const dev = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 
 const PAGES = {
   products: { name: "products index", url: `${dev}/products/`, graphic: "[data-graphic='products']", restMs: 31_000 },
@@ -54,11 +52,7 @@ async function useProductMarks(page) {
 
 /** Give the test page a product count and a current product before its graphic mounts. Keep the content files unchanged. */
 async function openOrbit(page, { count, current, reduced = false }) {
-  const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
-  page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text());
-  });
+  const errors = pageProblems(page);
   await useManualFrames(page);
   await useProductMarks(page);
   if (reduced) await useReducedMotion(page);

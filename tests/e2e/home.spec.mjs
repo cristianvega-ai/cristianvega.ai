@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { currentContent, currentPublished, latestWork, setHomepageState, settle, tabTo, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames } from "./fixtures.mjs";
+import { currentContent, currentPublished, DRAFT_ORIGIN as dev, latestWork, pageProblems, setHomepageState, settle, tabTo, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames } from "./fixtures.mjs";
 
 /**
  * The homepage: one screen with the intro, two calls to action for Writing
@@ -10,7 +10,6 @@ import { currentContent, currentPublished, latestWork, setHomepageState, settle,
  * The dev server also shows drafts.
  */
 
-const dev = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 const globe = "[data-lyra-globe]";
 const WIDTHS = { ...VIEWPORTS, wide: { width: 1920, height: 1080 }, narrow: { width: 360, height: 740 } };
 /** The screens where the homepage must fit with no scrolling. Below 1100px the page can scroll. */
@@ -539,9 +538,7 @@ for (const [name, viewport] of Object.entries(WIDTHS)) {
     });
 
     test("shows two links and no lists with the drafts on the dev server", async ({ page }) => {
-      const errors = [];
-      page.on("pageerror", (error) => errors.push(error.message));
-      page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+      const errors = pageProblems(page);
       await page.goto(dev + "/");
       await settle(page);
 
