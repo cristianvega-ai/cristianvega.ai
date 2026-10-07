@@ -19,10 +19,14 @@ The suite has two runners and one file per concern. Put each new test in the lay
 | Products model | `tests/products-model.test.mjs` | Product capacity, entrance timing, slots, orbits, and Lyra fitting. |
 | 404 model | `tests/404-model.test.mjs` | Missing star layout, search timing, names, and insets. |
 | Writing model | `tests/writing-model.test.mjs` | Writing field placement, links, labels, and insets. |
+| Palette | `tests/palette.test.mjs` | Hex color channels and the rejection of other color formats. |
 | Build | `tests/build.test.mjs` | The build emits every expected route, asset, feed, and sitemap entry. |
 | Pages | `tests/pages.test.mjs` | Rendered HTML content, headings, metadata, and navigation state. |
-| Security | `tests/security.test.mjs` | Cloudflare header rules, the CSP, and the post-deploy gate. |
+| Diagnostics | `tests/diagnostics.test.mjs` | The real `astro check` reports source files and skips generated and tool folders. |
+| Public input | `tests/public-input.test.mjs` | The prebuild guard keeps operating-system metadata out of `public/`. |
+| Security | `tests/security.test.mjs` | Cloudflare header and cache rules, the CSP, and `security.txt`. |
 | Deployment | `tests/deploy-gate.test.mjs` | The live gate accepts the verified build and rejects broken responses. |
+| Workflow | `tests/deploy-workflow.test.mjs` | Workflow triggers, action pins, token scope, secrets, and the deploy conditions. |
 | Node version | `tests/node-version.test.mjs` | The tests and Cursor setup use the exact version in `.nvmrc`. |
 | Design tokens | `tests/design-tokens.test.mjs` | Design-token hygiene in `global.css`. |
 | Selector hygiene | `tests/css-hygiene.test.mjs` | A class that is the subject of `:focus` or `:focus-visible` must be able to receive focus. |
@@ -41,11 +45,18 @@ Unit suites read pure helpers. They do not read the DOM or build output.
 | `tests/e2e/404.spec.mjs` | 404 graphic search, labels, bounds, fallback, content visibility, and console behavior. |
 | `tests/e2e/about.spec.mjs` | About graphic layout, reader interaction, and page expectations. |
 | `tests/e2e/blog.spec.mjs` | Writing navigation, article flows, and writing graphic expectations. |
+| `tests/e2e/article-interactions.spec.mjs` | Article code and diagram names, roles, focus order, and the scope of the article setup. |
+| `tests/e2e/article-menu.spec.mjs` | The article menu at narrow widths: text contrast, focus rings, and the current link. |
+| `tests/e2e/publication.spec.mjs` | Published content in an isolated production build: routes, sitemap, robots, navigation, scripts, and the copy link. |
 | `tests/e2e/canvas-controller.spec.mjs` | Controller policies, clocks, observers, listeners, restoration, and resource cleanup. |
 | `tests/e2e/page-graphics.spec.mjs` | Shared graphic entrance, reduced motion, pause, rest, and restoration contracts. |
 | `tests/e2e/graphic-font.spec.mjs` | CSS font tokens, delayed fonts, measured labels, resizing, and font callback lifetimes. |
 | `tests/e2e/layout.spec.mjs` | Shared shell geometry, reading edges, graphic bands, and alignment across pages. |
 | `tests/e2e/typography.spec.mjs` | Shared typography sizes, line heights, tracking, and role order. |
+| `tests/e2e/palette.spec.mjs` | Graphic sky colors from the CSS token, and the fallback color. |
+| `tests/e2e/hosting.spec.mjs` | Local Cloudflare responses: headers, redirects, robots, compression, caching, and refused requests. |
+| `tests/e2e/security.spec.mjs` | The browser enforces the CSP and the permissions policy. |
+| `tests/e2e/analytics.spec.mjs` | The Cloudflare beacon loads on the production origin only, and pages work when it is blocked. |
 
 Keep page selectors and expectations in their owning suite.
 Share identical frame and pixel mechanisms through `tests/e2e/fixtures.mjs`.
@@ -64,5 +75,8 @@ To choose a layer, ask what the test must look at:
 - Share browser helpers through `tests/e2e/fixtures.mjs` and Node helpers through `tests/helpers.mjs`. Do not copy a helper into a second file.
 - Browser specs must be deterministic. Use Playwright's auto-waiting or `expect.poll`. Never use a fixed sleep.
 - Wait for the page entrance animation before you measure geometry. Use `settle(page)` from the fixtures. Geometry read during the animation is the animation's, not the layout's.
+- The site scrolls smoothly. Scroll with `behavior: "instant"` before you measure, or poll for the scroll result.
+- A test must pass with drafts and with published entries. Derive the expected content from the inventory helpers in `tests/helpers.mjs`, such as `publishedContent` and `headerLinks`.
+- The draft server runs with `tests/e2e/dev-server.config.mjs`. That configuration disables HMR, so the server never reloads a page under test. Use `DRAFT_ORIGIN` from the fixtures for its address.
 - Prove a new assertion can fail. Break the behavior, watch the test fail, then restore it. An assertion that never fails is not coverage.
 - `npm run verify` runs both test runners. The browser layer uses the local Cloudflare runtime and needs Chromium. Run `npx playwright install chromium` once per machine.
