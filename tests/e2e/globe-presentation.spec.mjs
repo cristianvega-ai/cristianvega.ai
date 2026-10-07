@@ -204,6 +204,16 @@ for (const viewport of [VIEWPORTS.desktop, { width: 1100, height: 800 }, VIEWPOR
         expect(Math.abs(fallback[selector][side] - box[side]), `${selector} ${side} without the projection stylesheet`).toBeLessThanOrEqual(1);
       }
     }
+    // The --globe-caption-length fallback gives the caption reach of the model caption.
+    const read = await readProjection(page);
+    const captionReach = read.captionLength * 0.5 * read.ch + 2;
+    expect(Math.abs(read.captionReach - captionReach), `caption reach ${read.captionReach} without the projection stylesheet`).toBeLessThanOrEqual(1);
+    // The backdrop shows from 1100px. The --globe-center-top fallback keeps it on the sphere centre.
+    if (viewport.width >= 1100) {
+      for (const axis of ["x", "y"]) {
+        expect(Math.abs(read.underlay[axis] - read.sphere[axis]), `backdrop ${axis} without the projection stylesheet`).toBeLessThanOrEqual(1);
+      }
+    }
     await expect(page.locator("h1")).toBeVisible();
     // The browser reports the aborted stylesheet. That error is expected here.
     expect(failed.length).toBeGreaterThan(0);
@@ -257,6 +267,13 @@ async function readProjection(page) {
     host.append(probe);
     const ch = probe.getBoundingClientRect().width / 1000;
     probe.remove();
+    // The caption reach that home.css computes from --globe-caption-length. A new probe has no
+    // earlier width, so the short reduced-motion transition cannot delay the reading.
+    const reachProbe = document.createElement("div");
+    reachProbe.style.width = "var(--globe-caption-reach)";
+    host.append(reachProbe);
+    const captionReach = reachProbe.getBoundingClientRect().width;
+    reachProbe.remove();
     return {
       width: svg.viewBox.baseVal.width,
       height: svg.viewBox.baseVal.height,
@@ -268,6 +285,7 @@ async function readProjection(page) {
       captionY: (parseFloat(caption.getAttribute("y")) / 100) * svg.viewBox.baseVal.height,
       captionLength: caption.textContent.length,
       ch,
+      captionReach,
       inset: parseFloat(style.getPropertyValue("--figure-inset")),
       limits: {
         max: parseFloat(style.getPropertyValue("--globe-max")),
