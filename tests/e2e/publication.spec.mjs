@@ -141,6 +141,57 @@ test.describe("mixed published content in the production runtime", () => {
     }
   });
 
+  // The share block exists only on a published post, so the copy checks use the real markup here.
+  for (const fails of [false, true]) {
+    test(`a published post copies its link and reports ${fails ? "a failure" : "success"} in its own status`, async ({ page, publication }) => {
+      const errors = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      page.on("console", (message) => {
+        if (message.type() === "error") errors.push(message.text());
+      });
+      await page.addInitScript((fails) => {
+        window.__copiedLinks = [];
+        Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
+          async writeText(text) {
+            window.__copiedLinks.push(text);
+            if (fails) throw new Error("Clipboard blocked");
+          },
+        } });
+      }, fails);
+      const post = publishedContent(publication.inventory).writing[0];
+      await page.goto(publication.origin + post.href);
+      // A status before the article comes first in the document. The copy result must not reach it.
+      await page.locator(".article").evaluate((article) => article.insertAdjacentHTML("beforebegin",
+        '<span id="outside-status" class="share-status" role="status">Outside status</span>'));
+      const button = page.getByRole("button", { name: "copy link" });
+      await expect(button).toBeVisible();
+      await button.click();
+      await expect(page.locator(".article .share-status")).toHaveText(fails
+        ? "Copy the address from your browser to share this post."
+        : "Link copied.");
+      await expect(page.locator("#outside-status")).toHaveText("Outside status");
+      expect(await page.evaluate(() => window.__copiedLinks)).toEqual([`https://cristianvega.ai${post.href}`]);
+      expect(errors).toEqual([]);
+    });
+  }
+
+  test("a published post keeps its copy button hidden without a clipboard", async ({ page, publication }) => {
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") errors.push(message.text());
+    });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+    });
+    const post = publishedContent(publication.inventory).writing[0];
+    await page.goto(publication.origin + post.href);
+    await expect(page.getByRole("link", { name: "Share on LinkedIn" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "copy link", includeHidden: true })).toBeHidden();
+    await expect(page.locator(".article .share-status")).toBeEmpty();
+    expect(errors).toEqual([]);
+  });
+
   test("published content and navigation work without JavaScript", async ({ browser, publication }) => {
     const context = await browser.newContext({ javaScriptEnabled: false, viewport: VIEWPORTS.mobile });
     try {
