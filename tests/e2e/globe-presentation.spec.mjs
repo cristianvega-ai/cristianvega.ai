@@ -168,6 +168,46 @@ test("loads the projection stylesheet from the head with a long cache", async ({
   expect(response.headers()["cache-control"], "the versioned URL can stay cached").toBe("public, max-age=31536000, immutable");
 });
 
+/** Read the globe boxes in page pixels. */
+const globeBoxes = (page) => page.evaluate(() => Object.fromEntries([".hero__globe", ".lyra-globe", ".lyra-globe__canvas"].map((selector) => {
+  const { left, top, width, height } = document.querySelector(selector).getBoundingClientRect();
+  return [selector, { left, top, width, height }];
+})));
+
+for (const viewport of [VIEWPORTS.desktop, { width: 1100, height: 800 }, VIEWPORTS.tablet, VIEWPORTS.mobile]) {
+  test(`keeps the globe size when the projection stylesheet fails at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await useReducedMotion(page);
+    await page.goto("/");
+    await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
+    await settle(page);
+    const loaded = await globeBoxes(page);
+
+    const failed = [];
+    page.on("console", (message) => {
+      if (message.type() === "error" && message.location().url.includes("/globe-projection/")) failed.push(message.text());
+    });
+    await page.route("**/globe-projection/**", (route) => route.abort());
+    await page.goto("/");
+    await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
+    await settle(page);
+    expect(await page.evaluate(() => getComputedStyle(document.querySelector(".hero__globe")).getPropertyValue("--globe-box-aspect"))).toBe("");
+    const fallback = await globeBoxes(page);
+    // The fallbacks in home.css hold the measurements of the current model.
+    for (const [selector, box] of Object.entries(loaded)) {
+      expect(box.width, `${selector} has a width`).toBeGreaterThan(100);
+      expect(box.height, `${selector} has a height`).toBeGreaterThan(100);
+      for (const side of ["left", "top", "width", "height"]) {
+        expect(Math.abs(fallback[selector][side] - box[side]), `${selector} ${side} without the projection stylesheet`).toBeLessThanOrEqual(1);
+      }
+    }
+    await expect(page.locator("h1")).toBeVisible();
+    // The browser reports the aborted stylesheet. That error is expected here.
+    expect(failed.length).toBeGreaterThan(0);
+    problems.set(page, problems.get(page).filter((problem) => !failed.includes(problem)));
+  });
+}
+
 /** Change model inputs in an isolated build. Keep the production source intact. */
 async function createGlobeBuild() {
   const directory = await realpath(await mkdtemp(join(tmpdir(), "cristianai-globe-")));
