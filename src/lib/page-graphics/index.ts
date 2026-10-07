@@ -42,10 +42,11 @@
  *
  * Fonts and colors
  *   --font-mono supplies the label font family, and --fs-graphic-label supplies its size in px.
+ *   A label line is LABEL_LINE_RATIO (1.2) times that size. labelFont.lineCssPx holds it.
  *   The globe labels in home.css read the same two tokens.
  *   label-font.ts caches measured widths in CSS pixels.
  *   Font completion, failure, and resizing rebuild these measurements.
- *   placeLabel() uses measured widths.
+ *   placeLabel() uses measured widths and the line of the label font.
  *   drawLabel() uses labelFont.canvasFont.
  *   The color tokens can use any CSS color that the browser parses, such as hex, rgb(), hsl(), or oklch().
  *   readPalette() resolves each one through a 1x1 canvas.
@@ -67,7 +68,7 @@
  *   math.ts: easing, interpolation, and stable numeric samples.
  *   lyra.ts: layoutLyra(width, height) preserves proportions and caps the figure at LYRA_MAX_SIZE.
  *   label-font.ts: measured label widths and the canvas font.
- *   labels.ts: placeLabel() uses measured widths and labelBounds().
+ *   labels.ts: placeLabel() uses measured widths, the label line, and labelBounds().
  *   inset.ts: FIGURE_INSET and figureRect() keep the figure inside the edge fade.
  *     A scene must keep the reach of its marks inside the inset, not only the mark centres.
  *     The products scene keeps SLOT_REACH, the largest ring or halo round a slot.
@@ -87,7 +88,7 @@
  *      Draw from state.progress for the default entrance.
  *      Use state.activeTime for motion that continues after the entrance.
  *   2. Measure labels with state.labelFont.widthCssPx(text) during layout.
- *      Pass each width to placeLabel().
+ *      Pass each width and state.labelFont.lineCssPx to placeLabel().
  *      Use labelBounds() for each label.
  *      Pass state.labelFont.canvasFont to drawLabel().
  *      Draw the neural mesh first with drawMesh().

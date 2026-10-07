@@ -93,3 +93,41 @@ test("fits the 404 figure with measured wide star names", () => {
     assert.ok(label.rect.x0 >= bounds.x0 && label.rect.x1 <= bounds.x1);
   }
 });
+
+test("derives the label line from the label size token", () => {
+  assert.equal(makeLabelFont(context(), "monospace", "10px").lineCssPx, 12, "the current token keeps a 12px line");
+  assert.equal(makeLabelFont(context(), "monospace", "20px").lineCssPx, 24);
+  assert.equal(makeLabelFont(context(), "monospace", "13px").lineCssPx, 13 * 1.2);
+  assert.equal(makeLabelFont(context(), "monospace", "1em").lineCssPx, 12, "the fallback size keeps the fallback line");
+});
+
+test("uses the measured label line in every label box", () => {
+  const line = makeLabelFont(context(), "monospace", "20px").lineCssPx;
+  const bounds = { x0: 0, y0: 0, x1: 400, y1: 300 };
+  const fallback = placeLabel("VEGA", 200, 150, { bounds, widthCssPx: 24 });
+  assert.equal(fallback.rect.y1 - fallback.rect.y0, 12 + 6, "without a line, the box has the fallback line and the halo");
+  const above = placeLabel("VEGA", 200, 150, { bounds, widthCssPx: 24, lineCssPx: line, prefer: ["above"] });
+  assert.equal(above.side, "above");
+  assert.equal(above.rect.y1 - above.rect.y0, line + 6);
+  assert.equal(above.y, 150 - 12 - line / 2, "a label above keeps the gap and half its line from the node");
+
+  const field = buildField({
+    ids: ["post-one", "post-two"],
+    labels: ["WWWW", "iiii"],
+    labelWidthsCssPx: [44, 12],
+    starWidthsCssPx: [96, 0, 0, 0, 64, 64],
+    lineCssPx: line,
+    width: 480,
+    height: 640,
+  });
+  for (const label of [...field.postLabels, ...field.starLabels.filter(Boolean)]) {
+    assert.equal(label.rect.y1 - label.rect.y0, line + 6, `writing label ${label.text}`);
+  }
+
+  const w = 286;
+  const h = 770;
+  const missingBounds = { x0: 28, y0: 20, x1: w - 28, y1: h - 20 };
+  const { labels } = layoutMissing(w, h, missingLayout(w, h), missingBounds, [108, 0, 0, 0, 72, 72], line);
+  assert.ok(labels.length > 0);
+  for (const label of labels) assert.equal(label.rect.y1 - label.rect.y0, line + 6, `404 label ${label.text}`);
+});

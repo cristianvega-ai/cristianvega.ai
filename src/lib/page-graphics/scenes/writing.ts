@@ -84,6 +84,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
       labels: posts.map((post) => post.label),
       labelWidthsCssPx: posts.map((post) => s.labelFont.widthCssPx(post.label)),
       starWidthsCssPx: LYRA.map((star) => star.name ? s.labelFont.widthCssPx(star.name) : 0),
+      lineCssPx: s.labelFont.lineCssPx,
       width: boxW,
       height: boxH,
       bounds: labelBounds(container, s.width, s.height, originX),

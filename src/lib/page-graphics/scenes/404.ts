@@ -50,13 +50,13 @@ export function missingLayout(width: number, height: number): MissingLayout {
  * Place the star names. Each takes the side of its star that no link crosses, clear of the other stars,
  * the empty ring, and the box edge. Vega always has its name, and the others only when the box is tall.
  */
-export function placeLabels(bounds: Rect, stars: readonly LyraPoint[], showNames: boolean, widthsCssPx: readonly number[]): PlacedLabel[] {
+export function placeLabels(bounds: Rect, stars: readonly LyraPoint[], showNames: boolean, widthsCssPx: readonly number[], lineCssPx?: number): PlacedLabel[] {
   const segments: Segment[] = LYRA_LINKS.map(([a, b]) => ({ ax: stars[a].x, ay: stars[a].y, bx: stars[b].x, by: stars[b].y }));
   const avoid: Rect[] = stars.map((star, i) => around(star.x, star.y, i === MISSING ? RING_RADIUS + 5 : 9));
   const placed: PlacedLabel[] = [];
   for (let i = 0; i < stars.length; i++) {
     const name = stars[i].name;
-    if (name && (i === 0 || showNames)) placed.push(placeLabel(name, stars[i].x, stars[i].y, { widthCssPx: widthsCssPx[i], bounds, segments, avoid, gap: stars[i].vega ? 14 : 12 }));
+    if (name && (i === 0 || showNames)) placed.push(placeLabel(name, stars[i].x, stars[i].y, { widthCssPx: widthsCssPx[i], lineCssPx, bounds, segments, avoid, gap: stars[i].vega ? 14 : 12 }));
   }
   return placed;
 }
@@ -65,12 +65,12 @@ export function placeLabels(bounds: Rect, stars: readonly LyraPoint[], showNames
  * Fit the figure and place its names. When Vega finds no clear side, as in a narrow column, the figure
  * moves left by the room that its name needs, and the names are placed again.
  */
-export function layoutMissing(width: number, height: number, layout: MissingLayout, bounds: Rect, widthsCssPx: readonly number[], out: LyraPoint[] = []) {
+export function layoutMissing(width: number, height: number, layout: MissingLayout, bounds: Rect, widthsCssPx: readonly number[], lineCssPx?: number, out: LyraPoint[] = []) {
   let stars = layoutLyra(width, height, { pad: layout.pad, rotate: layout.rotate, out });
-  let labels = placeLabels(bounds, stars, layout.showNames, widthsCssPx);
+  let labels = placeLabels(bounds, stars, layout.showNames, widthsCssPx, lineCssPx);
   if (labels[0] && !labels[0].clear) {
     stars = layoutLyra(width - widthsCssPx[0] - 24, height, { pad: layout.pad, rotate: layout.rotate, out });
-    labels = placeLabels(bounds, stars, layout.showNames, widthsCssPx);
+    labels = placeLabels(bounds, stars, layout.showNames, widthsCssPx, lineCssPx);
   }
   return { stars, labels };
 }
@@ -91,7 +91,7 @@ export function mountNotFound(container: HTMLElement): CanvasHandle | null {
     reportFigureLeft(container, s.width, s.height);
     const bounds = labelBounds(container, s.width, s.height);
     const widthsCssPx = LYRA.map((star) => star.name ? s.labelFont.widthCssPx(star.name) : 0);
-    const placed = layoutMissing(s.width, s.height, layout, bounds, widthsCssPx, stars);
+    const placed = layoutMissing(s.width, s.height, layout, bounds, widthsCssPx, s.labelFont.lineCssPx, stars);
     stars = placed.stars;
     labels = placed.labels;
     field = makeStarField(s.width, s.height, Math.round((s.width * s.height) / 8000), 3);

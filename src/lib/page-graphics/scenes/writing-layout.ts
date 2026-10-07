@@ -42,6 +42,8 @@ export interface FieldInput {
   labelWidthsCssPx: readonly number[];
   /** Measured text widths in CSS pixels, in Lyra star order. */
   starWidthsCssPx: readonly number[];
+  /** The height of one label line in CSS pixels, from the label font. */
+  lineCssPx?: number;
   /** The box in CSS pixels. Text must not enter the part of the slot outside it. */
   width: number;
   height: number;
@@ -132,7 +134,7 @@ function spread(
   }
 }
 
-export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, width, height, bounds = { x0: 0, y0: 0, x1: width, y1: height } }: FieldInput): FieldLayout {
+export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, lineCssPx, width, height, bounds = { x0: 0, y0: 0, x1: width, y1: height } }: FieldInput): FieldLayout {
   const count = ids.length;
   const tall = height > width * 1.05;
   const labelWidth = labelWidthsCssPx.reduce((widest, width) => Math.max(widest, width), 0);
@@ -213,13 +215,13 @@ export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, wid
   const postLabels = labels.map((text, i) => {
     const { x, y } = points[i];
     const out = x >= cx;
-    return placeLabel(text, x, y, { widthCssPx: labelWidthsCssPx[i], bounds, segments, avoid: taken, gap: 13, prefer: out ? ["right", "left", "above", "below"] : ["left", "right", "above", "below"] });
+    return placeLabel(text, x, y, { widthCssPx: labelWidthsCssPx[i], lineCssPx, bounds, segments, avoid: taken, gap: 13, prefer: out ? ["right", "left", "above", "below"] : ["left", "right", "above", "below"] });
   });
 
   const starLabels = stars.map((star, i) => {
     if (!star.name) return null;
     // A star name keeps clear of the figure links. A faint synapse under it only breaks a tie, and the halo cuts it out.
-    const label = placeLabel(star.name, star.x, star.y, { widthCssPx: starWidthsCssPx[i], bounds, segments: figure, soft: synapses, avoid: taken, gap: 14, lift: star.vega ? -10 : 0 });
+    const label = placeLabel(star.name, star.x, star.y, { widthCssPx: starWidthsCssPx[i], lineCssPx, bounds, segments: figure, soft: synapses, avoid: taken, gap: 14, lift: star.vega ? -10 : 0 });
     return label.clear ? label : null;
   });
 
