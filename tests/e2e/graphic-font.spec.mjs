@@ -22,12 +22,12 @@ const test = base.extend({
   },
 });
 
-async function useFontToken(page, family) {
-  await page.addInitScript((token) => {
+async function useFontToken(page, family, name = "--font-mono") {
+  await page.addInitScript(([property, token]) => {
     document.addEventListener("readystatechange", () => {
-      if (document.readyState === "interactive") document.documentElement.style.setProperty("--font-mono", token, "important");
+      if (document.readyState === "interactive") document.documentElement.style.setProperty(property, token, "important");
     });
-  }, family);
+  }, [name, family]);
 }
 
 async function assertLabels(page) {
@@ -37,8 +37,9 @@ async function assertLabels(page) {
   expect(names).toEqual(expect.arrayContaining(entries.length ? entries.map((text) => text.trim()) : ["VEGA · α LYR"]));
   const expectedFont = await page.locator("[data-graphic]").evaluate((graphic) => {
     const context = document.createElement("canvas").getContext("2d");
-    const family = getComputedStyle(graphic).getPropertyValue("--font-mono").trim();
-    context.font = `400 10px ${family || "ui-monospace, monospace"}`;
+    const style = getComputedStyle(graphic);
+    const family = style.getPropertyValue("--font-mono").trim();
+    context.font = `400 ${style.getPropertyValue("--fs-graphic-label").trim()} ${family || "ui-monospace, monospace"}`;
     return context.font;
   });
   for (const label of labels) {
@@ -55,22 +56,25 @@ async function assertLabels(page) {
 }
 
 for (const viewport of Object.values(VIEWPORTS)) {
-  for (const { name, family } of [
+  for (const { name, family, size } of [
     { name: "the CSS font token" },
     { name: "a proportional font", family: '"IBM Plex Sans", sans-serif' },
     { name: "a missing font fallback", family: '"Unavailable Graphic Font", monospace' },
+    { name: "a larger label size token", size: "12px" },
   ]) {
     test(`uses ${name} across page graphics at ${viewport.width}px`, async ({ page, problems }) => {
       await page.setViewportSize(viewport);
       await useLabelSpy(page);
       await useReducedMotion(page);
       if (family) await useFontToken(page, family);
+      if (size) await useFontToken(page, size, "--fs-graphic-label");
       for (const target of pages) {
         await page.goto(target);
         await expect(page.locator("[data-graphic]")).toHaveAttribute("data-ready", "true");
         await settle(page);
         await expect(page.locator("main h1")).toBeVisible();
-        await assertLabels(page);
+        const labels = await assertLabels(page);
+        for (const label of labels) expect(` ${label.font}`, "the canvas label size").toContain(` ${size ?? "10px"} `);
         expect(await page.evaluate(() => window.__labelMeasureCount)).toBeGreaterThan(0);
       }
       expect(problems).toEqual([]);

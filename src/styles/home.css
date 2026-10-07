@@ -387,7 +387,7 @@ body[data-page="home"] main {
 }
 
 .lyra-globe__label {
-  font: 400 10px var(--font-mono);
+  font: 400 var(--fs-graphic-label) var(--font-mono);
   fill: var(--mast-text);
 }
 

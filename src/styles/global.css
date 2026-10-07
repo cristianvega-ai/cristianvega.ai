@@ -108,7 +108,9 @@
      Small: excerpts and card lines.
      UI: mono links and the nav.
      Meta: dates, counts, the eyebrow, and captions.
-     Label: the smallest mono text. */
+     Label: the smallest mono text.
+     Graphic label: the star and post names on the page graphics and the globe.
+     The canvas reads it, so keep it in px. */
   --fs-h1: 36px;
   --fs-h2: 24px;
   --fs-h3: 20px;
@@ -118,6 +120,7 @@
   --fs-ui: 13px;
   --fs-meta: 12px;
   --fs-label: 11px;
+  --fs-graphic-label: 10px;
   /* Line height: tight for large type, open for reading. */
   --lh-display: 1.08;
   --lh-heading: 1.2;

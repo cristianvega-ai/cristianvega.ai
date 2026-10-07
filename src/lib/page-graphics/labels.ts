@@ -34,8 +34,7 @@ export interface PlacedLabel {
   clear: boolean;
 }
 
-/** The label font size in CSS pixels, and the height of one line. */
-export const LABEL_SIZE = 10;
+/** The height of one label line in CSS pixels: 1.2 times the --fs-graphic-label size in global.css. */
 export const LABEL_LINE = 12;
 const HALO_PAD = 3;
 /** The space that a label keeps from the canvas edge. It is the figure inset, so a label follows the one bounding rule. */

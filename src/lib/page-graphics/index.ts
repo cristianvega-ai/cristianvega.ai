@@ -39,7 +39,8 @@
  *   Reduced motion completes entrances immediately and runs no continuous frames, drift, comets, or search pulses.
  *
  * Fonts and colors
- *   --font-mono supplies the label font family.
+ *   --font-mono supplies the label font family, and --fs-graphic-label supplies its size in px.
+ *   The globe labels in home.css read the same two tokens.
  *   label-font.ts caches measured widths in CSS pixels.
  *   Font completion, failure, and resizing rebuild these measurements.
  *   placeLabel() uses measured widths.
