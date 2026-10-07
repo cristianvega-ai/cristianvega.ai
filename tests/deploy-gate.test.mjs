@@ -210,10 +210,10 @@ test("the live gate accepts the exact verified homepage", async (t) => {
   }
 });
 
-// Run the gate against the build before deploy. A difference between
-// public/_headers and the approved policy then stops the verification
-// before Cloudflare receives the build. Compare only the security headers,
-// so a change to a cache rule does not change this result.
+// Run the gate against the build before deploy. A changed or missing
+// approved header in public/_headers then stops the verification before
+// Cloudflare receives the build. The gate reads only the approved headers,
+// so a new header or a change to a cache rule does not change this result.
 test("the live gate accepts the security headers of the local Cloudflare build", async (t) => {
   const origin = await startLocalCloudflare(t);
   const result = await runGate({ ORIGIN: origin, EXPECTED_INDEX: "" }, 30_000);

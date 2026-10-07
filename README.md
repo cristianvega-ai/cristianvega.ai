@@ -404,7 +404,9 @@ The gate checks the security headers on `/`, `/about/`, `/writing/`, and the 404
 `/writing/` can return HTTP 200 or 404, because the build omits it while every post is a draft.
 `npm run verify` also runs the gate against the local Wrangler build of `dist/`.
 Keep `APPROVED_SECURITY_HEADERS` in the live verifier equal to the global rule in `public/_headers`.
-Change both in the same commit. Otherwise, `npm run verify` fails.
+Change both in the same commit.
+`npm run verify` fails when `public/_headers` changes or removes an approved header.
+The gate reads only the approved headers, so it does not fail on a new header.
 
 ### Web analytics
 
