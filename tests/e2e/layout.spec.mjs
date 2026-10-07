@@ -1,6 +1,7 @@
 import { chromium, expect, test } from "@playwright/test";
 
-import { bandHeight, openGraphic as open, currentPublished, settle, tabTo, textBoxes, VIEWPORTS } from "./fixtures.mjs";
+import { headerLinks } from "../helpers.mjs";
+import { bandHeight, openGraphic as open, currentContent, currentPublished, settle, tabTo, textBoxes, VIEWPORTS } from "./fixtures.mjs";
 
 const dev = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 
@@ -300,9 +301,11 @@ test.describe("the compact header", () => {
       await page.locator(".nav-menu__toggle").click();
       await expect(panel).toBeVisible();
 
-      // Production holds about and the three profile links.
+      // Production holds about, each section with a published entry, and the three profile links.
+      const expected = headerLinks(currentContent);
       const links = panel.getByRole("link");
-      await expect(links).toHaveText(["about", "linkedin", "x", "github"]);
+      await expect(links).toHaveText(expected.map((link) => link.label));
+      expect(await links.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("href")))).toEqual(expected.map((link) => link.href));
       const boxes = await links.evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect()));
       for (const box of boxes) {
         expect(box.height).toBeGreaterThanOrEqual(44);
