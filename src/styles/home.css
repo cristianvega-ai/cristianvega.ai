@@ -220,8 +220,12 @@ body[data-page="home"] main {
    The projection stylesheet (src/lib/lyra-globe/projection.ts) supplies the --globe-* sphere
    measurements from the model, rounded at build time. Each var() falls back to the value of the
    current model, so the globe keeps its size when that stylesheet fails to load.
-   CSS keeps the responsive placement. The width cap keeps the caption clear of the fade. */
+   CSS keeps the responsive placement. The width cap keeps the caption clear of the fade: the
+   caption is centred on the sphere, so it reaches half its length past the centre, plus 2px of
+   slack. The host takes the label font, so 1ch is the advance of one label character. */
 .hero__globe {
+  font: 400 var(--fs-label) var(--font-mono);
+  --globe-caption-reach: calc(var(--globe-caption-length, 20) * .5ch + 2px);
   --globe-max: 720px;
   /* The size the owner approved: a little over half of the frame. */
   --globe-size: calc(var(--frame) * .55 - 5px);
@@ -245,7 +249,7 @@ body[data-page="home"] main {
     var(--globe-max),
     var(--globe-size),
     max(260px, calc((100svh - var(--header-height) - var(--head-top) - var(--footer-reserve) - 2 * var(--globe-gap)) / var(--globe-box-aspect, .9013))),
-    calc((var(--globe-room) - var(--figure-inset) - 68px - var(--fade)) / var(--globe-center-reach, .4162))
+    calc((var(--globe-room) - var(--figure-inset) - var(--globe-caption-reach) - var(--fade)) / var(--globe-center-reach, .4162))
   );
   justify-self: start;
   /* The globe starts level with the eyebrow. Its bottom sits clear of the footer. */
@@ -310,16 +314,17 @@ body[data-page="home"] main {
 }
 
 /* The picture has an empty margin on every side of the sphere. The box crops
-   it, so the sphere fills the box: the box shows 83% of the picture's height.
+   it, so the sphere fills the box. The model sets the crop: the box shows the picture
+   from just above the outer ring to just below the caption (CROP_ABOVE_RING and
+   CROP_BELOW_CAPTION in src/lib/lyra-globe/projection.ts).
    The picture and the labels keep their full size. Horizontally, the picture sits so
-   the sphere ring starts --figure-inset from the box edge.
-   The caption sits 7px above the bottom edge of the box. */
+   the sphere ring starts --figure-inset from the box edge. */
 .lyra-globe__fallback,
 .lyra-globe__canvas,
 .lyra-globe__labels {
   position: absolute;
   left: calc(var(--figure-inset) - var(--globe-ring-inset, .2468) * 100cqw);
-  top: -11.06%;
+  top: calc(var(--globe-picture-top, -.1106) * 100%);
   /* The base reset caps a picture at the width of its box. */
   max-width: none;
   width: calc(var(--globe-picture-scale, 1.3) * 100%);
@@ -386,7 +391,7 @@ body[data-page="home"] main {
 
 @container (min-width: 460px) {
   .lyra-globe__label {
-    font-size: 11px;
+    font-size: var(--fs-label);
   }
 }
 
@@ -407,7 +412,8 @@ body[data-page="home"] main {
    reads the width of the band, so the canvas and the SVG fallback share it.
    The picture is --pw wide. Its sphere centre sits on the middle of the band.
    Vega sits --vega-y from the top of the band, clear of the edge fade. The
-   model supplies the sphere centre, Vega anchor, and picture aspect. */
+   model supplies the sphere centre, Vega anchor, and picture aspect. The picture
+   width and the Vega height in the band are design choices. */
 @media (max-width: 1099px) {
   .hero__stage {
     grid-template-columns: minmax(0, 1fr);
@@ -453,6 +459,7 @@ body[data-page="home"] main {
   }
 
   .hero__globe .lyra-globe {
+    /* Design choices: the picture width, and Vega 48.6% down the band. */
     --pw: clamp(420px, 130cqw, 780px);
     --vega-y: calc(var(--band-height) * .486);
     width: 100%;
