@@ -26,9 +26,6 @@ export interface MountOptions extends Omit<ControllerOptions, "draw" | "onResize
 export function mountCanvas(container: HTMLElement, options: MountOptions): CanvasHandle | null {
   const ctx = container.querySelector("canvas")?.getContext("2d");
   if (!ctx) return null;
-  const reducedQuery = matchMedia("(prefers-reduced-motion: reduce)");
-  let lifetime: { active: boolean; sized: boolean } | undefined;
-  let moving = false;
 
   function prepareFont(state: ControllerState): FrameState {
     const pageState = state as FrameState;
@@ -37,47 +34,24 @@ export function mountCanvas(container: HTMLElement, options: MountOptions): Canv
     return pageState;
   }
 
-  function build(state: ControllerState) {
-    const pageState = prepareFont(state);
-    options.onResize?.(pageState);
-    if (lifetime) lifetime.sized = true;
-  }
-
   const handle = mountCanvasController(container, {
     ...options,
-    draw(context, state) {
-      const result = options.draw(context, state as FrameState);
-      moving = result === true;
-      return result;
-    },
-    onResize: build,
+    draw: (context, state) => options.draw(context, state as FrameState),
+    onResize: (state) => options.onResize?.(prepareFont(state)),
     attach(controller) {
-      const current = { active: true, sized: false };
-      lifetime = current;
-      const pageHandle = controller as CanvasHandle;
+      const current = { active: true };
       prepareFont(controller.state);
-      const detach = options.attach?.(pageHandle);
+      const detach = options.attach?.(controller as CanvasHandle);
       const fonts = container.ownerDocument.fonts;
+      // The controller skips a scene without a size, and it applies a pending motion preference before it draws.
       function refresh() {
-        if (!current.active || lifetime !== current || !current.sized) return;
-        try {
-          build(controller.state);
-          // Let the controller apply a pending motion preference before the font redraw.
-          if (controller.state.reduced === reducedQuery.matches) {
-            controller.redraw();
-            if (current.active && moving && !controller.state.reduced) controller.wake();
-          }
-        } catch {
-          controller.destroy();
-          container.hidden = true;
-        }
+        if (current.active) controller.rebuild();
       }
       fonts?.addEventListener("loadingdone", refresh);
       fonts?.addEventListener("loadingerror", refresh);
       void fonts?.ready.then(refresh);
       return () => {
         current.active = false;
-        current.sized = false;
         fonts?.removeEventListener("loadingdone", refresh);
         fonts?.removeEventListener("loadingerror", refresh);
         detach?.();

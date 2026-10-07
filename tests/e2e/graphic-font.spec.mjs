@@ -146,7 +146,7 @@ test("keeps label measurement outside animation frames", async ({ page, problems
   expect(problems).toEqual([]);
 });
 
-test("defers font redraws until the controller applies a motion preference", async ({ page, problems }) => {
+test("applies a pending motion preference when a font refresh comes first", async ({ page, problems }) => {
   await useLabelSpy(page);
   await useManualFrames(page);
   await page.addInitScript(() => {
@@ -174,8 +174,9 @@ test("defers font redraws until the controller applies a motion preference", asy
     document.documentElement.style.setProperty("--font-mono", '"IBM Plex Sans", sans-serif');
     document.fonts.dispatchEvent(new Event("loadingdone"));
   });
-  await expect(page.locator("[data-graphic]")).toHaveAttribute("data-motion-state", "playing");
-  expect(await pendingFrames(page)).toBe(1);
+  // The controller applies the new preference before the font redraw, whatever the event order.
+  await expect(page.locator("[data-graphic]")).toHaveAttribute("data-motion-state", "still");
+  expect(await pendingFrames(page)).toBe(0);
   await page.evaluate(() => window.__preferenceJobs.shift()());
   await expect(page.locator("[data-graphic]")).toHaveAttribute("data-motion-state", "still");
   expect(await pendingFrames(page)).toBe(0);
