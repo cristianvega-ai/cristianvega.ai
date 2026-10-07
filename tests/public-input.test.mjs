@@ -46,7 +46,10 @@ test("the public guard permits site files and the security contact", async (t) =
     "Contact: https://example.invalid/security\n");
 });
 
-for (const file of [".DS_Store", "images/.DS_Store", "images/Thumbs.db"]) {
+for (const file of [
+  ".DS_Store", "images/.DS_Store", "images/Thumbs.db",
+  "._favicon.svg", "images/._portrait.jpg", ".well-known/._security.txt",
+]) {
   test(`the public guard stops the build for ${file}`, async (t) => {
     const directory = await publicFixture(t);
     const path = join(directory, "public", file);
@@ -60,3 +63,13 @@ for (const file of [".DS_Store", "images/.DS_Store", "images/Thumbs.db"]) {
     assert.equal(await readFile(path, "utf8"), "metadata fixture", "the guard must preserve the metadata file");
   });
 }
+
+test("the public guard permits a name that has the AppleDouble prefix after the start", async (t) => {
+  const directory = await publicFixture(t);
+  await mkdir(join(directory, "public/images"));
+  await writeFile(join(directory, "public/images/portrait._v2.jpg"), "site file");
+
+  const result = buildFixture(directory);
+  assert.equal(result.code, 0, result.output);
+  assert.equal(existsSync(join(directory, "astro-ran")), true, "the build must reach Astro");
+});
