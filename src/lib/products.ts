@@ -1,5 +1,5 @@
 import { getCollection, type CollectionEntry } from "astro:content";
-import { assertProductCapacity } from "./page-graphics/scenes/products.ts";
+import { assertProductCapacity } from "./page-graphics/scenes/product-slots.ts";
 
 export type Product = CollectionEntry<"products">;
 
