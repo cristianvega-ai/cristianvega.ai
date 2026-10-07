@@ -36,8 +36,9 @@ export default defineConfig({
     env: { WRANGLER_SEND_METRICS: "false" },
     timeout: 60_000,
   }, {
-    // Keep draft checks separate from the production build.
-    command: "npm run dev -- --ignore-lock --host 127.0.0.1 --port 4324",
+    // Keep draft checks separate from the production build. The test
+    // configuration sends no reload to a page under test.
+    command: "npm run dev -- --config tests/e2e/dev-server.config.mjs --ignore-lock --host 127.0.0.1 --port 4324",
     url: "http://127.0.0.1:4324/writing/",
     reuseExistingServer: false,
     // Keep the test server in the foreground so Playwright can stop it.
