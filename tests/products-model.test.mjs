@@ -5,7 +5,7 @@ import { LYRA } from "../src/lib/lyra/constellation.ts";
 import { stagger } from "../src/lib/motion/clock.ts";
 import { LYRA_MAX_SIZE } from "../src/lib/page-graphics/lyra.ts";
 import { FIGURE_INSET } from "../src/lib/page-graphics/inset.ts";
-import { MAX_SLOTS, MIN_SLOTS, SLOT_REACH, fitLyraAtVega, orbitBox, orbitSlot, planOrbit, productProgress } from "../src/lib/page-graphics/scenes/products.ts";
+import { MAX_SLOTS, MIN_SLOTS, SLOT_REACH, assertProductCapacity, fitLyraAtVega, orbitBox, orbitSlot, planOrbit, productProgress } from "../src/lib/page-graphics/scenes/products.ts";
 import { figureBox } from "./helpers.mjs";
 
 // A box of a tall side column, and a box of a wide band, as the page graphic meets them.
@@ -20,6 +20,17 @@ test("planOrbit keeps six slots and lights one for each product up to the maximu
   assert.deepEqual(planOrbit(6), { lit: 6, total: 6 });
   assert.deepEqual(planOrbit(MAX_SLOTS + 5), { lit: MAX_SLOTS, total: MAX_SLOTS });
   assert.deepEqual(planOrbit(Number.NaN), { lit: 0, total: 6 });
+});
+
+test("assertProductCapacity accepts every count up to the slots and rejects more", () => {
+  assert.equal(MAX_SLOTS, 8, "the picture has eight product slots");
+  for (let count = 0; count <= MAX_SLOTS; count += 1) assert.doesNotThrow(() => assertProductCapacity(count));
+  assert.throws(() => assertProductCapacity(MAX_SLOTS + 1), (error) => {
+    assert.match(error.message, /9 products/);
+    assert.match(error.message, /8 slots/);
+    assert.match(error.message, /draft: true/);
+    return true;
+  });
 });
 
 test("productProgress finishes every active node and link at full progress", () => {
