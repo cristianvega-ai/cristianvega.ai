@@ -22,7 +22,7 @@ export interface MountOptions extends Omit<ControllerOptions, "draw" | "onResize
   attach?: (handle: CanvasHandle) => (() => void) | void;
 }
 
-/** Mount a page scene. Preserve its entrance across restores and cap each frame interval at 64 milliseconds. */
+/** Mount a page scene. Preserve its entrance across restores. */
 export function mountCanvas(container: HTMLElement, options: MountOptions): CanvasHandle | null {
   const ctx = container.querySelector("canvas")?.getContext("2d");
   if (!ctx) return null;

@@ -133,12 +133,13 @@ const emptyLifetime = { resize: 0, intersection: 0, visibilitychange: 0, pagehid
 
 for (const policy of ["page", "globe"]) {
   test.describe(`${policy} canvas controller`, () => {
-    test("preserves its frame interval and pixel ratio policy", async ({ page }) => {
+    test("caps the frame interval and keeps its pixel ratio policy", async ({ page }) => {
       await mountScene(page, policy);
       await page.evaluate(() => { window.__step(0); window.__step(1000); });
+      // Every canvas shares the 64 ms frame interval cap.
       expect(await clock(page)).toEqual({
-        elapsed: policy === "page" ? 64 : 1000,
-        activeTime: policy === "page" ? 64 : 1000,
+        elapsed: 64,
+        activeTime: 64,
         reduced: false,
         ratio: policy === "page" ? 2 : 1.75,
       });

@@ -17,10 +17,10 @@
  *   ../motion/ is the shared canvas layer. It does not import from page-graphics/ or lyra-globe/.
  *   Scenes own layout, drawing, and interaction listeners.
  *   Active time excludes hidden tabs and periods outside the viewport.
- *   Page scenes cap frame intervals at 64 milliseconds and device pixel ratios at 2.
- *   Page scenes preserve their clocks across restored pages.
- *   The globe uses full frame intervals and caps device pixel ratios at 1.75.
- *   The globe restarts its entrance after a restored page.
+ *   Every canvas caps one frame interval at FRAME_INTERVAL_CAP_MS (64 milliseconds).
+ *   A long frame then slows the motion for a moment instead of skipping part of it.
+ *   Page scenes cap device pixel ratios at 2 and preserve their clocks across restored pages.
+ *   The globe caps device pixel ratios at 1.75 and restarts its entrance after a restored page.
  *   state.entranceComplete reports completion of the configured controller duration.
  *   data-motion-state stays "playing" while the scene requests more motion.
  *

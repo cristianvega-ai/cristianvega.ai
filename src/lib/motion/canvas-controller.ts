@@ -47,20 +47,24 @@ export interface CanvasHandle {
   destroy: () => void;
 }
 
+/**
+ * Every canvas advances its clocks by at most this many milliseconds in one frame. A long frame,
+ * such as a main-thread stall while the page loads, then slows the motion for a moment instead of
+ * skipping part of it. The globe and the page scenes share it, so their clocks stay coordinated.
+ */
+export const FRAME_INTERVAL_CAP_MS = 64;
+
 interface CanvasPolicy {
-  frameIntervalCap: number;
   dprCap: number;
   restartOnRestore: boolean;
 }
 
 export const PAGE_GRAPHIC_POLICY: CanvasPolicy = {
-  frameIntervalCap: 64,
   dprCap: 2,
   restartOnRestore: false,
 };
 
 export const GLOBE_POLICY: CanvasPolicy = {
-  frameIntervalCap: Infinity,
   dprCap: 1.75,
   restartOnRestore: true,
 };
@@ -143,7 +147,7 @@ export function mountCanvasController(
       return;
     }
     if (previous !== undefined) {
-      const dt = Math.min(policy.frameIntervalCap, time - previous);
+      const dt = Math.min(FRAME_INTERVAL_CAP_MS, time - previous);
       state.elapsed = Math.min(duration, state.elapsed + dt);
       state.activeTime += dt;
     }

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { currentContent, currentPublished, latestWork, setHomepageState, settle, tabTo, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, stepFrame } from "./fixtures.mjs";
+import { currentContent, currentPublished, latestWork, setHomepageState, settle, tabTo, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames } from "./fixtures.mjs";
 
 /**
  * The homepage: one screen with the intro, two calls to action for Writing
@@ -238,12 +238,13 @@ test.describe("the globe entrance", () => {
     const empty = await look();
     await layers.evaluateAll((list) => list.forEach((layer) => { layer.style.visibility = ""; }));
     const levels = [await look()];
-    await page.evaluate(() => window.__step(1));
-    for (const time of [301, 601, 901, 1201, 1501, 1801, 2101]) {
-      await stepFrame(page, time);
+    // The first frame starts the clock. Then each step plays 300 ms in 16 ms frames, under the 64 ms cap.
+    await playFrames(page, 16);
+    for (let step = 0; step < 7; step += 1) {
+      await playFrames(page, 300);
       levels.push(await look());
     }
-    await page.evaluate(() => window.__step(9000));
+    await playFrames(page, 2400);
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "still");
     // Wait for the fonts after the canvas clock finishes the labels.
     await settle(page);
@@ -388,9 +389,9 @@ test.describe("the globe motion", () => {
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
     expect(await pendingFrames(page)).toBe(1);
 
-    await page.evaluate(() => window.__step(1000));
+    await playFrames(page, 1000);
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
-    await page.evaluate(() => window.__step(9000));
+    await playFrames(page, 2000);
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "still");
     expect(await pendingFrames(page)).toBe(0);
   });
