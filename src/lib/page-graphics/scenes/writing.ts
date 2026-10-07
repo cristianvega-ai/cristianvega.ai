@@ -1,6 +1,6 @@
 import { cubicPoint, type Point } from "../../motion/easing.ts";
 import { LYRA } from "../../lyra/constellation.ts";
-import { stagger } from "../clock.ts";
+import { stagger } from "../../motion/clock.ts";
 import { reportFigureLeft } from "../inset.ts";
 import { labelBounds } from "../labels.ts";
 import { makeGridLayer } from "../mesh.ts";

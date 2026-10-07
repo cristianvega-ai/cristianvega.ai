@@ -1,6 +1,6 @@
 import type { Point } from "../../motion/easing.ts";
 import { LYRA, LYRA_LINKS } from "../../lyra/constellation.ts";
-import { stagger } from "../clock.ts";
+import { stagger } from "../../motion/clock.ts";
 import { around, ellipseSegments, labelBounds, placeLabel, type PlacedLabel, type Rect, type Segment } from "../labels.ts";
 import { FIGURE_INSET, reportFigureLeft } from "../inset.ts";
 import { LYRA_MAX_SIZE } from "../lyra.ts";

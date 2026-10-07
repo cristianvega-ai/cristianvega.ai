@@ -1,5 +1,5 @@
 import { LYRA, LYRA_LINKS } from "../../lyra/constellation.ts";
-import { entranceProgress, stagger } from "../clock.ts";
+import { entranceProgress, stagger } from "../../motion/clock.ts";
 import { around, labelBounds, placeLabel, type PlacedLabel, type Rect, type Segment } from "../labels.ts";
 import { FIGURE_INSET, reportFigureLeft } from "../inset.ts";
 import { layoutLyra, type LyraPoint } from "../lyra.ts";

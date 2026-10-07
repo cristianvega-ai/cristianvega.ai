@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { DURATION, entranceProgress } from "../src/lib/page-graphics/clock.ts";
+import { DURATION, entranceProgress } from "../src/lib/motion/clock.ts";
 
 test("the page graphic entrance clock starts at zero, ends at one, and never falls", () => {
   assert.equal(entranceProgress(0), 0);

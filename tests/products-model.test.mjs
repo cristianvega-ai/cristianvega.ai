@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { LYRA } from "../src/lib/lyra/constellation.ts";
-import { stagger } from "../src/lib/page-graphics/clock.ts";
+import { stagger } from "../src/lib/motion/clock.ts";
 import { LYRA_MAX_SIZE } from "../src/lib/page-graphics/lyra.ts";
 import { FIGURE_INSET } from "../src/lib/page-graphics/inset.ts";
 import { MAX_SLOTS, MIN_SLOTS, fitLyraAtVega, orbitBox, orbitSlot, planOrbit, productProgress } from "../src/lib/page-graphics/scenes/products.ts";

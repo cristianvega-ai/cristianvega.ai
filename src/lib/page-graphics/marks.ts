@@ -1,6 +1,6 @@
 import type { Point } from "../motion/easing.ts";
 import { clamp, easeOutCubic, smooth, TAU, unit } from "./math.ts";
-import type { Palette } from "./palette.ts";
+import type { Palette } from "../motion/palette.ts";
 
 // Drawing marks for the page graphics, in the language of the homepage globe.
 // Sizes are CSS pixels. Every mark draws with no allocation, so a frame is cheap.

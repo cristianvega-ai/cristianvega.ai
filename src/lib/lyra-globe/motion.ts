@@ -1,7 +1,7 @@
 import { clamp, easeOutCubic, FULL_TURN_RADIANS, type Point } from "../motion/easing.ts";
 import { GLOBE_POLICY, mountCanvasController, type FrameState } from "../motion/canvas-controller.ts";
-import type { Palette } from "../page-graphics/palette.ts";
-import { entranceProgress } from "../page-graphics/clock.ts";
+import type { Palette } from "../motion/palette.ts";
+import { entranceProgress } from "../motion/clock.ts";
 import { buildGlobe, EDGE_SPAN, GLOBE_HEIGHT, GLOBE_WIDTH, NODE_SPAN, type Globe, type GlobeRoute } from "./model.ts";
 
 /** How far behind its head a comet leaves light, in grid units, and in how many soft slices. */
