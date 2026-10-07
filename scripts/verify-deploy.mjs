@@ -142,10 +142,26 @@ function hasGzip(headers) {
   return /\bgzip\b/i.test(headerValue(headers, "content-encoding"));
 }
 
+// Remove each HTML comment where a browser ends it: at the first "-->", or at
+// the end of the document. The search for "-->" starts after "<!", so "<!-->"
+// ends at once. One pass keeps two removed parts from making a new comment.
+function withoutComments(html) {
+  let text = "";
+  let index = 0;
+  for (;;) {
+    const start = html.indexOf("<!--", index);
+    if (start === -1) return text + html.slice(index);
+    text += html.slice(index, start);
+    const end = html.indexOf("-->", start + 2);
+    if (end === -1) return text;
+    index = end + 3;
+  }
+}
+
 function scriptUrls(html) {
   const urls = new Set();
   const base = new URL(`${origin}/`);
-  const document = html.replace(/<!--[\s\S]*?-->/g, "");
+  const document = withoutComments(html);
   const elements = document.matchAll(/<script(?=[\s/>])([^>]*)>(?:[\s\S]*?<\/script\s*>|$)/gi);
   for (const [, attributes] of elements) {
     const sources = [...attributes.matchAll(

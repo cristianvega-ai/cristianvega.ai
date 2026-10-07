@@ -285,6 +285,24 @@ test("the live gate ignores resources that the homepage does not load", async (t
   }
 });
 
+test("the live gate ends HTML comments where a browser ends them", async (t) => {
+  // A browser ends a comment at the first "-->", or at the end of the document.
+  const html = homepage
+    + '<!--<!-- <script src="/nested.js"></script> -->'
+    + '<!<!---->--<script src="/after.js"></script>'
+    + '<!-- <script src="/open.js"></script>';
+  const result = await checkDeployment(t, {
+    html,
+    expectedHtml: html,
+    scriptResponses: { "/after.js": {} },
+  });
+  assert.equal(result.code, 0, result.output);
+  assert.equal(result.requests.filter((request) => request === "/after.js").length, 1);
+  for (const path of ["/nested.js", "/open.js"]) {
+    assert.ok(!result.requests.includes(path), path);
+  }
+});
+
 test("the live gate does not request external scripts", async (t) => {
   const requests = [];
   const server = createServer((request, response) => {
