@@ -53,7 +53,23 @@ export interface OrbitPlan {
   total: number;
 }
 
-/** Plan the slots for a product count. The picture keeps at least six slots so it shows room to grow. */
+/**
+ * Reject a published product count that the picture cannot show. getProducts() calls it, so a build
+ * with more published products than slots fails with this message instead of a picture with a missing star.
+ */
+export function assertProductCapacity(count: number): void {
+  if (count > MAX_SLOTS) {
+    throw new Error(
+      `The site publishes ${count} products, but the products graphic has ${MAX_SLOTS} slots. ` +
+        "Set draft: true on a product, or add a slot to SLOT_OFFSET and SLOT_RING in src/lib/page-graphics/scenes/products.ts.",
+    );
+  }
+}
+
+/**
+ * Plan the slots for a product count. The picture keeps at least six slots so it shows room to grow.
+ * The build rejects more than MAX_SLOTS products. The clamp only guards a changed page.
+ */
 export function planOrbit(count: number): OrbitPlan {
   const lit = Math.max(0, Math.min(Math.floor(count) || 0, MAX_SLOTS));
   return { lit, total: Math.max(MIN_SLOTS, lit) };
