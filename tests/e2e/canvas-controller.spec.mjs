@@ -383,6 +383,52 @@ for (const scene of scenes) {
   }
 }
 
+/**
+ * Read the finished picture of a scene at one device pixel ratio. Device emulation sets the ratio, as
+ * browser device modes and audit tools do. `cells` holds the share of strong paint in each cell of a
+ * 4 x 4 grid over the bitmap, so pictures at two ratios compare cell by cell.
+ */
+async function readPicture(browser, baseURL, scene, deviceScaleFactor) {
+  const context = await browser.newContext({ viewport: VIEWPORTS.desktop, deviceScaleFactor });
+  const page = await context.newPage();
+  await useReducedMotion(page);
+  await page.goto(new URL(scene.route, baseURL).href);
+  await expect(page.locator(scene.selector)).toHaveAttribute("data-motion-state", "still");
+  await settle(page);
+  const picture = await page.locator(`${scene.selector} canvas`).evaluate((canvas) => {
+    const { width, height } = canvas;
+    const { data } = canvas.getContext("2d").getImageData(0, 0, width, height);
+    const cells = new Array(16).fill(0);
+    let strong = 0;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        if (data[(y * width + x) * 4 + 3] <= 140) continue;
+        cells[Math.floor((y * 4) / height) * 4 + Math.floor((x * 4) / width)] += 1;
+        strong += 1;
+      }
+    }
+    const box = canvas.getBoundingClientRect();
+    return { ratio: devicePixelRatio, bitmap: [width, height], box: [box.width, box.height], cells: cells.map((count) => count / strong) };
+  });
+  await context.close();
+  return picture;
+}
+
+for (const [scene, deviceScaleFactor] of [[scenes[1], 2], [scenes[0], 1.5]]) {
+  test(`${scene.name} draws its whole picture at a device pixel ratio of ${deviceScaleFactor}`, async ({ browser, baseURL }) => {
+    const plain = await readPicture(browser, baseURL, scene, 1);
+    const dense = await readPicture(browser, baseURL, scene, deviceScaleFactor);
+    expect(dense.ratio).toBe(deviceScaleFactor);
+    // The ratio is under the cap of each scene, so the bitmap has the CSS size times the ratio.
+    expect(Math.abs(dense.bitmap[0] - dense.box[0] * deviceScaleFactor), `bitmap ${dense.bitmap} for box ${dense.box}`).toBeLessThanOrEqual(1);
+    expect(Math.abs(dense.bitmap[1] - dense.box[1] * deviceScaleFactor), `bitmap ${dense.bitmap} for box ${dense.box}`).toBeLessThanOrEqual(1);
+    // The same marks paint in the same cells, so little paint moves: under 0.15 of it on macOS.
+    // A cropped picture moves its paint to other cells: 1.5 for the globe and 2 for About.
+    const moved = dense.cells.reduce((sum, share, i) => sum + Math.abs(share - plain.cells[i]), 0);
+    expect(moved, "the picture at the higher ratio is the whole picture, not a crop").toBeLessThan(0.5);
+  });
+}
+
 test("resumes product drift after reduced motion ends", async ({ page }) => {
   await useManualFrames(page);
   await page.goto(`${dev}/products/`);

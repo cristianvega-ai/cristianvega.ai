@@ -187,7 +187,11 @@ export function mountCanvasController(
     state.height = h;
     // The screen shows a box at a fractional position on whole device pixels, for example 567 rows on 566.
     // It then resamples the bitmap, and thin lines become dimmer. Below the cap, use the device pixels of the box.
-    const exact = device && state.ratio === devicePixelRatio;
+    // Device emulation can report a device box at the CSS size with a larger pixel ratio. That box draws a
+    // cropped picture, so use it only within one device pixel of the CSS size times the ratio.
+    const exact = device && state.ratio === devicePixelRatio
+      && Math.abs(device.inlineSize - w * state.ratio) <= 1
+      && Math.abs(device.blockSize - h * state.ratio) <= 1;
     canvas!.width = exact ? device.inlineSize : Math.round(w * state.ratio);
     canvas!.height = exact ? device.blockSize : Math.round(h * state.ratio);
     sized = true;
