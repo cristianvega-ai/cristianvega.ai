@@ -209,6 +209,19 @@ for (const viewport of [VIEWPORTS.desktop, { width: 1100, height: 800 }, VIEWPOR
   });
 }
 
+for (const viewport of [{ width: 1100, height: 800 }, VIEWPORTS.desktop, { width: 1920, height: 1080 }]) {
+  test(`centres the backdrop on the sphere at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await useReducedMotion(page);
+    await page.goto("/");
+    await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
+    await settle(page);
+    const read = await readProjection(page);
+    expect(Math.abs(read.underlay.x - read.sphere.x), `x: backdrop ${read.underlay.x}, sphere ${read.sphere.x}`).toBeLessThanOrEqual(1);
+    expect(Math.abs(read.underlay.y - read.sphere.y), `y: backdrop ${read.underlay.y}, sphere ${read.sphere.y}`).toBeLessThanOrEqual(1);
+  });
+}
+
 /** Change model inputs in an isolated build. Keep the production source intact. */
 async function createGlobeBuild() {
   const directory = await realpath(await mkdtemp(join(tmpdir(), "cristianai-globe-")));
@@ -291,7 +304,20 @@ async function readProjection(page) {
       },
       host: { width: hostBox.width, height: hostBox.height },
       canvas: { x: canvas.left - hostBox.left, y: canvas.top - hostBox.top, width: canvas.width, height: canvas.height },
-      underlay: { x: parseFloat(getComputedStyle(host, "::before").left), y: parseFloat(getComputedStyle(host, "::before").top) },
+      // The sphere centre in host pixels, from the drawn picture and the model ring.
+      sphere: {
+        x: canvas.left - hostBox.left + (ring.cx.baseVal.value / svg.viewBox.baseVal.width) * canvas.width,
+        y: canvas.top - hostBox.top + (ring.cy.baseVal.value / svg.viewBox.baseVal.height) * canvas.height,
+      },
+      // The centre of the backdrop box after its transform, in host pixels.
+      underlay: (() => {
+        const layer = getComputedStyle(host, "::before");
+        const shift = new DOMMatrixReadOnly(layer.transform === "none" ? undefined : layer.transform);
+        return {
+          x: parseFloat(layer.left) + parseFloat(layer.width) / 2 + shift.e,
+          y: parseFloat(layer.top) + parseFloat(layer.height) / 2 + shift.f,
+        };
+      })(),
       href: document.querySelector('link[href^="/globe-projection/"]').getAttribute("href"),
     };
   });
@@ -360,8 +386,8 @@ test("updates served globe geometry when the model changes", async ({ page }) =>
         expect(ringTop).toBeLessThan(read.radius * 0.06 * unit);
         expect(captionBase).toBeLessThan(read.host.height);
         expect(read.host.height - captionBase).toBeLessThan(read.radius * 0.06 * unit);
-        expect(Math.abs(read.underlay.x - read.host.width * read.cx / read.width)).toBeLessThan(0.03);
-        expect(Math.abs(read.underlay.y - read.host.height * read.cy / read.height)).toBeLessThan(0.03);
+        expect(Math.abs(read.underlay.x - read.sphere.x), "the backdrop sits on the sphere centre").toBeLessThanOrEqual(1);
+        expect(Math.abs(read.underlay.y - read.sphere.y), "the backdrop sits on the sphere centre").toBeLessThanOrEqual(1);
       } else {
         expect(Math.abs(read.canvas.x - (read.host.width / 2 - read.canvas.width * read.cx / read.width))).toBeLessThan(0.03);
         expect(Math.abs(read.canvas.y - (read.host.height * 0.486 - read.canvas.width * read.vegaY / read.width))).toBeLessThan(0.03);

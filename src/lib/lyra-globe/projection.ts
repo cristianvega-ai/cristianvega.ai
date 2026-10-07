@@ -27,12 +27,12 @@ export interface GlobeProjection {
   boxAspect: number;
   /** Distance from the picture edge to the left of the outer ring, per box width. */
   ringInset: number;
-  /** Distance from the left of the outer ring to the sphere centre, per box width. */
+  /** Distance from the left of the outer ring to the sphere centre, per box width. The ring starts at the figure inset. */
   centerReach: number;
-  /** Sphere centre per picture width. */
+  /** Sphere centre per box height, for the backdrop behind the sphere. */
+  centerTop: number;
+  /** Sphere centre per picture width, for the band below 1100px. */
   centerX: number;
-  /** Sphere centre per picture height. */
-  centerY: number;
   /** Vega per picture width, for the band below 1100px. */
   vegaY: number;
   /** Characters in the caption under the sphere. CSS measures its reach in the label font. */
@@ -52,16 +52,18 @@ export function projectGlobe(globe: Globe): GlobeProjection {
   const cropBottom = caption.y + ring.ry * CROP_BELOW_CAPTION;
   const pictureAspect = round(globe.height / globe.width);
   const pictureHeight = round(globe.height / (cropBottom - cropTop));
+  const pictureTop = round(-cropTop / (cropBottom - cropTop));
   return {
     pictureScale: PICTURE_SCALE,
     pictureAspect,
     pictureHeight,
-    pictureTop: round(-cropTop / (cropBottom - cropTop)),
+    pictureTop,
     boxAspect: round((pictureAspect * PICTURE_SCALE) / pictureHeight),
     ringInset: round(((ring.x - ring.rx) / globe.width) * PICTURE_SCALE),
     centerReach: round((ring.rx / globe.width) * PICTURE_SCALE),
+    // The picture sits at pictureTop, so the sphere centre sits this far down the box.
+    centerTop: round(pictureTop + (ring.y / globe.height) * pictureHeight),
     centerX: ring.x / globe.width,
-    centerY: ring.y / globe.height,
     vegaY: vega.y / globe.width,
     captionLength: caption.text.length,
   };

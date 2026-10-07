@@ -258,13 +258,15 @@ body[data-page="home"] main {
 }
 
 /* The grid fades out behind the sphere, so the lines of the sphere read
-   against clean ink. The layer is decorative and takes no input. */
+   against clean ink. The layer is decorative and takes no input. Its centre is the
+   sphere centre: the outer ring starts --figure-inset from the box edge, and the
+   centre sits one ring radius further in. */
 .hero__globe::before {
   content: "";
   position: absolute;
   z-index: -1;
-  left: calc(var(--globe-center-x, .51) * 100%);
-  top: calc(var(--globe-center-y, .49) * 100%);
+  left: calc(var(--figure-inset) + var(--globe-center-reach, .4162) * 100%);
+  top: calc(var(--globe-center-top, .4783) * 100%);
   width: 96%;
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
