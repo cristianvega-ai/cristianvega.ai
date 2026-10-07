@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { CROP_ABOVE_RING, CROP_BELOW_CAPTION, PICTURE_SCALE } from "../../src/lib/lyra-globe/projection.ts";
 import { root } from "../helpers.mjs";
-import { settle, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, stepFrame } from "./fixtures.mjs";
+import { settle, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames } from "./fixtures.mjs";
 
 const globe = "[data-lyra-globe]";
 const labels = `${globe} .lyra-globe__label`;
@@ -45,8 +45,8 @@ for (const pause of ["hidden", "offscreen"]) {
     await page.goto("/");
     await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
     await expect.poll(() => pendingFrames(page)).toBe(1);
-    await stepFrame(page, 1000);
-    await stepFrame(page, 1800);
+    // The first frame starts the clock. Each frame then adds 16 ms, under the 64 ms cap.
+    await playFrames(page, 800);
     await expect.poll(async () => (await opacity(page))[1]).toBeGreaterThan(0);
     const first = await opacity(page);
     expect(first[0]).toBe(0);
@@ -80,11 +80,12 @@ for (const pause of ["hidden", "offscreen"]) {
       } else window.scrollTo({ top: 0, behavior: "instant" });
     }, pause);
     await expect.poll(() => pendingFrames(page)).toBe(1);
-    await stepFrame(page, 10000);
+    // The first frame after the pause adds no time.
+    await playFrames(page, 16);
     expect(await opacity(page)).toEqual(first);
-    await stepFrame(page, 10500);
+    await playFrames(page, 512);
     expect(await opacity(page)).toEqual([0, 0.7]);
-    await stepFrame(page, 11500);
+    await playFrames(page, 1100);
     await finishLabels(page);
     expect(await pendingFrames(page)).toBe(0);
   });
@@ -103,8 +104,7 @@ test("shows complete labels for reduced motion and live preference changes", asy
   await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
   await expect.poll(() => pendingFrames(page)).toBe(1);
   expect(await opacity(page)).toEqual([0, 0]);
-  await stepFrame(page, 1);
-  await stepFrame(page, 801);
+  await playFrames(page, 816);
   await useReducedMotion(page);
   await finishLabels(page);
   expect(await pendingFrames(page)).toBe(0);
@@ -119,8 +119,7 @@ test("restarts label progress after each restored entrance", async ({ page }) =>
     await expect.poll(() => pendingFrames(page)).toBe(1);
     expect(await opacity(page)).toEqual([0, 0]);
     expect(await page.locator(labels).evaluateAll((nodes) => nodes.flatMap((node) => node.getAnimations()).length)).toBe(2);
-    await stepFrame(page, cycle * 10000 + 1);
-    await stepFrame(page, cycle * 10000 + 2301);
+    await playFrames(page, 2400);
     await finishLabels(page);
     await transition(page, "pagehide");
     await expect(page.locator(globe)).not.toHaveAttribute("data-ready", /.*/);
@@ -142,8 +141,7 @@ test("shows complete fallback labels after a restored canvas fails", async ({ pa
   });
   await page.goto("/");
   await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
-  await stepFrame(page, 1);
-  await stepFrame(page, 801);
+  await playFrames(page, 816);
   await transition(page, "pagehide");
   await page.evaluate(() => { window.__failResize = true; });
   await transition(page, "pageshow");
