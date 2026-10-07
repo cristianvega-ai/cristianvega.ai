@@ -62,6 +62,18 @@ export const latestWork = [
   { section: "products", href: "/products/", label: "See my latest products", soon: "Latest products · coming soon" },
 ];
 
+// The header links in site order. A section joins them when it holds a published entry.
+export function headerLinks(inventory = readContentInventory()) {
+  const published = publishedContent(inventory);
+  return [
+    { label: "about", href: "/about/" },
+    ...latestWork.filter((item) => published[item.section].length > 0).map((item) => ({ label: item.section, href: item.href })),
+    { label: "linkedin", href: "https://www.linkedin.com/in/cristianvega-ai" },
+    { label: "x", href: "https://x.com/cristianvega" },
+    { label: "github", href: "https://github.com/cristianvega-ai" },
+  ];
+}
+
 export function listBuiltRoutes(directory = dist, prefix = "/") {
   const routes = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { assertPageBasics, dist, escapeAttribute, escapeHtml, latestWork, publishedContent, readContentInventory, readDistFile, withContentBuild } from "./helpers.mjs";
+import { assertPageBasics, dist, escapeAttribute, escapeHtml, headerLinks, latestWork, publishedContent, readContentInventory, readDistFile, withContentBuild } from "./helpers.mjs";
 
 // What each rendered page must say, and the contracts every page shares:
 // accessibility landmarks, SEO metadata, navigation state, and truthful links.
@@ -12,8 +12,7 @@ import { assertPageBasics, dist, escapeAttribute, escapeHtml, latestWork, publis
 const inventory = readContentInventory();
 
 function assertPublicationNavigation(html, sourceInventory) {
-  const published = publishedContent(sourceInventory);
-  const expected = ["/about/", ...latestWork.filter((item) => published[item.section].length > 0).map((item) => item.href)];
+  const expected = headerLinks(sourceInventory).map((link) => link.href).filter((href) => href.startsWith("/"));
   for (const label of ["Primary", "Menu"]) {
     const nav = html.match(new RegExp(`<nav\\b[^>]*aria-label="${label}"[\\s\\S]*?</nav>`))?.[0];
     assert.ok(nav, `${label} navigation must exist`);
