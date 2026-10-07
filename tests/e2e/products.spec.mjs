@@ -193,7 +193,13 @@ for (const target of Object.values(PAGES)) {
         await settle(page);
         // The fixed box stays in view. The band scrolls, so it is checked at the top and at the bottom of the page.
         for (const place of ["top", "bottom"]) {
-          await page.evaluate((where) => scrollTo(0, where === "top" ? 0 : document.documentElement.scrollHeight), place);
+          // The site scrolls smoothly. Scroll at once, so both measurements see the same place.
+          const scroll = await page.evaluate((where) => {
+            const top = where === "top" ? 0 : Math.max(0, document.documentElement.scrollHeight - document.documentElement.clientHeight);
+            scrollTo({ top, behavior: "instant" });
+            return { top, now: scrollY };
+          }, place);
+          expect(Math.abs(scroll.now - scroll.top), `${place}: the page is at the ${place}`).toBeLessThanOrEqual(1);
           const shape = await page.locator(target.graphic).evaluate((el) => {
             const rect = el.getBoundingClientRect();
             return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
