@@ -109,6 +109,8 @@ const structuredData = {
     <link rel="preload" href={geist} as="font" type="font/woff2" crossorigin />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
+    {/* A page adds its own head elements here, such as the generated globe stylesheet. */}
+    <slot name="head" />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(structuredData)} />
   </head>
   <body data-page={active}>

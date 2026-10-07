@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import LyraGlobe from "../components/LyraGlobe.astro";
+import { globeProjectionHref } from "../lib/lyra-globe/projection";
 import { getPosts } from "../lib/blog";
 import { getProducts } from "../lib/products";
 import "../styles/entries.css";
@@ -17,6 +18,8 @@ const next = [
 ---
 
 <BaseLayout active="home">
+  {/* The globe reads its model measurements from this stylesheet. It loads in the head, so it does not block the body. */}
+  <link slot="head" rel="stylesheet" href={globeProjectionHref} />
   <main>
     <section class="hero" aria-labelledby="home-title">
       <div class="hero__stage wrap">

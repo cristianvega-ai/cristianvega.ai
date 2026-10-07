@@ -153,6 +153,21 @@ test("shows complete fallback labels after a restored canvas fails", async ({ pa
   expect(await pendingFrames(page)).toBe(0);
 });
 
+test("loads the projection stylesheet from the head with a long cache", async ({ page, request }) => {
+  await page.goto("/");
+  const links = await page.evaluate(() => ({
+    head: [...document.head.querySelectorAll('link[rel="stylesheet"][href^="/globe-projection/"]')].map((link) => link.getAttribute("href")),
+    body: document.body.querySelectorAll('link[href^="/globe-projection/"]').length,
+  }));
+  expect(links.head).toHaveLength(1);
+  expect(links.body, "the body must not hold a stylesheet that blocks the parser").toBe(0);
+  expect(links.head[0]).toMatch(/^\/globe-projection\/[a-f0-9]{16}\.css$/);
+  const response = await request.get(links.head[0]);
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("text/css");
+  expect(response.headers()["cache-control"], "the versioned URL can stay cached").toBe("public, max-age=31536000, immutable");
+});
+
 /** Change model inputs in an isolated build. Keep the production source intact. */
 async function createGlobeBuild() {
   const directory = await realpath(await mkdtemp(join(tmpdir(), "cristianai-globe-")));
