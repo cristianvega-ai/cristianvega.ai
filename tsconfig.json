@@ -9,8 +9,5 @@
     ".nyc_output",
     "docs/superpowers",
     "worktrees"
-  ],
-  "compilerOptions": {
-    "baseUrl": "."
-  }
+  ]
 }
