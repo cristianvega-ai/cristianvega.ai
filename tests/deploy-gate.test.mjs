@@ -68,9 +68,12 @@ async function checkDeployment(t, {
   redirectLocation = "/",
   missingStatus = 404,
   aboutStatus = 200,
+  writingStatus = 404,
   scriptResponses = {},
   headers = {},
   notFoundHeaders = {},
+  aboutHeaders = {},
+  writingHeaders = {},
   postStatus = 405,
   securityStatus = 200,
   securityExpires = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
@@ -82,11 +85,15 @@ async function checkDeployment(t, {
   const resources = new Map(scriptPaths.map((path) => [path, {}]));
   for (const [path, response] of Object.entries(scriptResponses)) resources.set(path, response);
   const requests = [];
+  const routeHeaders = new Map([
+    ["/__deploy-gate-missing-path__/", notFoundHeaders],
+    ["/about/", aboutHeaders],
+    ["/writing/", writingHeaders],
+  ]);
 
   const server = createServer((request, response) => {
     requests.push(request.url);
-    const responseHeaders = { ...approvedHeaders, ...headers };
-    if (request.url === "/__deploy-gate-missing-path__/") Object.assign(responseHeaders, notFoundHeaders);
+    const responseHeaders = { ...approvedHeaders, ...headers, ...routeHeaders.get(request.url) };
     for (const [name, value] of Object.entries(responseHeaders)) {
       if (value !== null) response.setHeader(name, value);
     }
@@ -102,6 +109,9 @@ async function checkDeployment(t, {
     } else if (request.url === "/about/") {
       response.writeHead(aboutStatus, { "Content-Type": "text/html; charset=utf-8" });
       response.end("<!doctype html><title>About</title>");
+    } else if (request.url === "/writing/") {
+      response.writeHead(writingStatus, { "Content-Type": "text/html; charset=utf-8" });
+      response.end("<!doctype html><title>Writing</title>");
     } else if (["/contact", "/contact/"].includes(request.url)) {
       response.writeHead(redirectStatus, { Location: redirectLocation });
       response.end();
@@ -403,6 +413,48 @@ test("the live gate rejects an unsafe 404 header", async (t) => {
   assert.match(result.output, /404 response x-frame-options must match the approved _headers policy/);
   assert.doesNotMatch(result.output, /verify-deploy: OK/);
 });
+
+for (const writingStatus of [404, 200]) {
+  test(`the live gate checks the headers on /about/ and on /writing/ with HTTP ${writingStatus}`, async (t) => {
+    const result = await checkDeployment(t, { writingStatus });
+    assert.equal(result.code, 0, result.output);
+    for (const route of ["/about/", "/writing/"]) {
+      assert.ok(result.output.includes(`verify-deploy: ${route} security headers match the approved policy`), result.output);
+      assert.equal(result.requests.filter((request) => request === route).length, 1, route);
+    }
+  });
+}
+
+for (const [page, route, options] of [
+  ["/about/", "/about/", {}],
+  ["/writing/ with HTTP 404", "/writing/", {}],
+  ["/writing/ with HTTP 200", "/writing/", { writingStatus: 200 }],
+]) {
+  const option = route === "/about/" ? "aboutHeaders" : "writingHeaders";
+  for (const [name, headers, message] of [
+    ["wildcard scripts", { "Content-Security-Policy": cspWithSources("script-src", "'self' *") }, "content-security-policy must match the approved _headers policy"],
+    ["a missing CSP", { "Content-Security-Policy": null }, "missing content-security-policy"],
+    ["a missing frame option", { "X-Frame-Options": null }, "missing x-frame-options"],
+    ["an unsafe referrer policy", { "Referrer-Policy": "unsafe-url" }, "referrer-policy must match the approved _headers policy"],
+  ]) {
+    test(`the live gate rejects ${name} on ${page}`, async (t) => {
+      const result = await checkDeployment(t, { ...options, [option]: headers });
+      assert.equal(result.code, 1, result.output);
+      assert.ok(result.output.includes(`verify-deploy: ${route} ${message}`), result.output);
+      assert.match(result.output, /homepage security headers match the approved policy/);
+      assert.doesNotMatch(result.output, /verify-deploy: OK/);
+    });
+  }
+}
+
+for (const writingStatus of [301, 500]) {
+  test(`the live gate rejects /writing/ with HTTP ${writingStatus}`, async (t) => {
+    const result = await checkDeployment(t, { writingStatus });
+    assert.equal(result.code, 1, result.output);
+    assert.ok(result.output.includes(`/writing/ returned HTTP ${writingStatus}, expected 200 or 404`), result.output);
+    assert.doesNotMatch(result.output, /verify-deploy: OK/);
+  });
+}
 
 for (const [name, options, message] of [
   ["an injected analytics script", { html: homepage + '<script src="/injected.js"></script>' },
