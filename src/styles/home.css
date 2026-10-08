@@ -70,9 +70,9 @@ body[data-page="home"] main {
   /* The grid layer measures the width of the hero, so its lines line up with
      the content edge whatever the width of the screen. */
   container-type: inline-size;
-  color: var(--mast-text);
+  color: var(--masthead-text);
   /* The room above the eyebrow. The inner pages use the same value. */
-  --head-top: 72px;
+  --hero-top-offset: 72px;
 }
 
 .hero > .wrap {
@@ -88,7 +88,7 @@ body[data-page="home"] main {
      stage already holds. Then the gap, then a zero-width track. The globe box starts in that
      track, at the column edge plus --graphic-gap, and runs past the track to the screen edge.
      The inner pages put their graphic box in the same place. */
-  grid-template-columns: minmax(0, calc(var(--reading-column) - var(--frame-pad))) var(--graphic-gap) 0;
+  grid-template-columns: minmax(0, calc(var(--reading-column) - var(--frame-padding))) var(--graphic-gap) 0;
   align-items: start;
   gap: 0;
   /* The stage has no top padding, so the globe can centre between the header
@@ -102,13 +102,13 @@ body[data-page="home"] main {
   z-index: 1;
   min-width: 0;
   /* The intro starts at the same height as the title of every inner page. */
-  margin-top: var(--head-top);
+  margin-top: var(--hero-top-offset);
 }
 
 /* The eyebrow has the colour, weight, dash, and tracking of the inner pages. Only
    the gap below it is set here, and it matches the gap above an inner page title. */
 .hero .eyebrow {
-  color: var(--mast-meta);
+  color: var(--masthead-metadata);
   margin-bottom: 20px;
 }
 
@@ -125,7 +125,7 @@ body[data-page="home"] main {
 
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .hero__name .highlight {
-    background: var(--grad);
+    background: var(--brand-gradient);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -136,20 +136,20 @@ body[data-page="home"] main {
 /* A quiet line under the name, not a second headline competing with it. */
 .hero__lede {
   max-width: 46ch;
-  font-size: var(--fs-lede);
+  font-size: var(--font-size-lede);
   font-style: italic;
-  line-height: var(--lh-lede);
+  line-height: var(--line-height-lede);
   text-wrap: balance;
-  color: var(--mast-meta);
+  color: var(--masthead-metadata);
 }
 
 .hero__thesis {
   max-width: 50ch;
   margin-top: 22px;
-  font-size: var(--fs-body);
-  line-height: var(--lh-body);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
   text-wrap: pretty;
-  color: color-mix(in srgb, var(--mast-text) 82%, transparent);
+  color: color-mix(in srgb, var(--masthead-text) 82%, transparent);
 }
 
 /* The next step. Two lines under a hairline, in the mono style of the site's
@@ -160,7 +160,7 @@ body[data-page="home"] main {
   max-width: 50ch;
   margin-top: 26px;
   padding: 8px 0 0;
-  border-top: 1px solid var(--mast-line);
+  border-top: 1px solid var(--masthead-line);
   list-style: none;
 }
 
@@ -168,7 +168,7 @@ body[data-page="home"] main {
   display: flex;
   align-items: center;
   min-height: 44px;
-  font: 500 var(--fs-ui) / 1.3 var(--font-mono);
+  font: 500 var(--font-size-interface) / 1.3 var(--font-monospace);
 }
 
 .hero__next-link {
@@ -188,7 +188,7 @@ body[data-page="home"] main {
 }
 
 .hero__next-link:hover {
-  color: var(--mast-text);
+  color: var(--masthead-text);
 }
 
 .hero__next-arrow {
@@ -202,7 +202,7 @@ body[data-page="home"] main {
 }
 
 .hero__next-soon {
-  color: var(--mast-meta);
+  color: var(--masthead-metadata);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -224,9 +224,9 @@ body[data-page="home"] main {
    caption is centred on the sphere, so it reaches half its length past the centre, plus 2px of
    slack. The host takes the label font, so 1ch is the advance of one label character. */
 .hero__globe {
-  font: 400 var(--fs-label) var(--font-mono);
+  font: 400 var(--font-size-label) var(--font-monospace);
   --globe-caption-reach: calc(var(--globe-caption-length, 20) * .5ch + 2px);
-  --globe-max: 720px;
+  --globe-maximum-size: 720px;
   /* The size the owner approved: a little over half of the frame. */
   --globe-size: calc(var(--frame) * .55 - 5px);
   --figure-inset: 32px;
@@ -246,15 +246,15 @@ body[data-page="home"] main {
   isolation: isolate;
   min-width: 0;
   width: min(
-    var(--globe-max),
+    var(--globe-maximum-size),
     var(--globe-size),
-    max(260px, calc((100svh - var(--header-height) - var(--head-top) - var(--footer-reserve) - 2 * var(--globe-gap)) / var(--globe-box-aspect, .9013))),
+    max(260px, calc((100svh - var(--header-height) - var(--hero-top-offset) - var(--footer-reserve) - 2 * var(--globe-gap)) / var(--globe-box-aspect, .9013))),
     calc((var(--globe-room) - var(--figure-inset) - var(--globe-caption-reach) - var(--fade)) / var(--globe-center-reach, .4162))
   );
   justify-self: start;
   /* The globe starts level with the eyebrow. Its bottom sits clear of the footer. */
   align-self: start;
-  margin-top: var(--head-top);
+  margin-top: var(--hero-top-offset);
 }
 
 /* The grid fades out behind the sphere, so the lines of the sphere read
@@ -289,7 +289,7 @@ body[data-page="home"] main {
   background-image: var(--grid-image);
   background-size: 40px 40px;
   background-position:
-    calc(var(--frame-pad) - var(--reading-column) - var(--graphic-gap) - 39px + var(--grid-reach))
+    calc(var(--frame-padding) - var(--reading-column) - var(--graphic-gap) - 39px + var(--grid-reach))
     50%;
   /* The ellipse fades the grid around the globe. The box runs past the screen, so a second mask
      fades the grid out at the screen edge. */
@@ -353,13 +353,13 @@ body[data-page="home"] main {
 
 .lyra-globe__star,
 .lyra-globe__edge {
-  fill: var(--mast-meta);
+  fill: var(--masthead-metadata);
   stroke: none;
 }
 
 .lyra-globe__edge {
   fill: none;
-  stroke: var(--mast-meta);
+  stroke: var(--masthead-metadata);
   stroke-width: .65;
   stroke-linecap: round;
 }
@@ -376,7 +376,7 @@ body[data-page="home"] main {
 }
 
 .lyra-globe__node {
-  fill: var(--mast-text);
+  fill: var(--masthead-text);
 }
 
 /* The labels are text over the picture, in their own svg with no viewBox. A
@@ -387,13 +387,13 @@ body[data-page="home"] main {
 }
 
 .lyra-globe__label {
-  font: 400 var(--fs-graphic-label) var(--font-mono);
-  fill: var(--mast-text);
+  font: 400 var(--font-size-graphic-label) var(--font-monospace);
+  fill: var(--masthead-text);
 }
 
 @container (min-width: 460px) {
   .lyra-globe__label {
-    font-size: var(--fs-label);
+    font-size: var(--font-size-label);
   }
 }
 
@@ -412,7 +412,7 @@ body[data-page="home"] main {
    to action follow the intro. The globe is drawn larger than the band and the band crops
    it, like a planet that rises into view. The crop is one rule in CSS that
    reads the width of the band, so the canvas and the SVG fallback share it.
-   The picture is --pw wide. Its sphere centre sits on the middle of the band.
+   The picture is --globe-picture-width wide. Its sphere centre sits on the middle of the band.
    Vega sits --vega-y from the top of the band, clear of the edge fade. The
    model supplies the sphere centre, Vega anchor, and picture aspect. The picture
    width and the Vega height in the band are design choices. */
@@ -428,7 +428,7 @@ body[data-page="home"] main {
   .hero__globe {
     grid-column: 1;
     grid-row: 1;
-    width: min(100%, calc(var(--reading-column) - 2 * var(--frame-pad)));
+    width: min(100%, calc(var(--reading-column) - 2 * var(--frame-padding)));
     height: var(--band-height);
     margin: 0;
     justify-self: start;
@@ -439,7 +439,7 @@ body[data-page="home"] main {
     grid-column: 1;
     grid-row: 2;
     /* The intro uses the reading column, as the inner pages do. */
-    max-width: calc(var(--reading-column) - 2 * var(--frame-pad));
+    max-width: calc(var(--reading-column) - 2 * var(--frame-padding));
   }
 
   .hero__lede {
@@ -462,7 +462,7 @@ body[data-page="home"] main {
 
   .hero__globe .lyra-globe {
     /* Design choices: the picture width, and Vega 48.6% down the band. */
-    --pw: clamp(420px, 130cqw, 780px);
+    --globe-picture-width: clamp(420px, 130cqw, 780px);
     --vega-y: calc(var(--band-height) * .486);
     width: 100%;
     height: 100%;
@@ -472,10 +472,10 @@ body[data-page="home"] main {
   .lyra-globe__fallback,
   .lyra-globe__canvas,
   .lyra-globe__labels {
-    left: calc(50cqw - var(--pw) * var(--globe-center-x, .51));
-    top: calc(var(--vega-y) - var(--pw) * var(--globe-vega-y, .2525));
-    width: var(--pw);
-    height: calc(var(--pw) * var(--globe-picture-aspect, .8333));
+    left: calc(50cqw - var(--globe-picture-width) * var(--globe-center-x, .51));
+    top: calc(var(--vega-y) - var(--globe-picture-width) * var(--globe-vega-y, .2525));
+    width: var(--globe-picture-width);
+    height: calc(var(--globe-picture-width) * var(--globe-picture-aspect, .8333));
   }
 
   /* The edge fade of the inner page graphics: every edge of the band fades
@@ -501,7 +501,7 @@ body[data-page="home"] main {
 /* The inner pages use less head room on a phone, and so does the intro. */
 @media (max-width: 760px) {
   .hero {
-    --head-top: 48px;
+    --hero-top-offset: 48px;
   }
 
   .hero .eyebrow {
@@ -579,7 +579,7 @@ body[data-page="home"] main {
    (global.css), so the left edge rule holds on every page. */
 @media (min-width: 1600px) {
   .hero__globe {
-    --globe-max: 1040px;
+    --globe-maximum-size: 1040px;
   }
 
   .hero__name {

@@ -166,8 +166,8 @@ test("sizes the globe labels with the graphic label token", async ({ page }) => 
   await page.goto("/");
   await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
   const size = () => page.locator(`${labels}:not(.lyra-globe__label--caption)`).evaluate((label) => getComputedStyle(label).fontSize);
-  expect(await size()).toBe(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--fs-graphic-label").trim()));
-  await page.evaluate(() => document.documentElement.style.setProperty("--fs-graphic-label", "13px"));
+  expect(await size()).toBe(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--font-size-graphic-label").trim()));
+  await page.evaluate(() => document.documentElement.style.setProperty("--font-size-graphic-label", "13px"));
   expect(await size()).toBe("13px");
 });
 
@@ -288,9 +288,9 @@ async function readProjection(page) {
       captionReach,
       inset: parseFloat(style.getPropertyValue("--figure-inset")),
       limits: {
-        max: parseFloat(style.getPropertyValue("--globe-max")),
+        max: parseFloat(style.getPropertyValue("--globe-maximum-size")),
         size: parseFloat(style.getPropertyValue("--frame")) * 0.55 - 5,
-        height: innerHeight - ["--header-height", "--head-top", "--footer-reserve"].reduce((sum, name) => sum + parseFloat(style.getPropertyValue(name)), 0)
+        height: innerHeight - ["--header-height", "--hero-top-offset", "--footer-reserve"].reduce((sum, name) => sum + parseFloat(style.getPropertyValue(name)), 0)
           - 2 * parseFloat(style.getPropertyValue("--globe-gap")),
         room: innerWidth - hostBox.left,
         fade: parseFloat(style.getPropertyValue("--fade")),

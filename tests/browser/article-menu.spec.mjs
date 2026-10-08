@@ -6,7 +6,7 @@ const article = "/writing/full-article-layout-fixture/";
 async function menuContrast(link) {
   return link.evaluate((element) => {
     const style = getComputedStyle(element);
-    const background = getComputedStyle(element.closest(".nav-menu__panel")).backgroundColor;
+    const background = getComputedStyle(element.closest(".navigation-menu__panel")).backgroundColor;
     const luminance = (color) => {
       const channels = color.match(/[\d.]+/g).slice(0, 3).map((value) => {
         const channel = Number(value) / 255;
@@ -44,9 +44,9 @@ for (const width of [360, 390, 640]) {
   test(`${width}px article menu keeps text and keyboard focus clear`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
     await settle(page);
-    expect(await tabTo(page, ".nav-menu__toggle")).toBe(true);
+    expect(await tabTo(page, ".navigation-menu__toggle")).toBe(true);
     await page.keyboard.press("Enter");
-    const panel = page.locator(".nav-menu__panel");
+    const panel = page.locator(".navigation-menu__panel");
     await expect(panel).toBeVisible();
     await expect.soft(panel).toHaveCSS("background-color", "rgb(26, 32, 41)");
 

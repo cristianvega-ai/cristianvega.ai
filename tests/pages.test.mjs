@@ -201,8 +201,8 @@ test("the header keeps one primary nav and a menu with the same links", () => {
   for (const segments of [["index.html"], ["about", "index.html"], ["404.html"]]) {
     const html = readDistFile(...segments);
     assert.equal((html.match(/<nav\b[^>]*aria-label="Primary"/g) ?? []).length, 1);
-    assert.equal((html.match(/<details class="nav-menu">/g) ?? []).length, 1);
-    assert.match(html, /<nav class="nav-menu__panel" aria-label="Menu">/);
+    assert.equal((html.match(/<details class="navigation-menu">/g) ?? []).length, 1);
+    assert.match(html, /<nav class="navigation-menu__panel" aria-label="Menu">/);
   }
 });
 

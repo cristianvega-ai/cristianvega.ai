@@ -122,24 +122,24 @@ const structuredData = {
           <span class="brand__word"><i>Cristian</i>Vega</span>
         </a>
 
-        <nav class="nav" aria-label="Primary">
+        <nav class="navigation" aria-label="Primary">
           {internalLinks.map((link, index) => (
-            <a class={index === internalLinks.length - 1 ? "nav__link nav__link--divided" : "nav__link"} href={link.href} aria-current={link.current}>{link.label}</a>
+            <a class={index === internalLinks.length - 1 ? "navigation__link navigation__link--divided" : "navigation__link"} href={link.href} aria-current={link.current}>{link.label}</a>
           ))}
           {profileLinks.map((link) => (
-            <a class="nav__link" href={link.href} rel="me noopener noreferrer" target="_blank">{link.label}</a>
+            <a class="navigation__link" href={link.href} rel="me noopener noreferrer" target="_blank">{link.label}</a>
           ))}
         </nav>
 
-        <details class="nav-menu">
-          <summary class="nav-menu__toggle">menu</summary>
-          <nav class="nav-menu__panel" aria-label="Menu">
+        <details class="navigation-menu">
+          <summary class="navigation-menu__toggle">menu</summary>
+          <nav class="navigation-menu__panel" aria-label="Menu">
             {internalLinks.map((link) => (
-              <a class="nav-menu__link" href={link.href} aria-current={link.current}>{link.label}</a>
+              <a class="navigation-menu__link" href={link.href} aria-current={link.current}>{link.label}</a>
             ))}
-            <div class="nav-menu__rule" role="presentation"></div>
+            <div class="navigation-menu__rule" role="presentation"></div>
             {profileLinks.map((link) => (
-              <a class="nav-menu__link" href={link.href} rel="me noopener noreferrer" target="_blank">{link.label}</a>
+              <a class="navigation-menu__link" href={link.href} rel="me noopener noreferrer" target="_blank">{link.label}</a>
             ))}
           </nav>
         </details>
@@ -162,7 +162,7 @@ const structuredData = {
     <script>
       // The menu closes on Escape, when focus leaves it, and on a click
       // outside it. It still opens and closes without this script.
-      const menu = document.querySelector<HTMLDetailsElement>(".nav-menu");
+      const menu = document.querySelector<HTMLDetailsElement>(".navigation-menu");
       menu?.addEventListener("keydown", (event) => {
         if (event.key !== "Escape" || !menu.open) return;
         menu.open = false;

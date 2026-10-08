@@ -16,18 +16,18 @@ const shareAddress = new URL(articleAddress(article), Astro.site).href;
 <BaseLayout title={article.data.title} description={article.data.description} active="article" noindex={article.data.draft} published={article.data.draft ? undefined : article.data.date.toISOString()}>
   <main>
     <article class="article" aria-labelledby="article-title">
-      <header class="article__head">
+      <header class="article__header">
         <div class="article__utility wrap wrap--read">
           <a class="back-link" href="/writing/">← All posts</a>
           {article.data.draft && <p class="article__draft">Draft preview · not published</p>}
         </div>
-        <div class="article__head-copy wrap wrap--read">
+        <div class="article__header-copy wrap wrap--read">
           <p class={article.data.series ? "eyebrow eyebrow--parts" : "eyebrow"}>{article.data.series ? <><span class="eyebrow__part">{article.data.topic}</span> <span class="eyebrow__part">{article.data.series}</span></> : article.data.topic}</p>
           <h1 id="article-title" class="article__title">{article.data.title}</h1>
-          <p class="article__dek">{article.data.description}</p>
-          <p class="article__meta"><strong>Cristian Vega</strong><span aria-hidden="true">·</span><time datetime={article.data.date.toISOString().slice(0, 10)}>{articleDate(article)}</time><span aria-hidden="true">·</span><span>{readingMinutes(article)} min read</span></p>
+          <p class="article__description">{article.data.description}</p>
+          <p class="article__metadata"><strong>Cristian Vega</strong><span aria-hidden="true">·</span><time datetime={article.data.date.toISOString().slice(0, 10)}>{articleDate(article)}</time><span aria-hidden="true">·</span><span>{readingMinutes(article)} min read</span></p>
         </div>
-        <div class="article__head-rule wrap wrap--read" aria-hidden="true"><span></span><i></i><i></i><i></i></div>
+        <div class="article__header-rule wrap wrap--read" aria-hidden="true"><span></span><i></i><i></i><i></i></div>
       </header>
       <div class="article__body">
         <div class="prose wrap wrap--read"><slot /></div>

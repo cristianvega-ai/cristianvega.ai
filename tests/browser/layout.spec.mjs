@@ -271,11 +271,11 @@ test.describe("the compact header", () => {
         const header = document.querySelector(".site-header").getBoundingClientRect();
         const brand = document.querySelector(".brand").getBoundingClientRect();
         const wordmark = document.querySelector(".brand__word");
-        const toggle = document.querySelector(".nav-menu__toggle").getBoundingClientRect();
+        const toggle = document.querySelector(".navigation-menu__toggle").getBoundingClientRect();
         return {
           headerHeight: header.height,
           wordmarkShown: getComputedStyle(wordmark).display !== "none",
-          inlineNavShown: getComputedStyle(document.querySelector(".nav")).display !== "none",
+          inlineNavShown: getComputedStyle(document.querySelector(".navigation")).display !== "none",
           overlap: brand.right > toggle.left + 0.5,
           toggleInside: toggle.right <= document.documentElement.clientWidth,
           overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -295,9 +295,9 @@ test.describe("the compact header", () => {
       await page.goto("/");
       await settle(page);
 
-      const panel = page.locator(".nav-menu__panel");
+      const panel = page.locator(".navigation-menu__panel");
       await expect(panel).toBeHidden();
-      await page.locator(".nav-menu__toggle").click();
+      await page.locator(".navigation-menu__toggle").click();
       await expect(panel).toBeVisible();
 
       // Production holds about, each section with a published entry, and the three profile links.
@@ -321,8 +321,8 @@ test.describe("the compact header", () => {
     await page.goto("/");
     await settle(page);
 
-    expect(await tabTo(page, ".nav-menu__toggle")).toBe(true);
-    const ring = await page.locator(".nav-menu__toggle").evaluate((el) => {
+    expect(await tabTo(page, ".navigation-menu__toggle")).toBe(true);
+    const ring = await page.locator(".navigation-menu__toggle").evaluate((el) => {
       const style = getComputedStyle(el);
       return { style: style.outlineStyle, width: parseFloat(style.outlineWidth) };
     });
@@ -330,12 +330,12 @@ test.describe("the compact header", () => {
     expect(ring.width).toBeGreaterThanOrEqual(2);
 
     await page.keyboard.press("Enter");
-    await expect(page.locator(".nav-menu__panel")).toBeVisible();
+    await expect(page.locator(".navigation-menu__panel")).toBeVisible();
     await page.keyboard.press("Tab");
-    await expect(page.locator(".nav-menu__link").first()).toBeFocused();
+    await expect(page.locator(".navigation-menu__link").first()).toBeFocused();
     await page.keyboard.press("Shift+Tab");
     await page.keyboard.press("Space");
-    await expect(page.locator(".nav-menu__panel")).toBeHidden();
+    await expect(page.locator(".navigation-menu__panel")).toBeHidden();
   });
 
   test("closes on Escape and returns focus to the button", async ({ page }) => {
@@ -343,20 +343,20 @@ test.describe("the compact header", () => {
     await page.goto("/");
     await settle(page);
 
-    expect(await tabTo(page, ".nav-menu__toggle")).toBe(true);
+    expect(await tabTo(page, ".navigation-menu__toggle")).toBe(true);
     await page.keyboard.press("Enter");
-    await expect(page.locator(".nav-menu__panel")).toBeVisible();
+    await expect(page.locator(".navigation-menu__panel")).toBeVisible();
     await page.keyboard.press("Tab");
-    await expect(page.locator(".nav-menu__link").first()).toBeFocused();
+    await expect(page.locator(".navigation-menu__link").first()).toBeFocused();
 
     await page.keyboard.press("Escape");
-    await expect(page.locator(".nav-menu__panel")).toBeHidden();
-    await expect(page.locator(".nav-menu__toggle")).toBeFocused();
+    await expect(page.locator(".navigation-menu__panel")).toBeHidden();
+    await expect(page.locator(".navigation-menu__toggle")).toBeFocused();
 
     // Escape with the menu shut does nothing.
     await page.keyboard.press("Escape");
-    await expect(page.locator(".nav-menu__toggle")).toBeFocused();
-    await expect(page.locator(".nav-menu")).not.toHaveAttribute("open", /.*/);
+    await expect(page.locator(".navigation-menu__toggle")).toBeFocused();
+    await expect(page.locator(".navigation-menu")).not.toHaveAttribute("open", /.*/);
   });
 
   // Test focus exit with production content and local preview content.
@@ -366,13 +366,13 @@ test.describe("the compact header", () => {
       await page.goto(url);
       await settle(page);
 
-      expect(await tabTo(page, ".nav-menu__toggle")).toBe(true);
+      expect(await tabTo(page, ".navigation-menu__toggle")).toBe(true);
       await page.keyboard.press("Enter");
-      await expect(page.locator(".nav-menu__panel")).toBeVisible();
-      await page.locator(".nav-menu__link").last().focus();
+      await expect(page.locator(".navigation-menu__panel")).toBeVisible();
+      await page.locator(".navigation-menu__link").last().focus();
       await page.keyboard.press("Tab");
-      await expect(page.locator(".nav-menu__panel")).toBeHidden();
-      await expect(page.locator(".nav-menu")).not.toHaveAttribute("open", /.*/);
+      await expect(page.locator(".navigation-menu__panel")).toBeHidden();
+      await expect(page.locator(".navigation-menu")).not.toHaveAttribute("open", /.*/);
     });
   }
 
@@ -381,14 +381,14 @@ test.describe("the compact header", () => {
     await page.goto("/");
     await settle(page);
 
-    expect(await tabTo(page, ".nav-menu__toggle")).toBe(true);
+    expect(await tabTo(page, ".navigation-menu__toggle")).toBe(true);
     await page.keyboard.press("Enter");
-    await expect(page.locator(".nav-menu__panel")).toBeVisible();
+    await expect(page.locator(".navigation-menu__panel")).toBeVisible();
     const gap = await page.evaluate(() => {
-      const toggle = document.querySelector(".nav-menu__toggle");
+      const toggle = document.querySelector(".navigation-menu__toggle");
       const style = getComputedStyle(toggle);
       const ringBottom = toggle.getBoundingClientRect().bottom + parseFloat(style.outlineOffset) + parseFloat(style.outlineWidth);
-      return document.querySelector(".nav-menu__panel").getBoundingClientRect().top - ringBottom;
+      return document.querySelector(".navigation-menu__panel").getBoundingClientRect().top - ringBottom;
     });
     expect(gap, "the ring of the button clears the panel").toBeGreaterThanOrEqual(4);
   });
@@ -398,23 +398,23 @@ test.describe("the compact header", () => {
     await page.goto("/");
     await settle(page);
 
-    await page.locator(".nav-menu__toggle").click();
-    await expect(page.locator(".nav-menu__panel")).toBeVisible();
+    await page.locator(".navigation-menu__toggle").click();
+    await expect(page.locator(".navigation-menu__panel")).toBeVisible();
     // A click on the panel padding is inside the menu.
-    await page.locator(".nav-menu__rule").click({ force: true });
-    await expect(page.locator(".nav-menu__panel")).toBeVisible();
+    await page.locator(".navigation-menu__rule").click({ force: true });
+    await expect(page.locator(".navigation-menu__panel")).toBeVisible();
 
     await page.mouse.click(20, 500);
-    await expect(page.locator(".nav-menu__panel")).toBeHidden();
+    await expect(page.locator(".navigation-menu__panel")).toBeHidden();
   });
 
   test("works without JavaScript", async ({ browser, baseURL }) => {
     const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 800 } });
     const page = await context.newPage();
     await page.goto(new URL("/", baseURL).href);
-    await page.locator(".nav-menu__toggle").click();
+    await page.locator(".navigation-menu__toggle").click();
     const sections = Object.values(currentPublished).filter((entries) => entries.length > 0).length;
-    await expect(page.locator(".nav-menu__panel").getByRole("link")).toHaveCount(4 + sections);
+    await expect(page.locator(".navigation-menu__panel").getByRole("link")).toHaveCount(4 + sections);
     await context.close();
   });
 
@@ -424,9 +424,9 @@ test.describe("the compact header", () => {
     await settle(page);
 
     const state = await page.evaluate(() => ({
-      menuShown: getComputedStyle(document.querySelector(".nav-menu")).display !== "none",
+      menuShown: getComputedStyle(document.querySelector(".navigation-menu")).display !== "none",
       height: document.querySelector(".site-header").getBoundingClientRect().height,
-      links: [...document.querySelectorAll(".nav__link")].map((link) => link.getBoundingClientRect().top),
+      links: [...document.querySelectorAll(".navigation__link")].map((link) => link.getBoundingClientRect().top),
     }));
 
     expect(state.menuShown).toBe(false);
@@ -443,9 +443,9 @@ test.describe("the compact header", () => {
 
     const state = await page.evaluate(() => {
       const brand = document.querySelector(".brand").getBoundingClientRect();
-      const nav = document.querySelector(".nav").getBoundingClientRect();
+      const nav = document.querySelector(".navigation").getBoundingClientRect();
       return {
-        count: document.querySelectorAll(".nav__link").length,
+        count: document.querySelectorAll(".navigation__link").length,
         height: document.querySelector(".site-header").getBoundingClientRect().height,
         overlap: brand.right > nav.left,
         navInside: nav.right <= document.documentElement.clientWidth,
@@ -608,7 +608,7 @@ test.describe("the header holds still between short and long pages", () => {
         overflows: document.documentElement.scrollHeight > document.documentElement.clientHeight,
         client: document.documentElement.clientWidth,
         logo: document.querySelector(".brand__mark").getBoundingClientRect().left,
-        nav: document.querySelector(".nav").getBoundingClientRect().right,
+        nav: document.querySelector(".navigation").getBoundingClientRect().right,
       }));
     };
     const short = await measure("/no-such-page/");
@@ -663,7 +663,7 @@ test.describe("the desktop nav targets", () => {
   test("give every link a 40px tall target and at least 24px width", async ({ page }) => {
     await page.goto(dev + "/");
     await settle(page);
-    const links = await page.locator(".nav__link").evaluateAll((nodes) => nodes.map((node) => {
+    const links = await page.locator(".navigation__link").evaluateAll((nodes) => nodes.map((node) => {
       const box = node.getBoundingClientRect();
       return { name: node.textContent, width: box.width, height: box.height, left: box.left, right: box.right };
     }));
@@ -680,7 +680,7 @@ test.describe("the desktop nav targets", () => {
     await page.goto(dev + "/");
     await settle(page);
     const state = await page.evaluate(() => {
-      const divided = document.querySelector(".nav__link--divided");
+      const divided = document.querySelector(".navigation__link--divided");
       const next = divided.nextElementSibling;
       const from = divided.getBoundingClientRect().right;
       const line = getComputedStyle(divided, "::after");
@@ -699,11 +699,11 @@ test.describe("the desktop nav targets", () => {
   test("leaves equal visible space around every word and the divider", async ({ page }) => {
     await page.goto(dev + "/");
     await settle(page);
-    const words = await page.evaluate(() => [...document.querySelectorAll(".nav__link")].map((link) => {
+    const words = await page.evaluate(() => [...document.querySelectorAll(".navigation__link")].map((link) => {
       const range = document.createRange();
       range.selectNodeContents(link);
       const box = range.getBoundingClientRect();
-      return { name: link.textContent, left: box.left, right: box.right, divided: link.classList.contains("nav__link--divided") };
+      return { name: link.textContent, left: box.left, right: box.right, divided: link.classList.contains("navigation__link--divided") };
     }));
     const gaps = words.slice(1).map((word, index) => word.left - words[index].right);
     // Every word pair shares one visible space, the divider pair included once
@@ -714,7 +714,7 @@ test.describe("the desktop nav targets", () => {
 
     // The divider has the same space on each side as two words have between them.
     const divider = await page.evaluate(() => {
-      const link = document.querySelector(".nav__link--divided");
+      const link = document.querySelector(".navigation__link--divided");
       const line = getComputedStyle(link, "::after");
       const box = link.getBoundingClientRect();
       return { x: box.right - parseFloat(line.right) };
@@ -927,7 +927,7 @@ test.describe("page headers", () => {
   test("the writing header matches the about header at 1440px", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
     const about = await headerMetrics(page, "/about/", ".about .eyebrow", "#about-title");
-    const writing = await headerMetrics(page, `${dev}/writing/`, ".writing-index__intro .eyebrow", "#writing-title");
+    const writing = await headerMetrics(page, `${dev}/writing/`, ".writing-index__introduction .eyebrow", "#writing-title");
     expect(Math.abs(writing.eyebrowTop - about.eyebrowTop)).toBeLessThanOrEqual(2);
     expect(Math.abs(writing.fontSize - about.fontSize)).toBeLessThanOrEqual(2);
   });

@@ -113,7 +113,7 @@ export interface PlaceOptions {
   widthInPixels: number;
   /**
    * The height of one label line in CSS pixels, without the halo. Pass labelFont.lineHeightInPixels, so the box follows
-   * the --fs-graphic-label token. It defaults to the line of the fallback label size.
+   * the --font-size-graphic-label token. It defaults to the line of the fallback label size.
    */
   lineHeightInPixels?: number;
   /** The area that the label box must stay inside. */

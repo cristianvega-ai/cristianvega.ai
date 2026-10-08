@@ -39,11 +39,11 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       await page.goto(preview + route);
       await settle(page);
       await expect(page.locator("main h1")).toHaveCount(1);
-      await expect(page.locator(".nav__link[href='/writing/']")).toHaveAttribute("aria-current", route === "/writing/" ? "page" : "location");
+      await expect(page.locator(".navigation__link[href='/writing/']")).toHaveAttribute("aria-current", route === "/writing/" ? "page" : "location");
       const layout = await page.evaluate(() => {
         const brand = document.querySelector(".brand").getBoundingClientRect();
         // Narrow screens swap the inline nav for the menu button.
-        const nav = [...document.querySelectorAll(".nav, .nav-menu")].find((element) => element.getClientRects().length).getBoundingClientRect();
+        const nav = [...document.querySelectorAll(".navigation, .navigation-menu")].find((element) => element.getClientRects().length).getBoundingClientRect();
         const scene = document.querySelector("[data-graphic='writing']");
         const wraps = [...document.querySelectorAll("main .wrap--read")].map((element) => {
           const rect = element.getBoundingClientRect();
@@ -166,7 +166,7 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       };
       return {
         client: document.documentElement.clientWidth,
-        copy: box(".article__head-copy"),
+        copy: box(".article__header-copy"),
         utility: box(".article__utility"),
         prose: box(".prose"),
         titleSize: parseFloat(getComputedStyle(document.querySelector(".article__title")).fontSize),
@@ -197,8 +197,8 @@ test("about and articles share one reading edge at desktop width", async ({ page
     await settle(page);
     return page.locator(selector).evaluate((element) => element.getBoundingClientRect().left);
   };
-  const about = await edge("/about/", ".about__head");
-  const articleEdge = await edge(preview + article, ".article__head-copy");
+  const about = await edge("/about/", ".about__header");
+  const articleEdge = await edge(preview + article, ".article__header-copy");
   expect(Math.abs(about - articleEdge)).toBeLessThanOrEqual(1);
 
   // The header logo, the home intro, and the columns share that same edge.
@@ -475,7 +475,7 @@ test.describe("the writing graphic uses page bindings", () => {
         const response = await route.fetch();
         const body = (await response.text())
           .replace('class="writing-index__list"', 'class="binding-list"')
-          .replaceAll('class="article-list__num"', 'class="binding-label"')
+          .replaceAll('class="article-list__number"', 'class="binding-label"')
           .replace(/(class="binding-label"[^>]*>)[^<]*/, "$1Entry A");
         await route.fulfill({ response, body });
       });
@@ -513,7 +513,7 @@ test.describe("the writing graphic uses page bindings", () => {
       await useLabelSpy(page);
       await page.route(`${preview}/writing/`, async (route) => {
         const response = await route.fetch();
-        const outside = '<aside data-writing-page hidden><section class="writing-index__list" data-writing-list><ol><li data-article-identifier="outside" data-writing-entry-identifier="outside"><span class="article-list__num" data-writing-label>Outside entry</span></li></ol></section></aside>';
+        const outside = '<aside data-writing-page hidden><section class="writing-index__list" data-writing-list><ol><li data-article-identifier="outside" data-writing-entry-identifier="outside"><span class="article-list__number" data-writing-label>Outside entry</span></li></ol></section></aside>';
         const body = (await response.text()).replace('<main class="writing-index"', `${outside}<main class="writing-index"`);
         await route.fulfill({ response, body });
       });

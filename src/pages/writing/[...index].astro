@@ -17,7 +17,7 @@ const hasDrafts = articles.some((article) => article.data.draft);
 <BaseLayout title="Writing" description="Notes on production AI, engineering, and the systems around them." active="writing" noindex={hasDrafts}>
   <main class="writing-index" data-writing-page>
     <PageGraphic page="writing" />
-    <div class="writing-index__intro">
+    <div class="writing-index__introduction">
       <p class="eyebrow">Notes · Essays</p>
       <h1 id="writing-title">Writing</h1>
       <p class="writing-index__count">{String(articles.length).padStart(2, "0")} {articles.length === 1 ? "post" : "posts"}{hasDrafts && " · local preview"}</p>
@@ -26,9 +26,9 @@ const hasDrafts = articles.some((article) => article.data.draft);
       <ol class="article-list">
         {articles.map((article, index) => (
           <li class="article-list__item" data-article-identifier={article.id} data-writing-entry-identifier={article.id}>
-            <span class="article-list__num" data-writing-label aria-hidden="true">N° {String(articles.length - index).padStart(2, "0")}</span>
+            <span class="article-list__number" data-writing-label aria-hidden="true">N° {String(articles.length - index).padStart(2, "0")}</span>
             <h2 class="article-list__title"><a class="article-list__link" href={articleAddress(article)}>{article.data.title}</a></h2>
-            <p class="article-list__meta"><time datetime={article.data.date.toISOString().slice(0, 10)}>{articleDate(article)}</time> · {article.data.topic} · {readingMinutes(article)} min{article.data.draft && <span class="draft-label"> · Draft</span>}</p>
+            <p class="article-list__metadata"><time datetime={article.data.date.toISOString().slice(0, 10)}>{articleDate(article)}</time> · {article.data.topic} · {readingMinutes(article)} min{article.data.draft && <span class="draft-label"> · Draft</span>}</p>
             <p class="article-list__excerpt">{article.data.description}</p>
           </li>
         ))}

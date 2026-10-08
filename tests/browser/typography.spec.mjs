@@ -14,12 +14,12 @@ const WIDTHS = [
 // The page, its title, its lede, and its body text.
 const PAGES = {
   about: { url: "/about/", h1: ".about__title", lede: ".about__lede", body: ".about__profile p", eyebrow: ".about .eyebrow" },
-  writing: { url: "/writing/", h1: ".writing-index__intro h1", eyebrow: ".writing-index__intro .eyebrow" },
+  writing: { url: "/writing/", h1: ".writing-index__introduction h1", eyebrow: ".writing-index__introduction .eyebrow" },
   products: { url: "/products/", h1: ".product__title", eyebrow: ".product .eyebrow" },
   product: { url: "/products/product-layout-fixture/", h1: ".product__title", lede: ".product__lede", body: ".product__prose p", eyebrow: ".product .eyebrow" },
   notFound: { url: "/nope/", h1: "h1", lede: ".about__lede", eyebrow: ".about .eyebrow" },
-  article: { url: "/writing/full-article-layout-fixture/", h1: ".article__title", lede: ".article__dek", body: ".prose p", eyebrow: ".article__head .eyebrow" },
-  shortArticle: { url: "/writing/short-article-typography-fixture/", h1: ".article__title", lede: ".article__dek", eyebrow: ".article__head .eyebrow" },
+  article: { url: "/writing/full-article-layout-fixture/", h1: ".article__title", lede: ".article__description", body: ".prose p", eyebrow: ".article__header .eyebrow" },
+  shortArticle: { url: "/writing/short-article-typography-fixture/", h1: ".article__title", lede: ".article__description", eyebrow: ".article__header .eyebrow" },
 };
 
 async function measure(page, url, selector) {
