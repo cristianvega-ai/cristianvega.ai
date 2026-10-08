@@ -3,7 +3,7 @@
 // publish the 800×800 source.
 //
 // Output:
-//   public/images/cristian-vega-og.jpg           (Open Graph / Twitter, 1200×630)
+//   public/images/cristian-vega-social-preview.jpg           (Open Graph / Twitter, 1200×630)
 //
 // Usage: node scripts/generate-portrait.mjs
 import sharp from "sharp";
@@ -16,7 +16,7 @@ const SRC = "assets/cristian-vega.png";
 // letterbox it on the brand ink field so scrapers do not centre-crop the head.
 const OG_W = 1200;
 const OG_H = 630;
-const OG = "public/images/cristian-vega-og.jpg";
+const OG = "public/images/cristian-vega-social-preview.jpg";
 const INK = { r: 0x14, g: 0x18, b: 0x1f };
 
 mkdirSync(dirname(OG), { recursive: true });

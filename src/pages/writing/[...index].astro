@@ -1,35 +1,35 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageGraphic from "../../components/PageGraphic.astro";
-import { getPosts, postDate, postUrl, readingMinutes } from "../../lib/blog";
-import "../../styles/blog.css";
+import { getArticles, articleDate, articleUrl, readingMinutes } from "../../shared/writing";
+import "../../styles/writing.css";
 
-// Build /writing/ only when a post is visible. Production has no published
-// post yet, so the route must not exist. Dev shows drafts and builds the route.
+// Build /writing/ only when an article is visible. Production has no published
+// article yet, so the route must not exist. Dev shows drafts and builds the route.
 export async function getStaticPaths() {
-  return (await getPosts()).length > 0 ? [{ params: { index: undefined } }] : [];
+  return (await getArticles()).length > 0 ? [{ params: { index: undefined } }] : [];
 }
 
-const posts = await getPosts();
-const hasDrafts = posts.some((post) => post.data.draft);
+const articles = await getArticles();
+const hasDrafts = articles.some((article) => article.data.draft);
 ---
 
-<BaseLayout title="Writing" description="Notes on production AI, engineering, and the systems around them." active="blog" noindex={hasDrafts}>
-  <main class="blog-index" data-writing-page>
+<BaseLayout title="Writing" description="Notes on production AI, engineering, and the systems around them." active="writing" noindex={hasDrafts}>
+  <main class="writing-index" data-writing-page>
     <PageGraphic page="writing" />
-    <div class="blog-index__intro">
+    <div class="writing-index__intro">
       <p class="eyebrow">Notes · Essays</p>
-      <h1 id="blog-title">Writing</h1>
-      <p class="blog-index__count">{String(posts.length).padStart(2, "0")} {posts.length === 1 ? "post" : "posts"}{hasDrafts && " · local preview"}</p>
+      <h1 id="writing-title">Writing</h1>
+      <p class="writing-index__count">{String(articles.length).padStart(2, "0")} {articles.length === 1 ? "post" : "posts"}{hasDrafts && " · local preview"}</p>
     </div>
-    <section class="blog-index__list" data-writing-list aria-labelledby="blog-title">
-      <ol class="post-list">
-        {posts.map((post, index) => (
-          <li class="post-list__item" data-post-id={post.id} data-writing-entry-id={post.id}>
-            <span class="post-list__num" data-writing-label aria-hidden="true">N° {String(posts.length - index).padStart(2, "0")}</span>
-            <h2 class="post-list__title"><a class="post-list__link" href={postUrl(post)}>{post.data.title}</a></h2>
-            <p class="post-list__meta"><time datetime={post.data.date.toISOString().slice(0, 10)}>{postDate(post)}</time> · {post.data.topic} · {readingMinutes(post)} min{post.data.draft && <span class="draft-label"> · Draft</span>}</p>
-            <p class="post-list__excerpt">{post.data.description}</p>
+    <section class="writing-index__list" data-writing-list aria-labelledby="writing-title">
+      <ol class="article-list">
+        {articles.map((article, index) => (
+          <li class="article-list__item" data-article-id={article.id} data-writing-entry-id={article.id}>
+            <span class="article-list__num" data-writing-label aria-hidden="true">N° {String(articles.length - index).padStart(2, "0")}</span>
+            <h2 class="article-list__title"><a class="article-list__link" href={articleUrl(article)}>{article.data.title}</a></h2>
+            <p class="article-list__meta"><time datetime={article.data.date.toISOString().slice(0, 10)}>{articleDate(article)}</time> · {article.data.topic} · {readingMinutes(article)} min{article.data.draft && <span class="draft-label"> · Draft</span>}</p>
+            <p class="article-list__excerpt">{article.data.description}</p>
           </li>
         ))}
       </ol>

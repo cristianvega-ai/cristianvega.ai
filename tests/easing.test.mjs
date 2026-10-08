@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { clamp, cubicPoint, easeOutCubic } from "../src/lib/motion/easing.ts";
+import { clamp, cubicPoint, easeOutCubic } from "../src/shared/motion/easing.ts";
 
 test("clamp holds a value inside its range", () => {
   assert.equal(clamp(-1), 0);

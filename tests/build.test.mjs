@@ -199,8 +199,8 @@ test("the build ships hashed self-hosted latin font files", () => {
     "ibm-plex-mono-latin-400.woff2",
     "ibm-plex-mono-latin-500.woff2",
     "ibm-plex-mono-latin-600.woff2",
-    "OFL-geist.txt",
-    "OFL-ibm-plex.txt",
+    "font-license-geist.txt",
+    "font-license-ibm-plex.txt",
   ]) {
     assert.equal(existsSync(join(fontDir, file)), true, `missing font source: ${file}`);
   }
@@ -254,7 +254,7 @@ test("the portrait master stays out of the static publish set", () => {
   assert.equal(existsSync(join(root, "assets", "cristian-vega.png")), true);
   assert.deepEqual(readdirSync(join(dist, "images")).sort(), [
     "apple-touch-icon.png",
-    "cristian-vega-og.jpg",
+    "cristian-vega-social-preview.jpg",
   ]);
 });
 

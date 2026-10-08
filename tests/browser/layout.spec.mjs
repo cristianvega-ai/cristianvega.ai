@@ -130,7 +130,7 @@ test.describe("the footer fade", () => {
     "/about/",
     "/no-such-page/",
     `${dev}/writing/`,
-    `${dev}/writing/lorem-ipsum-dolor-sit-amet/`,
+    `${dev}/writing/full-article-layout-fixture/`,
     `${dev}/products/`,
   ];
 
@@ -518,7 +518,7 @@ test.describe("one site frame at every width", () => {
     "/about/",
     "/no-such-page/",
     dev + "/",
-    dev + "/writing/lorem-ipsum-dolor-sit-amet/",
+    dev + "/writing/full-article-layout-fixture/",
     dev + "/products/",
     dev + "/writing/",
   ];
@@ -550,7 +550,7 @@ test.describe("one site frame at every width", () => {
 
   test("keeps the reading column on the frame edge and under 745px on a wide screen", async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
-    for (const route of ["/about/", dev + "/writing/lorem-ipsum-dolor-sit-amet/"]) {
+    for (const route of ["/about/", dev + "/writing/full-article-layout-fixture/"]) {
       await page.goto(route);
       await settle(page);
       const column = await page.evaluate(() => {
@@ -727,7 +727,7 @@ test.describe("the desktop nav targets", () => {
    The homepage is one screen with no scrolling, so its header does not stick. */
 const STICKY_PAGES = [
   ["about", "/about/"],
-  ["article", dev + "/writing/lorem-ipsum-dolor-sit-amet/"],
+  ["article", dev + "/writing/full-article-layout-fixture/"],
 ];
 
 test.describe("the sticky header", () => {
@@ -802,7 +802,7 @@ test.describe("the sticky header", () => {
  * can read its pixels and the page CSP does not apply.
  */
 const MOTIF_DEV = dev;
-const MOTIF_ROUTES = ["/about/", "/no-such-page/", `${MOTIF_DEV}/products/`, `${MOTIF_DEV}/products/lorem-ipsum-dolor/`];
+const MOTIF_ROUTES = ["/about/", "/no-such-page/", `${MOTIF_DEV}/products/`, `${MOTIF_DEV}/products/product-layout-fixture/`];
 const MOTIF_GROUND = [20, 24, 31];
 
 /** Screenshot the page with only the ground and the grid visible. */
@@ -911,7 +911,7 @@ test.describe("the blueprint grid right of the reading column", () => {
     expect(layer.content).toBe('""');
   });
 
-  for (const route of ["/", `${MOTIF_DEV}/writing/`, `${MOTIF_DEV}/writing/lorem-ipsum-dolor-sit-amet/`]) {
+  for (const route of ["/", `${MOTIF_DEV}/writing/`, `${MOTIF_DEV}/writing/full-article-layout-fixture/`]) {
     test(`${route} has no grid layer from this rule`, async ({ page }) => {
       await page.goto(route);
       await settle(page);
@@ -935,7 +935,7 @@ test.describe("page headers", () => {
   test("the writing header matches the about header at 1440px", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
     const about = await headerMetrics(page, "/about/", ".about .eyebrow", "#about-title");
-    const writing = await headerMetrics(page, `${dev}/writing/`, ".blog-index__intro .eyebrow", "#blog-title");
+    const writing = await headerMetrics(page, `${dev}/writing/`, ".writing-index__intro .eyebrow", "#writing-title");
     expect(Math.abs(writing.eyebrowTop - about.eyebrowTop)).toBeLessThanOrEqual(2);
     expect(Math.abs(writing.fontSize - about.fontSize)).toBeLessThanOrEqual(2);
   });
@@ -1006,13 +1006,13 @@ test.describe("page headers", () => {
     });
   }
 
-  test("the writing post count sits under the heading", async ({ page }) => {
+  test("the writing article count sits under the heading", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
     await page.goto(`${dev}/writing/`);
     await settle(page);
     const boxes = await page.evaluate(() => ({
-      heading: document.querySelector("#blog-title").getBoundingClientRect().bottom,
-      count: document.querySelector(".blog-index__count").getBoundingClientRect().top,
+      heading: document.querySelector("#writing-title").getBoundingClientRect().bottom,
+      count: document.querySelector(".writing-index__count").getBoundingClientRect().top,
     }));
     expect(boxes.count).toBeGreaterThanOrEqual(boxes.heading);
   });
@@ -1053,10 +1053,10 @@ const GRAPHIC_PAGES = [
   { name: "about", url: "/about/", graphic: "[data-graphic='about']" },
   { name: "writing", url: `${MOTIF_DEV}/writing/`, graphic: "[data-graphic='writing']" },
   { name: "products", url: `${MOTIF_DEV}/products/`, graphic: "[data-graphic='products']" },
-  { name: "product detail", url: `${MOTIF_DEV}/products/lorem-ipsum-dolor/`, graphic: "[data-graphic='products']" },
+  { name: "product detail", url: `${MOTIF_DEV}/products/product-layout-fixture/`, graphic: "[data-graphic='products']" },
   { name: "404", url: "/no-such-page/", graphic: "[data-graphic='404']" },
 ];
-/** The shared inset of the figure inside its box. It is FIGURE_INSET in src/lib/page-graphics/inset.ts. */
+/** The shared inset of the figure inside its box. It is FIGURE_INSET in src/shared/page-graphics/inset.ts. */
 const FIGURE_INSET = 32;
 
 /** Read the box, the column edges, and the figure bound of the graphic on the open page. */

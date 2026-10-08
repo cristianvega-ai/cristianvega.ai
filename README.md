@@ -1,6 +1,6 @@
 # cristianvega.ai
 
-This Astro site contains Cristian Vega's homepage, profile, and Neural Lyra blog.
+This Astro site contains Cristian Vega's homepage, profile, and writing section.
 It also contains an optional products section and a custom 404 page.
 
 ## Develop
@@ -16,21 +16,22 @@ npm run dev
 ```
 
 The [Cursor setup](.cursor/environment.json) reads the same version file.
+Read [the Geist license](src/assets/fonts/font-license-geist.txt) and [the IBM Plex license](src/assets/fonts/font-license-ibm-plex.txt) for font terms.
 
 ## Writing
 
 Open `/writing/` to view the Neural Lyra index.
-The index exists only when at least one post is visible.
-A production build has no `/writing/` route while every post is a draft.
-Add Markdown posts to `src/content/blog/`.
+The index exists only when at least one article is visible.
+A production build has no `/writing/` route while every article is a draft.
+Add Markdown articles to `src/content/writing/`.
 Use a lowercase filename with hyphens.
-The filename sets the post URL: `example-post.md` becomes `/writing/example-post/`.
+The filename sets the article URL: `example-article.md` becomes `/writing/example-article/`.
 
 Each file must start with this frontmatter:
 
 ```yaml
 ---
-title: "Post title"
+title: "Article title"
 description: "A short description for the index and page metadata."
 date: "2026-09-24"
 topic: "Systems"
@@ -38,9 +39,9 @@ draft: true
 ---
 ```
 
-Add `series` when the post belongs to a series.
-The index sorts posts by date, newest first.
-The site calculates reading time from each post's text.
+Add `series` when the article belongs to a series.
+The index sorts articles by date, newest first.
+The site calculates reading time from each article's text.
 Use standard Markdown for headings, lists, links, and code.
 Code blocks use external CSS to meet the security policy.
 
@@ -50,13 +51,13 @@ Production builds exclude drafts from routes, navigation, and the sitemap.
 An omitted `draft` value defaults to `true`.
 Set `draft: false` only when the owner approves publication.
 
-The eight lorem ipsum fixtures remain drafts.
-Only the lorem ipsum dolor sit amet fixture contains a full-length article.
+The eight article fixtures remain drafts.
+Only [full-article-layout-fixture.md](src/content/writing/full-article-layout-fixture.md) contains a full-length article.
 Read its [fixture contract](src/content/article-fixture.md) before you change article presentation.
 The other fixtures contain short text for layout review.
 
 Article pages place the title, metadata, and prose in one reading column on a continuous dark surface.
-[BlogPostLayout.astro](src/layouts/BlogPostLayout.astro) owns the article shell, draft label, sharing controls, and adjacent navigation.
+[ArticleLayout.astro](src/layouts/ArticleLayout.astro) owns the article shell, draft label, sharing controls, and adjacent navigation.
 The layout adds no article graph or progress badge.
 Published articles show sharing controls.
 
@@ -99,15 +100,15 @@ A build-time SVG shows the same finished picture in two cases only.
 It sits in a `noscript` for visitors without JavaScript.
 It sits in a `template`, and the script copies it in when canvas is missing or the setup fails.
 A successful canvas setup keeps the fallback SVG hidden.
-The [globe model](src/lib/lyra-globe/model.ts) supplies drawing geometry and label anchors.
-The [projection module](src/lib/lyra-globe/projection.ts) measures the model and rounds the values at build time.
+The [globe model](src/shared/lyra-globe/model.ts) supplies drawing geometry and label anchors.
+The [projection module](src/shared/lyra-globe/projection.ts) measures the model and rounds the values at build time.
 It owns the crop margins above the outer ring and below the caption.
 It writes the values to a versioned external stylesheet.
 The homepage links that stylesheet from the `head` slot of [BaseLayout.astro](src/layouts/BaseLayout.astro).
 [home.css](src/styles/home.css) controls responsive placement.
 If the stylesheet does not load, `home.css` uses fallback values from the current model.
 The globe restarts its entrance after page restoration.
-The Lyra star data lives in [src/lib/lyra/](src/lib/lyra/).
+The Lyra star data lives in [src/shared/lyra/](src/shared/lyra/).
 
 ## Page graphics
 
@@ -122,7 +123,7 @@ At widths from 1100px, graphics stay fixed beside the reading column, above the 
 At narrower widths, graphics use a band above the page title.
 The shared `--band-height` token controls the responsive band height.
 The Writing band uses 1.19 times that height.
-Placement rules live in [global.css](src/styles/global.css) and [blog.css](src/styles/blog.css).
+Placement rules live in [global.css](src/styles/global.css) and [writing.css](src/styles/writing.css).
 
 Each visual entrance takes about 2.3 active seconds.
 Active time excludes hidden tabs and periods outside the viewport.
@@ -131,15 +132,15 @@ Reduced motion completes the entrance immediately and runs no continuous frames.
 | Scene | Motion after the visual entrance | Reduced motion |
 | --- | --- | --- |
 | About | Fixed graphics follow the reader's scroll. Bands rest at Vega. | In a fixed graphic, a static marker shows the reader's place. Scroll updates it immediately, without easing. A band shows the lit path to Vega and no marker. |
-| Writing | Pointer or keyboard focus lights a post's path and runs comets. The scene rests after the glow fades. | Selection updates immediately, with no comet. |
+| Writing | Pointer or keyboard focus lights an article's path and runs comets. The scene rests after the glow fades. | Selection updates immediately, with no comet. |
 | Products | Satellites drift until 30 active seconds from mount, then rest. | Satellites stay at their initial positions. |
 | 404 | Four search pulses follow the entrance. The scene rests after 30.5 active seconds. | The missing-star gap stays static, without pulses. |
 
 About fades the reader marker into Vega at the end of the path.
 Page graphics preserve their elapsed time after page restoration.
-The shared [canvas controller](src/lib/motion/canvas-controller.ts) owns clocks, observers, frames, listeners, and cleanup.
+The shared [canvas controller](src/shared/motion/canvas-controller.ts) owns clocks, observers, frames, listeners, and cleanup.
 [PageGraphic.astro](src/components/PageGraphic.astro) owns typed inputs and the decorative canvas container.
-Read the [graphics how-to](src/lib/page-graphics/index.ts) for scoped bindings, label measurements, palette rules, and scene registration.
+Read the [graphics guide](src/shared/page-graphics/README.md) for scoped bindings, label measurements, palette rules, and scene registration.
 Read the [test ownership guide](tests/AGENTS.md) to find the matching model, page, and shared browser suites.
 
 ## Products
@@ -171,7 +172,7 @@ The build also leaves products out of the navigation and the sitemap.
 The homepage then shows "Latest products · coming soon" without a link.
 An omitted `draft` value defaults to `true`.
 To announce a product, set `draft: false` when the owner approves.
-The `lorem-ipsum-dolor` file is a draft sample for layout review.
+The `product-layout-fixture` file is a draft sample for layout review.
 
 The products graphic has eight slots.
 A build that publishes more than eight products fails.
@@ -181,8 +182,8 @@ A build that publishes more than eight products fails.
 The header stays sticky on inner pages.
 The homepage header scrolls with the page.
 The primary navigation lists `about`, `writing`, and `products`, then the profile links.
-The `writing` link appears only when a post is visible.
-A production build shows a post only when its `draft` value is `false`.
+The `writing` link appears only when an article is visible.
+A production build shows an article only when its `draft` value is `false`.
 The `products` link appears only when a product is visible, by the same rule.
 The `/about/` page holds the profile.
 At 640px and narrower, one `menu` button replaces the inline links.
@@ -199,6 +200,8 @@ npm test          # Builds, then runs Node tests against that dist/.
 
 Run `npm run verify` for one build, Astro diagnostics, Node tests, and browser tests.
 `npm test` builds the site and runs only the Node tests.
+Run `npm run test:browser` for browser tests against a current `dist/`.
+The browser suite lives in [tests/browser/](tests/browser/).
 Use `verify` or `test` when contract tests need current `dist/` output.
 
 [tsconfig.json](tsconfig.json) excludes `dist/`, `playwright-report/`, `test-results/`, `coverage/`, and `.nyc_output/` from diagnostics.
@@ -401,7 +404,7 @@ Otherwise, it reads the live homepage.
 It checks each script URL from the same origin once, without relying on component filenames.
 
 The gate checks the security headers on `/`, `/about/`, `/writing/`, and the 404 response.
-`/writing/` can return HTTP 200 or 404, because the build omits it while every post is a draft.
+`/writing/` can return HTTP 200 or 404, because the build omits it while every article is a draft.
 `npm run verify` also runs the gate against the local Wrangler build of `dist/`.
 Keep `APPROVED_SECURITY_HEADERS` in the live verifier equal to the global rule in `public/_headers`.
 Change both in the same commit.
@@ -473,8 +476,8 @@ copy them into `public/`.
 Requires `sharp` (devDependency).
 
 ```bash
-# OG share card (1200×630 JPEG) from assets/cristian-vega.png
-# → public/images/cristian-vega-og.jpg
+# Social preview (1200×630 JPEG) from assets/cristian-vega.png
+# → public/images/cristian-vega-social-preview.jpg
 npm run generate:portrait
 
 # Apple touch icon (180×180 PNG) from public/favicon.svg

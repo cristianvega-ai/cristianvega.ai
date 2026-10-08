@@ -394,7 +394,7 @@ export async function edgePaint(page, graphic, inset = 28, minAlpha = 140) {
 
 /**
  * The bottom of the focus ring of the focused element, and the top of the footer fade, in page pixels.
- * The ring belongs to the focused element or to the nearest ancestor that draws an outline, as on a post row.
+ * The ring belongs to the focused element or to the nearest ancestor that draws an outline, as on an article row.
  */
 export async function focusRingAndFade(page) {
   return page.evaluate(() => {

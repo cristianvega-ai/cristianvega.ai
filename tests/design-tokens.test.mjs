@@ -8,7 +8,7 @@ import { readSourceFile } from "./helpers.mjs";
 // Design-token hygiene for the site stylesheet. global.css is the source of
 // truth for the tokens. A token that is declared and never read through var()
 // in any site stylesheet is dead, including one this file has never named.
-// Page stylesheets (home.css, blog.css) read tokens that global.css declares.
+// Page stylesheets (home.css, writing.css) read tokens that global.css declares.
 
 test("design tokens omit unused custom properties", () => {
   const css = readSourceFile("styles", "global.css").replace(/\/\*[\s\S]*?\*\//g, "");
@@ -41,18 +41,18 @@ test("global.css defines the sky token that the graphics read", () => {
 });
 
 // A page stylesheet may redefine a global.css token only for the reason listed here. Audit finding 1
-// came from this pattern: blog.css gave --ink-2 a light value on post pages, and the shared menu panel
+// came from this pattern: writing.css gave --ink-2 a light value on article pages, and the shared menu panel
 // that reads --ink-2 turned light on light. Add an entry only with the reason the new meaning is safe.
 const TOKEN_OVERRIDES = {
-  "blog.css": {
-    // Post pages sit on ink. The shared header, brand, and nav rules in global.css read the "on surface"
-    // tokens, so the post page gives them their ink values. Each one keeps its role: text stays text,
+  "writing.css": {
+    // Article pages sit on ink. The shared header, brand, and nav rules in global.css read the "on surface"
+    // tokens, so the article page gives them their ink values. Each one keeps its role: text stays text,
     // and a ground stays a ground.
-    "--fg": "post pages sit on ink",
-    "--muted": "post pages sit on ink",
-    "--line": "post pages sit on ink",
-    "--surface-well": "post pages sit on ink",
-    "--mark2-surface": "post pages sit on ink",
+    "--fg": "article pages sit on ink",
+    "--muted": "article pages sit on ink",
+    "--line": "article pages sit on ink",
+    "--surface-well": "article pages sit on ink",
+    "--mark2-surface": "article pages sit on ink",
   },
   "home.css": {
     // The homepage grid is faded, so its lines can be a little stronger. The token keeps its meaning.

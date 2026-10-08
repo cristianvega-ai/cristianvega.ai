@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { bandHeight, cspViolations, currentContent, currentPublished, decorativeState, DRAFT_ORIGIN as preview, drawnLabels, edgePaint, focusRingAndFade, navLink, pageProblems, recordCspViolations, settle, tabTo, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames, paintedPixels } from "./fixtures.mjs";
 
-const article = "/writing/lorem-ipsum-dolor-sit-amet/";
-const qualityArticle = "/writing/nisi-ut-aliquip-ex-ea/";
-const shortArticle = "/writing/exercitation-ullamco-laboris/";
+const article = "/writing/full-article-layout-fixture/";
+const qualityArticle = "/writing/article-quality-review-fixture/";
+const shortArticle = "/writing/short-article-layout-fixture/";
 const title = "Lorem ipsum dolor sit amet";
 const graphic = "[data-graphic='writing']";
 
@@ -15,10 +15,10 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     await settle(page);
     const header = await page.locator(".site-header__inner").boundingBox();
     await navLink(page, "writing").click();
-    await expect(page.locator("#blog-title")).toBeVisible();
+    await expect(page.locator("#writing-title")).toBeVisible();
     expect(await page.locator(".site-header__inner").boundingBox()).toEqual(header);
     await page.getByRole("link", { name: "Nisi ut aliquip ex ea", exact: true }).click();
-    await expect(page.locator("#post-title")).toBeVisible();
+    await expect(page.locator("#article-title")).toBeVisible();
     await expect(page).toHaveURL(preview + qualityArticle);
     await expect(page.locator("link[rel='canonical']")).toHaveAttribute("href", "https://cristianvega.ai" + qualityArticle);
     await settle(page);
@@ -96,9 +96,9 @@ test("drafts appear locally and stay unavailable in production", async ({ page, 
   await page.goto(preview + "/writing/");
   await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
   await settle(page);
-  await expect(page.locator(".post-list__item")).toHaveCount(currentContent.writing.length);
+  await expect(page.locator(".article-list__item")).toHaveCount(currentContent.writing.length);
   await expect(page.locator(".draft-label")).toHaveCount(currentContent.writing.filter((entry) => entry.data.draft).length);
-  const links = await page.locator(".post-list__link").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("href")));
+  const links = await page.locator(".article-list__link").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("href")));
   expect(links).toEqual(currentContent.writing.map((entry) => entry.href));
   for (const entry of currentContent.writing) {
     const response = await request.get(entry.href);
@@ -108,14 +108,14 @@ test("drafts appear locally and stay unavailable in production", async ({ page, 
   expect(index.status()).toBe(currentPublished.writing.length > 0 ? 200 : 404);
 });
 
-test("keyboard focus lights a post and opens its article", async ({ page }) => {
+test("keyboard focus lights an article and opens its article", async ({ page }) => {
   await useReducedMotion(page);
   await page.goto(preview + "/writing/");
   await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
   await settle(page);
-  expect(await tabTo(page, ".post-list__link >> nth=0")).toBe(true);
-  const row = page.locator(".post-list__item").first();
-  await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await row.getAttribute("data-post-id"));
+  expect(await tabTo(page, ".article-list__link >> nth=0")).toBe(true);
+  const row = page.locator(".article-list__item").first();
+  await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await row.getAttribute("data-article-id"));
   await expect(row).toHaveCSS("outline-style", "solid");
   await expect(row).toHaveCSS("outline-width", "3px");
   await page.keyboard.press("Enter");
@@ -128,10 +128,10 @@ test("keyboard focus lights a post and opens its article", async ({ page }) => {
     await expect(page.locator(".author__share")).toHaveCount(1);
   }
   await page.getByRole("link", { name: "← All posts" }).click();
-  await expect(page.locator("#blog-title")).toBeVisible();
+  await expect(page.locator("#writing-title")).toBeVisible();
 });
 
-test("article sections and adjacent posts work", async ({ page }) => {
+test("article sections and adjacent articles work", async ({ page }) => {
   await useReducedMotion(page);
   await page.goto(preview + article);
   await expect(page.locator(".prose h2")).toHaveCount(3);
@@ -146,11 +146,11 @@ test("article sections and adjacent posts work", async ({ page }) => {
   await expect(newerLink).toHaveAttribute("href", newer.href);
   await expect(newerLink.locator("span")).toHaveText(`Newer${newer.data.draft ? " · Draft" : ""} →`);
   await newerLink.click();
-  await expect(page.locator("#post-title")).toHaveText(newer.data.title);
+  await expect(page.locator("#article-title")).toHaveText(newer.data.title);
   const olderLink = page.locator(`.read-next a[href='${article}']`);
   await expect(olderLink.locator("span")).toHaveText(`← Older${current.data.draft ? " · Draft" : ""}`);
   await olderLink.click();
-  await expect(page.locator("#post-title")).toHaveText(title);
+  await expect(page.locator("#article-title")).toHaveText(title);
 });
 
 for (const [name, viewport] of Object.entries(VIEWPORTS)) {
@@ -198,16 +198,16 @@ test("about and articles share one reading edge at desktop width", async ({ page
     return page.locator(selector).evaluate((element) => element.getBoundingClientRect().left);
   };
   const about = await edge("/about/", ".about__head");
-  const post = await edge(preview + article, ".article__head-copy");
-  expect(Math.abs(about - post)).toBeLessThanOrEqual(1);
+  const articleEdge = await edge(preview + article, ".article__head-copy");
+  expect(Math.abs(about - articleEdge)).toBeLessThanOrEqual(1);
 
   // The header logo, the home intro, and the columns share that same edge.
   const logo = await edge("/about/", ".brand__mark");
   const aboutTitle = await edge("/about/", "main h1");
-  const postTitle = await edge(preview + article, "main h1");
+  const articleTitle = await edge(preview + article, "main h1");
   const homeTitle = await edge(preview + "/", "main h1");
   const productsTitle = await edge(preview + "/products/", "main h1");
-  for (const [name, left] of Object.entries({ aboutTitle, postTitle, homeTitle, productsTitle })) {
+  for (const [name, left] of Object.entries({ aboutTitle, articleTitle, homeTitle, productsTitle })) {
     expect(Math.abs(left - logo), name).toBeLessThanOrEqual(1);
   }
 });
@@ -244,12 +244,12 @@ test("content and links work without JavaScript", async ({ browser }) => {
   const page = await context.newPage();
   await page.goto(preview + "/writing/");
   await page.getByRole("link", { name: title, exact: true }).click();
-  await expect(page.locator("#post-title")).toHaveText(title);
+  await expect(page.locator("#article-title")).toHaveText(title);
   await expect(page.locator(".prose h2")).toHaveCount(3);
   await expect(page.locator(".prose pre")).toContainText("LoremIpsum");
   await expect(page.locator("[data-graphic]")).toHaveCount(0);
   await page.getByRole("link", { name: "← All posts" }).click();
-  await expect(page.locator(".post-list__link")).toHaveCount(currentContent.writing.length);
+  await expect(page.locator(".article-list__link")).toHaveCount(currentContent.writing.length);
   await expect(page.locator(graphic)).toHaveCSS("display", "none");
   await context.close();
 });
@@ -262,12 +262,12 @@ test("canvas, fonts, and storage failures keep content readable", async ({ page 
   });
   await page.route("**/*.woff2*", (route) => route.abort());
   await page.goto(preview + article);
-  await expect(page.locator("#post-title")).toBeVisible();
-  await expect(page.locator("#post-title")).toHaveCSS("opacity", "1");
+  await expect(page.locator("#article-title")).toBeVisible();
+  await expect(page.locator("#article-title")).toHaveCSS("opacity", "1");
   await expect(page.locator(".prose h2")).toHaveCount(3);
   await expect(page.locator("[data-graphic]")).toHaveCount(0);
   await page.getByRole("link", { name: "← All posts" }).click();
-  await expect(page.locator(".post-list__link")).toHaveCount(currentContent.writing.length);
+  await expect(page.locator(".article-list__link")).toHaveCount(currentContent.writing.length);
   // With no canvas, the graphic hides itself and the list stays.
   await expect(page.locator(graphic)).toBeHidden();
 });
@@ -310,7 +310,7 @@ test.describe("the writing graphic is decorative", () => {
     await page.goto(preview + "/writing/");
     await expect(page.locator("main h1")).toHaveText("Writing");
     await expect(page.locator(`${graphic} :is(h1, h2, h3, a)`)).toHaveCount(0);
-    await expect(page.locator(".post-list__item")).toHaveCount(currentContent.writing.length);
+    await expect(page.locator(".article-list__item")).toHaveCount(currentContent.writing.length);
   });
 
   test("draws every label at 10px or larger", async ({ page }) => {
@@ -383,7 +383,7 @@ test.describe("the writing graphic never covers text", () => {
           position: getComputedStyle(root).position,
           height: rect.height,
           bottom: rect.bottom + scrollY,
-          list: document.querySelector(".blog-index__list").getBoundingClientRect().top + scrollY,
+          list: document.querySelector(".writing-index__list").getBoundingClientRect().top + scrollY,
         };
       }, graphic);
       expect(block.position).not.toBe("sticky");
@@ -398,7 +398,7 @@ test.describe("the writing graphic never covers text", () => {
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     const place = await page.evaluate((selector) => {
       const root = document.querySelector(selector);
-      return { position: getComputedStyle(root).position, left: root.getBoundingClientRect().left, listRight: document.querySelector(".blog-index__list").getBoundingClientRect().right };
+      return { position: getComputedStyle(root).position, left: root.getBoundingClientRect().left, listRight: document.querySelector(".writing-index__list").getBoundingClientRect().right };
     }, graphic);
     expect(place.position).toBe("fixed");
     expect(place.left, "right of the list").toBeGreaterThanOrEqual(place.listRight);
@@ -414,11 +414,11 @@ test.describe("the writing graphic labels and family look", () => {
       await page.goto(preview + "/writing/");
       await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
       const { labels, viewport } = await drawnLabels(page);
-      // Every post number is drawn. A star name is drawn only where the layout finds a clear place for it,
+      // Every article number is drawn. A star name is drawn only where the layout finds a clear place for it,
       // and a small band can have none, so the star names are not counted.
-      const posts = await page.locator(".post-list__item").count();
-      expect(posts).toBeGreaterThan(0);
-      expect(labels.filter((label) => label.text.startsWith("N°")).length, "every post number is drawn").toBe(posts);
+      const articles = await page.locator(".article-list__item").count();
+      expect(articles).toBeGreaterThan(0);
+      expect(labels.filter((label) => label.text.startsWith("N°")).length, "every article number is drawn").toBe(articles);
       for (const label of labels) {
         expect(label.localLeft, `"${label.text}" left`).toBeGreaterThanOrEqual(24);
         expect(label.localRight, `"${label.text}" right`).toBeLessThanOrEqual(label.canvasWidth - 24);
@@ -474,8 +474,8 @@ test.describe("the writing graphic uses page bindings", () => {
       await page.route(`${preview}/writing/`, async (route) => {
         const response = await route.fetch();
         const body = (await response.text())
-          .replace('class="blog-index__list"', 'class="binding-list"')
-          .replaceAll('class="post-list__num"', 'class="binding-label"')
+          .replace('class="writing-index__list"', 'class="binding-list"')
+          .replaceAll('class="article-list__num"', 'class="binding-label"')
           .replace(/(class="binding-label"[^>]*>)[^<]*/, "$1Entry A");
         await route.fulfill({ response, body });
       });
@@ -493,18 +493,18 @@ test.describe("the writing graphic uses page bindings", () => {
       await useReducedMotion(page);
       await page.route(`${preview}/writing/`, async (route) => {
         const response = await route.fetch();
-        const body = (await response.text()).replaceAll("data-post-id=", "data-old-entry=");
+        const body = (await response.text()).replaceAll("data-article-id=", "data-old-entry=");
         await route.fulfill({ response, body });
       });
       await page.goto(`${preview}/writing/`);
       await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
       const row = page.locator("[data-writing-entry-id]").first();
       await row.dispatchEvent("pointerenter");
-      await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await row.getAttribute("data-writing-entry-id"));
+      await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await row.getAttribute("data-writing-entry-id"));
       await row.dispatchEvent("pointerleave");
-      await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
+      await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
       await row.locator("a").focus();
-      await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await row.getAttribute("data-writing-entry-id"));
+      await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await row.getAttribute("data-writing-entry-id"));
     });
 
     test(`ignores entries and labels outside its page at ${size.width}px`, async ({ page }) => {
@@ -513,8 +513,8 @@ test.describe("the writing graphic uses page bindings", () => {
       await useLabelSpy(page);
       await page.route(`${preview}/writing/`, async (route) => {
         const response = await route.fetch();
-        const outside = '<aside data-writing-page hidden><section class="blog-index__list" data-writing-list><ol><li data-post-id="outside" data-writing-entry-id="outside"><span class="post-list__num" data-writing-label>Outside entry</span></li></ol></section></aside>';
-        const body = (await response.text()).replace('<main class="blog-index"', `${outside}<main class="blog-index"`);
+        const outside = '<aside data-writing-page hidden><section class="writing-index__list" data-writing-list><ol><li data-article-id="outside" data-writing-entry-id="outside"><span class="article-list__num" data-writing-label>Outside entry</span></li></ol></section></aside>';
+        const body = (await response.text()).replace('<main class="writing-index"', `${outside}<main class="writing-index"`);
         await route.fulfill({ response, body });
       });
       await page.goto(`${preview}/writing/`);
@@ -524,9 +524,9 @@ test.describe("the writing graphic uses page bindings", () => {
       expect(labels).not.toContain("Outside entry");
       const outside = page.locator("[data-writing-entry-id='outside']");
       await outside.dispatchEvent("pointerenter");
-      await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
+      await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
       await outside.dispatchEvent("focusin");
-      await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
+      await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
     });
   }
 });
@@ -553,18 +553,18 @@ test.describe("the writing graphic pauses and tears down", () => {
     await page.goto(preview + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     await playFrames(page, 3000);
-    await page.locator(".post-list__item").nth(1).hover();
-    await expect(page.locator(graphic)).toHaveAttribute("data-active-post", /.+/);
+    await page.locator(".article-list__item").nth(1).hover();
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", /.+/);
     expect(await pendingFrames(page)).toBe(1);
 
     await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true })));
     expect(await pendingFrames(page), "no frame stays queued after pagehide").toBe(0);
     await expect(page.locator(graphic)).not.toHaveAttribute("data-ready", /.*/);
     await expect(page.locator(graphic)).not.toHaveAttribute("data-motion-state", /.*/);
-    await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
-    // The listeners are gone: a post that takes the pointer lights nothing.
-    await page.locator(".post-list__item").nth(2).hover();
-    await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
+    await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
+    // The listeners are gone: an article that takes the pointer lights nothing.
+    await page.locator(".article-list__item").nth(2).hover();
+    await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
     expect(await pendingFrames(page)).toBe(0);
 
     // The entrance is over, so a restored page rests with no queued frame. Its listeners return.
@@ -572,16 +572,16 @@ test.describe("the writing graphic pauses and tears down", () => {
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     expect(await pendingFrames(page), "a restored page at rest queues no frame").toBe(0);
     await page.mouse.move(2, 2);
-    await page.locator(".post-list__item").nth(1).hover();
-    await expect(page.locator(graphic)).toHaveAttribute("data-active-post", /.+/);
-    expect(await pendingFrames(page), "a lit post asks for frames after a restored page").toBe(1);
+    await page.locator(".article-list__item").nth(1).hover();
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", /.+/);
+    expect(await pendingFrames(page), "a lit article asks for frames after a restored page").toBe(1);
   });
 });
 
-test.describe("the writing graphic answers a lit post", () => {
+test.describe("the writing graphic answers a lit article", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 
-  /** Count the changes to data-active-post from now on. */
+  /** Count the changes to data-active-article from now on. */
   const watchActive = (page) =>
     page.evaluate(() => {
       window.__writes = 0;
@@ -589,23 +589,23 @@ test.describe("the writing graphic answers a lit post", () => {
       window.__observer = new MutationObserver((records) => {
         window.__writes += records.length;
       });
-      window.__observer.observe(document.querySelector("[data-graphic='writing']"), { attributes: true, attributeFilter: ["data-active-post"] });
+      window.__observer.observe(document.querySelector("[data-graphic='writing']"), { attributes: true, attributeFilter: ["data-active-article"] });
     });
   const writes = (page) => page.evaluate(() => (window.__observer.takeRecords(), window.__writes));
 
-  test("the pointer sets the active post once for each change and runs frames only while it is lit", async ({ page }) => {
+  test("the pointer sets the active article once for each change and runs frames only while it is lit", async ({ page }) => {
     await useManualFrames(page);
     await page.goto(preview + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     await playFrames(page, 3000);
     await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
-    expect(await pendingFrames(page), "the picture rests with no lit post").toBe(0);
+    expect(await pendingFrames(page), "the picture rests with no lit article").toBe(0);
     await watchActive(page);
 
-    const second = page.locator(".post-list__item").nth(1);
+    const second = page.locator(".article-list__item").nth(1);
     await second.hover();
-    await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await second.getAttribute("data-post-id"));
-    expect(await pendingFrames(page), "a lit post asks for frames").toBe(1);
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await second.getAttribute("data-article-id"));
+    expect(await pendingFrames(page), "a lit article asks for frames").toBe(1);
     const before = await paintedPixels(page, graphic, 200);
     for (let i = 0; i < 20; i += 1) await playFrames(page, 16);
     expect(await writes(page), "twenty frames write no attribute").toBe(1);
@@ -613,38 +613,38 @@ test.describe("the writing graphic answers a lit post", () => {
     expect(await paintedPixels(page, graphic, 200), "the path to Vega adds paint").toBeGreaterThan(before);
 
     await page.mouse.move(2, 2);
-    await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
+    await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
     await playFrames(page, 2000);
     expect(await writes(page)).toBe(2);
     expect(await pendingFrames(page), "the loop stops once the glow has faded").toBe(0);
   });
 
-  test("keyboard focus sets the active post, and leaving clears it", async ({ page }) => {
+  test("keyboard focus sets the active article, and leaving clears it", async ({ page }) => {
     await useReducedMotion(page);
     await page.goto(preview + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     await watchActive(page);
-    expect(await tabTo(page, ".post-list__link >> nth=1")).toBe(true);
-    const second = page.locator(".post-list__item").nth(1);
-    await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await second.getAttribute("data-post-id"));
+    expect(await tabTo(page, ".article-list__link >> nth=1")).toBe(true);
+    const second = page.locator(".article-list__item").nth(1);
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await second.getAttribute("data-article-id"));
     await page.keyboard.press("Tab");
-    await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await page.locator(".post-list__item").nth(2).getAttribute("data-post-id"));
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await page.locator(".article-list__item").nth(2).getAttribute("data-article-id"));
     await page.keyboard.press("Shift+Tab");
     await page.keyboard.press("Shift+Tab");
-    await expect(page.locator(graphic)).toHaveAttribute("data-active-post", await page.locator(".post-list__item").first().getAttribute("data-post-id"));
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await page.locator(".article-list__item").first().getAttribute("data-article-id"));
     await page.keyboard.press("Shift+Tab");
-    await expect(page.locator(graphic)).not.toHaveAttribute("data-active-post", /.*/);
+    await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
   });
 
-  test("reduced motion draws a lit post at once and runs no frame", async ({ page }) => {
+  test("reduced motion draws a lit article at once and runs no frame", async ({ page }) => {
     await useManualFrames(page);
     await useReducedMotion(page);
     await page.goto(preview + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     const canvas = page.locator(`${graphic} canvas`);
     const rest = await canvas.evaluate((element) => element.toDataURL());
-    await page.locator(".post-list__item").nth(1).hover();
-    await expect(page.locator(graphic)).toHaveAttribute("data-active-post", /.+/);
+    await page.locator(".article-list__item").nth(1).hover();
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", /.+/);
     expect(await canvas.evaluate((element) => element.toDataURL()), "the picture changes on the same turn").not.toBe(rest);
     expect(await pendingFrames(page)).toBe(0);
     await page.mouse.move(2, 2);
@@ -660,8 +660,8 @@ test.describe("the writing graphic in preview", () => {
       await page.setViewportSize(size);
       await page.goto(preview + "/writing/");
       await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
-      await page.locator(".post-list__item").nth(1).hover();
-      await expect(page.locator(graphic)).toHaveAttribute("data-active-post", /.+/);
+      await page.locator(".article-list__item").nth(1).hover();
+      await expect(page.locator(graphic)).toHaveAttribute("data-active-article", /.+/);
       expect(await cspViolations(page)).toEqual([]);
     }
     expect(problems).toEqual([]);
@@ -675,8 +675,8 @@ test("production writing follows publication and keeps the security policy", asy
   expect(response.headers()["content-security-policy"]).toContain("style-src-attr 'none'");
   await expect(page.locator("[data-graphic='writing']")).toHaveCount(visible ? 1 : 0);
   await expect(page.locator("[data-graphic='404']")).toHaveCount(visible ? 0 : 1);
-  await expect(page.locator(".post-list")).toHaveCount(visible ? 1 : 0);
-  await expect(page.locator(".post-list__item")).toHaveCount(currentPublished.writing.length);
+  await expect(page.locator(".article-list")).toHaveCount(visible ? 1 : 0);
+  await expect(page.locator(".article-list__item")).toHaveCount(currentPublished.writing.length);
   if (visible) await expect(page.locator("meta[name='robots'], .draft-label")).toHaveCount(0);
 });
 
@@ -789,8 +789,8 @@ test.describe("the writing graphic keeps its figure inside the box", () => {
   test("the title has no decode layer and reads as plain text on the first frame", async ({ page }) => {
     await useManualFrames(page);
     await page.goto(preview + "/writing/");
-    await expect(page.locator("#blog-title")).toHaveText("Writing");
-    await expect(page.locator("#blog-title *")).toHaveCount(0);
-    await expect(page.locator("#blog-title")).not.toHaveAttribute("data-decode", /.*/);
+    await expect(page.locator("#writing-title")).toHaveText("Writing");
+    await expect(page.locator("#writing-title *")).toHaveCount(0);
+    await expect(page.locator("#writing-title")).not.toHaveAttribute("data-decode", /.*/);
   });
 });

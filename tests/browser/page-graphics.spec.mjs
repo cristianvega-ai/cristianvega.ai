@@ -8,7 +8,7 @@ const preview = dev;
 
 const PAGES = {
   products: { name: "products index", url: `${dev}/products/`, graphic: "[data-graphic='products']", restMs: 31_000 },
-  product: { name: "product page", url: `${dev}/products/lorem-ipsum-dolor/`, graphic: "[data-graphic='products']", restMs: 31_000 },
+  product: { name: "product page", url: `${dev}/products/product-layout-fixture/`, graphic: "[data-graphic='products']", restMs: 31_000 },
   notFound: { name: "404 page", url: "/no-such-page-for-the-graphic/", graphic: "[data-graphic='404']", restMs: 31_000 },
 };
 
