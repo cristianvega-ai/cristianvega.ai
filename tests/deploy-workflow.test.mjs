@@ -106,9 +106,9 @@ test("Verify packs the required files and the live verifier, and records the pac
     assert.ok(verify.includes(name), `Verify must require dist/${name} before packing`);
   }
   assert.match(verify, /--format=ustar/);
-  assert.match(verify, /cp scripts\/verify-deploy\.mjs/);
+  assert.match(verify, /cp scripts\/verify-deployment\.mjs/);
   assert.match(verify, /cp \.nvmrc "\$package_dir\/node-version"/);
-  assert.match(verify, /sha256sum site\.tar\.gz verify-deploy\.mjs wrangler\.jsonc package\.json package-lock\.json node-version > SHA256SUMS/);
+  assert.match(verify, /sha256sum site\.tar\.gz verify-deployment\.mjs wrangler\.jsonc package\.json package-lock\.json node-version > SHA256SUMS/);
   assert.match(verify, /package_sha256=.*>> "\$GITHUB_OUTPUT"/);
   assert.match(verify, /sha256sum "\$package_dir\/SHA256SUMS"/);
   assert.match(verify, /manifest_sha256=.*>> "\$GITHUB_OUTPUT"/);
@@ -135,8 +135,8 @@ test("Deploy production runs only for the current main commit with the kill swit
 
 test("Deploy production never checks out the repository and runs the verifier from the package", () => {
   assert.doesNotMatch(deploy, /actions\/checkout/);
-  assert.match(deploy, /node verify-deploy\.mjs/);
-  assert.doesNotMatch(deploy, /scripts\/verify-deploy\.mjs/);
+  assert.match(deploy, /node verify-deployment\.mjs/);
+  assert.doesNotMatch(deploy, /scripts\/verify-deployment\.mjs/);
   assert.match(deploy, /sha256sum --check SHA256SUMS/);
   assert.match(deploy, /EXPECTED_PACKAGE_SHA256: \$\{\{ needs\.verify\.outputs\.package_sha256 \}\}/);
   assert.match(deploy, /EXPECTED_INDEX: dist\/index\.html/);

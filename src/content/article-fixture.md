@@ -27,7 +27,7 @@ Preserve the owner's prose unless the owner requests a content change.
 
 Keep all eight article fixtures unpublished.
 Keep the full fixture's `draft: true` value.
-Use `npm run dev` to preview `/writing/full-article-layout-fixture/`.
+Use `npm run development` to preview `/writing/full-article-layout-fixture/`.
 The preview shows `Draft preview · not published` and requests `noindex, follow`.
 Production excludes drafts from article routes, navigation, and the sitemap.
 Production creates the Writing index only when at least one published article exists.

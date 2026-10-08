@@ -141,7 +141,7 @@ async function checkDeployment(t, {
 
 async function runGate(env, timeout = 10_000) {
   try {
-    const result = await run(process.execPath, [join(root, "scripts/verify-deploy.mjs")], {
+    const result = await run(process.execPath, [join(root, "scripts/verify-deployment.mjs")], {
       env: { ...process.env, CHECK_CANONICAL_REDIRECTS: "false", ...env },
       timeout,
     });
@@ -204,7 +204,7 @@ test("the live gate accepts the exact verified homepage", async (t) => {
   const result = await checkDeployment(t);
   assert.equal(result.code, 0, result.output);
   assert.match(result.output, /the live homepage matches the verified build/);
-  assert.match(result.output, /verify-deploy: OK/);
+  assert.match(result.output, /verify-deployment: OK/);
   for (const path of scriptPaths) {
     assert.equal(result.requests.filter((request) => request === path).length, 1, path);
   }
@@ -218,7 +218,7 @@ test("the live gate accepts the security headers of the local Cloudflare build",
   const origin = await startLocalCloudflare(t);
   const result = await runGate({ ORIGIN: origin, EXPECTED_INDEX: "" }, 30_000);
   for (const label of ["homepage", "404 response", "/about/", "/writing/"]) {
-    assert.ok(result.output.includes(`verify-deploy: ${label} security headers match the approved policy`), result.output);
+    assert.ok(result.output.includes(`verify-deployment: ${label} security headers match the approved policy`), result.output);
   }
 });
 
@@ -339,7 +339,7 @@ for (const path of scriptPaths) {
     const result = await checkDeployment(t, { scriptResponses: { [path]: null } });
     assert.equal(result.code, 1, result.output);
     assert.ok(result.output.includes(`${path} returned HTTP 404`), result.output);
-    assert.doesNotMatch(result.output, /verify-deploy: OK/);
+    assert.doesNotMatch(result.output, /verify-deployment: OK/);
   });
 }
 
@@ -366,7 +366,7 @@ for (const [name, response, message] of [
     assert.equal(result.code, 1, result.output);
     assert.match(result.output, message);
     assert.ok(result.output.includes(scriptPaths[2]), result.output);
-    assert.doesNotMatch(result.output, /verify-deploy: OK/);
+    assert.doesNotMatch(result.output, /verify-deployment: OK/);
   });
 }
 
@@ -388,7 +388,7 @@ for (const [name, reference, message] of [
     const result = await checkDeployment(t, { html, expectedHtml: html });
     assert.equal(result.code, 1, result.output);
     assert.match(result.output, message);
-    assert.doesNotMatch(result.output, /verify-deploy: OK/);
+    assert.doesNotMatch(result.output, /verify-deployment: OK/);
   });
 }
 
@@ -401,7 +401,7 @@ test("the live gate accepts a different CSP order on the 404 response", async (t
     notFoundHeaders: { "Content-Security-Policy": reordered },
   });
   assert.equal(result.code, 0, result.output);
-  assert.match(result.output, /verify-deploy: OK/);
+  assert.match(result.output, /verify-deployment: OK/);
 });
 
 test("the live gate accepts a different permissions order and header case", async (t) => {
@@ -415,7 +415,7 @@ test("the live gate accepts a different permissions order and header case", asyn
     notFoundHeaders: approvedHeaders,
   });
   assert.equal(result.code, 0, result.output);
-  assert.match(result.output, /verify-deploy: OK/);
+  assert.match(result.output, /verify-deployment: OK/);
 });
 
 for (const name of Object.keys(approvedHeaders)) {
@@ -423,7 +423,7 @@ for (const name of Object.keys(approvedHeaders)) {
     const result = await checkDeployment(t, { headers: { [name]: null } });
     assert.equal(result.code, 1, result.output);
     assert.match(result.output, new RegExp(`homepage missing ${name.toLowerCase()}`));
-    assert.doesNotMatch(result.output, /verify-deploy: OK/);
+    assert.doesNotMatch(result.output, /verify-deployment: OK/);
   });
 }
 
@@ -479,7 +479,7 @@ for (const [name, headers, header] of [
     const result = await checkDeployment(t, { headers });
     assert.equal(result.code, 1, result.output);
     assert.match(result.output, new RegExp(`homepage ${header} must match the approved _headers policy`));
-    assert.doesNotMatch(result.output, /verify-deploy: OK/);
+    assert.doesNotMatch(result.output, /verify-deployment: OK/);
   });
 }
 
@@ -489,7 +489,7 @@ test("the live gate rejects an unsafe 404 header", async (t) => {
   });
   assert.equal(result.code, 1, result.output);
   assert.match(result.output, /404 response x-frame-options must match the approved _headers policy/);
-  assert.doesNotMatch(result.output, /verify-deploy: OK/);
+  assert.doesNotMatch(result.output, /verify-deployment: OK/);
 });
 
 for (const writingStatus of [404, 200]) {
@@ -497,7 +497,7 @@ for (const writingStatus of [404, 200]) {
     const result = await checkDeployment(t, { writingStatus });
     assert.equal(result.code, 0, result.output);
     for (const route of ["/about/", "/writing/"]) {
-      assert.ok(result.output.includes(`verify-deploy: ${route} security headers match the approved policy`), result.output);
+      assert.ok(result.output.includes(`verify-deployment: ${route} security headers match the approved policy`), result.output);
       assert.equal(result.requests.filter((request) => request === route).length, 1, route);
     }
   });
@@ -518,9 +518,9 @@ for (const [page, route, options] of [
     test(`the live gate rejects ${name} on ${page}`, async (t) => {
       const result = await checkDeployment(t, { ...options, [option]: headers });
       assert.equal(result.code, 1, result.output);
-      assert.ok(result.output.includes(`verify-deploy: ${route} ${message}`), result.output);
+      assert.ok(result.output.includes(`verify-deployment: ${route} ${message}`), result.output);
       assert.match(result.output, /homepage security headers match the approved policy/);
-      assert.doesNotMatch(result.output, /verify-deploy: OK/);
+      assert.doesNotMatch(result.output, /verify-deployment: OK/);
     });
   }
 }
@@ -530,7 +530,7 @@ for (const writingStatus of [301, 500]) {
     const result = await checkDeployment(t, { writingStatus });
     assert.equal(result.code, 1, result.output);
     assert.ok(result.output.includes(`/writing/ returned HTTP ${writingStatus}, expected 200 or 404`), result.output);
-    assert.doesNotMatch(result.output, /verify-deploy: OK/);
+    assert.doesNotMatch(result.output, /verify-deployment: OK/);
   });
 }
 
@@ -564,6 +564,6 @@ for (const [name, options, message] of [
     const result = await checkDeployment(t, options);
     assert.equal(result.code, 1, result.output);
     assert.match(result.output, message);
-    assert.doesNotMatch(result.output, /verify-deploy: OK/);
+    assert.doesNotMatch(result.output, /verify-deployment: OK/);
   });
 }

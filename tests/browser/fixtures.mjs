@@ -84,7 +84,7 @@ export async function setHomepageState(page, state) {
  */
 
 /** The dev server that shows drafts. Playwright starts it on this port. */
-export const DRAFT_ORIGIN = process.env.E2E_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
+export const DRAFT_ORIGIN = process.env.BROWSER_TEST_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 
 /**
  * Collect uncaught page errors and the console messages of the given types.

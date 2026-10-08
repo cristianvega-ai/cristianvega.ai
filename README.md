@@ -12,7 +12,7 @@ Install nvm before you run these commands.
 nvm install
 nvm use
 npm ci
-npm run dev
+npm run development
 ```
 
 The [Cursor setup](.cursor/environment.json) reads the same version file.
@@ -45,7 +45,7 @@ The site calculates reading time from each article's text.
 Use standard Markdown for headings, lists, links, and code.
 Code blocks use external CSS to meet the security policy.
 
-Drafts appear only in `npm run dev`.
+Drafts appear only in `npm run development`.
 Draft pages show a preview label and request `noindex`.
 Production builds exclude drafts from routes, navigation, and the sitemap.
 An omitted `draft` value defaults to `true`.
@@ -87,7 +87,7 @@ Otherwise, each line uses muted text without a link or keyboard focus.
 "Latest writing · coming soon" and "Latest products · coming soon" show those states.
 Both states use one box, so the layout does not shift when a section goes live.
 A production build with only drafts shows two coming-soon lines.
-`npm run dev` shows the drafts, so both lines link.
+`npm run development` shows the drafts, so both lines link.
 
 The globe is decorative and hidden from assistive technology.
 A canvas draws its entrance in about 2.3 active seconds.
@@ -165,7 +165,7 @@ Add `status` to replace the default `Product` label in the lists.
 The lists sort by `order`, lowest first, then by title.
 The Markdown body becomes the detail page.
 
-Drafts appear only in `npm run dev`.
+Drafts appear only in `npm run development`.
 Draft pages show a label and request `noindex`.
 A production build has no `/products/` route while every product is a draft.
 The build also leaves products out of the navigation and the sitemap.
@@ -211,7 +211,7 @@ Generated reports and build output must remain ignored.
 `npm run build` first checks `public/` for `.DS_Store`, `Thumbs.db`, and AppleDouble (`._*`) files.
 The check rejects these files before Astro copies public files into `dist/`.
 Remove each reported metadata file, then run the build again.
-The [public-file guard](scripts/check-public.mjs) permits `public/.well-known/security.txt`.
+The [public-file guard](scripts/check-public-metadata.mjs) permits `public/.well-known/security.txt`.
 
 ## Deploy
 
@@ -291,7 +291,7 @@ domain change. Do not assume that Wrangler will replace them.
    workflow again.
 6. Confirm that both custom domains are active and have valid certificates.
    Run the live gate with
-   `CHECK_CANONICAL_REDIRECTS=true npm run verify:deploy`. Set the repository
+   `CHECK_CANONICAL_REDIRECTS=true npm run verify:deployment`. Set the repository
    variable `CLOUDFLARE_PRODUCTION_READY` to `true`, then run the GitHub
    workflow again. The test address and the production domain must match
    the same verified homepage.
@@ -394,12 +394,12 @@ redirects, compression, caching, and the page flows without account access.
 It selects the `test` environment, which clears local domain routes. This
 keeps each request's hostname so the suite can check host-specific headers.
 
-Run `npm run verify:deploy` to check the public site. Set `ORIGIN` to check
+Run `npm run verify:deployment` to check the public site. Set `ORIGIN` to check
 the Cloudflare test address. Set `EXPECTED_INDEX=dist/index.html` only when
 that local build is the exact build deployed by GitHub. A different build
 must fail the comparison.
 
-The [live verifier](scripts/verify-deploy.mjs) reads script URLs from the verified homepage when `EXPECTED_INDEX` is set.
+The [live verifier](scripts/verify-deployment.mjs) reads script URLs from the verified homepage when `EXPECTED_INDEX` is set.
 Otherwise, it reads the live homepage.
 It checks each script URL from the same origin once, without relying on component filenames.
 
@@ -478,7 +478,7 @@ Requires `sharp` (devDependency).
 ```bash
 # Social preview (1200×630 JPEG) from assets/cristian-vega.png
 # → public/images/cristian-vega-social-preview.jpg
-npm run generate:portrait
+npm run generate:social-preview
 
 # Apple touch icon (180×180 PNG) from public/favicon.svg
 # → public/images/apple-touch-icon.png

@@ -14,7 +14,7 @@ async function publicFixture(t) {
 
   await mkdir(join(directory, "scripts"));
   await copyFile(join(root, "package.json"), join(directory, "package.json"));
-  await copyFile(join(root, "scripts/check-public.mjs"), join(directory, "scripts/check-public.mjs"));
+  await copyFile(join(root, "scripts/check-public-metadata.mjs"), join(directory, "scripts/check-public-metadata.mjs"));
   await mkdir(join(directory, "node_modules/.bin"), { recursive: true });
   // Record when npm reaches Astro without running a second site build.
   await writeFile(join(directory, "node_modules/.bin/astro"),
