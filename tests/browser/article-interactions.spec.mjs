@@ -3,7 +3,7 @@ import { DRAFT_ORIGIN, pageProblems, settle, useReducedMotion, VIEWPORTS } from 
 
 test.use({ baseURL: DRAFT_ORIGIN });
 
-const article = "/writing/lorem-ipsum-dolor-sit-amet/";
+const article = "/writing/full-article-layout-fixture/";
 
 // Add test content to the browser and run the article setup.
 async function loadArticle(page, content, outside = "") {
@@ -16,7 +16,7 @@ async function loadArticle(page, content, outside = "") {
     element.insertAdjacentHTML("beforebegin", outside);
   }, { content, outside });
   await page.evaluate(async () => {
-    const { setupArticle } = await import("/src/lib/article-interactions.ts");
+    const { setupArticle } = await import("/src/shared/article-interactions.ts");
     setupArticle();
   });
   return errors;

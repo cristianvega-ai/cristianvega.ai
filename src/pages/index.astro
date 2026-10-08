@@ -1,9 +1,9 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import LyraGlobe from "../components/LyraGlobe.astro";
-import { globeProjectionHref } from "../lib/lyra-globe/projection";
-import { getPosts } from "../lib/blog";
-import { getProducts } from "../lib/products";
+import { globeProjectionHref } from "../shared/lyra-globe/projection";
+import { getArticles } from "../shared/writing";
+import { getProducts } from "../shared/products";
 import "../styles/entries.css";
 import "../styles/home.css";
 
@@ -12,7 +12,7 @@ import "../styles/home.css";
 // route the build does not emit. Both states share one box, so the layout
 // does not shift when a section goes live.
 const next = [
-  { href: "/writing/", live: (await getPosts()).length > 0, label: "Read my latest writing", soon: "Latest writing · coming soon" },
+  { href: "/writing/", live: (await getArticles()).length > 0, label: "Read my latest writing", soon: "Latest writing · coming soon" },
   { href: "/products/", live: (await getProducts()).length > 0, label: "See my latest products", soon: "Latest products · coming soon" },
 ];
 ---

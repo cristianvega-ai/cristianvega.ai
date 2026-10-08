@@ -31,7 +31,7 @@ test("astro check reports source files and skips generated output", { timeout: 9
   // The checker must report every one of these files.
   const sourceFiles = {
     "src/pages/index.astro": brokenPage,
-    "src/lib/probe.ts": brokenScript,
+    "src/shared/probe.ts": brokenScript,
     "scripts/probe.mjs": brokenScript,
     "tests/probe.test.mjs": brokenScript,
   };
@@ -43,7 +43,7 @@ test("astro check reports source files and skips generated output", { timeout: 9
     "coverage/assets/probe.js": brokenScript,
     ".nyc_output/probe.js": brokenScript,
     "docs/superpowers/plans/probe.js": brokenScript,
-    "worktrees/feature/src/lib/probe.ts": brokenScript,
+    "worktrees/feature/src/shared/probe.ts": brokenScript,
     "worktrees/feature/src/pages/index.astro": brokenPage,
     ".superpowers/probe.js": brokenScript,
     ".wrangler/tmp/probe.js": brokenScript,

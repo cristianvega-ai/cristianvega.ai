@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
-import { CROP_ABOVE_RING, CROP_BELOW_CAPTION, PICTURE_SCALE } from "../../src/lib/lyra-globe/projection.ts";
+import { CROP_ABOVE_RING, CROP_BELOW_CAPTION, PICTURE_SCALE } from "../../src/shared/lyra-globe/projection.ts";
 import { createIsolatedBuild } from "../helpers.mjs";
 import { pageProblems, settle, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames } from "./fixtures.mjs";
 
@@ -238,7 +238,7 @@ for (const viewport of [{ width: 1100, height: 800 }, VIEWPORTS.desktop, { width
 const createGlobeBuild = () => createIsolatedBuild({
   prefix: "cristianai-globe-",
   edits: {
-    "src/lib/lyra-globe/model.ts": [
+    "src/shared/lyra-globe/model.ts": [
       ["GLOBE_WIDTH = 600", "GLOBE_WIDTH = 720"],
       ["GLOBE_HEIGHT = 500", "GLOBE_HEIGHT = 560"],
       ["width * 0.51", "width * 0.54"],

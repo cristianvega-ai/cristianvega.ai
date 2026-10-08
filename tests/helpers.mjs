@@ -32,7 +32,7 @@ export const starWidthsCssPx = [66, 0, 0, 0, 42, 42];
 // Read Markdown independently from the application content helpers.
 export function readContentInventory(projectRoot = root) {
   const inventory = {};
-  for (const [section, collection] of [["writing", "blog"], ["products", "products"]]) {
+  for (const [section, collection] of [["writing", "writing"], ["products", "products"]]) {
     const directory = join(projectRoot, "src", "content", collection);
     inventory[section] = readdirSync(directory).filter((file) => file.endsWith(".md")).map((file) => {
       const markdown = readFileSync(join(directory, file), "utf8");
@@ -103,7 +103,7 @@ export function escapeAttribute(value) {
 }
 
 const publicationEntries = {
-  blog: [
+  writing: [
     { id: "zulu-tied", title: "Zulu tied writing", date: "2026-09-28", draft: false },
     { id: "explicit-draft", title: "Unreleased writing", date: "2026-09-30", draft: true },
     { id: "alpha-tied", title: "Alpha tied writing", date: "2026-09-28", draft: false },
@@ -180,8 +180,8 @@ export async function createContentBuild(kind) {
           const { id, ...data } = entry;
           if (kind === "all-draft" && "draft" in data) data.draft = true;
           data.description = `Description for ${data.title}.`;
-          if (collection === "blog") data.topic = "Systems";
-          const body = `## Fixture content\n\nBody for ${id}.\n\n` + (collection === "blog"
+          if (collection === "writing") data.topic = "Systems";
+          const body = `## Fixture content\n\nBody for ${id}.\n\n` + (collection === "writing"
             ? "```js\nconst signal = 1;\n```\n\n<div class=\"figure__panel\" role=\"img\" aria-label=\"Fixture signal path\">Signal path</div>\n"
             : "");
           await writeFile(join(directory, `${id}.md`), `---\n${yaml.dump(data)}---\n\n${body}`);

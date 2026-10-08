@@ -8,7 +8,7 @@ import { defineConfig, devices } from "@playwright/test";
  * rules as Cloudflare. The tests do not need a Cloudflare account.
  */
 export default defineConfig({
-  testDir: "tests/e2e",
+  testDir: "tests/browser",
   testMatch: "**/*.spec.mjs",
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
@@ -38,7 +38,7 @@ export default defineConfig({
   }, {
     // Keep draft checks separate from the production build. The test
     // configuration sends no reload to a page under test.
-    command: "npm run dev -- --config tests/e2e/dev-server.config.mjs --ignore-lock --host 127.0.0.1 --port 4324",
+    command: "npm run dev -- --config tests/browser/development-server.config.mjs --ignore-lock --host 127.0.0.1 --port 4324",
     url: "http://127.0.0.1:4324/writing/",
     reuseExistingServer: false,
     // Keep the test server in the foreground so Playwright can stop it.

@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { stagger } from "../src/lib/motion/clock.ts";
-import { lerp, smooth, unit } from "../src/lib/page-graphics/math.ts";
+import { stagger } from "../src/shared/motion/clock.ts";
+import { lerp, smooth, unit } from "../src/shared/page-graphics/math.ts";
 
 test("stagger, smooth, and lerp stay inside their ranges", () => {
   assert.equal(stagger(0.1, 0.2, 0.4), 0);

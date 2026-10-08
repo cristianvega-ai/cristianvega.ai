@@ -515,7 +515,7 @@ for (const [name, viewport] of Object.entries(WIDTHS)) {
       await page.goto("/");
       await expect(page.locator("h1")).toHaveCount(1);
       await expect(page.locator("main h2")).toHaveCount(0);
-      await expect(page.locator("[data-post-id], [data-product-id]")).toHaveCount(0);
+      await expect(page.locator("[data-article-id], [data-product-id]")).toHaveCount(0);
       await expect(page.locator("a[href='#']")).toHaveCount(0);
       await expect(page.getByText("More about me")).toHaveCount(0);
 
@@ -545,7 +545,7 @@ for (const [name, viewport] of Object.entries(WIDTHS)) {
       // The Astro dev toolbar adds its own headings, so scope to main.
       await expect(page.locator("main h1")).toHaveCount(1);
       await expect(page.locator("main h2")).toHaveCount(0);
-      await expect(page.locator("[data-post-id], [data-product-id]")).toHaveCount(0);
+      await expect(page.locator("[data-article-id], [data-product-id]")).toHaveCount(0);
 
       const links = page.locator(".hero__next a");
       await expect(links).toHaveCount(2);

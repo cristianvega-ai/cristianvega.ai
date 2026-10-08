@@ -29,7 +29,7 @@ const props = Astro.props;
 </div>
 
 <script>
-  import { mountPageGraphic } from "../lib/page-graphics/scenes/index.ts";
+  import { mountPageGraphic } from "../shared/page-graphics/scenes/index.ts";
 
   // The module tears down on pagehide and sets up again on a restored page.
   const root = document.querySelector<HTMLElement>("[data-graphic]");

@@ -68,8 +68,8 @@ async function mountScene(page, policy, { duration = 2300, busy = false, count =
   }));
   await page.goto(url);
   await page.evaluate(async (settings) => {
-    const { mountCanvas } = await import("/src/lib/page-graphics/mount.ts");
-    const { GLOBE_POLICY, mountCanvasController } = await import("/src/lib/motion/canvas-controller.ts");
+    const { mountCanvas } = await import("/src/shared/page-graphics/mount.ts");
+    const { GLOBE_POLICY, mountCanvasController } = await import("/src/shared/motion/canvas-controller.ts");
     Object.defineProperty(window, "devicePixelRatio", { configurable: true, get: () => 3 });
     window.__busy = settings.busy;
     window.__draws = 0;

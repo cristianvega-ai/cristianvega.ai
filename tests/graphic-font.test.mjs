@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { makeLabelFont } from "../src/lib/page-graphics/label-font.ts";
-import { placeLabel } from "../src/lib/page-graphics/labels.ts";
-import { buildField } from "../src/lib/page-graphics/scenes/writing-layout.ts";
-import { layoutMissing, missingLayout } from "../src/lib/page-graphics/scenes/404.ts";
+import { makeLabelFont } from "../src/shared/page-graphics/label-font.ts";
+import { placeLabel } from "../src/shared/page-graphics/labels.ts";
+import { buildField } from "../src/shared/page-graphics/scenes/writing-layout.ts";
+import { layoutMissing, missingLayout } from "../src/shared/page-graphics/scenes/404.ts";
 
 function context() {
   return {
@@ -73,7 +73,7 @@ test("uses supplied widths in Writing margins and label boxes", () => {
   const wide = buildField(input);
   const narrow = buildField({ ...input, labelWidthsCssPx: [12, 12] });
   assert.notDeepEqual(wide.points.slice(0, 2), narrow.points.slice(0, 2));
-  for (const [index, label] of wide.postLabels.entries()) {
+  for (const [index, label] of wide.articleLabels.entries()) {
     assert.equal(label.rect.x1 - label.rect.x0, input.labelWidthsCssPx[index] + 6);
     assert.ok(label.rect.x0 >= 0 && label.rect.x1 <= input.width);
   }
@@ -120,7 +120,7 @@ test("uses the measured label line in every label box", () => {
     width: 480,
     height: 640,
   });
-  for (const label of [...field.postLabels, ...field.starLabels.filter(Boolean)]) {
+  for (const label of [...field.articleLabels, ...field.starLabels.filter(Boolean)]) {
     assert.equal(label.rect.y1 - label.rect.y0, line + 6, `writing label ${label.text}`);
   }
 
