@@ -53,7 +53,7 @@ Set `draft: false` only when the owner approves publication.
 
 The eight article fixtures remain drafts.
 Only [full-article-layout-fixture.md](src/content/writing/full-article-layout-fixture.md) contains a full-length article.
-Read its [fixture contract](src/content/article-fixture.md) before you change article presentation.
+Read its [fixture contract](src/content/article-fixture-guide.md) before you change article presentation.
 The other fixtures contain short text for layout review.
 
 Article pages place the title, metadata, and prose in one reading column on a continuous dark surface.
