@@ -106,15 +106,17 @@ Never weaken an assertion merely to make a check pass.
 
 ## Naming
 
-- Use complete, familiar words for owned folders, files, commands, and branch types.
+- Use complete, familiar words for owned paths, commands, code identifiers, style names, environment variables, and branch types.
 - Name the subject and purpose. Avoid acronyms, shortened words, unexplained codes, and single-letter labels.
+- Keep task codes inside documents. Do not use them as opaque path names.
 - Use lowercase words with hyphens for folders and ordinary files.
 - Use PascalCase for component and layout filenames.
 - Use `writing` for the section and collection. Use `article` for an individual piece and its helpers.
-- Name fixtures by their test purpose.
+- Name test fixtures by the behavior they test.
 - Use `YYYY-MM-DD` for dates in names.
-- Keep `src/`, `Lyra`, and official font family names.
-- Preserve required tool filenames, file extensions, and protocol keys such as `og:image`.
+- Keep `src/`, `Lyra`, official brand and font names, and ordinary mathematical coordinates.
+- Preserve required tool names, filenames, file extensions, and package keys.
+- Keep native interface names and required format, protocol, and schema keys, such as `og:image`.
 
 ## Frontend, accessibility, and motion
 
