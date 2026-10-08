@@ -63,7 +63,7 @@ test("uses measured widths to keep wide labels inside placement bounds", () => {
 
 test("uses supplied widths in Writing margins and label boxes", () => {
   const input = {
-    articleIdentifiers: ["post-one", "post-two"],
+    articleIdentifiers: ["article-one", "article-two"],
     labels: ["WWWW", "iiii"],
     labelWidthsInPixels: [44, 12],
     starWidthsInPixels: [96, 0, 0, 0, 64, 64],
@@ -112,7 +112,7 @@ test("uses the measured label line in every label box", () => {
   assert.equal(above.y, 150 - 12 - line / 2, "a label above keeps the gap and half its line from the node");
 
   const field = buildField({
-    articleIdentifiers: ["post-one", "post-two"],
+    articleIdentifiers: ["article-one", "article-two"],
     labels: ["WWWW", "iiii"],
     labelWidthsInPixels: [44, 12],
     starWidthsInPixels: [96, 0, 0, 0, 64, 64],

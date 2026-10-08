@@ -18,7 +18,7 @@ const shareAddress = new URL(articleAddress(article), Astro.site).href;
     <article class="article" aria-labelledby="article-title">
       <header class="article__header">
         <div class="article__utility wrap wrap--read">
-          <a class="back-link" href="/writing/">← All posts</a>
+          <a class="back-link" href="/writing/">← All articles</a>
           {article.data.draft && <p class="article__draft">Draft preview · not published</p>}
         </div>
         <div class="article__header-copy wrap wrap--read">
@@ -39,7 +39,7 @@ const shareAddress = new URL(articleAddress(article), Astro.site).href;
             <span class="share-status" role="status"></span>
           </div>
         </div>}
-        {(older || newer) && <nav class="read-next wrap wrap--read" aria-label="More posts">
+        {(older || newer) && <nav class="read-next wrap wrap--read" aria-label="More articles">
           {older && <a href={articleAddress(older)}><span>← Older{older.data.draft && " · Draft"}</span><strong>{older.data.title}</strong></a>}
           {newer && <a href={articleAddress(newer)} class="read-next__newer"><span>Newer{newer.data.draft && " · Draft"} →</span><strong>{newer.data.title}</strong></a>}
         </nav>}

@@ -20,7 +20,7 @@ const hasDrafts = articles.some((article) => article.data.draft);
     <div class="writing-index__introduction">
       <p class="eyebrow">Notes · Essays</p>
       <h1 id="writing-title">Writing</h1>
-      <p class="writing-index__count">{String(articles.length).padStart(2, "0")} {articles.length === 1 ? "post" : "posts"}{hasDrafts && " · local preview"}</p>
+      <p class="writing-index__count">{String(articles.length).padStart(2, "0")} {articles.length === 1 ? "article" : "articles"}{hasDrafts && " · local preview"}</p>
     </div>
     <section class="writing-index__list" data-writing-list aria-labelledby="writing-title">
       <ol class="article-list">

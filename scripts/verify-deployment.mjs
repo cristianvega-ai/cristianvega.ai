@@ -336,7 +336,7 @@ async function main() {
   checkSecurityHeaders(about.headers, "/about/");
   await about.body?.cancel();
 
-  // The build omits /writing/ until a post is published. Both responses
+  // The build omits /writing/ until an article is published. Both responses
   // must carry the approved headers.
   const writing = await fetch(`${origin}/writing/`, {
     redirect: "manual",
