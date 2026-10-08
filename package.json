@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
-    "prebuild": "node scripts/check-public.mjs",
+    "development": "astro dev",
+    "prebuild": "node scripts/check-public-metadata.mjs",
     "build": "astro build",
     "preview": "wrangler dev --local",
     "check": "astro check",
@@ -13,8 +13,8 @@
     "test:browser": "playwright test",
     "test": "npm run build && npm run test:run",
     "verify": "npm run build && npm run check && npm run test:run && npm run test:browser",
-    "verify:deploy": "node scripts/verify-deploy.mjs",
-    "generate:portrait": "node scripts/generate-portrait.mjs",
+    "verify:deployment": "node scripts/verify-deployment.mjs",
+    "generate:social-preview": "node scripts/generate-social-preview.mjs",
     "generate:touch-icon": "node scripts/generate-touch-icon.mjs"
   },
   "dependencies": {

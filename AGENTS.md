@@ -30,7 +30,7 @@ When you edit site copy, you are writing as the owner. When you explain that edi
 
 ```bash
 npm install
-npm run dev
+npm run development
 npm run verify           # the required gate: build, Astro diagnostics, and both test runners
 ```
 
@@ -42,9 +42,9 @@ npm run check
 npm test                 # builds, then runs tests (use this or verify — not bare node --test)
 npm run test:run         # Node tests only; requires a current dist/ and starts Wrangler
 npm run test:browser         # browser tests only; requires a current dist/
-npm run verify:deploy    # post-deploy: security headers on /, /about/, /writing/, and a real 404
+npm run verify:deployment    # post-deploy: security headers on /, /about/, /writing/, and a real 404
 npm audit
-npm run generate:portrait
+npm run generate:social-preview
 npm run generate:touch-icon
 ```
 

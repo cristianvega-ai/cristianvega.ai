@@ -10,21 +10,21 @@ import sharp from "sharp";
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
 
-const SRC = "public/favicon.svg";
-const SIZE = 180; // the size iOS requests for rel="apple-touch-icon"
-const BACKGROUND = "#14181F"; // --ink, the mark's own plate colour
-const OUT = "public/images/apple-touch-icon.png";
+const SOURCE_IMAGE_PATH = "public/favicon.svg";
+const ICON_SIZE = 180; // the size iOS requests for rel="apple-touch-icon"
+const BACKGROUND_COLOR = "#14181F"; // --ink, the mark's own plate colour
+const OUTPUT_IMAGE_PATH = "public/images/apple-touch-icon.png";
 
-mkdirSync(dirname(OUT), { recursive: true });
+mkdirSync(dirname(OUTPUT_IMAGE_PATH), { recursive: true });
 
 // The mark is authored on a 32px canvas; raise the render density so the
 // vector rasterizes at the output size instead of being upscaled.
-const density = Math.round((72 * SIZE) / 32);
+const rasterDensity = Math.round((72 * ICON_SIZE) / 32);
 
-const info = await sharp(readFileSync(SRC), { density })
-  .resize(SIZE, SIZE, { fit: "contain", background: BACKGROUND })
-  .flatten({ background: BACKGROUND })
+const iconInformation = await sharp(readFileSync(SOURCE_IMAGE_PATH), { density: rasterDensity })
+  .resize(ICON_SIZE, ICON_SIZE, { fit: "contain", background: BACKGROUND_COLOR })
+  .flatten({ background: BACKGROUND_COLOR })
   .png({ compressionLevel: 9 })
-  .toFile(OUT);
+  .toFile(OUTPUT_IMAGE_PATH);
 
-console.log(`wrote ${OUT} — ${info.width}×${info.height}, ${info.size} bytes`);
+console.log(`wrote ${OUTPUT_IMAGE_PATH} — ${iconInformation.width}×${iconInformation.height}, ${iconInformation.size} bytes`);

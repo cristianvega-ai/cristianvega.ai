@@ -85,12 +85,12 @@ jobs:
             --directory dist \
             .
 
-          cp scripts/verify-deploy.mjs wrangler.jsonc package.json package-lock.json "$package_dir/"
+          cp scripts/verify-deployment.mjs wrangler.jsonc package.json package-lock.json "$package_dir/"
           # Keep the version file visible to the artifact upload.
           cp .nvmrc "$package_dir/node-version"
           (
             cd "$package_dir"
-            sha256sum site.tar.gz verify-deploy.mjs wrangler.jsonc package.json package-lock.json node-version > SHA256SUMS
+            sha256sum site.tar.gz verify-deployment.mjs wrangler.jsonc package.json package-lock.json node-version > SHA256SUMS
           )
 
           package_sha256="$(sha256sum "$package_dir/site.tar.gz" | awk '{ print $1 }')"
@@ -245,7 +245,7 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in 1 2 3; do
-            if node verify-deploy.mjs; then
+            if node verify-deployment.mjs; then
               exit 0
             fi
             if [[ "$attempt" -lt 3 ]]; then
@@ -261,4 +261,4 @@ jobs:
           ORIGIN: https://cristianvega.ai
           EXPECTED_INDEX: dist/index.html
           CHECK_CANONICAL_REDIRECTS: 'true'
-        run: node verify-deploy.mjs
+        run: node verify-deployment.mjs

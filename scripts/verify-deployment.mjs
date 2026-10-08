@@ -4,8 +4,8 @@
 // Check the Cloudflare response and, when supplied, the exact build output.
 //
 // Usage:
-//   npm run verify:deploy
-//   ORIGIN=https://cristianvega.ai npm run verify:deploy
+//   npm run verify:deployment
+//   ORIGIN=https://cristianvega.ai npm run verify:deployment
 
 import http from "node:http";
 import https from "node:https";
@@ -48,7 +48,7 @@ const APPROVED_SECURITY_HEADERS = new Map([
   ].join("; ")],
 ]);
 
-function parseCsp(value) {
+function parseContentSecurityPolicy(value) {
   const directives = new Map();
   const parts = value.split(";");
   if (parts.at(-1).trim() === "") parts.pop();
@@ -63,7 +63,7 @@ function parseCsp(value) {
   return directives;
 }
 
-function parsePermissions(value) {
+function parsePermissionsPolicy(value) {
   const directives = new Map();
   for (const part of value.split(",")) {
     const match = part.trim().match(/^([a-z][a-z0-9-]*)=\( *\)$/);
@@ -73,7 +73,7 @@ function parsePermissions(value) {
   return directives;
 }
 
-function parseHsts(value) {
+function parseStrictTransportSecurity(value) {
   const directives = new Map();
   const parts = value.split(";");
   if (parts.at(-1).trim() === "") parts.pop();
@@ -101,9 +101,9 @@ function sameDirectives(actual, expected) {
 
 function checkSecurityHeaders(headers, label) {
   const parsers = {
-    "content-security-policy": parseCsp,
-    "permissions-policy": parsePermissions,
-    "strict-transport-security": parseHsts,
+    "content-security-policy": parseContentSecurityPolicy,
+    "permissions-policy": parsePermissionsPolicy,
+    "strict-transport-security": parseStrictTransportSecurity,
   };
   let valid = true;
   for (const [name, expected] of APPROVED_SECURITY_HEADERS) {
@@ -125,11 +125,11 @@ function checkSecurityHeaders(headers, label) {
       valid = false;
     }
   }
-  if (valid) console.log(`verify-deploy: ${label} security headers match the approved policy`);
+  if (valid) console.log(`verify-deployment: ${label} security headers match the approved policy`);
 }
 
 function fail(message) {
-  console.error(`verify-deploy: ${message}`);
+  console.error(`verify-deployment: ${message}`);
   process.exitCode = 1;
 }
 
@@ -145,23 +145,23 @@ function hasGzip(headers) {
 // Remove each HTML comment where a browser ends it: at the first "-->", or at
 // the end of the document. The search for "-->" starts after "<!", so "<!-->"
 // ends at once. One pass keeps two removed parts from making a new comment.
-function withoutComments(html) {
+function withoutComments(markup) {
   let text = "";
   let index = 0;
   for (;;) {
-    const start = html.indexOf("<!--", index);
-    if (start === -1) return text + html.slice(index);
-    text += html.slice(index, start);
-    const end = html.indexOf("-->", start + 2);
+    const start = markup.indexOf("<!--", index);
+    if (start === -1) return text + markup.slice(index);
+    text += markup.slice(index, start);
+    const end = markup.indexOf("-->", start + 2);
     if (end === -1) return text;
     index = end + 3;
   }
 }
 
-function scriptUrls(html) {
-  const urls = new Set();
+function scriptAddresses(markup) {
+  const addresses = new Set();
   const base = new URL(`${origin}/`);
-  const document = withoutComments(html);
+  const document = withoutComments(markup);
   const elements = document.matchAll(/<script(?=[\s/>])([^>]*)>(?:[\s\S]*?<\/script\s*>|$)/gi);
   for (const [, attributes] of elements) {
     const sources = [...attributes.matchAll(
@@ -180,34 +180,34 @@ function scriptUrls(html) {
       continue;
     }
 
-    let url;
+    let address;
     try {
       const entities = { amp: "&", quot: '"', apos: "'", lt: "<", gt: ">" };
-      const src = value.replace(/&(?:#(\d+)|#x([\da-f]+)|(amp|quot|apos|lt|gt));/gi,
+      const source = value.replace(/&(?:#(\d+)|#x([\da-f]+)|(amp|quot|apos|lt|gt));/gi,
         (_, decimal, hexadecimal, name) => name
           ? entities[name.toLowerCase()]
           : String.fromCodePoint(parseInt(decimal ?? hexadecimal, decimal ? 10 : 16)),
       );
-      if (/[\x00-\x1f\x7f]/.test(src)) throw new Error("invalid control character");
-      url = new URL(src, base);
+      if (/[\x00-\x1f\x7f]/.test(source)) throw new Error("invalid control character");
+      address = new URL(source, base);
     } catch {
       fail(`homepage script has an invalid src reference: ${JSON.stringify(value)}`);
       continue;
     }
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      fail(`homepage script uses an unsupported URL: ${url.href}`);
+    if (address.protocol !== "http:" && address.protocol !== "https:") {
+      fail(`homepage script uses an unsupported URL: ${address.href}`);
       continue;
     }
-    if (url.username || url.password) {
+    if (address.username || address.password) {
       fail("homepage script URL must not contain credentials");
       continue;
     }
-    if (url.origin !== base.origin) continue;
-    url.hash = "";
-    urls.add(url.href);
+    if (address.origin !== base.origin) continue;
+    address.hash = "";
+    addresses.add(address.href);
   }
-  if (urls.size === 0) fail("homepage does not load a same-origin script");
-  return urls;
+  if (addresses.size === 0) fail("homepage does not load a same-origin script");
+  return addresses;
 }
 
 /**
@@ -215,37 +215,37 @@ function scriptUrls(html) {
  * fetch() strips Content-Encoding, so this uses node:http directly. The body
  * sample is for the failure message: a 403 page names its origin.
  */
-function requestHeaders(url, extraHeaders = {}) {
+function requestHeaders(address, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
-    const target = new URL(url);
-    const lib = target.protocol === "https:" ? https : http;
+    const target = new URL(address);
+    const transport = target.protocol === "https:" ? https : http;
     const headers = { "user-agent": USER_AGENT, accept: "*/*", ...extraHeaders };
-    const req = lib.request(target, { method: "GET", headers }, (res) => {
+    const request = transport.request(target, { method: "GET", headers }, (response) => {
       const chunks = [];
       let size = 0;
-      res.on("error", reject);
-      res.on("data", (chunk) => {
+      response.on("error", reject);
+      response.on("data", (chunk) => {
         if (size < 240) {
           chunks.push(chunk.subarray(0, 240 - size));
           size += chunk.length;
         }
       });
-      res.on("end", () =>
+      response.on("end", () =>
         resolve({
-          status: res.statusCode ?? 0,
-          headers: res.headers,
+          status: response.statusCode ?? 0,
+          headers: response.headers,
           sample: Buffer.concat(chunks).toString("latin1").replace(/\s+/g, " ").trim(),
         }),
       );
     });
-    req.on("error", reject);
-    req.setTimeout(15_000, () => req.destroy(new Error("request timed out")));
-    req.end();
+    request.on("error", reject);
+    request.setTimeout(15_000, () => request.destroy(new Error("request timed out")));
+    request.end();
   });
 }
 
 async function main() {
-  console.log(`verify-deploy: checking ${origin}`);
+  console.log(`verify-deployment: checking ${origin}`);
 
   let home;
   try {
@@ -284,19 +284,19 @@ async function main() {
       `GET ${missingPath} returned HTTP ${notFound.status}, expected 404`,
     );
   } else {
-    console.log("verify-deploy: missing path returns HTTP 404");
+    console.log("verify-deployment: missing path returns HTTP 404");
   }
   checkSecurityHeaders(notFound.headers, "404 response");
   await notFound.body?.cancel();
 
-  const post = await fetch(`${origin}/`, {
+  const postResponse = await fetch(`${origin}/`, {
     method: "POST",
     redirect: "manual",
     signal: AbortSignal.timeout(15_000),
     headers: { "user-agent": USER_AGENT },
   });
-  if (post.status !== 405) fail("the static homepage must reject POST with HTTP 405");
-  await post.body?.cancel();
+  if (postResponse.status !== 405) fail("the static homepage must reject POST with HTTP 405");
+  await postResponse.body?.cancel();
 
   const security = await fetch(`${origin}/.well-known/security.txt`, {
     redirect: "manual",
@@ -313,15 +313,15 @@ async function main() {
   }
   if (!(expires > Date.now())) fail("security.txt must have a future expiry date");
 
-  const html = await home.text();
-  let verifiedHtml = html;
+  const markup = await home.text();
+  let verifiedMarkup = markup;
   if (process.env.EXPECTED_INDEX) {
     const expected = await readFile(process.env.EXPECTED_INDEX);
-    verifiedHtml = expected.toString("utf8");
-    if (!expected.equals(Buffer.from(html))) {
+    verifiedMarkup = expected.toString("utf8");
+    if (!expected.equals(Buffer.from(markup))) {
       fail("the live homepage does not match the verified build");
     } else {
-      console.log("verify-deploy: the live homepage matches the verified build");
+      console.log("verify-deployment: the live homepage matches the verified build");
     }
   }
 
@@ -376,19 +376,19 @@ async function main() {
       await response.body?.cancel();
     }
   }
-  for (const url of scriptUrls(verifiedHtml)) {
-    const label = `script at ${url}`;
+  for (const address of scriptAddresses(verifiedMarkup)) {
+    const label = `script at ${address}`;
     let script;
     try {
-      script = await requestHeaders(url, { "accept-encoding": "gzip" });
+      script = await requestHeaders(address, { "accept-encoding": "gzip" });
     } catch (error) {
-      fail(`could not reach ${url} (${error.cause?.code ?? error.message})`);
+      fail(`could not reach ${address} (${error.cause?.code ?? error.message})`);
       continue;
     }
 
     if (script.status !== 200) {
       const server = headerValue(script.headers, "server") || "unknown server";
-      fail(`GET ${url} returned HTTP ${script.status}; ${server}; body: ${script.sample || "(empty)"}`);
+      fail(`GET ${address} returned HTTP ${script.status}; ${server}; body: ${script.sample || "(empty)"}`);
       continue;
     }
     const type = headerValue(script.headers, "content-type").trim();
@@ -401,7 +401,7 @@ async function main() {
       fail(`${label} is not gzip-compressed (Content-Encoding: ${encoding})`);
       continue;
     }
-    console.log(`verify-deploy: ${label} is gzip-compressed`);
+    console.log(`verify-deployment: ${label} is gzip-compressed`);
 
     const cache = headerValue(script.headers, "cache-control");
     const directives = cache.toLowerCase().split(",").map((value) => value.trim()).sort();
@@ -411,16 +411,16 @@ async function main() {
       );
       continue;
     } else {
-      console.log(`verify-deploy: ${label} cache is immutable`);
+      console.log(`verify-deployment: ${label} cache is immutable`);
     }
   }
 
   if (process.exitCode) {
-    console.error("verify-deploy: FAILED");
+    console.error("verify-deployment: FAILED");
     process.exit(process.exitCode);
   }
 
-  console.log("verify-deploy: OK");
+  console.log("verify-deployment: OK");
 }
 
 await main();
