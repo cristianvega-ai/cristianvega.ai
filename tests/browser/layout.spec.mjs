@@ -1,4 +1,5 @@
 import { chromium, expect, test } from "@playwright/test";
+import sharp from "sharp";
 
 import { headerLinks } from "../helpers.mjs";
 import { bandHeight, openGraphic as open, currentContent, currentPublished, DRAFT_ORIGIN as dev, settle, tabTo, textBoxes, VIEWPORTS } from "./fixtures.mjs";
@@ -796,10 +797,10 @@ test.describe("the sticky header", () => {
 /**
  * The faint grid in the empty area right of the reading column.
  *
- * The test hides the header, the page content, and the footer. Then the
- * screenshot holds only the ground and the grid. A pixel that differs from
- * the ground is grid. The screenshot loads into a blank page, so the canvas
- * can read its pixels and the page CSP does not apply.
+ * The test hides the header, the page content, and the footer.
+ * The screenshot contains only the ground and the grid.
+ * A pixel that differs from the ground belongs to the grid.
+ * Decode it in Node to avoid a large browser transfer.
  */
 const MOTIF_DEV = dev;
 const MOTIF_ROUTES = ["/about/", "/no-such-page/", `${MOTIF_DEV}/products/`, `${MOTIF_DEV}/products/product-layout-fixture/`];
@@ -814,20 +815,11 @@ async function gridPixels(page) {
     );
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
   });
-  const png = (await page.screenshot()).toString("base64");
-  const blank = await page.context().newPage();
-  try {
-    return await blank.evaluate(async (data) => {
-      const image = await createImageBitmap(await (await fetch(`data:image/png;base64,${data}`)).blob());
-      const canvas = new OffscreenCanvas(image.width, image.height);
-      const context = canvas.getContext("2d");
-      context.drawImage(image, 0, 0);
-      const { data: rgba } = context.getImageData(0, 0, image.width, image.height);
-      return { width: image.width, height: image.height, rgba: Array.from(rgba) };
-    }, png);
-  } finally {
-    await blank.close();
-  }
+  const { data, info } = await sharp(await page.screenshot())
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  return { width: info.width, height: info.height, pixels: data };
 }
 
 /** Largest channel difference from the ground inside a box. Columns sum up for the line test. */
@@ -841,7 +833,7 @@ function gridIn(shot, box) {
   for (let y = y0; y < y1; y += 1) {
     for (let x = x0; x < x1; x += 1) {
       const at = (y * shot.width + x) * 4;
-      const diff = Math.max(...MOTIF_GROUND.map((value, i) => Math.abs(shot.rgba[at + i] - value)));
+      const diff = Math.max(...MOTIF_GROUND.map((value, i) => Math.abs(shot.pixels[at + i] - value)));
       peak = Math.max(peak, diff);
       columns.set(x, (columns.get(x) ?? 0) + diff);
     }
