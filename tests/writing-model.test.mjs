@@ -10,15 +10,15 @@ import { starWidthsInPixels } from "./helpers.mjs";
 const fieldSizes = [[480, 600], [480, 900], [820, 340], [390, 340], [320, 340]];
 
 const fieldArticles = (count) => {
-  const articleIdentifiers = Array.from({ length: count }, (_, i) => `post-${i}-lorem-ipsum`);
+  const articleIdentifiers = Array.from({ length: count }, (_, i) => `article-${i}-lorem-ipsum`);
   return { articleIdentifiers, labels: articleIdentifiers.map((_, i) => `N\u00b0 ${String(count - i).padStart(2, "0")}`), labelWidthsInPixels: new Array(count).fill(30) };
 };
 
 test("hashUnit gives one stable value in [0, 1) for a text and a salt", () => {
-  assert.equal(hashUnit("a-post", 1), hashUnit("a-post", 1));
-  assert.notEqual(hashUnit("a-post", 1), hashUnit("a-post", 2));
-  assert.notEqual(hashUnit("a-post", 1), hashUnit("b-post", 1));
-  for (const identifier of ["", "x", "a-long-post-id-with-many-words"]) {
+  assert.equal(hashUnit("article-alpha", 1), hashUnit("article-alpha", 1));
+  assert.notEqual(hashUnit("article-alpha", 1), hashUnit("article-alpha", 2));
+  assert.notEqual(hashUnit("article-alpha", 1), hashUnit("article-beta", 1));
+  for (const identifier of ["", "x", "long-article-identifier-with-many-words"]) {
     const value = hashUnit(identifier, 3);
     assert.ok(value >= 0 && value < 1, `hashUnit(${identifier}) must be in [0, 1)`);
   }

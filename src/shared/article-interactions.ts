@@ -20,7 +20,7 @@ export function setupArticle(): void {
       await navigator.clipboard.writeText(button.dataset.copyLink!);
       if (status) status.textContent = "Link copied.";
     } catch {
-      if (status) status.textContent = "Copy the address from your browser to share this post.";
+      if (status) status.textContent = "Copy the address from your browser to share this article.";
     }
   });
 }

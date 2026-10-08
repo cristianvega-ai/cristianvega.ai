@@ -127,7 +127,7 @@ test("keyboard focus lights an article and opens its article", async ({ page }) 
     await expect(page.locator(".article__draft, meta[name='robots']")).toHaveCount(0);
     await expect(page.locator(".author__share")).toHaveCount(1);
   }
-  await page.getByRole("link", { name: "← All posts" }).click();
+  await page.getByRole("link", { name: "← All articles" }).click();
   await expect(page.locator("#writing-title")).toBeVisible();
 });
 
@@ -248,7 +248,7 @@ test("content and links work without JavaScript", async ({ browser }) => {
   await expect(page.locator(".prose h2")).toHaveCount(3);
   await expect(page.locator(".prose pre")).toContainText("LoremIpsum");
   await expect(page.locator("[data-graphic]")).toHaveCount(0);
-  await page.getByRole("link", { name: "← All posts" }).click();
+  await page.getByRole("link", { name: "← All articles" }).click();
   await expect(page.locator(".article-list__link")).toHaveCount(currentContent.writing.length);
   await expect(page.locator(graphic)).toHaveCSS("display", "none");
   await context.close();
@@ -266,7 +266,7 @@ test("canvas, fonts, and storage failures keep content readable", async ({ page 
   await expect(page.locator("#article-title")).toHaveCSS("opacity", "1");
   await expect(page.locator(".prose h2")).toHaveCount(3);
   await expect(page.locator("[data-graphic]")).toHaveCount(0);
-  await page.getByRole("link", { name: "← All posts" }).click();
+  await page.getByRole("link", { name: "← All articles" }).click();
   await expect(page.locator(".article-list__link")).toHaveCount(currentContent.writing.length);
   // With no canvas, the graphic hides itself and the list stays.
   await expect(page.locator(graphic)).toBeHidden();

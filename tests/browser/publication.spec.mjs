@@ -158,7 +158,7 @@ test.describe("mixed published content in the production runtime", () => {
       await expect(button).toBeVisible();
       await button.click();
       await expect(page.locator(".article .share-status")).toHaveText(fails
-        ? "Copy the address from your browser to share this post."
+        ? "Copy the address from your browser to share this article."
         : "Link copied.");
       await expect(page.locator("#outside-status")).toHaveText("Outside status");
       expect(await page.evaluate(() => window.__copiedLinks)).toEqual([`https://cristianvega.ai${article.href}`]);
