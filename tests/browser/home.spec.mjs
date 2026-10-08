@@ -526,7 +526,7 @@ for (const [name, viewport] of Object.entries(WIDTHS)) {
       const focusable = await page.locator(".hero__next").evaluate((list) => list.querySelectorAll("a, button, [tabindex]").length);
       expect(focusable).toBe(live.filter(Boolean).length);
       for (const [index, item] of latestWork.entries()) {
-        await expect(page.locator(`.nav__link[href='${item.href}'], .nav-menu__link[href='${item.href}']`)).toHaveCount(live[index] ? 2 : 0);
+        await expect(page.locator(`.navigation__link[href='${item.href}'], .navigation-menu__link[href='${item.href}']`)).toHaveCount(live[index] ? 2 : 0);
         await expect(page.locator(`a[href^='/${item.section}']`)).toHaveCount(live[index] ? 3 : 0);
         await expect(items.nth(index).locator("a")).toHaveCount(live[index] ? 1 : 0);
         if (live[index]) await expect(items.nth(index).locator("a")).toHaveAttribute("href", item.href);
@@ -1344,7 +1344,7 @@ test.describe("the intro on a tablet uses the reading column", () => {
       await settle(page);
       const widths = await page.evaluate(() => {
         const column = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--reading-column"));
-        const pad = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--frame-pad"));
+        const pad = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--frame-padding"));
         return {
           text: column - 2 * pad,
           thesis: document.querySelector(".hero__thesis").getBoundingClientRect().width,

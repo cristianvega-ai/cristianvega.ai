@@ -3,12 +3,12 @@
   outline-color: var(--sky);
 }
 
-.product__head {
+.product__header {
   padding-top: 72px;
 }
 
 .product .eyebrow {
-  color: var(--mast-meta);
+  color: var(--masthead-metadata);
 }
 
 .product .eyebrow::before {
@@ -24,9 +24,9 @@
 .product__lede {
   max-width: 56ch;
   margin-top: 24px;
-  font-size: var(--fs-lede);
-  line-height: var(--lh-lede);
-  color: var(--mast-meta);
+  font-size: var(--font-size-lede);
+  line-height: var(--line-height-lede);
+  color: var(--masthead-metadata);
 }
 
 .product__body {
@@ -42,8 +42,8 @@
 }
 
 .product__prose p {
-  font-size: var(--fs-body);
-  line-height: var(--lh-body);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
   text-wrap: pretty;
 }
 
@@ -52,8 +52,8 @@
   flex-wrap: wrap;
   gap: 12px 28px;
   margin-top: 40px;
-  font-family: var(--font-mono);
-  font-size: var(--fs-ui);
+  font-family: var(--font-monospace);
+  font-size: var(--font-size-interface);
   font-weight: 500;
 }
 
@@ -62,7 +62,7 @@
 }
 
 .product__link:hover {
-  color: var(--mast-text);
+  color: var(--masthead-text);
 }
 
 /* The index has no prose, so its list sits close under the title. */
@@ -71,7 +71,7 @@
 }
 
 @media (max-width: 760px) {
-  .product__head {
+  .product__header {
     padding-top: 48px;
   }
 

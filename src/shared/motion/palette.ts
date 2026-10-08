@@ -21,8 +21,8 @@ const GLOW_SIZE = 96;
 /** The value of each palette token when the canvas cannot parse it. */
 const FALLBACKS = {
   "--sky": "#38BDF8",
-  "--mast-meta": "#98A1B0",
-  "--mast-text": "#EAEDF2",
+  "--masthead-metadata": "#98A1B0",
+  "--masthead-text": "#EAEDF2",
   "--ink": "#14181F",
   "--grid-line": "rgba(255,255,255,0.048)",
 } as const;
@@ -72,8 +72,8 @@ export function readPalette(element: HTMLElement = document.documentElement): Pa
   const sky = read("--sky");
   return {
     sky: sky.value,
-    metadata: read("--mast-meta").value,
-    text: read("--mast-text").value,
+    metadata: read("--masthead-metadata").value,
+    text: read("--masthead-text").value,
     ink: read("--ink").value,
     grid: read("--grid-line").value,
     skyColor: sky.color,

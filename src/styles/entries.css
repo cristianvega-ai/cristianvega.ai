@@ -2,7 +2,7 @@
 .entries {
   padding: 0;
   list-style: none;
-  border-top: 1px solid var(--mast-line);
+  border-top: 1px solid var(--masthead-line);
 }
 
 .entries__item {
@@ -11,21 +11,21 @@
   grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
   gap: 6px 40px;
   padding: 24px 0 26px;
-  border-bottom: 1px solid var(--mast-line);
+  border-bottom: 1px solid var(--masthead-line);
 }
 
-.entries__meta {
+.entries__metadata {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font: 500 var(--fs-meta) / var(--lh-mono) var(--font-mono);
-  color: var(--mast-meta);
+  font: 500 var(--font-size-metadata) / var(--line-height-monospace) var(--font-monospace);
+  color: var(--masthead-metadata);
 }
 
 .entries__title {
-  font-size: var(--fs-lede);
-  line-height: var(--lh-title);
-  letter-spacing: var(--track-heading);
+  font-size: var(--font-size-lede);
+  line-height: var(--line-height-title);
+  letter-spacing: var(--letter-spacing-heading);
 }
 
 /* The whole row is the target, and the focus ring wraps the row. */
@@ -52,9 +52,9 @@
 .entries__excerpt {
   max-width: 62ch;
   margin-top: 8px;
-  font-size: var(--fs-small);
-  line-height: var(--lh-small);
-  color: var(--mast-meta);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  color: var(--masthead-metadata);
   text-wrap: pretty;
 }
 
@@ -63,12 +63,12 @@
 }
 
 .text-link {
-  font: 500 var(--fs-ui) var(--font-mono);
+  font: 500 var(--font-size-interface) var(--font-monospace);
   color: var(--sky);
 }
 
 .text-link:hover {
-  color: var(--mast-text);
+  color: var(--masthead-text);
 }
 
 @media (max-width: 640px) {
@@ -76,7 +76,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .entries__meta {
+  .entries__metadata {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 0 12px;

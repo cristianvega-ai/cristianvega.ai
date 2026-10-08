@@ -1,30 +1,30 @@
 /* The about page shares the article reading column and the dark ground. */
 body:is([data-page="about"], [data-page="error"]) {
-  color: var(--mast-text);
+  color: var(--masthead-text);
   background: var(--ink);
 }
 
 body[data-page="about"] .site-header {
   background: var(--ink);
-  box-shadow: 0 1px 0 var(--mast-line);
+  box-shadow: 0 1px 0 var(--masthead-line);
 }
 
 body[data-page="about"] .brand {
-  color: var(--mast-text);
+  color: var(--masthead-text);
 }
 
 body[data-page="about"] .brand__word i,
-body[data-page="about"] .nav {
-  color: var(--mast-meta);
+body[data-page="about"] .navigation {
+  color: var(--masthead-metadata);
 }
 
 body[data-page="about"] .brand__mark i:last-child {
-  border-color: var(--mark2-ink);
+  border-color: var(--brand-second-ring-ink);
 }
 
-body[data-page="about"] .nav__link:hover,
-body[data-page="about"] .nav__link[aria-current] {
-  color: var(--mast-text);
+body[data-page="about"] .navigation__link:hover,
+body[data-page="about"] .navigation__link[aria-current] {
+  color: var(--masthead-text);
 }
 
 body[data-page="about"] .site-header :focus-visible,
@@ -33,12 +33,12 @@ body[data-page="about"] .skip-link:focus,
   outline-color: var(--sky);
 }
 
-.about__head {
+.about__header {
   padding-top: 72px;
 }
 
 .about .eyebrow {
-  color: var(--mast-meta);
+  color: var(--masthead-metadata);
 }
 
 .about .eyebrow::before {
@@ -54,9 +54,9 @@ body[data-page="about"] .skip-link:focus,
 .about__lede {
   max-width: 56ch;
   margin-top: 24px;
-  font-size: var(--fs-lede);
-  line-height: var(--lh-lede);
-  color: var(--mast-meta);
+  font-size: var(--font-size-lede);
+  line-height: var(--line-height-lede);
+  color: var(--masthead-metadata);
 }
 
 .about__actions {
@@ -77,8 +77,8 @@ body[data-page="about"] .skip-link:focus,
 
 .about__profile p,
 .about__principles li {
-  font-size: var(--fs-body);
-  line-height: var(--lh-body);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
   text-wrap: pretty;
 }
 
@@ -94,11 +94,11 @@ body[data-page="about"] .skip-link:focus,
   align-items: baseline;
   gap: 16px;
   padding: 10px 0;
-  color: var(--mast-text);
+  color: var(--masthead-text);
 }
 
 .about__principles li + li {
-  border-top: 1px solid var(--mast-line);
+  border-top: 1px solid var(--masthead-line);
 }
 
 .about__principles li::before {
@@ -106,11 +106,11 @@ body[data-page="about"] .skip-link:focus,
   width: 7px;
   height: 7px;
   transform: translateY(1px) rotate(45deg);
-  background: var(--grad);
+  background: var(--brand-gradient);
 }
 
 @media (max-width: 760px) {
-  .about__head {
+  .about__header {
     padding-top: 48px;
   }
 

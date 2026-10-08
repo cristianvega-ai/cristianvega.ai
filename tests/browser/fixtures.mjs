@@ -198,10 +198,10 @@ export async function tabTo(page, selector, limit = 25) {
  * Returns the link locator. Call it again after each navigation.
  */
 export function navigationLink(page, name) {
-  const link = page.locator(".nav:visible, .nav-menu:visible").getByRole("link", { name, exact: true });
+  const link = page.locator(".navigation:visible, .navigation-menu:visible").getByRole("link", { name, exact: true });
   return {
     async click() {
-      const toggle = page.locator(".nav-menu__toggle:visible");
+      const toggle = page.locator(".navigation-menu__toggle:visible");
       if (await toggle.count()) await toggle.click();
       await link.click();
     },

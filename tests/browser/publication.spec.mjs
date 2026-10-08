@@ -41,7 +41,7 @@ test.describe("mixed published content in the production runtime", () => {
       expect(published.writing.map((entry) => entry.id)).toEqual(["newer-writing", "alpha-tied", "zulu-tied"]);
       expect(published.products.map((entry) => entry.id)).toEqual(["default-order", "alpha-product", "zulu-product"]);
       await navigationLink(page, "writing").click();
-      await expect(page.locator(".nav__link[href='/writing/']")).toHaveAttribute("aria-current", "page");
+      await expect(page.locator(".navigation__link[href='/writing/']")).toHaveAttribute("aria-current", "page");
       await expect(page.locator("meta[name='robots'], .draft-label")).toHaveCount(0);
       await expect(page.locator("[data-graphic='writing']")).toHaveAttribute("data-ready", "true");
       expect(await page.locator(".article-list__item").evaluateAll((rows) => rows.map((row) => row.dataset.articleIdentifier)))
@@ -54,9 +54,9 @@ test.describe("mixed published content in the production runtime", () => {
       const article = published.writing[1];
       await expect(page).toHaveURL(publication.origin + article.href);
       await expect(page.locator("#article-title")).toHaveText(article.data.title);
-      await expect(page.locator(".article__dek")).toHaveText(article.data.description);
+      await expect(page.locator(".article__description")).toHaveText(article.data.description);
       await expect(page.locator(".article__draft, .draft-label, meta[name='robots']")).toHaveCount(0);
-      await expect(page.locator(".nav__link[href='/writing/']")).toHaveAttribute("aria-current", "location");
+      await expect(page.locator(".navigation__link[href='/writing/']")).toHaveAttribute("aria-current", "location");
       await expect(page.locator("link[rel='canonical']")).toHaveAttribute("href", `https://cristianvega.ai${article.href}`);
       await expect(page.locator("meta[property='article:published_time']")).toHaveAttribute("content", article.data.date.toISOString());
       await expect(page.locator(".prose")).toContainText(`Body for ${article.id}.`);
@@ -76,7 +76,7 @@ test.describe("mixed published content in the production runtime", () => {
       await expect(page.locator("#article-title")).toHaveText(published.writing[2].data.title);
 
       await navigationLink(page, "products").click();
-      await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "page");
+      await expect(page.locator(".navigation__link[href='/products/']")).toHaveAttribute("aria-current", "page");
       await expect(page.locator("meta[name='robots'], .draft-label")).toHaveCount(0);
       await expect(page.locator("[data-graphic='products']")).toHaveAttribute("data-ready", "true");
       expect(await page.locator(".entries__item").evaluateAll((rows) => rows.map((row) => row.dataset.productIdentifier)))
@@ -85,9 +85,9 @@ test.describe("mixed published content in the production runtime", () => {
         await page.getByRole("link", { name: product.data.title, exact: true }).click();
         await expect(page.locator("#product-title")).toHaveText(product.data.title);
         await expect(page.locator(".product__lede")).toHaveText(product.data.description);
-        await expect(page.locator(".product__head .eyebrow")).toHaveText(product.data.status);
+        await expect(page.locator(".product__header .eyebrow")).toHaveText(product.data.status);
         await expect(page.locator(".product__prose")).toContainText(`Body for ${product.id}.`);
-        await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "location");
+        await expect(page.locator(".navigation__link[href='/products/']")).toHaveAttribute("aria-current", "location");
         await expect(page.locator("meta[name='robots'], .draft-label")).toHaveCount(0);
         await expect(page.locator("link[rel='canonical']")).toHaveAttribute("href", `https://cristianvega.ai${product.href}`);
         await expect(page.locator("[data-graphic='products']")).toHaveAttribute("data-ready", "true");

@@ -14,7 +14,7 @@ const Heading = `h${level}` as const;
 <ol class="entries entries--products">
   {products.map((product) => (
     <li class="entries__item" data-product-identifier={product.id}>
-      <p class="entries__meta">
+      <p class="entries__metadata">
         <span>{product.data.status ?? "Product"}</span>
         {product.data.draft && <span class="draft-label">Draft</span>}
       </p>

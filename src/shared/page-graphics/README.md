@@ -51,7 +51,7 @@ Reduced motion completes entrances immediately and runs no continuous frames, dr
 
 ## Fonts and colors
 
-`--font-mono` supplies the label font family, and `--fs-graphic-label` supplies its size in pixels.
+`--font-monospace` supplies the label font family, and `--font-size-graphic-label` supplies its size in pixels.
 A label line is `LABEL_LINE_RATIO` (1.2) times that size. `labelFont.lineHeightInPixels` holds it.
 The globe labels in `home.css` read the same two tokens.
 `label-font.ts` caches measured widths in CSS pixels.

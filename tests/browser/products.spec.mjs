@@ -107,7 +107,7 @@ test.describe("products on the dev server", () => {
   test("the index and the detail page read like the article pages", async ({ page }) => {
     await page.goto(dev + "/products/");
     await expect(page.locator("main h1")).toHaveText("Products");
-    await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "page");
+    await expect(page.locator(".navigation__link[href='/products/']")).toHaveAttribute("aria-current", "page");
     if (currentContent.products.some((entry) => entry.data.draft)) {
       await expect(page.locator("meta[name='robots']")).toHaveAttribute("content", "noindex, follow");
     } else await expect(page.locator("meta[name='robots']")).toHaveCount(0);
@@ -116,7 +116,7 @@ test.describe("products on the dev server", () => {
 
     await expect(page).toHaveURL(dev + "/products/product-layout-fixture/");
     await expect(page.locator("main h1")).toHaveText("Lorem ipsum dolor");
-    await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "location");
+    await expect(page.locator(".navigation__link[href='/products/']")).toHaveAttribute("aria-current", "location");
     const product = currentContent.products.find((entry) => entry.id === "product-layout-fixture");
     if (product.data.draft) {
       await expect(page.locator("meta[name='robots']")).toHaveAttribute("content", "noindex, follow");

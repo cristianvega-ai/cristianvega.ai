@@ -94,9 +94,9 @@ test("the narrow-screen menu holds the same links as the primary navigation", ()
   const home = readDistFile("index.html");
   const links = (nav) => [...nav.matchAll(/<a\b[^>]*href="([^"]+)"/gi)].map(([, href]) => href);
   const primary = home.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
-  const menu = home.match(/<details class="nav-menu">[\s\S]*?<\/details>/i)?.[0];
+  const menu = home.match(/<details class="navigation-menu">[\s\S]*?<\/details>/i)?.[0];
   assert.ok(primary && menu, "primary navigation and menu required");
-  assert.match(menu, /<summary class="nav-menu__toggle">menu<\/summary>/);
+  assert.match(menu, /<summary class="navigation-menu__toggle">menu<\/summary>/);
   assert.deepEqual(links(menu), links(primary), "the menu must reach every link the primary navigation reaches");
 });
 

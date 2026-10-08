@@ -12,7 +12,7 @@ import { readSourceFile } from "./helpers.mjs";
 
 test("design tokens omit unused custom properties", () => {
   const css = readSourceFile("styles", "global.css").replace(/\/\*[\s\S]*?\*\//g, "");
-  // Declaration position only, so `.btn--signal:hover` is not a token.
+  // Declaration position only, so `.button--signal:hover` is not a token.
   const declared = new Set(
     [...css.matchAll(/(?:^|[;{}])\s*--([a-z0-9-]+)\s*:/gi)].map(([, name]) => name.toLowerCase()),
   );
@@ -41,18 +41,18 @@ test("global.css defines the sky token that the graphics read", () => {
 });
 
 // A page stylesheet may redefine a global.css token only for the reason listed here. Audit finding 1
-// came from this pattern: writing.css gave --ink-2 a light value on article pages, and the shared menu panel
-// that reads --ink-2 turned light on light. Add an entry only with the reason the new meaning is safe.
+// came from this pattern: writing.css gave --ink-raised a light value on article pages, and the shared menu panel
+// that reads --ink-raised turned light on light. Add an entry only with the reason the new meaning is safe.
 const TOKEN_OVERRIDES = {
   "writing.css": {
     // Article pages sit on ink. The shared header, brand, and nav rules in global.css read the "on surface"
     // tokens, so the article page gives them their ink values. Each one keeps its role: text stays text,
     // and a ground stays a ground.
-    "--fg": "article pages sit on ink",
+    "--foreground": "article pages sit on ink",
     "--muted": "article pages sit on ink",
     "--line": "article pages sit on ink",
     "--surface-well": "article pages sit on ink",
-    "--mark2-surface": "article pages sit on ink",
+    "--brand-second-ring-surface": "article pages sit on ink",
   },
   "home.css": {
     // The homepage grid is faded, so its lines can be a little stronger. The token keeps its meaning.

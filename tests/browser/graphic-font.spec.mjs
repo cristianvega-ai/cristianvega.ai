@@ -21,7 +21,7 @@ const test = base.extend({
   },
 });
 
-async function useFontToken(page, family, name = "--font-mono") {
+async function useFontToken(page, family, name = "--font-monospace") {
   await page.addInitScript(([property, token]) => {
     document.addEventListener("readystatechange", () => {
       if (document.readyState === "interactive") document.documentElement.style.setProperty(property, token, "important");
@@ -37,8 +37,8 @@ async function assertLabels(page) {
   const expectedFont = await page.locator("[data-graphic]").evaluate((graphic) => {
     const context = document.createElement("canvas").getContext("2d");
     const style = getComputedStyle(graphic);
-    const family = style.getPropertyValue("--font-mono").trim();
-    context.font = `400 ${style.getPropertyValue("--fs-graphic-label").trim()} ${family || "ui-monospace, monospace"}`;
+    const family = style.getPropertyValue("--font-monospace").trim();
+    context.font = `400 ${style.getPropertyValue("--font-size-graphic-label").trim()} ${family || "ui-monospace, monospace"}`;
     return context.font;
   });
   for (const label of labels) {
@@ -66,7 +66,7 @@ for (const viewport of Object.values(VIEWPORTS)) {
       await useLabelSpy(page);
       await useReducedMotion(page);
       if (family) await useFontToken(page, family);
-      if (size) await useFontToken(page, size, "--fs-graphic-label");
+      if (size) await useFontToken(page, size, "--font-size-graphic-label");
       for (const target of pages) {
         await page.goto(target);
         await expect(page.locator("[data-graphic]")).toHaveAttribute("data-ready", "true");
@@ -139,7 +139,7 @@ test("keeps label measurement outside animation frames", async ({ page, problems
     await expect(page.locator("[data-graphic]")).toHaveAttribute("data-motion-state", "still");
     expect(await pendingFrames(page)).toBe(0);
     await page.evaluate(() => {
-      document.documentElement.style.setProperty("--font-mono", '"IBM Plex Sans", sans-serif');
+      document.documentElement.style.setProperty("--font-monospace", '"IBM Plex Sans", sans-serif');
       document.fonts.dispatchEvent(new Event("loadingdone"));
     });
     expect(await page.evaluate(() => window.__labelMeasureCount)).toBeGreaterThan(measures);
@@ -174,7 +174,7 @@ test("applies a pending motion preference when a font refresh comes first", asyn
   await useReducedMotion(page);
   await expect.poll(() => page.evaluate(() => window.__preferenceJobs.length)).toBe(1);
   await page.evaluate(() => {
-    document.documentElement.style.setProperty("--font-mono", '"IBM Plex Sans", sans-serif');
+    document.documentElement.style.setProperty("--font-monospace", '"IBM Plex Sans", sans-serif');
     document.fonts.dispatchEvent(new Event("loadingdone"));
   });
   // The controller applies the new preference before the font redraw, whatever the event order.
@@ -223,7 +223,7 @@ test("wakes a resting scene when refreshed labels need more motion", async ({ pa
   await expect(page.locator("#scene")).toHaveAttribute("data-motion-state", "still");
   expect(await pendingFrames(page)).toBe(0);
   await page.evaluate(() => {
-    document.querySelector("#scene").style.setProperty("--font-mono", "serif");
+    document.querySelector("#scene").style.setProperty("--font-monospace", "serif");
     document.fonts.dispatchEvent(new Event("loadingdone"));
   });
   await expect(page.locator("#scene")).toHaveAttribute("data-motion-state", "playing");
@@ -259,7 +259,7 @@ test("ignores font callbacks after teardown and rebuilds after restore", async (
   expect(await page.evaluate(() => window.__labelMeasureCount)).toBe(measures);
   await expect(page.locator("[data-graphic]")).not.toHaveAttribute("data-ready", /.*/);
   await page.evaluate(() => {
-    document.documentElement.style.setProperty("--font-mono", '"IBM Plex Sans", sans-serif');
+    document.documentElement.style.setProperty("--font-monospace", '"IBM Plex Sans", sans-serif');
     dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
   });
   await expect(page.locator("[data-graphic]")).toHaveAttribute("data-ready", "true");
