@@ -1,12 +1,12 @@
 # Article visual fixture
 
-Use the [full article](blog/lorem-ipsum-dolor-sit-amet.md) as the maintained visual fixture for article pages.
+Use the [full article](writing/full-article-layout-fixture.md) as the maintained visual fixture for article pages.
 It demonstrates prose, section spacing, lists, inline code, highlighted code, diagrams, quotes, and series metadata.
-The seven short draft articles support index, ordering, and adjacent-post review.
+The seven short draft articles support index, ordering, and adjacent-article review.
 
 This guide sits outside the collection loader directories in [content.config.ts](../content.config.ts).
-It defines no blog entry and no public route.
-Keep it outside `src/content/blog/` and `src/content/products/`.
+It defines no writing entry and no public route.
+Keep it outside `src/content/writing/` and `src/content/products/`.
 
 ## Ownership
 
@@ -15,19 +15,19 @@ The maintainer who changes article presentation owns fixture maintenance and the
 
 | File | Responsibility |
 | --- | --- |
-| [Fixture Markdown](blog/lorem-ipsum-dolor-sit-amet.md) | Owns content, code text, SVG geometry, captions, and accessibility semantics. |
-| [BlogPostLayout.astro](../layouts/BlogPostLayout.astro) | Owns the article shell, metadata, draft label, sharing controls, and adjacent navigation. |
-| [blog.css](../styles/blog.css) | Owns article appearance, code colors, diagram styles, panel scrolling, and visible focus. |
-| [article-interactions.ts](../lib/article-interactions.ts) | Adds missing accessibility defaults and controls the copy-link action. |
+| [Fixture Markdown](writing/full-article-layout-fixture.md) | Owns content, code text, SVG geometry, captions, and accessibility semantics. |
+| [ArticleLayout.astro](../layouts/ArticleLayout.astro) | Owns the article shell, metadata, draft label, sharing controls, and adjacent navigation. |
+| [writing.css](../styles/writing.css) | Owns article appearance, code colors, diagram styles, panel scrolling, and visible focus. |
+| [article-interactions.ts](../shared/article-interactions.ts) | Adds missing accessibility defaults and controls the copy-link action. |
 
 Keep the fixture representative when these files change.
 Preserve the owner's prose unless the owner requests a content change.
 
 ## Draft and publication rules
 
-Keep all eight lorem ipsum fixtures unpublished.
+Keep all eight article fixtures unpublished.
 Keep the full fixture's `draft: true` value.
-Use `npm run dev` to preview `/writing/lorem-ipsum-dolor-sit-amet/`.
+Use `npm run dev` to preview `/writing/full-article-layout-fixture/`.
 The preview shows `Draft preview · not published` and requests `noindex, follow`.
 Production excludes drafts from article routes, navigation, and the sitemap.
 Production creates the Writing index only when at least one published article exists.
@@ -75,9 +75,9 @@ Keep the fixture readable without JavaScript.
 
 ## Maintenance and shared components
 
-Use [blog.spec.mjs](../../tests/e2e/blog.spec.mjs) for article layout, keyboard scrolling, draft exclusion, and JavaScript failure checks.
-Use [article-interactions.spec.mjs](../../tests/e2e/article-interactions.spec.mjs) for authored semantics and missing defaults.
-Use [article-menu.spec.mjs](../../tests/e2e/article-menu.spec.mjs) for article text and menu contrast.
+Use [writing.spec.mjs](../../tests/browser/writing.spec.mjs) for article layout, keyboard scrolling, draft exclusion, and JavaScript failure checks.
+Use [article-interactions.spec.mjs](../../tests/browser/article-interactions.spec.mjs) for authored semantics and missing defaults.
+Use [article-menu.spec.mjs](../../tests/browser/article-menu.spec.mjs) for article text and menu contrast.
 Review desktop, tablet, and mobile widths after presentation changes.
 Check the browser console.
 Update the related assertions when an approved presentation contract changes.

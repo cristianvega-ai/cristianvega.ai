@@ -6,7 +6,7 @@ import { currentContent, DRAFT_ORIGIN as dev, pageProblems, pendingFrames, playF
 
 const PAGES = {
   products: { name: "products index", url: `${dev}/products/`, graphic: "[data-graphic='products']", restMs: 31_000 },
-  product: { name: "product page", url: `${dev}/products/lorem-ipsum-dolor/`, graphic: "[data-graphic='products']", restMs: 31_000 },
+  product: { name: "product page", url: `${dev}/products/product-layout-fixture/`, graphic: "[data-graphic='products']", restMs: 31_000 },
 };
 
 const WIDTHS = { ...VIEWPORTS, wide: { width: 1920, height: 1080 }, narrow: { width: 360, height: 740 } };
@@ -114,10 +114,10 @@ test.describe("products on the dev server", () => {
     await expect(page.locator("meta[name='color-scheme']")).toHaveAttribute("content", "dark");
     await page.getByRole("link", { name: "Lorem ipsum dolor" }).click();
 
-    await expect(page).toHaveURL(dev + "/products/lorem-ipsum-dolor/");
+    await expect(page).toHaveURL(dev + "/products/product-layout-fixture/");
     await expect(page.locator("main h1")).toHaveText("Lorem ipsum dolor");
     await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "location");
-    const product = currentContent.products.find((entry) => entry.id === "lorem-ipsum-dolor");
+    const product = currentContent.products.find((entry) => entry.id === "product-layout-fixture");
     if (product.data.draft) {
       await expect(page.locator("meta[name='robots']")).toHaveAttribute("content", "noindex, follow");
     } else await expect(page.locator("meta[name='robots']")).toHaveCount(0);
@@ -291,7 +291,7 @@ test.describe("the products graphic shows the products", () => {
     const root = page.locator(PAGES.product.graphic);
     await expect(root).toHaveAttribute("data-products", String(listed));
     // The dev server lists drafts too, in the same order as the content inventory.
-    const current = currentContent.products.findIndex((entry) => entry.id === "lorem-ipsum-dolor");
+    const current = currentContent.products.findIndex((entry) => entry.id === "product-layout-fixture");
     expect(current).toBeGreaterThanOrEqual(0);
     await expect(root).toHaveAttribute("data-current", String(current));
   });

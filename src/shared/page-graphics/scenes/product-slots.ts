@@ -16,7 +16,7 @@ export function assertProductCapacity(count: number): void {
   if (count > MAX_SLOTS) {
     throw new Error(
       `The site publishes ${count} products, but the products graphic has ${MAX_SLOTS} slots. ` +
-        "Set draft: true on a product, or add a slot to SLOT_OFFSET and SLOT_RING in src/lib/page-graphics/scenes/product-slots.ts.",
+        "Set draft: true on a product, or add a slot to SLOT_OFFSET and SLOT_RING in src/shared/page-graphics/scenes/product-slots.ts.",
     );
   }
 }

@@ -5,10 +5,10 @@ import { layoutLyra, type LyraPoint } from "../lyra.ts";
 import { TAU, unit } from "../math.ts";
 
 // The layout of the Writing graphic, "Reading field". It has no DOM and no canvas,
-// so a test can run it. The caller gives the box, the post ids, and the label texts.
+// so a test can run it. The caller gives the box, the article ids, and the label texts.
 // Every place comes from the ids, so a reload keeps the picture.
 
-/** Field stars that link the posts to the sky. They carry no label. */
+/** Field stars that link the articles to the sky. They carry no label. */
 const FILLER = 26;
 /** The clear distance a label keeps from a star centre, in CSS pixels. */
 const STAR_CLEARANCE = 10;
@@ -18,17 +18,17 @@ export { rectsOverlap as overlaps } from "../labels.ts";
 export interface FieldPoint {
   x: number;
   y: number;
-  /** The radius of a filler star. Posts draw their own mark. */
+  /** The radius of a filler star. Articles draw their own mark. */
   radius: number;
   /** The base brightness of a filler star, from 0 to 1. */
   alpha: number;
-  post: boolean;
+  article: boolean;
 }
 
 export interface FieldLink {
   from: number;
   to: number;
-  /** 1 when a post is one end of the link, else 0. */
+  /** 1 when an article is one end of the link, else 0. */
   weight: number;
 }
 
@@ -53,10 +53,10 @@ export interface FieldInput {
 
 export interface FieldLayout {
   stars: LyraPoint[];
-  /** Posts first, in list order, then the filler stars. */
+  /** Articles first, in list order, then the filler stars. */
   points: FieldPoint[];
   links: FieldLink[];
-  postLabels: FieldLabel[];
+  articleLabels: FieldLabel[];
   /** One entry for each Lyra star. Null when no clear place exists. */
   starLabels: (FieldLabel | null)[];
 }
@@ -161,7 +161,7 @@ export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, lin
   }
   const zone = { x: (maxX - minX) / 2 + 26, y: (maxY - minY) / 2 + 26 };
 
-  // Posts: the angle slots follow the hash order, so the ids place the stars and the ring stays even.
+  // Articles: the angle slots follow the hash order, so the ids place the stars and the ring stays even.
   const margins = { l: labelWidth + 26, r: labelWidth + 26, t: Math.max(40, FIGURE_INSET), b: Math.max(40, FIGURE_INSET) };
   const rx = (width - margins.l - margins.r) / 2;
   const ry = (height - margins.t - margins.b) / 2;
@@ -171,7 +171,7 @@ export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, lin
     const id = ids[index];
     const angle = -Math.PI / 2 + ((rank + 0.5 + (hashUnit(id, 3) - 0.5) * 0.5) / count) * TAU + 0.35;
     const reach = 0.66 + 0.34 * hashUnit(id, 2);
-    points[index] = { x: cx + Math.cos(angle) * rx * reach * 1.1, y: cy + Math.sin(angle) * ry * reach, radius: 0, alpha: 1, post: true };
+    points[index] = { x: cx + Math.cos(angle) * rx * reach * 1.1, y: cy + Math.sin(angle) * ry * reach, radius: 0, alpha: 1, article: true };
   });
   spread(points, { x: cx, y: cy }, zone, Math.min(width, height) * 0.2 + 10, margins, width, height);
 
@@ -183,7 +183,7 @@ export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, lin
     const ny = (y - cy) / zone.y;
     if (nx * nx + ny * ny < 1.1) continue;
     if (points.some((p) => Math.hypot(p.x - x, p.y - y) < 30)) continue;
-    points.push({ x, y, radius: 0.6 + unit(i * 5 + 11) * 0.7, alpha: 0.5 + 0.3 * Math.sin(unit(i * 5 + 12) * TAU), post: false });
+    points.push({ x, y, radius: 0.6 + unit(i * 5 + 11) * 0.7, alpha: 0.5 + 0.3 * Math.sin(unit(i * 5 + 12) * TAU), article: false });
   }
 
   // Synapses: each point links to its two nearest neighbours, once for each pair.
@@ -200,7 +200,7 @@ export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, lin
       const key = i < j ? i * 4096 + j : j * 4096 + i;
       if (seen.has(key)) continue;
       seen.add(key);
-      links.push({ from: i, to: j, weight: p.post || points[j].post ? 1 : 0 });
+      links.push({ from: i, to: j, weight: p.article || points[j].article ? 1 : 0 });
     }
   });
 
@@ -212,7 +212,7 @@ export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, lin
   for (const star of stars) taken.push(around(star.x, star.y, STAR_CLEARANCE));
   for (let i = 0; i < count; i++) taken.push(around(points[i].x, points[i].y, STAR_CLEARANCE));
 
-  const postLabels = labels.map((text, i) => {
+  const articleLabels = labels.map((text, i) => {
     const { x, y } = points[i];
     const out = x >= cx;
     return placeLabel(text, x, y, { widthCssPx: labelWidthsCssPx[i], lineCssPx, bounds, segments, avoid: taken, gap: 13, prefer: out ? ["right", "left", "above", "below"] : ["left", "right", "above", "below"] });
@@ -225,7 +225,7 @@ export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, lin
     return label.clear ? label : null;
   });
 
-  return { stars, points, links, postLabels, starLabels };
+  return { stars, points, links, articleLabels, starLabels };
 }
 
 /** The Lyra links as a list a route search can read. */

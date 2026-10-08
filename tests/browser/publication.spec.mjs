@@ -34,7 +34,7 @@ test.describe("mixed published content in the production runtime", () => {
       await settle(page);
       await expect(page.locator(".hero__next-item")).toHaveText(latestWork.map((item) => `${item.label} →`));
       await expect(page.locator(".hero__next a")).toHaveCount(2);
-      await expect(page.locator(".hero__next-soon, [data-post-id], [data-product-id]")).toHaveCount(0);
+      await expect(page.locator(".hero__next-soon, [data-article-id], [data-product-id]")).toHaveCount(0);
       await expect(page.locator("[data-lyra-globe]")).toHaveAttribute("data-ready", "true");
 
       const published = publishedContent(publication.inventory);
@@ -44,22 +44,22 @@ test.describe("mixed published content in the production runtime", () => {
       await expect(page.locator(".nav__link[href='/writing/']")).toHaveAttribute("aria-current", "page");
       await expect(page.locator("meta[name='robots'], .draft-label")).toHaveCount(0);
       await expect(page.locator("[data-graphic='writing']")).toHaveAttribute("data-ready", "true");
-      expect(await page.locator(".post-list__item").evaluateAll((rows) => rows.map((row) => row.dataset.postId)))
+      expect(await page.locator(".article-list__item").evaluateAll((rows) => rows.map((row) => row.dataset.articleId)))
         .toEqual(published.writing.map((entry) => entry.id));
-      expect(await page.locator(".post-list__link").evaluateAll((links) => links.map((link) => link.getAttribute("href"))))
+      expect(await page.locator(".article-list__link").evaluateAll((links) => links.map((link) => link.getAttribute("href"))))
         .toEqual(published.writing.map((entry) => entry.href));
-      expect(await tabTo(page, ".post-list__link >> nth=1")).toBe(true);
-      await expect(page.locator("[data-graphic='writing']")).toHaveAttribute("data-active-post", "alpha-tied");
+      expect(await tabTo(page, ".article-list__link >> nth=1")).toBe(true);
+      await expect(page.locator("[data-graphic='writing']")).toHaveAttribute("data-active-article", "alpha-tied");
       await page.keyboard.press("Enter");
-      const post = published.writing[1];
-      await expect(page).toHaveURL(publication.origin + post.href);
-      await expect(page.locator("#post-title")).toHaveText(post.data.title);
-      await expect(page.locator(".article__dek")).toHaveText(post.data.description);
+      const article = published.writing[1];
+      await expect(page).toHaveURL(publication.origin + article.href);
+      await expect(page.locator("#article-title")).toHaveText(article.data.title);
+      await expect(page.locator(".article__dek")).toHaveText(article.data.description);
       await expect(page.locator(".article__draft, .draft-label, meta[name='robots']")).toHaveCount(0);
       await expect(page.locator(".nav__link[href='/writing/']")).toHaveAttribute("aria-current", "location");
-      await expect(page.locator("link[rel='canonical']")).toHaveAttribute("href", `https://cristianvega.ai${post.href}`);
-      await expect(page.locator("meta[property='article:published_time']")).toHaveAttribute("content", post.data.date.toISOString());
-      await expect(page.locator(".prose")).toContainText(`Body for ${post.id}.`);
+      await expect(page.locator("link[rel='canonical']")).toHaveAttribute("href", `https://cristianvega.ai${article.href}`);
+      await expect(page.locator("meta[property='article:published_time']")).toHaveAttribute("content", article.data.date.toISOString());
+      await expect(page.locator(".prose")).toContainText(`Body for ${article.id}.`);
       await expect(page.locator(".prose pre")).toHaveAttribute("aria-label", "Code example");
       await expect(page.locator(".figure__panel")).toHaveAttribute("aria-label", "Fixture signal path");
       await expect(page.locator(".figure__panel")).toHaveAttribute("role", "img");
@@ -69,11 +69,11 @@ test.describe("mixed published content in the production runtime", () => {
       }
       await page.getByRole("button", { name: "copy link" }).click();
       await expect(page.locator(".share-status")).toHaveText("Link copied.");
-      expect(await page.evaluate(() => window.__publicationCopies)).toEqual([`https://cristianvega.ai${post.href}`]);
+      expect(await page.evaluate(() => window.__publicationCopies)).toEqual([`https://cristianvega.ai${article.href}`]);
       expect(await page.locator(".read-next a").evaluateAll((links) => links.map((link) => link.getAttribute("href"))))
         .toEqual([published.writing[2].href, published.writing[0].href]);
       await page.getByRole("link", { name: /Older/ }).click();
-      await expect(page.locator("#post-title")).toHaveText(published.writing[2].data.title);
+      await expect(page.locator("#article-title")).toHaveText(published.writing[2].data.title);
 
       await navLink(page, "products").click();
       await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "page");
@@ -136,9 +136,9 @@ test.describe("mixed published content in the production runtime", () => {
     }
   });
 
-  // The share block exists only on a published post, so the copy checks use the real markup here.
+  // The share block exists only on a published article, so the copy checks use the real markup here.
   for (const fails of [false, true]) {
-    test(`a published post copies its link and reports ${fails ? "a failure" : "success"} in its own status`, async ({ page, publication }) => {
+    test(`a published article copies its link and reports ${fails ? "a failure" : "success"} in its own status`, async ({ page, publication }) => {
       const errors = pageProblems(page);
       await page.addInitScript((fails) => {
         window.__copiedLinks = [];
@@ -149,8 +149,8 @@ test.describe("mixed published content in the production runtime", () => {
           },
         } });
       }, fails);
-      const post = publishedContent(publication.inventory).writing[0];
-      await page.goto(publication.origin + post.href);
+      const article = publishedContent(publication.inventory).writing[0];
+      await page.goto(publication.origin + article.href);
       // A status before the article comes first in the document. The copy result must not reach it.
       await page.locator(".article").evaluate((article) => article.insertAdjacentHTML("beforebegin",
         '<span id="outside-status" class="share-status" role="status">Outside status</span>'));
@@ -161,18 +161,18 @@ test.describe("mixed published content in the production runtime", () => {
         ? "Copy the address from your browser to share this post."
         : "Link copied.");
       await expect(page.locator("#outside-status")).toHaveText("Outside status");
-      expect(await page.evaluate(() => window.__copiedLinks)).toEqual([`https://cristianvega.ai${post.href}`]);
+      expect(await page.evaluate(() => window.__copiedLinks)).toEqual([`https://cristianvega.ai${article.href}`]);
       expect(errors).toEqual([]);
     });
   }
 
-  test("a published post keeps its copy button hidden without a clipboard", async ({ page, publication }) => {
+  test("a published article keeps its copy button hidden without a clipboard", async ({ page, publication }) => {
     const errors = pageProblems(page);
     await page.addInitScript(() => {
       Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
     });
-    const post = publishedContent(publication.inventory).writing[0];
-    await page.goto(publication.origin + post.href);
+    const article = publishedContent(publication.inventory).writing[0];
+    await page.goto(publication.origin + article.href);
     await expect(page.getByRole("link", { name: "Share on LinkedIn" })).toBeVisible();
     await expect(page.getByRole("button", { name: "copy link", includeHidden: true })).toBeHidden();
     await expect(page.locator(".article .share-status")).toBeEmpty();

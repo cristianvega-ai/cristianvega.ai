@@ -9,58 +9,58 @@ import { smooth, TAU } from "../math.ts";
 import { mountCanvas, type CanvasHandle, type FrameState } from "../mount.ts";
 import { buildField, LYRA_EDGES, pathToVega, type FieldLayout } from "./writing-layout.ts";
 
-// Reading field: each post is a ringed star in a star-field round Lyra, placed from its id.
+// Reading field: each article is a ringed star in a star-field round Lyra, placed from its id.
 // Faint synapses link near stars. The entrance runs field, synapses, comets, then the Vega bloom.
-// A pointer or focus on a post lights its path through Lyra to Vega, and a comet runs it.
-// After the entrance the picture rests, and frames run only while a post is lit.
+// A pointer or focus on an article lights its path through Lyra to Vega, and a comet runs it.
+// After the entrance the picture rests, and frames run only while an article is lit.
 
-/** Samples on the bent stretch from a post to the nearest Lyra star. */
+/** Samples on the bent stretch from an article to the nearest Lyra star. */
 const CURVE_STEPS = 12;
 /** A lit comet repeats every CYCLE milliseconds, and runs for RUN of them. */
 const CYCLE = 2700;
 const RUN = 1750;
-/** The resting alpha of a synapse to a post, and of a synapse between field stars. The second must not draw a hard outline. */
-const LINK_POST_ALPHA = 0.15;
+/** The resting alpha of a synapse to an article, and of a synapse between field stars. The second must not draw a hard outline. */
+const LINK_ARTICLE_ALPHA = 0.15;
 const LINK_FIELD_ALPHA = 0.035;
 /** The Vega bloom at rest, from 0 to 1. */
 const REST_BLOOM = 0.2;
 
-interface Post {
+interface Article {
   id: string;
   element: HTMLElement;
   label: string;
 }
 
 /** Read the owning list once. The page supplies each entry ID and label. */
-function readWritingBindings(container: HTMLElement): { list: HTMLElement; posts: Post[] } | null {
+function readWritingBindings(container: HTMLElement): { list: HTMLElement; articles: Article[] } | null {
   const page = container.closest<HTMLElement>("[data-writing-page]");
   const list = page?.querySelector<HTMLElement>("[data-writing-list]");
   if (!list) return null;
-  const posts = [...list.querySelectorAll<HTMLElement>("[data-writing-entry-id]")].map((element) => ({
+  const articles = [...list.querySelectorAll<HTMLElement>("[data-writing-entry-id]")].map((element) => ({
     id: element.dataset.writingEntryId!,
     element,
     label: element.querySelector("[data-writing-label]")?.textContent?.trim() ?? "",
   }));
-  return { list, posts };
+  return { list, articles };
 }
 
 export function mountWriting(container: HTMLElement): CanvasHandle | null {
   const bindings = readWritingBindings(container);
   if (!bindings) return null;
-  const { list, posts } = bindings;
-  const count = posts.length;
+  const { list, articles } = bindings;
+  const count = articles.length;
   if (!count) return null;
 
   let field: FieldLayout | undefined;
   let grid: HTMLCanvasElement | null = null;
   let routes: Route[] = [];
   let entrance: number[] = [];
-  // The box, in canvas pixels, that no post text covers.
+  // The box, in canvas pixels, that no article text covers.
   let originX = 0;
   let boxW = 0;
   let boxH = 0;
 
-  // The state of the lit post. `weights` ease toward 1 for the lit post and 0 for the rest.
+  // The state of the lit article. `weights` ease toward 1 for the lit article and 0 for the rest.
   const weights = new Float32Array(count);
   let active = -1;
   let since = 0;
@@ -80,9 +80,9 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     boxH = s.height;
     reportFigureLeft(container, boxW, boxH, originX);
     field = buildField({
-      ids: posts.map((post) => post.id),
-      labels: posts.map((post) => post.label),
-      labelWidthsCssPx: posts.map((post) => s.labelFont.widthCssPx(post.label)),
+      ids: articles.map((article) => article.id),
+      labels: articles.map((article) => article.label),
+      labelWidthsCssPx: articles.map((article) => s.labelFont.widthCssPx(article.label)),
       starWidthsCssPx: LYRA.map((star) => star.name ? s.labelFont.widthCssPx(star.name) : 0),
       lineCssPx: s.labelFont.lineCssPx,
       width: boxW,
@@ -92,8 +92,8 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     grid = makeGridLayer(boxW, boxH, s.ratio, s.palette);
     const { stars, points } = field;
 
-    // A route: the post, a bent path to the nearest Lyra star, then along the figure to Vega.
-    routes = posts.map((_, i) => {
+    // A route: the article, a bent path to the nearest Lyra star, then along the figure to Vega.
+    routes = articles.map((_, i) => {
       const p = points[i];
       let nearest = 1;
       let nearestDistance = Infinity;
@@ -123,7 +123,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     entrance = [0, 3, 5, count - 1].filter((v, i, all) => v < count && all.indexOf(v) === i);
   }
 
-  // Ease the weights toward the lit post. `snap` jumps to the end, for reduced motion.
+  // Ease the weights toward the lit article. `snap` jumps to the end, for reduced motion.
   function ease(dt: number, snap: boolean): number {
     const k = snap ? 1 : 1 - Math.exp(-dt / 120);
     let any = 0;
@@ -136,7 +136,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
 
   function draw(ctx: CanvasRenderingContext2D, s: FrameState) {
     if (!field) return;
-    const { stars, points, links, postLabels, starLabels } = field;
+    const { stars, points, links, articleLabels, starLabels } = field;
     const p = s.progress;
     const pal = s.palette;
     const glow = s.glow;
@@ -171,7 +171,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
       const link = links[i];
       const a = points[link.from];
       const b = points[link.to];
-      drawEdge(ctx, pal, a.x, a.y, b.x, b.y, stagger(p, 0.06 + (i % 9) * 0.03, 0.26), false, (link.weight ? LINK_POST_ALPHA : LINK_FIELD_ALPHA) * dim);
+      drawEdge(ctx, pal, a.x, a.y, b.x, b.y, stagger(p, 0.06 + (i % 9) * 0.03, 0.26), false, (link.weight ? LINK_ARTICLE_ALPHA : LINK_FIELD_ALPHA) * dim);
     }
     for (let i = 0; i < LYRA_EDGES.length; i++) {
       const a = stars[LYRA_EDGES[i][0]];
@@ -179,7 +179,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
       drawEdge(ctx, pal, a.x, a.y, b.x, b.y, stagger(p, 0.3 + i * 0.05, 0.2), true, 0.5);
     }
 
-    // The lit post: its path to Vega, with a halo on every star it crosses.
+    // The lit article: its path to Vega, with a halo on every star it crosses.
     for (let i = 0; i < count; i++) {
       const v = weights[i];
       if (v < 0.01) continue;
@@ -201,7 +201,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
       ctx.globalAlpha = 1;
     }
 
-    // Post stars: a core and a thin ring, so they read as posts and not as filler.
+    // Article stars: a core and a thin ring, so they read as articles and not as filler.
     for (let i = 0; i < count; i++) {
       const q = points[i];
       const v = weights[i];
@@ -256,11 +256,11 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
       ctx.globalAlpha = 1;
     }
 
-    // Labels. A lit post repeats its label in the text colour.
+    // Labels. A lit article repeats its label in the text colour.
     const labelIn = smooth((p - 0.2) / 0.2);
     const starIn = smooth((p - 0.72) / 0.2);
     for (let i = 0; i < count; i++) {
-      const label = postLabels[i];
+      const label = articleLabels[i];
       drawLabel(ctx, pal, s.labelFont.canvasFont, label.text, label.x, label.y, label.align, labelIn);
       const v = weights[i];
       if (v > 0.02) {
@@ -276,11 +276,11 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     }
     ctx.restore();
 
-    // Ask for frames only while a post is lit or its glow still fades.
+    // Ask for frames only while an article is lit or its glow still fades.
     return !s.reduced && (active >= 0 || any >= 0.01);
   }
 
-  // Pointer and focus on a post light it. The container attribute changes once for each change of post.
+  // Pointer and focus on an article light it. The container attribute changes once for each change of article.
   function attach(canvasHandle: CanvasHandle) {
     const events = new AbortController();
     const options = { signal: events.signal };
@@ -289,32 +289,32 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
       if (index === active) return;
       active = index;
       since = canvasHandle.state.activeTime;
-      if (index >= 0) container.dataset.activePost = posts[index].id;
-      else delete container.dataset.activePost;
+      if (index >= 0) container.dataset.activeArticle = articles[index].id;
+      else delete container.dataset.activeArticle;
       // Reduced motion runs no frames, so the change draws at once.
       if (canvasHandle.state.reduced) canvasHandle.redraw();
       else canvasHandle.wake();
     }
 
-    posts.forEach((post, index) => {
-      post.element.addEventListener("pointerenter", () => select(index), options);
-      post.element.addEventListener("focusin", () => select(index), options);
-      post.element.addEventListener(
+    articles.forEach((article, index) => {
+      article.element.addEventListener("pointerenter", () => select(index), options);
+      article.element.addEventListener("focusin", () => select(index), options);
+      article.element.addEventListener(
         "pointerleave",
         () => {
-          select(posts.findIndex((other) => other.element.contains(container.ownerDocument.activeElement)));
+          select(articles.findIndex((other) => other.element.contains(container.ownerDocument.activeElement)));
         },
         options,
       );
-      post.element.addEventListener("focusout", () => select(-1), options);
+      article.element.addEventListener("focusout", () => select(-1), options);
     });
 
     return () => {
       events.abort();
-      // A restored page starts with no lit post.
+      // A restored page starts with no lit article.
       active = -1;
       weights.fill(0);
-      delete container.dataset.activePost;
+      delete container.dataset.activeArticle;
     };
   }
 

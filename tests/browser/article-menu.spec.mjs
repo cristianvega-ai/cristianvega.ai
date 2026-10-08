@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { DRAFT_ORIGIN, pageProblems, settle, tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
-const article = "/writing/lorem-ipsum-dolor-sit-amet/";
+const article = "/writing/full-article-layout-fixture/";
 
 async function menuContrast(link) {
   return link.evaluate((element) => {

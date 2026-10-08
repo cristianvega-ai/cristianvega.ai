@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { LYRA, LYRA_LINKS } from "../src/lib/lyra/constellation.ts";
-import { buildGlobe, EDGE_SPAN, NODE_SPAN } from "../src/lib/lyra-globe/model.ts";
-import { globeProjectionCss, projectGlobe } from "../src/lib/lyra-globe/projection.ts";
+import { LYRA, LYRA_LINKS } from "../src/shared/lyra/constellation.ts";
+import { buildGlobe, EDGE_SPAN, NODE_SPAN } from "../src/shared/lyra-globe/model.ts";
+import { globeProjectionCss, projectGlobe } from "../src/shared/lyra-globe/projection.ts";
 
 test("the globe holds 70 neurons, the Lyra figure, and one hot route", () => {
   const globe = buildGlobe(600, 500);

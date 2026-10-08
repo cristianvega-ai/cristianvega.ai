@@ -213,11 +213,11 @@ body[data-page="home"] main {
 
 /* The globe box starts where the graphic box of every inner page starts: the reading column plus
    --graphic-gap from the left edge of the frame. Its figure starts --figure-inset inside the box,
-   as the figure of an inner page does (FIGURE_INSET in src/lib/page-graphics/inset.ts). The box runs
+   as the figure of an inner page does (FIGURE_INSET in src/shared/page-graphics/inset.ts). The box runs
    past the right edge of the screen, and the mask below fades the sphere out at the screen edge,
    as the inner pages fade their graphics. Its top is level with the eyebrow, and the height cap
    keeps its bottom clear of the footer bar on a short screen.
-   The projection stylesheet (src/lib/lyra-globe/projection.ts) supplies the --globe-* sphere
+   The projection stylesheet (src/shared/lyra-globe/projection.ts) supplies the --globe-* sphere
    measurements from the model, rounded at build time. Each var() falls back to the value of the
    current model, so the globe keeps its size when that stylesheet fails to load.
    CSS keeps the responsive placement. The width cap keeps the caption clear of the fade: the
@@ -318,7 +318,7 @@ body[data-page="home"] main {
 /* The picture has an empty margin on every side of the sphere. The box crops
    it, so the sphere fills the box. The model sets the crop: the box shows the picture
    from just above the outer ring to just below the caption (CROP_ABOVE_RING and
-   CROP_BELOW_CAPTION in src/lib/lyra-globe/projection.ts).
+   CROP_BELOW_CAPTION in src/shared/lyra-globe/projection.ts).
    The picture and the labels keep their full size. Horizontally, the picture sits so
    the sphere ring starts --figure-inset from the box edge. */
 .lyra-globe__fallback,

@@ -206,6 +206,6 @@ test("the pre-hide guard catches the regression shapes it claims to", () => {
 
 test("compiled css uses no CSS round() function", () => {
   // Chromium before 125, Firefox before 118, and Safari before 15.4 drop a declaration with round().
-  // Round a value at build time instead, as src/lib/lyra-globe/projection.ts does.
+  // Round a value at build time instead, as src/shared/lyra-globe/projection.ts does.
   assert.doesNotMatch(css.replace(/\/\*[\s\S]*?\*\//g, ""), /(?:^|[^a-z-])round\(/i);
 });

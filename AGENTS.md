@@ -41,7 +41,7 @@ npm run build
 npm run check
 npm test                 # builds, then runs tests (use this or verify — not bare node --test)
 npm run test:run         # Node tests only; requires a current dist/ and starts Wrangler
-npm run test:e2e         # browser tests only; requires a current dist/
+npm run test:browser         # browser tests only; requires a current dist/
 npm run verify:deploy    # post-deploy: security headers on /, /about/, /writing/, and a real 404
 npm audit
 npm run generate:portrait
@@ -54,9 +54,13 @@ npm run generate:touch-icon
 - Use `CONTRIBUTING.md` before you open a pull request.
 - Use `README.md` before you change deployment, Cloudflare domain routes, or image derivatives.
 - `src/styles/global.css` holds the site-wide design system and the responsive behavior.
-- `src/lib/` holds the Lyra globe (`lyra-globe/`), the Lyra star data (`lyra/`), the page graphics (`page-graphics/`, with its own how-to in `page-graphics/index.ts`), the shared canvas layer (`motion/`: easing, the entrance clock, the palette, and the canvas controller), the article interactions (`article-interactions.ts`), and the content helpers (`blog.ts`, `products.ts`).
-- `src/content/` holds the Markdown for the `blog` and `products` collections. Both collections hide drafts in production.
-- The `blog` collection publishes at `/writing/`. The rename of the collection is a known and deliberate deferral. It needs the owner's approval.
+- `src/shared/` holds content helpers, article interactions, and canvas modules.
+- `src/shared/lyra-globe/` holds the Lyra globe. `src/shared/lyra/` holds its star data.
+- `src/shared/page-graphics/` holds page graphics. Read its [guide](src/shared/page-graphics/README.md) for scene setup.
+- `src/shared/motion/` holds easing, the entrance clock, the palette, and the canvas controller.
+- `src/shared/article-interactions.ts` holds article behavior. `writing.ts` and `products.ts` hold content helpers.
+- `src/content/` holds the Markdown for the `writing` and `products` collections. Both collections hide drafts in production.
+- The `writing` collection publishes at `/writing/`.
 - `public/` copies into the build, including `_headers`, `_redirects`, and `robots.txt`.
 - `assets/` holds build-time source files that must not copy into the static site.
 - `scripts/` holds the asset-generation scripts and the post-deploy gate.
@@ -99,6 +103,18 @@ Never weaken an assertion merely to make a check pass.
 - Delete dead code instead of commenting it out.
 - Do not add speculative extensibility or one-off utility layers.
 - Do not introduce dependencies when the platform or existing stack can solve the problem cleanly.
+
+## Naming
+
+- Use complete, familiar words for owned folders, files, commands, and branch types.
+- Name the subject and purpose. Avoid acronyms, shortened words, unexplained codes, and single-letter labels.
+- Use lowercase words with hyphens for folders and ordinary files.
+- Use PascalCase for component and layout filenames.
+- Use `writing` for the section and collection. Use `article` for an individual piece and its helpers.
+- Name fixtures by their test purpose.
+- Use `YYYY-MM-DD` for dates in names.
+- Keep `src/`, `Lyra`, and official font family names.
+- Preserve required tool filenames, file extensions, and protocol keys such as `og:image`.
 
 ## Frontend, accessibility, and motion
 

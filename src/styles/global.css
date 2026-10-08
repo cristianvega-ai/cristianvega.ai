@@ -2,7 +2,7 @@
 
 /* Self-hosted latin subsets. Geist carries the display face at weight 600.
    IBM Plex Sans ships 400 roman and 400 italic; IBM Plex Mono ships 400, 500
-   and 600. OFL licenses live next to the woff2 files in src/assets/fonts/. */
+   and 600. Font licenses live next to the woff2 files in src/assets/fonts/. */
 @font-face {
   font-family: "Geist";
   font-style: normal;
@@ -109,7 +109,7 @@
      UI: mono links and the nav.
      Meta: dates, counts, the eyebrow, and captions.
      Label: the smallest mono text.
-     Graphic label: the star and post names on the page graphics and the globe.
+     Graphic label: the star and article names on the page graphics and the globe.
      The canvas reads it, so keep it in px. */
   --fs-h1: 36px;
   --fs-h2: 24px;
@@ -371,7 +371,7 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
    home.css supplies the homepage exception.
    The opaque background keeps underlying content hidden.
    The shadow adds a hairline without changing header height.
-   Dark pages set their background and hairline below and in blog.css. */
+   Dark pages set their background and hairline below and in writing.css. */
 .site-header {
   position: sticky;
   top: 0;

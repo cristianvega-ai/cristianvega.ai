@@ -67,7 +67,7 @@ test("Cloudflare compresses built scripts and gives them an immutable cache", as
     expect(response.headers()["content-encoding"]).toBe("gzip");
     expect(response.headers()["cache-control"]).toBe(cache);
   }
-  const portrait = await request.get("/images/cristian-vega-og.jpg");
+  const portrait = await request.get("/images/cristian-vega-social-preview.jpg");
   expect(portrait.status()).toBe(200);
   expect(portrait.headers()["cache-control"]).toBe("public, max-age=604800, stale-while-revalidate=86400");
 });

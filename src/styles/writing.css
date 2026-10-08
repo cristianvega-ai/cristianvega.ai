@@ -1,9 +1,9 @@
-body[data-page="blog"] {
+body[data-page="writing"] {
   color: var(--mast-text);
   background: var(--ink);
 }
 
-body[data-page="post"] {
+body[data-page="article"] {
   --article-text: #c5cdd9;
   --fg: var(--mast-text);
   --muted: var(--mast-meta);
@@ -14,37 +14,37 @@ body[data-page="post"] {
   background: var(--ink);
 }
 
-body:is([data-page="blog"], [data-page="post"]) .site-header {
+body:is([data-page="writing"], [data-page="article"]) .site-header {
   background: var(--ink);
   box-shadow: 0 1px 0 var(--mast-line);
 }
 
-body:is([data-page="blog"], [data-page="post"]) .brand {
+body:is([data-page="writing"], [data-page="article"]) .brand {
   color: var(--mast-text);
 }
 
-body:is([data-page="blog"], [data-page="post"]) .brand__word i,
-body:is([data-page="blog"], [data-page="post"]) .nav {
+body:is([data-page="writing"], [data-page="article"]) .brand__word i,
+body:is([data-page="writing"], [data-page="article"]) .nav {
   color: var(--mast-meta);
 }
 
-body:is([data-page="blog"], [data-page="post"]) .brand__mark i:last-child {
+body:is([data-page="writing"], [data-page="article"]) .brand__mark i:last-child {
   border-color: var(--mark2-ink);
 }
 
-body:is([data-page="blog"], [data-page="post"]) .nav__link:hover,
-body:is([data-page="blog"], [data-page="post"]) .nav__link[aria-current] {
+body:is([data-page="writing"], [data-page="article"]) .nav__link:hover,
+body:is([data-page="writing"], [data-page="article"]) .nav__link[aria-current] {
   color: var(--mast-text);
 }
 
-body:is([data-page="blog"], [data-page="post"]) .site-header :focus-visible,
-body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
-.blog-index :focus-visible,
+body:is([data-page="writing"], [data-page="article"]) .site-header :focus-visible,
+body:is([data-page="writing"], [data-page="article"]) .skip-link:focus,
+.writing-index :focus-visible,
 .article :focus-visible {
   outline-color: var(--sky);
 }
 
-.blog-index {
+.writing-index {
   display: grid;
   /* The middle column is the site frame. The list starts on its left edge. */
   grid-template-columns: minmax(0, 1fr) min(var(--frame), 100%) minmax(0, 1fr);
@@ -52,8 +52,8 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
   isolation: isolate;
 }
 
-.blog-index__intro,
-.blog-index__list {
+.writing-index__intro,
+.writing-index__list {
   position: relative;
   z-index: 2;
   grid-column: 2;
@@ -64,14 +64,14 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
   min-width: 0;
 }
 
-.blog-index__intro {
+.writing-index__intro {
   grid-row: 1;
   /* Same header spacing as /about/ and /products/. */
   padding-top: 72px;
   padding-bottom: 14px;
 }
 
-.blog-index__intro::after {
+.writing-index__intro::after {
   content: "";
   position: absolute;
   inset: auto 40px 0 var(--frame-pad);
@@ -79,36 +79,36 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
   background: var(--mast-line);
 }
 
-.blog-index__intro .eyebrow {
+.writing-index__intro .eyebrow {
   color: var(--mast-meta);
 }
 
-.blog-index__intro .eyebrow::before {
+.writing-index__intro .eyebrow::before {
   width: 18px;
   height: 2px;
 }
 
-.blog-index__intro h1 {
+.writing-index__intro h1 {
   margin-top: 20px;
 }
 
-.blog-index__count {
+.writing-index__count {
   margin-top: 14px;
   font: 500 var(--fs-meta) var(--font-mono);
   color: var(--mast-meta);
 }
 
-.blog-index__list {
+.writing-index__list {
   grid-row: 2;
   padding-block: 4px 64px;
 }
 
-.post-list {
+.article-list {
   padding: 0;
   list-style: none;
 }
 
-.post-list__item {
+.article-list__item {
   position: relative;
   display: grid;
   grid-template-columns: 56px minmax(0, 1fr);
@@ -118,7 +118,7 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
   border-bottom: 1px solid var(--mast-line);
 }
 
-.post-list__num {
+.article-list__num {
   grid-area: num;
   padding-top: 5px;
   font: 600 var(--fs-label) var(--font-mono);
@@ -126,40 +126,40 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
   color: var(--sky);
 }
 
-.post-list__title {
+.article-list__title {
   grid-area: title;
   font-size: var(--fs-lede);
   line-height: var(--lh-title);
   letter-spacing: var(--track-heading);
 }
 
-.post-list__link::after {
+.article-list__link::after {
   content: "";
   position: absolute;
   inset: 0;
 }
 
-.post-list__link:focus-visible {
+.article-list__link:focus-visible {
   outline: none;
 }
 
 /* The ring wraps the whole row, and the link is only its title. This margin makes a
    keyboard scroll reveal the whole ring above the footer fade, not only the title. */
-.post-list__link {
+.article-list__link {
   scroll-margin-bottom: 120px;
 }
 
-.post-list__item:focus-within {
+.article-list__item:focus-within {
   outline: 3px solid var(--sky);
   outline-offset: 4px;
   border-radius: 4px;
 }
 
-.post-list__item:is(:hover, :focus-within) .post-list__link {
+.article-list__item:is(:hover, :focus-within) .article-list__link {
   color: var(--sky);
 }
 
-.post-list__meta {
+.article-list__meta {
   grid-area: meta;
   font: 500 var(--fs-meta) / var(--lh-mono) var(--font-mono);
   color: var(--mast-meta);
@@ -169,7 +169,7 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
   color: var(--sky);
 }
 
-.post-list__excerpt {
+.article-list__excerpt {
   grid-area: excerpt;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -626,7 +626,7 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 
 /* Below 1100px the graphic is a block above the title, as on every other page. From 1100px it is the fixed box that global.css places. */
 @media (max-width: 1099px) {
-  .blog-index {
+  .writing-index {
     display: flex;
     flex-direction: column;
     /* Keep the stack on the site frame, so the title and the list start on the frame edge. */
@@ -635,24 +635,24 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
     margin-inline: auto;
   }
 
-  .blog-index__intro {
+  .writing-index__intro {
     order: 1;
     width: auto;
     padding: 72px var(--frame-pad) 14px;
   }
 
-  .blog-index__intro::after {
+  .writing-index__intro::after {
     left: var(--frame-pad);
     right: var(--frame-pad);
   }
 
   /* The block keeps the x range and the top gap that global.css gives every page graphic. Only its height differs. */
-  .blog-index .page-graphic[data-graphic="writing"]:not([hidden]) {
+  .writing-index .page-graphic[data-graphic="writing"]:not([hidden]) {
     order: 0;
     height: calc(var(--band-height) * 1.19);
   }
 
-  .blog-index__list {
+  .writing-index__list {
     order: 3;
     width: auto;
     padding: 4px var(--frame-pad) 56px;
@@ -660,11 +660,11 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
 }
 
 @media (max-width: 760px) {
-  .blog-index__intro {
+  .writing-index__intro {
     padding-top: 48px;
   }
 
-  .blog-index__intro h1 {
+  .writing-index__intro h1 {
     margin-top: 16px;
   }
 
@@ -698,7 +698,7 @@ body:is([data-page="blog"], [data-page="post"]) .skip-link:focus,
     padding-top: 26px;
   }
 
-  .post-list__item {
+  .article-list__item {
     grid-template-columns: 42px minmax(0, 1fr);
     gap: 8px 10px;
   }
