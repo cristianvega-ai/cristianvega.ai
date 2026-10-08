@@ -5,11 +5,11 @@ import { reportFigureLeft } from "../inset.ts";
 import { labelBounds } from "../labels.ts";
 import { makeGridLayer } from "../mesh.ts";
 import { drawComet, drawEdge, drawLabel, drawNode, drawVegaBloom, makeRoute, type Route } from "../marks.ts";
-import { smooth, TAU } from "../math.ts";
+import { smooth, FULL_TURN_RADIANS } from "../math.ts";
 import { mountCanvas, type CanvasHandle, type FrameState } from "../mount.ts";
 import { buildField, LYRA_EDGES, pathToVega, type FieldLayout } from "./writing-layout.ts";
 
-// Reading field: each article is a ringed star in a star-field round Lyra, placed from its id.
+// Reading field: each article is a ringed star in a star-field round Lyra, placed from its identifier.
 // Faint synapses link near stars. The entrance runs field, synapses, comets, then the Vega bloom.
 // A pointer or focus on an article lights its path through Lyra to Vega, and a comet runs it.
 // After the entrance the picture rests, and frames run only while an article is lit.
@@ -26,18 +26,18 @@ const LINK_FIELD_ALPHA = 0.035;
 const REST_BLOOM = 0.2;
 
 interface Article {
-  id: string;
+  identifier: string;
   element: HTMLElement;
   label: string;
 }
 
-/** Read the owning list once. The page supplies each entry ID and label. */
+/** Read the owning list once. The page supplies each entry identifier and label. */
 function readWritingBindings(container: HTMLElement): { list: HTMLElement; articles: Article[] } | null {
   const page = container.closest<HTMLElement>("[data-writing-page]");
   const list = page?.querySelector<HTMLElement>("[data-writing-list]");
   if (!list) return null;
-  const articles = [...list.querySelectorAll<HTMLElement>("[data-writing-entry-id]")].map((element) => ({
-    id: element.dataset.writingEntryId!,
+  const articles = [...list.querySelectorAll<HTMLElement>("[data-writing-entry-identifier]")].map((element) => ({
+    identifier: element.dataset.writingEntryIdentifier!,
     element,
     label: element.querySelector("[data-writing-label]")?.textContent?.trim() ?? "",
   }));
@@ -57,39 +57,39 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
   let entrance: number[] = [];
   // The box, in canvas pixels, that no article text covers.
   let originX = 0;
-  let boxW = 0;
-  let boxH = 0;
+  let boxWidth = 0;
+  let boxHeight = 0;
 
   // The state of the lit article. `weights` ease toward 1 for the lit article and 0 for the rest.
   const weights = new Float32Array(count);
   let active = -1;
   let since = 0;
-  let previousT = 0;
+  let previousTime = 0;
   const scratch: Point = { x: 0, y: 0 };
   const start: Point = { x: 0, y: 0 };
   const control: Point = { x: 0, y: 0 };
   const end: Point = { x: 0, y: 0 };
 
   // Rebuild the layout from the measured box. The list, when it sits beside the graphic, takes the left part.
-  function build(s: FrameState) {
+  function build(state: FrameState) {
     const box = container.getBoundingClientRect();
     const listBox = list.getBoundingClientRect();
     const beside = listBox.top < box.bottom - 1 && listBox.bottom > box.top + 1;
-    originX = beside ? Math.min(Math.max(0, listBox.right - box.left), s.width * 0.6) : 0;
-    boxW = s.width - originX;
-    boxH = s.height;
-    reportFigureLeft(container, boxW, boxH, originX);
+    originX = beside ? Math.min(Math.max(0, listBox.right - box.left), state.width * 0.6) : 0;
+    boxWidth = state.width - originX;
+    boxHeight = state.height;
+    reportFigureLeft(container, boxWidth, boxHeight, originX);
     field = buildField({
-      ids: articles.map((article) => article.id),
+      articleIdentifiers: articles.map((article) => article.identifier),
       labels: articles.map((article) => article.label),
-      labelWidthsCssPx: articles.map((article) => s.labelFont.widthCssPx(article.label)),
-      starWidthsCssPx: LYRA.map((star) => star.name ? s.labelFont.widthCssPx(star.name) : 0),
-      lineCssPx: s.labelFont.lineCssPx,
-      width: boxW,
-      height: boxH,
-      bounds: labelBounds(container, s.width, s.height, originX),
+      labelWidthsInPixels: articles.map((article) => state.labelFont.widthInPixels(article.label)),
+      starWidthsInPixels: LYRA.map((star) => star.name ? state.labelFont.widthInPixels(star.name) : 0),
+      lineHeightInPixels: state.labelFont.lineHeightInPixels,
+      width: boxWidth,
+      height: boxHeight,
+      bounds: labelBounds(container, state.width, state.height, originX),
     });
-    grid = makeGridLayer(boxW, boxH, s.ratio, s.palette);
+    grid = makeGridLayer(boxWidth, boxHeight, state.ratio, state.palette);
     const { stars, points } = field;
 
     // A route: the article, a bent path to the nearest Lyra star, then along the figure to Vega.
@@ -124,8 +124,8 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
   }
 
   // Ease the weights toward the lit article. `snap` jumps to the end, for reduced motion.
-  function ease(dt: number, snap: boolean): number {
-    const k = snap ? 1 : 1 - Math.exp(-dt / 120);
+  function ease(elapsedMilliseconds: number, snap: boolean): number {
+    const k = snap ? 1 : 1 - Math.exp(-elapsedMilliseconds / 120);
     let any = 0;
     for (let i = 0; i < count; i++) {
       weights[i] += ((i === active ? 1 : 0) - weights[i]) * k;
@@ -134,49 +134,49 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     return any;
   }
 
-  function draw(ctx: CanvasRenderingContext2D, s: FrameState) {
+  function draw(drawingContext: CanvasRenderingContext2D, state: FrameState) {
     if (!field) return;
     const { stars, points, links, articleLabels, starLabels } = field;
-    const p = s.progress;
-    const pal = s.palette;
-    const glow = s.glow;
-    const t = s.activeTime;
-    const any = ease(Math.max(0, Math.min(64, t - previousT)), s.reduced);
-    previousT = t;
+    const p = state.progress;
+    const palette = state.palette;
+    const glow = state.glow;
+    const t = state.activeTime;
+    const any = ease(Math.max(0, Math.min(64, t - previousTime)), state.reduced);
+    previousTime = t;
     const dim = 1 - 0.6 * any;
-    ctx.save();
-    ctx.translate(originX, 0);
+    drawingContext.save();
+    drawingContext.translate(originX, 0);
 
     // The site grid, with the same fade as on the other pages.
     if (grid) {
-      ctx.globalAlpha = smooth(p / 0.3);
-      ctx.drawImage(grid, 0, 0, boxW, boxH);
-      ctx.globalAlpha = 1;
+      drawingContext.globalAlpha = smooth(p / 0.3);
+      drawingContext.drawImage(grid, 0, 0, boxWidth, boxHeight);
+      drawingContext.globalAlpha = 1;
     }
 
     // Field stars fade in with the entrance, then hold still.
     const fieldIn = smooth(p / 0.45);
-    ctx.fillStyle = pal.meta;
+    drawingContext.fillStyle = palette.metadata;
     for (let i = count; i < points.length; i++) {
       const q = points[i];
-      ctx.globalAlpha = fieldIn * q.alpha * Math.sqrt(dim);
-      ctx.beginPath();
-      ctx.arc(q.x, q.y, q.radius, 0, TAU);
-      ctx.fill();
+      drawingContext.globalAlpha = fieldIn * q.alpha * Math.sqrt(dim);
+      drawingContext.beginPath();
+      drawingContext.arc(q.x, q.y, q.radius, 0, FULL_TURN_RADIANS);
+      drawingContext.fill();
     }
-    ctx.globalAlpha = 1;
+    drawingContext.globalAlpha = 1;
 
     // Synapses draw in, then rest faint. The figure's own links come after them.
     for (let i = 0; i < links.length; i++) {
       const link = links[i];
       const a = points[link.from];
       const b = points[link.to];
-      drawEdge(ctx, pal, a.x, a.y, b.x, b.y, stagger(p, 0.06 + (i % 9) * 0.03, 0.26), false, (link.weight ? LINK_ARTICLE_ALPHA : LINK_FIELD_ALPHA) * dim);
+      drawEdge(drawingContext, palette, a.x, a.y, b.x, b.y, stagger(p, 0.06 + (i % 9) * 0.03, 0.26), false, (link.weight ? LINK_ARTICLE_ALPHA : LINK_FIELD_ALPHA) * dim);
     }
     for (let i = 0; i < LYRA_EDGES.length; i++) {
       const a = stars[LYRA_EDGES[i][0]];
       const b = stars[LYRA_EDGES[i][1]];
-      drawEdge(ctx, pal, a.x, a.y, b.x, b.y, stagger(p, 0.3 + i * 0.05, 0.2), true, 0.5);
+      drawEdge(drawingContext, palette, a.x, a.y, b.x, b.y, stagger(p, 0.3 + i * 0.05, 0.2), true, 0.5);
     }
 
     // The lit article: its path to Vega, with a halo on every star it crosses.
@@ -184,21 +184,21 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
       const v = weights[i];
       if (v < 0.01) continue;
       const route = routes[i];
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.strokeStyle = pal.sky;
-      ctx.globalAlpha = 0.9 * v;
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.moveTo(route.xs[0], route.ys[0]);
-      for (let k = 1; k < route.xs.length; k++) ctx.lineTo(route.xs[k], route.ys[k]);
-      ctx.stroke();
-      ctx.globalAlpha = v;
+      drawingContext.lineCap = "round";
+      drawingContext.lineJoin = "round";
+      drawingContext.strokeStyle = palette.sky;
+      drawingContext.globalAlpha = 0.9 * v;
+      drawingContext.lineWidth = 1.2;
+      drawingContext.beginPath();
+      drawingContext.moveTo(route.xs[0], route.ys[0]);
+      for (let k = 1; k < route.xs.length; k++) drawingContext.lineTo(route.xs[k], route.ys[k]);
+      drawingContext.stroke();
+      drawingContext.globalAlpha = v;
       for (let k = CURVE_STEPS; k < route.xs.length; k++) {
         const reach = k === route.xs.length - 1 ? 22 : 9;
-        ctx.drawImage(glow, route.xs[k] - reach, route.ys[k] - reach, reach * 2, reach * 2);
+        drawingContext.drawImage(glow, route.xs[k] - reach, route.ys[k] - reach, reach * 2, reach * 2);
       }
-      ctx.globalAlpha = 1;
+      drawingContext.globalAlpha = 1;
     }
 
     // Article stars: a core and a thin ring, so they read as articles and not as filler.
@@ -206,38 +206,38 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
       const q = points[i];
       const v = weights[i];
       const g = stagger(p, 0.1 + i * 0.03, 0.2);
-      drawNode(ctx, pal, glow, q.x, q.y, 2.6, g, v > 0.3, 1, false);
+      drawNode(drawingContext, palette, glow, q.x, q.y, 2.6, g, v > 0.3, 1, false);
       if (g > 0) {
-        ctx.strokeStyle = v > 0.05 ? pal.sky : pal.meta;
-        ctx.lineWidth = 0.7;
-        ctx.globalAlpha = (0.32 + 0.5 * v) * g;
-        ctx.beginPath();
-        ctx.arc(q.x, q.y, 6 + 3 * v, 0, TAU);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
+        drawingContext.strokeStyle = v > 0.05 ? palette.sky : palette.metadata;
+        drawingContext.lineWidth = 0.7;
+        drawingContext.globalAlpha = (0.32 + 0.5 * v) * g;
+        drawingContext.beginPath();
+        drawingContext.arc(q.x, q.y, 6 + 3 * v, 0, FULL_TURN_RADIANS);
+        drawingContext.stroke();
+        drawingContext.globalAlpha = 1;
       }
     }
     for (let i = 0; i < stars.length; i++) {
       const star = stars[i];
-      drawNode(ctx, pal, glow, star.x, star.y, star.vega ? 3 : 2.5, stagger(p, 0.32 + i * 0.05, 0.16), true, 0.95, star.vega);
+      drawNode(drawingContext, palette, glow, star.x, star.y, star.vega ? 3 : 2.5, stagger(p, 0.32 + i * 0.05, 0.16), true, 0.95, star.vega);
     }
 
     // Comets and the Vega bloom. Reduced motion shows the resting bloom and no comet.
     let bloom = REST_BLOOM;
     let ping = 0;
-    if (!s.reduced) {
+    if (!state.reduced) {
       let pulse = 0;
       if (p < 1) {
         for (let k = 0; k < entrance.length; k++) {
           const travel = stagger(p, 0.36 + k * 0.1, 0.36);
-          drawComet(ctx, pal, glow, routes[entrance[k]], travel, 70);
+          drawComet(drawingContext, palette, glow, routes[entrance[k]], travel, 70);
           if (travel > 0.86 && travel < 1) ping = Math.max(ping, (travel - 0.86) / 0.14);
         }
         pulse = smooth((p - 0.6) / 0.25) * (1 - smooth((p - 0.88) / 0.12)) * 0.9;
       } else if (active >= 0) {
         const phase = (t - since) % CYCLE;
         const travel = phase < RUN ? phase / RUN : 0;
-        drawComet(ctx, pal, glow, routes[active], travel, 70);
+        drawComet(drawingContext, palette, glow, routes[active], travel, 70);
         if (travel > 0.8) {
           ping = (travel - 0.8) / 0.2;
           pulse = smooth((travel - 0.8) / 0.12) * (1 - smooth((travel - 0.95) / 0.05));
@@ -245,15 +245,15 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
       }
       bloom = Math.max(pulse, REST_BLOOM * smooth((p - 0.85) / 0.15));
     }
-    drawVegaBloom(ctx, glow, stars[0].x, stars[0].y, bloom);
+    drawVegaBloom(drawingContext, glow, stars[0].x, stars[0].y, bloom);
     if (ping > 0) {
-      ctx.strokeStyle = pal.sky;
-      ctx.lineWidth = 0.7;
-      ctx.globalAlpha = 0.5 * (1 - ping);
-      ctx.beginPath();
-      ctx.arc(stars[0].x, stars[0].y, 10 + 22 * ping, 0, TAU);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
+      drawingContext.strokeStyle = palette.sky;
+      drawingContext.lineWidth = 0.7;
+      drawingContext.globalAlpha = 0.5 * (1 - ping);
+      drawingContext.beginPath();
+      drawingContext.arc(stars[0].x, stars[0].y, 10 + 22 * ping, 0, FULL_TURN_RADIANS);
+      drawingContext.stroke();
+      drawingContext.globalAlpha = 1;
     }
 
     // Labels. A lit article repeats its label in the text colour.
@@ -261,23 +261,23 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     const starIn = smooth((p - 0.72) / 0.2);
     for (let i = 0; i < count; i++) {
       const label = articleLabels[i];
-      drawLabel(ctx, pal, s.labelFont.canvasFont, label.text, label.x, label.y, label.align, labelIn);
+      drawLabel(drawingContext, palette, state.labelFont.canvasFont, label.text, label.x, label.y, label.align, labelIn);
       const v = weights[i];
       if (v > 0.02) {
-        ctx.globalAlpha = v * labelIn;
-        ctx.fillStyle = pal.text;
-        ctx.fillText(label.text, label.x, label.y);
-        ctx.globalAlpha = 1;
+        drawingContext.globalAlpha = v * labelIn;
+        drawingContext.fillStyle = palette.text;
+        drawingContext.fillText(label.text, label.x, label.y);
+        drawingContext.globalAlpha = 1;
       }
     }
     for (let i = 0; i < starLabels.length; i++) {
       const label = starLabels[i];
-      if (label) drawLabel(ctx, pal, s.labelFont.canvasFont, label.text, label.x, label.y, label.align, starIn);
+      if (label) drawLabel(drawingContext, palette, state.labelFont.canvasFont, label.text, label.x, label.y, label.align, starIn);
     }
-    ctx.restore();
+    drawingContext.restore();
 
     // Ask for frames only while an article is lit or its glow still fades.
-    return !s.reduced && (active >= 0 || any >= 0.01);
+    return !state.reduced && (active >= 0 || any >= 0.01);
   }
 
   // Pointer and focus on an article light it. The container attribute changes once for each change of article.
@@ -289,7 +289,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
       if (index === active) return;
       active = index;
       since = canvasHandle.state.activeTime;
-      if (index >= 0) container.dataset.activeArticle = articles[index].id;
+      if (index >= 0) container.dataset.activeArticle = articles[index].identifier;
       else delete container.dataset.activeArticle;
       // Reduced motion runs no frames, so the change draws at once.
       if (canvasHandle.state.reduced) canvasHandle.redraw();

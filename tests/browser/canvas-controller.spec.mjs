@@ -91,12 +91,12 @@ async function mountScene(page, policy, { duration = 2300, busy = false, count =
         onResize() {
           window.__builds += 1;
         },
-        draw(ctx, state) {
+        draw(drawingContext, state) {
           if (firstState && firstState !== state) window.__stateChanged = true;
           firstState = state;
           window.__draws += 1;
-          ctx.drawImage(state.glow, 10, 10);
-          ctx.fillRect(0, 0, state.progress * state.width, 1);
+          drawingContext.drawImage(state.glow, 10, 10);
+          drawingContext.fillRect(0, 0, state.progress * state.width, 1);
           return window.__busy && !state.reduced;
         },
         attach(handle) {

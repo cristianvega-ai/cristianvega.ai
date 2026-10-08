@@ -1,14 +1,14 @@
 import type { Point } from "../../motion/easing.ts";
 import { LYRA, LYRA_LINKS } from "../../lyra/constellation.ts";
 import { stagger } from "../../motion/clock.ts";
-import { around, ellipseSegments, labelBounds, placeLabel, type PlacedLabel, type Rect, type Segment } from "../labels.ts";
+import { around, ellipseSegments, labelBounds, placeLabel, type PlacedLabel, type Rectangle, type Segment } from "../labels.ts";
 import { FIGURE_INSET, reportFigureLeft } from "../inset.ts";
-import { LYRA_MAX_SIZE } from "../lyra.ts";
+import { LYRA_MAXIMUM_SIZE } from "../lyra.ts";
 import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
 import { drawComet, drawEdge, drawLabel, drawNode, drawStarField, drawVegaBloom, makeRoute, makeStarField, NODE_HALO, type FieldStar, type Route } from "../marks.ts";
-import { easeOutCubic, smooth, TAU } from "../math.ts";
+import { easeOutCubic, smooth, FULL_TURN_RADIANS } from "../math.ts";
 import { mountCanvas, type CanvasHandle, type FrameState } from "../mount.ts";
-import { MAX_SLOTS, SLOT_OFFSET, SLOT_RING } from "./product-slots.ts";
+import { MAXIMUM_SLOTS, SLOT_OFFSET, SLOT_RING } from "./product-slots.ts";
 
 // Constellation lattice: the products are ringed stars on elliptical orbits round Vega,
 // and each one links to the Lyra figure. A published product is lit. Faint empty rings
@@ -17,16 +17,16 @@ import { MAX_SLOTS, SLOT_OFFSET, SLOT_RING } from "./product-slots.ts";
 
 /** The orbit radii, as a share of the half box. */
 const RINGS = [0.36, 0.66, 0.95] as const;
-/** The picture always shows this many slots, and never more than MAX_SLOTS in product-slots.ts. */
-export const MIN_SLOTS = 6;
+/** The picture always shows this many slots, and never more than MAXIMUM_SLOTS in product-slots.ts. */
+export const MINIMUM_SLOTS = 6;
 /** A tall box gives the orbits at most this ratio of height to width, so a column does not stretch them. */
-const MAX_ORBIT_TALL = 1.3;
+const MAXIMUM_ORBIT_HEIGHT_RATIO = 1.3;
 /** The drift stops after this time. Then the picture rests and the loop ends. */
-export const DRIFT_MS = 30_000;
+export const DRIFT_DURATION_MILLISECONDS = 30_000;
 /** For each satellite: an orbit, a start angle in radians, and a speed in radians for each millisecond. */
-const SAT_RING = [0, 1, 2] as const;
-const SAT_PHASE = [0.4, 3.2, 5.1] as const;
-const SAT_SPEED = [0.00009 * 1.4, -0.00006, 0.00004] as const;
+const SATELLITE_RING = [0, 1, 2] as const;
+const SATELLITE_PHASE = [0.4, 3.2, 5.1] as const;
+const SATELLITE_SPEED = [0.00009 * 1.4, -0.00006, 0.00004] as const;
 const PRODUCT_NODE_START = 0.42;
 const PRODUCT_NODE_SPAN = 0.16;
 const PRODUCT_LINK_START = 0.5;
@@ -43,7 +43,7 @@ const MARK_LINE = 0.8;
 export const SLOT_REACH = Math.max(CURRENT_RING + MARK_LINE / 2, NODE_HALO);
 
 export interface OrbitPlan {
-  /** The lit products: one for each published product, at most `MAX_SLOTS`. */
+  /** The lit products: one for each published product, at most `MAXIMUM_SLOTS`. */
   lit: number;
   /** All slots drawn: the lit ones and the empty rings. */
   total: number;
@@ -51,11 +51,11 @@ export interface OrbitPlan {
 
 /**
  * Plan the slots for a product count. The picture keeps at least six slots so it shows room to grow.
- * The build rejects more than MAX_SLOTS products. The clamp only guards a changed page.
+ * The build rejects more than MAXIMUM_SLOTS products. The clamp only guards a changed page.
  */
 export function planOrbit(count: number): OrbitPlan {
-  const lit = Math.max(0, Math.min(Math.floor(count) || 0, MAX_SLOTS));
-  return { lit, total: Math.max(MIN_SLOTS, lit) };
+  const lit = Math.max(0, Math.min(Math.floor(count) || 0, MAXIMUM_SLOTS));
+  return { lit, total: Math.max(MINIMUM_SLOTS, lit) };
 }
 
 /** Give each product a share of the entrance. The last link must finish by full progress. */
@@ -68,21 +68,21 @@ export function productProgress(progress: number, index: number, count: number, 
 }
 
 /** Put a slot on its orbit. `wide` is a band: the figure lies to the left and the slots turn with it. */
-export function orbitSlot(out: Point, index: number, wide: boolean, cx: number, cy: number, halfWidth: number, halfHeight: number): Point {
+export function orbitSlot(output: Point, index: number, wide: boolean, cx: number, cy: number, halfWidth: number, halfHeight: number): Point {
   const away = ((wide ? -145 : -55) * Math.PI) / 180;
   const angle = away + (SLOT_OFFSET[index] * Math.PI) / 180;
   const ring = RINGS[SLOT_RING[index]];
-  out.x = cx + Math.cos(angle) * ring * halfWidth;
-  out.y = cy + Math.sin(angle) * ring * halfHeight;
-  return out;
+  output.x = cx + Math.cos(angle) * ring * halfWidth;
+  output.y = cy + Math.sin(angle) * ring * halfHeight;
+  return output;
 }
 
 /**
  * Fit the Lyra figure with Vega at the centre (cx, cy) so the figure stays inside the
  * half box (rx, ry), with one uniform scale and a cap on its size. A wide box turns the figure a
- * quarter turn. Fills `out` and returns it.
+ * quarter turn. Fills `output` and returns it.
  */
-export function fitLyraAtVega(out: Point[], cx: number, cy: number, rx: number, ry: number, wide: boolean): Point[] {
+export function fitLyraAtVega(output: Point[], cx: number, cy: number, rx: number, ry: number, wide: boolean): Point[] {
   const rotate = wide ? -Math.PI / 2 : 0;
   const cos = Math.cos(rotate);
   const sin = Math.sin(rotate);
@@ -103,13 +103,13 @@ export function fitLyraAtVega(out: Point[], cx: number, cy: number, rx: number, 
     maxY = Math.max(maxY, y);
   }
   // One uniform scale, and never bigger than the cap, so the figure has the same size and shape on every canvas.
-  const scale = Math.min(rx / reachX, ry / reachY, LYRA_MAX_SIZE / Math.max(maxX - minX, maxY - minY));
+  const scale = Math.min(rx / reachX, ry / reachY, LYRA_MAXIMUM_SIZE / Math.max(maxX - minX, maxY - minY));
   LYRA.forEach((star, i) => {
-    const point = out[i] ?? (out[i] = { x: 0, y: 0 });
+    const point = output[i] ?? (output[i] = { x: 0, y: 0 });
     point.x = cx + (star.x * cos - star.y * sin) * scale;
     point.y = cy + (star.x * sin + star.y * cos) * scale;
   });
-  return out;
+  return output;
 }
 
 export interface OrbitBox {
@@ -130,23 +130,23 @@ export function orbitBox(width: number, height: number): OrbitBox {
   const halfWidth = Math.max(0, width / 2 - room) / outer;
   return {
     halfWidth,
-    halfHeight: Math.min(Math.max(0, height / 2 - room) / outer, halfWidth * MAX_ORBIT_TALL),
+    halfHeight: Math.min(Math.max(0, height / 2 - room) / outer, halfWidth * MAXIMUM_ORBIT_HEIGHT_RATIO),
     wide: width > height * 1.6,
   };
 }
 
 /** A link from a product to Vega, drawn in from the product. */
-function drawLink(ctx: CanvasRenderingContext2D, sky: string, ax: number, ay: number, bx: number, by: number, t: number, alpha: number): void {
+function drawLink(drawingContext: CanvasRenderingContext2D, sky: string, ax: number, ay: number, bx: number, by: number, t: number, alpha: number): void {
   if (t <= 0) return;
   const g = easeOutCubic(t);
-  ctx.globalAlpha = alpha * smooth(t * 2);
-  ctx.strokeStyle = sky;
-  ctx.lineWidth = 0.8;
-  ctx.beginPath();
-  ctx.moveTo(ax, ay);
-  ctx.lineTo(ax + (bx - ax) * g, ay + (by - ay) * g);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+  drawingContext.globalAlpha = alpha * smooth(t * 2);
+  drawingContext.strokeStyle = sky;
+  drawingContext.lineWidth = 0.8;
+  drawingContext.beginPath();
+  drawingContext.moveTo(ax, ay);
+  drawingContext.lineTo(ax + (bx - ax) * g, ay + (by - ay) * g);
+  drawingContext.stroke();
+  drawingContext.globalAlpha = 1;
 }
 
 export function mountProducts(container: HTMLElement): CanvasHandle | null {
@@ -165,126 +165,126 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
   let mesh: Mesh | undefined;
   let labels: PlacedLabel[] = [];
   const stars: Point[] = [];
-  const spots: Point[] = Array.from({ length: MAX_SLOTS }, () => ({ x: 0, y: 0 }));
+  const spots: Point[] = Array.from({ length: MAXIMUM_SLOTS }, () => ({ x: 0, y: 0 }));
   const routes: Route[] = [];
 
   // Rebuild the layout from the measured box. Nothing here depends on a CSS breakpoint.
-  function build(s: FrameState) {
-    reportFigureLeft(container, s.width, s.height);
-    cx = s.width / 2;
-    cy = s.height / 2;
-    ({ halfWidth, halfHeight, wide } = orbitBox(s.width, s.height));
+  function build(state: FrameState) {
+    reportFigureLeft(container, state.width, state.height);
+    cx = state.width / 2;
+    cy = state.height / 2;
+    ({ halfWidth, halfHeight, wide } = orbitBox(state.width, state.height));
     fitLyraAtVega(stars, cx, cy, halfWidth * 0.8, halfHeight * 0.8, wide);
     for (let i = 0; i < total; i++) orbitSlot(spots[i], i, wide, cx, cy, halfWidth, halfHeight);
     routes.length = 0;
     for (let i = 0; i < Math.min(lit, 3); i++) routes.push(makeRoute([spots[i], stars[0]]));
-    field = makeStarField(s.width, s.height, Math.round((s.width * s.height) / 11_000), 11);
-    mesh = makeMesh(s.width, s.height, 11);
-    const widthsCssPx = LYRA.map((star) => star.name ? s.labelFont.widthCssPx(star.name) : 0);
-    labels = placeLabels(labelBounds(container, s.width, s.height), s.height > 300, widthsCssPx, s.labelFont.lineCssPx);
+    field = makeStarField(state.width, state.height, Math.round((state.width * state.height) / 11_000), 11);
+    mesh = makeMesh(state.width, state.height, 11);
+    const widthsInPixels = LYRA.map((star) => star.name ? state.labelFont.widthInPixels(star.name) : 0);
+    labels = placeLabels(labelBounds(container, state.width, state.height), state.height > 300, widthsInPixels, state.labelFont.lineHeightInPixels);
   }
 
   // Each name takes the side of its star that no link or product line crosses. The rings only break a tie.
-  function placeLabels(bounds: Rect, showNames: boolean, widthsCssPx: readonly number[], lineCssPx: number): PlacedLabel[] {
+  function placeLabels(bounds: Rectangle, showNames: boolean, widthsInPixels: readonly number[], lineHeightInPixels: number): PlacedLabel[] {
     const segments: Segment[] = LYRA_LINKS.map(([a, b]) => ({ ax: stars[a].x, ay: stars[a].y, bx: stars[b].x, by: stars[b].y }));
     for (let i = 0; i < lit; i++) segments.push({ ax: spots[i].x, ay: spots[i].y, bx: stars[0].x, by: stars[0].y });
     const soft: Segment[] = [];
     for (const ring of RINGS) ellipseSegments(cx, cy, ring * halfWidth, ring * halfHeight, 48, soft);
-    const avoid: Rect[] = stars.map((star) => around(star.x, star.y, 9));
+    const avoid: Rectangle[] = stars.map((star) => around(star.x, star.y, 9));
     for (let i = 0; i < total; i++) avoid.push(around(spots[i].x, spots[i].y, 12));
     const placed: PlacedLabel[] = [];
     for (const i of [0, 4, 5]) {
       const name = LYRA[i].name;
-      if (name && (i === 0 || showNames)) placed.push(placeLabel(name, stars[i].x, stars[i].y, { widthCssPx: widthsCssPx[i], lineCssPx, bounds, segments, soft, avoid, gap: i ? 12 : 14 }));
+      if (name && (i === 0 || showNames)) placed.push(placeLabel(name, stars[i].x, stars[i].y, { widthInPixels: widthsInPixels[i], lineHeightInPixels, bounds, segments, soft, avoid, gap: i ? 12 : 14 }));
     }
     return placed;
   }
 
-  function draw(ctx: CanvasRenderingContext2D, s: FrameState) {
-    const p = s.progress;
-    const pal = s.palette;
-    if (mesh) drawMesh(ctx, pal, mesh, p);
-    drawStarField(ctx, pal, field, p);
+  function draw(drawingContext: CanvasRenderingContext2D, state: FrameState) {
+    const progress = state.progress;
+    const palette = state.palette;
+    if (mesh) drawMesh(drawingContext, palette, mesh, progress);
+    drawStarField(drawingContext, palette, field, progress);
 
     // Orbits, drawn in one after another.
-    ctx.lineWidth = 0.7;
-    ctx.strokeStyle = pal.meta;
+    drawingContext.lineWidth = 0.7;
+    drawingContext.strokeStyle = palette.metadata;
     for (let r = 0; r < RINGS.length; r++) {
-      const g = easeOutCubic(stagger(p, 0.03 + r * 0.09, 0.36));
+      const g = easeOutCubic(stagger(progress, 0.03 + r * 0.09, 0.36));
       if (g <= 0) continue;
-      ctx.globalAlpha = 0.3 - r * 0.05;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, RINGS[r] * halfWidth, RINGS[r] * halfHeight, 0, -Math.PI / 2, -Math.PI / 2 + TAU * g);
-      ctx.stroke();
+      drawingContext.globalAlpha = 0.3 - r * 0.05;
+      drawingContext.beginPath();
+      drawingContext.ellipse(cx, cy, RINGS[r] * halfWidth, RINGS[r] * halfHeight, 0, -Math.PI / 2, -Math.PI / 2 + FULL_TURN_RADIANS * g);
+      drawingContext.stroke();
     }
-    ctx.globalAlpha = 1;
+    drawingContext.globalAlpha = 1;
 
     // Satellites: slow, and only until the drift ends. Reduced motion shows them at rest.
-    ctx.fillStyle = pal.meta;
-    const drift = s.reduced ? 0 : Math.min(s.activeTime, DRIFT_MS);
-    const sat = smooth((p - 0.5) / 0.3);
-    for (let i = 0; i < SAT_RING.length; i++) {
-      const angle = SAT_PHASE[i] + drift * SAT_SPEED[i];
-      ctx.globalAlpha = 0.55 * sat;
-      ctx.beginPath();
-      ctx.arc(cx + Math.cos(angle) * RINGS[SAT_RING[i]] * halfWidth, cy + Math.sin(angle) * RINGS[SAT_RING[i]] * halfHeight, 1.1, 0, TAU);
-      ctx.fill();
+    drawingContext.fillStyle = palette.metadata;
+    const drift = state.reduced ? 0 : Math.min(state.activeTime, DRIFT_DURATION_MILLISECONDS);
+    const satelliteProgress = smooth((progress - 0.5) / 0.3);
+    for (let i = 0; i < SATELLITE_RING.length; i++) {
+      const angle = SATELLITE_PHASE[i] + drift * SATELLITE_SPEED[i];
+      drawingContext.globalAlpha = 0.55 * satelliteProgress;
+      drawingContext.beginPath();
+      drawingContext.arc(cx + Math.cos(angle) * RINGS[SATELLITE_RING[i]] * halfWidth, cy + Math.sin(angle) * RINGS[SATELLITE_RING[i]] * halfHeight, 1.1, 0, FULL_TURN_RADIANS);
+      drawingContext.fill();
     }
-    ctx.globalAlpha = 1;
+    drawingContext.globalAlpha = 1;
 
     // The Lyra figure.
     for (let i = 0; i < LYRA_LINKS.length; i++) {
       const [a, b] = LYRA_LINKS[i];
-      drawEdge(ctx, pal, stars[a].x, stars[a].y, stars[b].x, stars[b].y, stagger(p, 0.14 + i * 0.05, 0.2), i < 2, 0.4);
+      drawEdge(drawingContext, palette, stars[a].x, stars[a].y, stars[b].x, stars[b].y, stagger(progress, 0.14 + i * 0.05, 0.2), i < 2, 0.4);
     }
-    for (let i = 0; i < stars.length; i++) drawNode(ctx, pal, s.glow, stars[i].x, stars[i].y, i ? 1.8 : 2.6, stagger(p, 0.1 + i * 0.05, 0.14), i === 0, 0.9, i === 0);
+    for (let i = 0; i < stars.length; i++) drawNode(drawingContext, palette, state.glow, stars[i].x, stars[i].y, i ? 1.8 : 2.6, stagger(progress, 0.1 + i * 0.05, 0.14), i === 0, 0.9, i === 0);
 
     // Empty rings: room to grow.
-    ctx.strokeStyle = pal.meta;
-    ctx.lineWidth = 0.7;
+    drawingContext.strokeStyle = palette.metadata;
+    drawingContext.lineWidth = 0.7;
     for (let i = lit; i < total; i++) {
-      const g = smooth(stagger(p, 0.3 + i * 0.03, 0.2));
+      const g = smooth(stagger(progress, 0.3 + i * 0.03, 0.2));
       if (g <= 0) continue;
-      ctx.globalAlpha = 0.42 * g;
-      ctx.beginPath();
-      ctx.arc(spots[i].x, spots[i].y, EMPTY_RING, 0, TAU);
-      ctx.stroke();
+      drawingContext.globalAlpha = 0.42 * g;
+      drawingContext.beginPath();
+      drawingContext.arc(spots[i].x, spots[i].y, EMPTY_RING, 0, FULL_TURN_RADIANS);
+      drawingContext.stroke();
     }
-    ctx.globalAlpha = 1;
+    drawingContext.globalAlpha = 1;
 
     // The products ignite in turn, each with a link to Vega.
     for (let i = 0; i < lit; i++) {
-      const g = productProgress(p, i, lit, "node");
-      drawLink(ctx, pal.sky, spots[i].x, spots[i].y, stars[0].x, stars[0].y, productProgress(p, i, lit, "link"), 0.32);
-      drawNode(ctx, pal, s.glow, spots[i].x, spots[i].y, 2.6, g, true, 1, false);
+      const g = productProgress(progress, i, lit, "node");
+      drawLink(drawingContext, palette.sky, spots[i].x, spots[i].y, stars[0].x, stars[0].y, productProgress(progress, i, lit, "link"), 0.32);
+      drawNode(drawingContext, palette, state.glow, spots[i].x, spots[i].y, 2.6, g, true, 1, false);
       if (g > 0) {
-        ctx.strokeStyle = pal.sky;
-        ctx.lineWidth = MARK_LINE;
-        ctx.globalAlpha = 0.5 * easeOutCubic(g);
-        ctx.beginPath();
-        ctx.arc(spots[i].x, spots[i].y, PRODUCT_RING, 0, TAU);
-        ctx.stroke();
+        drawingContext.strokeStyle = palette.sky;
+        drawingContext.lineWidth = MARK_LINE;
+        drawingContext.globalAlpha = 0.5 * easeOutCubic(g);
+        drawingContext.beginPath();
+        drawingContext.arc(spots[i].x, spots[i].y, PRODUCT_RING, 0, FULL_TURN_RADIANS);
+        drawingContext.stroke();
         if (i === current) {
-          ctx.globalAlpha = 0.9 * easeOutCubic(g);
-          ctx.beginPath();
-          ctx.arc(spots[i].x, spots[i].y, CURRENT_RING, 0, TAU);
-          ctx.stroke();
+          drawingContext.globalAlpha = 0.9 * easeOutCubic(g);
+          drawingContext.beginPath();
+          drawingContext.arc(spots[i].x, spots[i].y, CURRENT_RING, 0, FULL_TURN_RADIANS);
+          drawingContext.stroke();
         }
-        ctx.globalAlpha = 1;
+        drawingContext.globalAlpha = 1;
       }
     }
 
     // Comets converge on Vega, then the bloom. Both are part of the entrance only.
-    if (!s.entranceComplete) {
-      for (let i = 0; i < routes.length; i++) drawComet(ctx, pal, s.glow, routes[i], stagger(p, 0.5 + i * 0.05, 0.4), 46);
-      drawVegaBloom(ctx, s.glow, stars[0].x, stars[0].y, smooth((p - 0.66) / 0.2) * (1 - smooth((p - 0.86) / 0.14)));
+    if (!state.entranceComplete) {
+      for (let i = 0; i < routes.length; i++) drawComet(drawingContext, palette, state.glow, routes[i], stagger(progress, 0.5 + i * 0.05, 0.4), 46);
+      drawVegaBloom(drawingContext, state.glow, stars[0].x, stars[0].y, smooth((progress - 0.66) / 0.2) * (1 - smooth((progress - 0.86) / 0.14)));
     }
 
-    const label = smooth((p - 0.7) / 0.2);
-    for (let i = 0; i < labels.length; i++) drawLabel(ctx, pal, s.labelFont.canvasFont, labels[i].text, labels[i].x, labels[i].y, labels[i].align, label);
+    const label = smooth((progress - 0.7) / 0.2);
+    for (let i = 0; i < labels.length; i++) drawLabel(drawingContext, palette, state.labelFont.canvasFont, labels[i].text, labels[i].x, labels[i].y, labels[i].align, label);
 
     // Ask for more frames only while the satellites still drift.
-    return !s.reduced && s.activeTime < DRIFT_MS;
+    return !state.reduced && state.activeTime < DRIFT_DURATION_MILLISECONDS;
   }
 
   return mountCanvas(container, { draw, onResize: build });

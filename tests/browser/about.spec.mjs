@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { bandHeight, cspViolations, decorativeState, drawnLabels, edgePaint, pageProblems, recordCspViolations, settle, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames, paintedPixels } from "./fixtures.mjs";
+import { bandHeight, contentSecurityPolicyViolations, decorativeState, drawnLabels, edgePaint, pageProblems, recordContentSecurityPolicyViolations, settle, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames, paintedPixels } from "./fixtures.mjs";
 
 /**
  * Check the About graphic beside the reading column and in the narrow band.
@@ -302,14 +302,14 @@ test.describe("the about graphic follows the reader", () => {
 test.describe("the about graphic in production", () => {
   test("runs with no console error and no CSP violation", async ({ page }) => {
     const problems = pageProblems(page, ["error", "warning"]);
-    await recordCspViolations(page);
+    await recordContentSecurityPolicyViolations(page);
     for (const size of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
       await page.setViewportSize(size);
       await page.goto("/about/");
       await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
       await page.evaluate(() => scrollTo(0, 1e6));
       await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-      expect(await cspViolations(page)).toEqual([]);
+      expect(await contentSecurityPolicyViolations(page)).toEqual([]);
     }
     expect(problems).toEqual([]);
   });

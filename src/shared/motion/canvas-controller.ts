@@ -24,7 +24,7 @@ export interface FrameState {
 
 export interface MountOptions {
   /** Draw in CSS pixels. Return true while motion continues after the entrance. */
-  draw: (ctx: CanvasRenderingContext2D, state: FrameState) => boolean | void;
+  draw: (drawingContext: CanvasRenderingContext2D, state: FrameState) => boolean | void;
   /** Build the scene when the canvas box changes. */
   onResize?: (state: FrameState) => void;
   /** Connect scene listeners. Return their cleanup function. Call wake when an idle scene changes. */
@@ -32,7 +32,7 @@ export interface MountOptions {
   /** Entrance duration, in milliseconds. */
   duration?: number;
   /** Maximum device pixels per CSS pixel. */
-  dprCap?: number;
+  maximumDevicePixelRatio?: number;
 }
 
 export interface CanvasHandle {
@@ -58,20 +58,20 @@ export interface CanvasHandle {
  * such as a main-thread stall while the page loads, then slows the motion for a moment instead of
  * skipping part of it. The globe and the page scenes share it, so their clocks stay coordinated.
  */
-export const FRAME_INTERVAL_CAP_MS = 64;
+export const MAXIMUM_FRAME_INTERVAL_MILLISECONDS = 64;
 
 interface CanvasPolicy {
-  dprCap: number;
+  maximumDevicePixelRatio: number;
   restartOnRestore: boolean;
 }
 
 export const PAGE_GRAPHIC_POLICY: CanvasPolicy = {
-  dprCap: 2,
+  maximumDevicePixelRatio: 2,
   restartOnRestore: false,
 };
 
 export const GLOBE_POLICY: CanvasPolicy = {
-  dprCap: 1.75,
+  maximumDevicePixelRatio: 1.75,
   restartOnRestore: true,
 };
 
@@ -82,10 +82,10 @@ export function mountCanvasController(
   policy: CanvasPolicy,
   onFailure?: () => void,
 ): CanvasHandle | null {
-  const { draw, onResize, attach, duration = DURATION, dprCap = policy.dprCap } = options;
+  const { draw, onResize, attach, duration = DURATION, maximumDevicePixelRatio = policy.maximumDevicePixelRatio } = options;
   const canvas = container.querySelector("canvas");
-  const ctx = canvas?.getContext("2d");
-  if (!canvas || !ctx || !("ResizeObserver" in window) || !("IntersectionObserver" in window)) return null;
+  const drawingContext = canvas?.getContext("2d");
+  if (!canvas || !drawingContext || !("ResizeObserver" in window) || !("IntersectionObserver" in window)) return null;
   const palette = readPalette(container);
   const glow = palette && getGlow(palette);
   if (!palette || !glow) return null;
@@ -125,12 +125,12 @@ export function mountCanvasController(
     state.progress = entranceProgress(state.elapsed * (DURATION / duration));
     state.entranceComplete = state.elapsed >= duration;
     try {
-      ctx!.setTransform(1, 0, 0, 1, 0, 0);
-      ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
-      ctx!.setTransform(state.ratio, 0, 0, state.ratio, 0, 0);
-      ctx!.globalAlpha = 1;
-      busy = draw(ctx!, state) === true;
-      ctx!.globalAlpha = 1;
+      drawingContext!.setTransform(1, 0, 0, 1, 0, 0);
+      drawingContext!.clearRect(0, 0, canvas!.width, canvas!.height);
+      drawingContext!.setTransform(state.ratio, 0, 0, state.ratio, 0, 0);
+      drawingContext!.globalAlpha = 1;
+      busy = draw(drawingContext!, state) === true;
+      drawingContext!.globalAlpha = 1;
       // Write the motion state only when it changes.
       const next = state.entranceComplete && !(busy && !state.reduced) ? "still" : "playing";
       if (next !== motion) {
@@ -153,9 +153,9 @@ export function mountCanvasController(
       return;
     }
     if (previous !== undefined) {
-      const dt = Math.min(FRAME_INTERVAL_CAP_MS, time - previous);
-      state.elapsed = Math.min(duration, state.elapsed + dt);
-      state.activeTime += dt;
+      const elapsedMilliseconds = Math.min(MAXIMUM_FRAME_INTERVAL_MILLISECONDS, time - previous);
+      state.elapsed = Math.min(duration, state.elapsed + elapsedMilliseconds);
+      state.activeTime += elapsedMilliseconds;
     }
     previous = time;
     paint();
@@ -180,20 +180,20 @@ export function mountCanvasController(
     resume();
   }
 
-  function resize(w: number, h: number, device?: ResizeObserverSize) {
-    if (!active || !w || !h) return;
-    state.ratio = Math.min(devicePixelRatio || 1, dprCap);
-    state.width = w;
-    state.height = h;
+  function resize(width: number, height: number, device?: ResizeObserverSize) {
+    if (!active || !width || !height) return;
+    state.ratio = Math.min(devicePixelRatio || 1, maximumDevicePixelRatio);
+    state.width = width;
+    state.height = height;
     // The screen shows a box at a fractional position on whole device pixels, for example 567 rows on 566.
     // It then resamples the bitmap, and thin lines become dimmer. Below the cap, use the device pixels of the box.
     // Device emulation can report a device box at the CSS size with a larger pixel ratio. That box draws a
     // cropped picture, so use it only within one device pixel of the CSS size times the ratio.
     const exact = device && state.ratio === devicePixelRatio
-      && Math.abs(device.inlineSize - w * state.ratio) <= 1
-      && Math.abs(device.blockSize - h * state.ratio) <= 1;
-    canvas!.width = exact ? device.inlineSize : Math.round(w * state.ratio);
-    canvas!.height = exact ? device.blockSize : Math.round(h * state.ratio);
+      && Math.abs(device.inlineSize - width * state.ratio) <= 1
+      && Math.abs(device.blockSize - height * state.ratio) <= 1;
+    canvas!.width = exact ? device.inlineSize : Math.round(width * state.ratio);
+    canvas!.height = exact ? device.blockSize : Math.round(height * state.ratio);
     sized = true;
     try {
       onResize?.(state);

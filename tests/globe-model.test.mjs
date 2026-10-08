@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { LYRA, LYRA_LINKS } from "../src/shared/lyra/constellation.ts";
 import { buildGlobe, EDGE_SPAN, NODE_SPAN } from "../src/shared/lyra-globe/model.ts";
-import { globeProjectionCss, projectGlobe } from "../src/shared/lyra-globe/projection.ts";
+import { globeProjectionStylesheet, projectGlobe } from "../src/shared/lyra-globe/projection.ts";
 
 test("the globe holds 70 neurons, the Lyra figure, and one hot route", () => {
   const globe = buildGlobe(600, 500);
@@ -120,7 +120,7 @@ test("the globe projection crop shows the outer ring and the caption at every bu
 });
 
 test("the globe projection writes the desktop values with four decimal places", () => {
-  const css = globeProjectionCss(buildGlobe(600, 500));
+  const css = globeProjectionStylesheet(buildGlobe(600, 500));
   assert.match(css, /^\.hero__globe\{(--globe-[a-z-]+:-?[0-9.]+;)+\}$/);
   for (const [, value] of css.matchAll(/--globe-(?:picture-height|picture-top|box-aspect|ring-inset|center-reach):(-?[0-9.]+);/g)) {
     assert.ok(Math.abs(Number(value) * 10_000 - Math.round(Number(value) * 10_000)) < 1e-6, `${value} must have four decimal places or fewer`);

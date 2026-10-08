@@ -1,11 +1,11 @@
 import { FIGURE_INSET } from "./inset.ts";
-import { FALLBACK_LINE_CSS_PX } from "./label-font.ts";
+import { FALLBACK_LINE_HEIGHT_IN_PIXELS } from "./label-font.ts";
 
 // Label placement for the page graphics. It has no DOM read in `placeLabel`, so a test can run it.
 // A label takes the first side of its node (right, left, above, or below) that no edge crosses,
 // that no other mark covers, and that stays inside the allowed area. Call it on resize, not per frame.
 
-export interface Rect {
+export interface Rectangle {
   x0: number;
   y0: number;
   x1: number;
@@ -29,13 +29,13 @@ export interface PlacedLabel {
   y: number;
   align: LabelAlign;
   /** The box the label covers, with its halo. */
-  rect: Rect;
+  rectangle: Rectangle;
   side: LabelSide;
   /** True when the place is free of edges and marks and inside the bounds. */
   clear: boolean;
 }
 
-const HALO_PAD = 3;
+const HALO_PADDING = 3;
 /** The space that a label keeps from the canvas edge. It is the figure inset, so a label follows the one bounding rule. */
 export const EDGE_INSET = FIGURE_INSET;
 /** The space that a label keeps from the viewport edge. */
@@ -49,26 +49,26 @@ const OUTSIDE = 10_000;
 
 const SIDES: readonly LabelSide[] = ["right", "left", "above", "below", "above-right", "above-left", "below-right", "below-left"];
 
-export function rectsOverlap(a: Rect, b: Rect): boolean {
+export function rectanglesOverlap(a: Rectangle, b: Rectangle): boolean {
   return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
 }
 
 /** A square round a point, for a mark that labels must keep clear. */
-export function around(x: number, y: number, reach: number): Rect {
+export function around(x: number, y: number, reach: number): Rectangle {
   return { x0: x - reach, y0: y - reach, x1: x + reach, y1: y + reach };
 }
 
 /** True when the segment touches the rectangle (Liang-Barsky clip). */
-export function segmentHitsRect(segment: Segment, rect: Rect): boolean {
+export function segmentIntersectsRectangle(segment: Segment, rectangle: Rectangle): boolean {
   const dx = segment.bx - segment.ax;
   const dy = segment.by - segment.ay;
   let t0 = 0;
   let t1 = 1;
   const edges = [
-    [-dx, segment.ax - rect.x0],
-    [dx, rect.x1 - segment.ax],
-    [-dy, segment.ay - rect.y0],
-    [dy, rect.y1 - segment.ay],
+    [-dx, segment.ax - rectangle.x0],
+    [dx, rectangle.x1 - segment.ax],
+    [-dy, segment.ay - rectangle.y0],
+    [dy, rectangle.y1 - segment.ay],
   ];
   for (const [p, q] of edges) {
     if (p === 0) {
@@ -88,42 +88,42 @@ export function segmentHitsRect(segment: Segment, rect: Rect): boolean {
 }
 
 /** Turn a run of points into the segments between them. Flat arrays: x0, y0, x1, y1, and so on. */
-export function polylineSegments(xs: ArrayLike<number>, ys: ArrayLike<number>, out: Segment[] = []): Segment[] {
-  for (let i = 1; i < xs.length; i++) out.push({ ax: xs[i - 1], ay: ys[i - 1], bx: xs[i], by: ys[i] });
-  return out;
+export function polylineSegments(xs: ArrayLike<number>, ys: ArrayLike<number>, outputSegments: Segment[] = []): Segment[] {
+  for (let i = 1; i < xs.length; i++) outputSegments.push({ ax: xs[i - 1], ay: ys[i - 1], bx: xs[i], by: ys[i] });
+  return outputSegments;
 }
 
 /** Sample an ellipse into segments, so a label can avoid a ring. */
-export function ellipseSegments(cx: number, cy: number, rx: number, ry: number, steps = 40, out: Segment[] = []): Segment[] {
+export function ellipseSegments(cx: number, cy: number, rx: number, ry: number, steps = 40, outputSegments: Segment[] = []): Segment[] {
   let px = cx + rx;
   let py = cy;
   for (let i = 1; i <= steps; i++) {
     const angle = (i / steps) * Math.PI * 2;
     const x = cx + Math.cos(angle) * rx;
     const y = cy + Math.sin(angle) * ry;
-    out.push({ ax: px, ay: py, bx: x, by: y });
+    outputSegments.push({ ax: px, ay: py, bx: x, by: y });
     px = x;
     py = y;
   }
-  return out;
+  return outputSegments;
 }
 
 export interface PlaceOptions {
   /** The measured text width in CSS pixels, without the halo. */
-  widthCssPx: number;
+  widthInPixels: number;
   /**
-   * The height of one label line in CSS pixels, without the halo. Pass labelFont.lineCssPx, so the box follows
+   * The height of one label line in CSS pixels, without the halo. Pass labelFont.lineHeightInPixels, so the box follows
    * the --fs-graphic-label token. It defaults to the line of the fallback label size.
    */
-  lineCssPx?: number;
+  lineHeightInPixels?: number;
   /** The area that the label box must stay inside. */
-  bounds: Rect;
+  bounds: Rectangle;
   /** Edges that must stay clear of the label. A node's own edges belong here. */
   segments?: readonly Segment[];
   /** Lines that only break a tie, such as orbit rings. */
   soft?: readonly Segment[];
   /** Marks and earlier labels to keep clear. The chosen box is appended, so the next label avoids it. */
-  avoid?: Rect[];
+  avoid?: Rectangle[];
   /** The space between the node and the text, in CSS pixels. */
   gap?: number;
   /** The order of sides to try. */
@@ -182,21 +182,21 @@ function candidate(text: string, x: number, y: number, side: LabelSide, width: n
     align,
     side,
     clear: false,
-    rect: { x0: left - HALO_PAD, y0: cy - line / 2 - HALO_PAD, x1: left + width + HALO_PAD, y1: cy + line / 2 + HALO_PAD },
+    rectangle: { x0: left - HALO_PADDING, y0: cy - line / 2 - HALO_PADDING, x1: left + width + HALO_PADDING, y1: cy + line / 2 + HALO_PADDING },
   };
 }
 
 function cost(label: PlacedLabel, options: PlaceOptions): number {
-  const { rect } = label;
+  const { rectangle } = label;
   const { bounds } = options;
   let total = 0;
-  if (rect.x0 < bounds.x0) total += OUTSIDE + (bounds.x0 - rect.x0);
-  if (rect.x1 > bounds.x1) total += OUTSIDE + (rect.x1 - bounds.x1);
-  if (rect.y0 < bounds.y0) total += OUTSIDE + (bounds.y0 - rect.y0);
-  if (rect.y1 > bounds.y1) total += OUTSIDE + (rect.y1 - bounds.y1);
-  for (const segment of options.segments ?? []) if (segmentHitsRect(segment, rect)) total += HARD;
-  for (const other of options.avoid ?? []) if (rectsOverlap(other, rect)) total += MARK;
-  for (const segment of options.soft ?? []) if (segmentHitsRect(segment, rect)) total += SOFT;
+  if (rectangle.x0 < bounds.x0) total += OUTSIDE + (bounds.x0 - rectangle.x0);
+  if (rectangle.x1 > bounds.x1) total += OUTSIDE + (rectangle.x1 - bounds.x1);
+  if (rectangle.y0 < bounds.y0) total += OUTSIDE + (bounds.y0 - rectangle.y0);
+  if (rectangle.y1 > bounds.y1) total += OUTSIDE + (rectangle.y1 - bounds.y1);
+  for (const segment of options.segments ?? []) if (segmentIntersectsRectangle(segment, rectangle)) total += HARD;
+  for (const other of options.avoid ?? []) if (rectanglesOverlap(other, rectangle)) total += MARK;
+  for (const segment of options.soft ?? []) if (segmentIntersectsRectangle(segment, rectangle)) total += SOFT;
   return total;
 }
 
@@ -205,12 +205,12 @@ function cost(label: PlacedLabel, options: PlaceOptions): number {
  * When none is free, it takes the cheapest, so a label always has a place, and `clear` says whether it is free.
  */
 export function placeLabel(text: string, x: number, y: number, options: PlaceOptions): PlacedLabel {
-  const { gap = 12, prefer = SIDES, widthCssPx, lineCssPx = FALLBACK_LINE_CSS_PX, lift = 0 } = options;
+  const { gap = 12, prefer = SIDES, widthInPixels, lineHeightInPixels = FALLBACK_LINE_HEIGHT_IN_PIXELS, lift = 0 } = options;
   const order = prefer.length >= SIDES.length ? prefer : [...prefer, ...SIDES.filter((side) => !prefer.includes(side))];
   let best: PlacedLabel | undefined;
   let bestCost = Infinity;
   for (const side of order) {
-    const label = candidate(text, x, y, side, widthCssPx, lineCssPx, gap, side === "right" || side === "left" ? lift : 0);
+    const label = candidate(text, x, y, side, widthInPixels, lineHeightInPixels, gap, side === "right" || side === "left" ? lift : 0);
     const price = cost(label, options);
     if (price < bestCost) {
       best = label;
@@ -220,7 +220,7 @@ export function placeLabel(text: string, x: number, y: number, options: PlaceOpt
   }
   const chosen = best as PlacedLabel;
   chosen.clear = bestCost < HARD;
-  options.avoid?.push(chosen.rect);
+  options.avoid?.push(chosen.rectangle);
   return chosen;
 }
 
@@ -228,7 +228,7 @@ export function placeLabel(text: string, x: number, y: number, options: PlaceOpt
  * The area for labels, in canvas pixels: inside the edge fade, and at least `VIEWPORT_INSET` from the
  * viewport edge. `originX` is the shift of the drawing origin in the canvas. It reads the DOM, so call it on resize.
  */
-export function labelBounds(container: HTMLElement, width: number, height: number, originX = 0): Rect {
+export function labelBounds(container: HTMLElement, width: number, height: number, originX = 0): Rectangle {
   const box = container.getBoundingClientRect();
   const left = box.left + originX;
   const viewport = document.documentElement.clientWidth;

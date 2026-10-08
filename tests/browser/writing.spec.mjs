@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { bandHeight, cspViolations, currentContent, currentPublished, decorativeState, DRAFT_ORIGIN as preview, drawnLabels, edgePaint, focusRingAndFade, navLink, pageProblems, recordCspViolations, settle, tabTo, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames, paintedPixels } from "./fixtures.mjs";
+import { bandHeight, contentSecurityPolicyViolations, currentContent, currentPublished, decorativeState, DRAFT_ORIGIN as preview, drawnLabels, edgePaint, focusRingAndFade, navigationLink, pageProblems, recordContentSecurityPolicyViolations, settle, tabTo, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames, paintedPixels } from "./fixtures.mjs";
 
 const article = "/writing/full-article-layout-fixture/";
 const qualityArticle = "/writing/article-quality-review-fixture/";
@@ -14,7 +14,7 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     await page.goto(preview + "/");
     await settle(page);
     const header = await page.locator(".site-header__inner").boundingBox();
-    await navLink(page, "writing").click();
+    await navigationLink(page, "writing").click();
     await expect(page.locator("#writing-title")).toBeVisible();
     expect(await page.locator(".site-header__inner").boundingBox()).toEqual(header);
     await page.getByRole("link", { name: "Nisi ut aliquip ex ea", exact: true }).click();
@@ -115,7 +115,7 @@ test("keyboard focus lights an article and opens its article", async ({ page }) 
   await settle(page);
   expect(await tabTo(page, ".article-list__link >> nth=0")).toBe(true);
   const row = page.locator(".article-list__item").first();
-  await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await row.getAttribute("data-article-id"));
+  await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await row.getAttribute("data-article-identifier"));
   await expect(row).toHaveCSS("outline-style", "solid");
   await expect(row).toHaveCSS("outline-width", "3px");
   await page.keyboard.press("Enter");
@@ -488,23 +488,23 @@ test.describe("the writing graphic uses page bindings", () => {
       expect(labels).toEqual(expect.arrayContaining(expected));
     });
 
-    test(`reads entry IDs through writing hooks at ${size.width}px`, async ({ page }) => {
+    test(`reads entry identifiers through writing hooks at ${size.width}px`, async ({ page }) => {
       await page.setViewportSize(size);
       await useReducedMotion(page);
       await page.route(`${preview}/writing/`, async (route) => {
         const response = await route.fetch();
-        const body = (await response.text()).replaceAll("data-article-id=", "data-old-entry=");
+        const body = (await response.text()).replaceAll("data-article-identifier=", "data-old-entry=");
         await route.fulfill({ response, body });
       });
       await page.goto(`${preview}/writing/`);
       await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-      const row = page.locator("[data-writing-entry-id]").first();
+      const row = page.locator("[data-writing-entry-identifier]").first();
       await row.dispatchEvent("pointerenter");
-      await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await row.getAttribute("data-writing-entry-id"));
+      await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await row.getAttribute("data-writing-entry-identifier"));
       await row.dispatchEvent("pointerleave");
       await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
       await row.locator("a").focus();
-      await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await row.getAttribute("data-writing-entry-id"));
+      await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await row.getAttribute("data-writing-entry-identifier"));
     });
 
     test(`ignores entries and labels outside its page at ${size.width}px`, async ({ page }) => {
@@ -513,7 +513,7 @@ test.describe("the writing graphic uses page bindings", () => {
       await useLabelSpy(page);
       await page.route(`${preview}/writing/`, async (route) => {
         const response = await route.fetch();
-        const outside = '<aside data-writing-page hidden><section class="writing-index__list" data-writing-list><ol><li data-article-id="outside" data-writing-entry-id="outside"><span class="article-list__num" data-writing-label>Outside entry</span></li></ol></section></aside>';
+        const outside = '<aside data-writing-page hidden><section class="writing-index__list" data-writing-list><ol><li data-article-identifier="outside" data-writing-entry-identifier="outside"><span class="article-list__num" data-writing-label>Outside entry</span></li></ol></section></aside>';
         const body = (await response.text()).replace('<main class="writing-index"', `${outside}<main class="writing-index"`);
         await route.fulfill({ response, body });
       });
@@ -522,7 +522,7 @@ test.describe("the writing graphic uses page bindings", () => {
       await settle(page);
       const labels = (await drawnLabels(page)).labels.map((label) => label.text);
       expect(labels).not.toContain("Outside entry");
-      const outside = page.locator("[data-writing-entry-id='outside']");
+      const outside = page.locator("[data-writing-entry-identifier='outside']");
       await outside.dispatchEvent("pointerenter");
       await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
       await outside.dispatchEvent("focusin");
@@ -604,7 +604,7 @@ test.describe("the writing graphic answers a lit article", () => {
 
     const second = page.locator(".article-list__item").nth(1);
     await second.hover();
-    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await second.getAttribute("data-article-id"));
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await second.getAttribute("data-article-identifier"));
     expect(await pendingFrames(page), "a lit article asks for frames").toBe(1);
     const before = await paintedPixels(page, graphic, 200);
     for (let i = 0; i < 20; i += 1) await playFrames(page, 16);
@@ -626,12 +626,12 @@ test.describe("the writing graphic answers a lit article", () => {
     await watchActive(page);
     expect(await tabTo(page, ".article-list__link >> nth=1")).toBe(true);
     const second = page.locator(".article-list__item").nth(1);
-    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await second.getAttribute("data-article-id"));
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await second.getAttribute("data-article-identifier"));
     await page.keyboard.press("Tab");
-    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await page.locator(".article-list__item").nth(2).getAttribute("data-article-id"));
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await page.locator(".article-list__item").nth(2).getAttribute("data-article-identifier"));
     await page.keyboard.press("Shift+Tab");
     await page.keyboard.press("Shift+Tab");
-    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await page.locator(".article-list__item").first().getAttribute("data-article-id"));
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await page.locator(".article-list__item").first().getAttribute("data-article-identifier"));
     await page.keyboard.press("Shift+Tab");
     await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
   });
@@ -655,14 +655,14 @@ test.describe("the writing graphic answers a lit article", () => {
 test.describe("the writing graphic in preview", () => {
   test("runs with no console error and no CSP violation", async ({ page }) => {
     const problems = pageProblems(page, ["error", "warning"]);
-    await recordCspViolations(page);
+    await recordContentSecurityPolicyViolations(page);
     for (const size of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
       await page.setViewportSize(size);
       await page.goto(preview + "/writing/");
       await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
       await page.locator(".article-list__item").nth(1).hover();
       await expect(page.locator(graphic)).toHaveAttribute("data-active-article", /.+/);
-      expect(await cspViolations(page)).toEqual([]);
+      expect(await contentSecurityPolicyViolations(page)).toEqual([]);
     }
     expect(problems).toEqual([]);
   });

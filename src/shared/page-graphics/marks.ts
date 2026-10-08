@@ -1,5 +1,5 @@
 import type { Point } from "../motion/easing.ts";
-import { clamp, easeOutCubic, smooth, TAU, unit } from "./math.ts";
+import { clamp, easeOutCubic, smooth, FULL_TURN_RADIANS, unit } from "./math.ts";
 import type { Palette } from "../motion/palette.ts";
 
 // Drawing marks for the page graphics, in the language of the homepage globe.
@@ -12,7 +12,7 @@ export const VEGA_HALO = 18;
 
 /** A neuron: a soft halo when hot (`halo` 0..1 sets its strength), a bright core, and an extra ring on Vega. `grow` 0..1 is the appear share. */
 export function drawNode(
-  ctx: CanvasRenderingContext2D,
+  drawingContext: CanvasRenderingContext2D,
   palette: Palette,
   glow: HTMLCanvasElement,
   x: number,
@@ -28,35 +28,35 @@ export function drawNode(
   const g = easeOutCubic(grow);
   if (hot && halo > 0) {
     const reach = (vega ? VEGA_HALO : NODE_HALO) * g;
-    ctx.globalAlpha = g * halo;
-    ctx.drawImage(glow, x - reach, y - reach, reach * 2, reach * 2);
+    drawingContext.globalAlpha = g * halo;
+    drawingContext.drawImage(glow, x - reach, y - reach, reach * 2, reach * 2);
   }
-  ctx.globalAlpha = alpha * smooth(grow * 1.5);
-  ctx.fillStyle = palette.text;
-  ctx.beginPath();
-  ctx.arc(x, y, radius * (0.4 + 0.6 * g), 0, TAU);
-  ctx.fill();
+  drawingContext.globalAlpha = alpha * smooth(grow * 1.5);
+  drawingContext.fillStyle = palette.text;
+  drawingContext.beginPath();
+  drawingContext.arc(x, y, radius * (0.4 + 0.6 * g), 0, FULL_TURN_RADIANS);
+  drawingContext.fill();
   if (vega) {
-    ctx.globalAlpha = 0.6 * g;
-    ctx.strokeStyle = palette.sky;
-    ctx.lineWidth = 0.7;
-    ctx.beginPath();
-    ctx.arc(x, y, 10 * (0.6 + 0.4 * g), 0, TAU);
-    ctx.stroke();
+    drawingContext.globalAlpha = 0.6 * g;
+    drawingContext.strokeStyle = palette.sky;
+    drawingContext.lineWidth = 0.7;
+    drawingContext.beginPath();
+    drawingContext.arc(x, y, 10 * (0.6 + 0.4 * g), 0, FULL_TURN_RADIANS);
+    drawingContext.stroke();
   }
-  ctx.globalAlpha = 1;
+  drawingContext.globalAlpha = 1;
 }
 
-function edgeStyle(ctx: CanvasRenderingContext2D, palette: Palette, t: number, hot: boolean, alpha: number): void {
-  ctx.lineCap = "round";
-  ctx.strokeStyle = hot ? palette.sky : palette.meta;
-  ctx.globalAlpha = (hot ? 0.7 : alpha) * smooth(t * 2);
-  ctx.lineWidth = hot ? 1.1 : 0.65;
+function edgeStyle(drawingContext: CanvasRenderingContext2D, palette: Palette, t: number, hot: boolean, alpha: number): void {
+  drawingContext.lineCap = "round";
+  drawingContext.strokeStyle = hot ? palette.sky : palette.metadata;
+  drawingContext.globalAlpha = (hot ? 0.7 : alpha) * smooth(t * 2);
+  drawingContext.lineWidth = hot ? 1.1 : 0.65;
 }
 
 /** A straight edge drawn in from a to b. `progress` 0..1 is the draw-in share. */
 export function drawEdge(
-  ctx: CanvasRenderingContext2D,
+  drawingContext: CanvasRenderingContext2D,
   palette: Palette,
   ax: number,
   ay: number,
@@ -68,17 +68,17 @@ export function drawEdge(
 ): void {
   if (progress <= 0) return;
   const g = easeOutCubic(clamp(progress));
-  edgeStyle(ctx, palette, progress, hot, alpha);
-  ctx.beginPath();
-  ctx.moveTo(ax, ay);
-  ctx.lineTo(ax + (bx - ax) * g, ay + (by - ay) * g);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+  edgeStyle(drawingContext, palette, progress, hot, alpha);
+  drawingContext.beginPath();
+  drawingContext.moveTo(ax, ay);
+  drawingContext.lineTo(ax + (bx - ax) * g, ay + (by - ay) * g);
+  drawingContext.stroke();
+  drawingContext.globalAlpha = 1;
 }
 
 /** A cubic Bezier edge drawn in from a to b. It is split at the draw-in share by de Casteljau. */
 export function drawCurve(
-  ctx: CanvasRenderingContext2D,
+  drawingContext: CanvasRenderingContext2D,
   palette: Palette,
   ax: number,
   ay: number,
@@ -104,12 +104,12 @@ export function drawCurve(
   const r0y = q0y + (q1y - q0y) * g;
   const r1x = q1x + (q2x - q1x) * g;
   const r1y = q1y + (q2y - q1y) * g;
-  edgeStyle(ctx, palette, progress, hot, alpha);
-  ctx.beginPath();
-  ctx.moveTo(ax, ay);
-  ctx.bezierCurveTo(q0x, q0y, r0x, r0y, r0x + (r1x - r0x) * g, r0y + (r1y - r0y) * g);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+  edgeStyle(drawingContext, palette, progress, hot, alpha);
+  drawingContext.beginPath();
+  drawingContext.moveTo(ax, ay);
+  drawingContext.bezierCurveTo(q0x, q0y, r0x, r0y, r0x + (r1x - r0x) * g, r0y + (r1y - r0y) * g);
+  drawingContext.stroke();
+  drawingContext.globalAlpha = 1;
 }
 
 /** A comet route: a polyline with running lengths. Build it on resize. */
@@ -122,16 +122,16 @@ export interface Route {
 
 /** Build a route through `points`. To follow a curve, pass many samples of it. */
 export function makeRoute(points: readonly Point[]): Route {
-  const n = points.length;
-  const xs = new Float32Array(n);
-  const ys = new Float32Array(n);
-  const lengths = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
+  const pointCount = points.length;
+  const xs = new Float32Array(pointCount);
+  const ys = new Float32Array(pointCount);
+  const lengths = new Float32Array(pointCount);
+  for (let i = 0; i < pointCount; i++) {
     xs[i] = points[i].x;
     ys[i] = points[i].y;
     if (i) lengths[i] = lengths[i - 1] + Math.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]);
   }
-  return { xs, ys, lengths, length: lengths[n - 1] };
+  return { xs, ys, lengths, length: lengths[pointCount - 1] };
 }
 
 // Scratch points, so a frame allocates nothing.
@@ -139,15 +139,15 @@ const head: Point = { x: 0, y: 0 };
 const tailStart: Point = { x: 0, y: 0 };
 const tailEnd: Point = { x: 0, y: 0 };
 
-function routePoint(route: Route, distance: number, out: Point): Point {
+function routePoint(route: Route, distance: number, outputPoint: Point): Point {
   const { xs, ys, lengths } = route;
   let i = 1;
   while (i < lengths.length - 1 && lengths[i] < distance) i++;
   const span = lengths[i] - lengths[i - 1];
   const share = span > 0 ? clamp((distance - lengths[i - 1]) / span) : 1;
-  out.x = xs[i - 1] + (xs[i] - xs[i - 1]) * share;
-  out.y = ys[i - 1] + (ys[i] - ys[i - 1]) * share;
-  return out;
+  outputPoint.x = xs[i - 1] + (xs[i] - xs[i - 1]) * share;
+  outputPoint.y = ys[i - 1] + (ys[i] - ys[i - 1]) * share;
+  return outputPoint;
 }
 
 const TAIL_SLICES = 16;
@@ -157,7 +157,7 @@ const TAIL_SLICES = 16;
  * It eases in, slows on arrival, and does not show outside (0, 1).
  */
 export function drawComet(
-  ctx: CanvasRenderingContext2D,
+  drawingContext: CanvasRenderingContext2D,
   palette: Palette,
   glow: HTMLCanvasElement,
   route: Route,
@@ -168,10 +168,10 @@ export function drawComet(
   if (travel <= 0 || travel >= 1 || route.length <= 0) return;
   const distance = route.length * (1 - (1 - travel) ** 1.6);
   const strength = smooth(travel / 0.16) * (1 - smooth((travel - 0.86) / 0.14));
-  const previousOp = ctx.globalCompositeOperation;
-  ctx.globalCompositeOperation = "lighter";
-  ctx.lineCap = "round";
-  ctx.strokeStyle = palette.sky;
+  const previousCompositeOperation = drawingContext.globalCompositeOperation;
+  drawingContext.globalCompositeOperation = "lighter";
+  drawingContext.lineCap = "round";
+  drawingContext.strokeStyle = palette.sky;
   routePoint(route, distance, head);
   tailStart.x = head.x;
   tailStart.y = head.y;
@@ -180,24 +180,24 @@ export function drawComet(
     if (behind < 0) break;
     const fade = 1 - slice / TAIL_SLICES;
     routePoint(route, behind, tailEnd);
-    ctx.globalAlpha = 0.75 * strength * fade * fade;
-    ctx.lineWidth = 0.5 + 1.3 * fade;
-    ctx.beginPath();
-    ctx.moveTo(tailStart.x, tailStart.y);
-    ctx.lineTo(tailEnd.x, tailEnd.y);
-    ctx.stroke();
+    drawingContext.globalAlpha = 0.75 * strength * fade * fade;
+    drawingContext.lineWidth = 0.5 + 1.3 * fade;
+    drawingContext.beginPath();
+    drawingContext.moveTo(tailStart.x, tailStart.y);
+    drawingContext.lineTo(tailEnd.x, tailEnd.y);
+    drawingContext.stroke();
     tailStart.x = tailEnd.x;
     tailStart.y = tailEnd.y;
   }
-  ctx.globalAlpha = 0.85 * strength;
-  ctx.drawImage(glow, head.x - glowSize / 2, head.y - glowSize / 2, glowSize, glowSize);
-  ctx.globalAlpha = strength;
-  ctx.fillStyle = palette.text;
-  ctx.beginPath();
-  ctx.arc(head.x, head.y, 1.2, 0, TAU);
-  ctx.fill();
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = previousOp;
+  drawingContext.globalAlpha = 0.85 * strength;
+  drawingContext.drawImage(glow, head.x - glowSize / 2, head.y - glowSize / 2, glowSize, glowSize);
+  drawingContext.globalAlpha = strength;
+  drawingContext.fillStyle = palette.text;
+  drawingContext.beginPath();
+  drawingContext.arc(head.x, head.y, 1.2, 0, FULL_TURN_RADIANS);
+  drawingContext.fill();
+  drawingContext.globalAlpha = 1;
+  drawingContext.globalCompositeOperation = previousCompositeOperation;
 }
 
 /** The width of the ink halo round a label. */
@@ -205,7 +205,7 @@ const HALO_WIDTH = 3.5;
 
 /** A label at a fixed CSS pixel size. An ink halo in the page ground colour knocks out the lines under it. */
 export function drawLabel(
-  ctx: CanvasRenderingContext2D,
+  drawingContext: CanvasRenderingContext2D,
   palette: Palette,
   canvasFont: string,
   text: string,
@@ -215,23 +215,23 @@ export function drawLabel(
   alpha = 1,
 ): void {
   if (alpha <= 0) return;
-  ctx.font = canvasFont;
-  ctx.textAlign = align;
-  ctx.textBaseline = "middle";
-  ctx.lineJoin = "round";
-  ctx.lineWidth = HALO_WIDTH;
-  ctx.strokeStyle = palette.ink;
-  ctx.globalAlpha = alpha;
-  ctx.strokeText(text, x, y);
-  ctx.fillStyle = palette.meta;
-  ctx.globalAlpha = alpha;
-  ctx.fillText(text, x, y);
-  ctx.globalAlpha = 1;
+  drawingContext.font = canvasFont;
+  drawingContext.textAlign = align;
+  drawingContext.textBaseline = "middle";
+  drawingContext.lineJoin = "round";
+  drawingContext.lineWidth = HALO_WIDTH;
+  drawingContext.strokeStyle = palette.ink;
+  drawingContext.globalAlpha = alpha;
+  drawingContext.strokeText(text, x, y);
+  drawingContext.fillStyle = palette.metadata;
+  drawingContext.globalAlpha = alpha;
+  drawingContext.fillText(text, x, y);
+  drawingContext.globalAlpha = 1;
 }
 
 /** The Vega bloom: added light, strength 0..1. It swells as comets arrive and clears by the end. */
 export function drawVegaBloom(
-  ctx: CanvasRenderingContext2D,
+  drawingContext: CanvasRenderingContext2D,
   glow: HTMLCanvasElement,
   x: number,
   y: number,
@@ -239,12 +239,12 @@ export function drawVegaBloom(
   size = 60,
 ): void {
   if (strength <= 0) return;
-  const previousOp = ctx.globalCompositeOperation;
-  ctx.globalCompositeOperation = "lighter";
-  ctx.globalAlpha = 0.5 * strength;
-  ctx.drawImage(glow, x - size / 2, y - size / 2, size, size);
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = previousOp;
+  const previousCompositeOperation = drawingContext.globalCompositeOperation;
+  drawingContext.globalCompositeOperation = "lighter";
+  drawingContext.globalAlpha = 0.5 * strength;
+  drawingContext.drawImage(glow, x - size / 2, y - size / 2, size, size);
+  drawingContext.globalAlpha = 1;
+  drawingContext.globalCompositeOperation = previousCompositeOperation;
 }
 
 export interface FieldStar {
@@ -268,15 +268,15 @@ export function makeStarField(width: number, height: number, count: number, seed
   return field;
 }
 
-export function drawStarField(ctx: CanvasRenderingContext2D, palette: Palette, field: readonly FieldStar[], progress: number): void {
+export function drawStarField(drawingContext: CanvasRenderingContext2D, palette: Palette, field: readonly FieldStar[], progress: number): void {
   const fadeIn = smooth(progress / 0.5);
-  ctx.fillStyle = palette.meta;
+  drawingContext.fillStyle = palette.metadata;
   for (let i = 0; i < field.length; i++) {
     const star = field[i];
-    ctx.globalAlpha = star.alpha * fadeIn;
-    ctx.beginPath();
-    ctx.arc(star.x, star.y, star.radius, 0, TAU);
-    ctx.fill();
+    drawingContext.globalAlpha = star.alpha * fadeIn;
+    drawingContext.beginPath();
+    drawingContext.arc(star.x, star.y, star.radius, 0, FULL_TURN_RADIANS);
+    drawingContext.fill();
   }
-  ctx.globalAlpha = 1;
+  drawingContext.globalAlpha = 1;
 }

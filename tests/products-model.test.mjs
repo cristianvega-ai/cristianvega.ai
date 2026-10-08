@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 
 import { LYRA } from "../src/shared/lyra/constellation.ts";
 import { stagger } from "../src/shared/motion/clock.ts";
-import { LYRA_MAX_SIZE } from "../src/shared/page-graphics/lyra.ts";
+import { LYRA_MAXIMUM_SIZE } from "../src/shared/page-graphics/lyra.ts";
 import { FIGURE_INSET } from "../src/shared/page-graphics/inset.ts";
-import { MAX_SLOTS, assertProductCapacity } from "../src/shared/page-graphics/scenes/product-slots.ts";
-import { MIN_SLOTS, SLOT_REACH, fitLyraAtVega, orbitBox, orbitSlot, planOrbit, productProgress } from "../src/shared/page-graphics/scenes/products.ts";
+import { MAXIMUM_SLOTS, assertProductCapacity } from "../src/shared/page-graphics/scenes/product-slots.ts";
+import { MINIMUM_SLOTS, SLOT_REACH, fitLyraAtVega, orbitBox, orbitSlot, planOrbit, productProgress } from "../src/shared/page-graphics/scenes/products.ts";
 import { figureBox } from "./helpers.mjs";
 
 // A box of a tall side column, and a box of a wide band, as the page graphic meets them.
@@ -16,17 +16,17 @@ const ORBIT_BOXES = [
 ];
 
 test("planOrbit keeps six slots and lights one for each product up to the maximum", () => {
-  assert.deepEqual(planOrbit(0), { lit: 0, total: MIN_SLOTS });
+  assert.deepEqual(planOrbit(0), { lit: 0, total: MINIMUM_SLOTS });
   assert.deepEqual(planOrbit(1), { lit: 1, total: 6 });
   assert.deepEqual(planOrbit(6), { lit: 6, total: 6 });
-  assert.deepEqual(planOrbit(MAX_SLOTS + 5), { lit: MAX_SLOTS, total: MAX_SLOTS });
+  assert.deepEqual(planOrbit(MAXIMUM_SLOTS + 5), { lit: MAXIMUM_SLOTS, total: MAXIMUM_SLOTS });
   assert.deepEqual(planOrbit(Number.NaN), { lit: 0, total: 6 });
 });
 
 test("assertProductCapacity accepts every count up to the slots and rejects more", () => {
-  assert.equal(MAX_SLOTS, 8, "the picture has eight product slots");
-  for (let count = 0; count <= MAX_SLOTS; count += 1) assert.doesNotThrow(() => assertProductCapacity(count));
-  assert.throws(() => assertProductCapacity(MAX_SLOTS + 1), (error) => {
+  assert.equal(MAXIMUM_SLOTS, 8, "the picture has eight product slots");
+  for (let count = 0; count <= MAXIMUM_SLOTS; count += 1) assert.doesNotThrow(() => assertProductCapacity(count));
+  assert.throws(() => assertProductCapacity(MAXIMUM_SLOTS + 1), (error) => {
     assert.match(error.message, /9 products/);
     assert.match(error.message, /8 slots/);
     assert.match(error.message, /draft: true/);
@@ -35,7 +35,7 @@ test("assertProductCapacity accepts every count up to the slots and rejects more
 });
 
 test("productProgress finishes every active node and link at full progress", () => {
-  for (let count = MAX_SLOTS; count > 0; count -= 1) {
+  for (let count = MAXIMUM_SLOTS; count > 0; count -= 1) {
     for (let index = 0; index < count; index += 1) {
       for (const part of ["node", "link"]) {
         assert.equal(productProgress(0, index, count, part), 0, `${count} products: ${part} ${index} must start empty`);
@@ -67,7 +67,7 @@ test("orbitSlot gives every supported product its own place inside the box", () 
     const cy = box.h / 2;
     const hw = box.w * 0.46;
     const hh = box.h * 0.46;
-    for (let count = 1; count <= MAX_SLOTS; count += 1) {
+    for (let count = 1; count <= MAXIMUM_SLOTS; count += 1) {
       const { total } = planOrbit(count);
       const spots = Array.from({ length: total }, (_, i) => orbitSlot({ x: 0, y: 0 }, i, box.wide, cx, cy, hw, hh));
       for (const [i, spot] of spots.entries()) {
@@ -106,12 +106,12 @@ test("fitLyraAtVega keeps Vega at the centre and the figure inside the half box"
 });
 
 test("fitLyraAtVega never grows the figure past the cap, and keeps its proportions", () => {
-  assert.ok(LYRA_MAX_SIZE <= 320, "the cap must stay near the size of the homepage and Writing figures");
+  assert.ok(LYRA_MAXIMUM_SIZE <= 320, "the cap must stay near the size of the homepage and Writing figures");
   const native = figureBox(LYRA.map((star) => ({ x: star.x, y: star.y })));
   for (const [rx, ry] of [[100, 150], [500, 900], [2000, 2000]]) {
     const box = figureBox(fitLyraAtVega([], 0, 0, rx, ry, false));
     assert.ok(Math.abs(box.aspect - native.aspect) < 1e-9, `${rx}x${ry}: the aspect must match the figure`);
-    assert.ok(Math.max(box.width, box.height) <= LYRA_MAX_SIZE + 1e-9, `${rx}x${ry}: the figure must not grow past the cap`);
+    assert.ok(Math.max(box.width, box.height) <= LYRA_MAXIMUM_SIZE + 1e-9, `${rx}x${ry}: the figure must not grow past the cap`);
   }
 });
 
@@ -144,7 +144,7 @@ test("the products marks stay inside the figure inset for one, two, and eight pr
   for (const [w, h] of GRAPHIC_BOXES) {
     const { halfWidth: hw, halfHeight: hh, wide } = orbitBox(w, h);
     assert.equal(wide, w > h * 1.6, `${w}x${h}: a band must turn the slots`);
-    for (const count of [1, 2, MAX_SLOTS]) {
+    for (const count of [1, 2, MAXIMUM_SLOTS]) {
       const { total } = planOrbit(count);
       for (let i = 0; i < total; i += 1) {
         const spot = orbitSlot({ x: 0, y: 0 }, i, wide, w / 2, h / 2, hw, hh);

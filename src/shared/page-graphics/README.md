@@ -10,12 +10,12 @@ Products must pass `productCount` and `currentProductIndex`.
 Pass the visible product count on both product routes.
 Pass `null` for `currentProductIndex` on the product index.
 Pass the visible product's list index on detail pages.
-The products picture has `MAX_SLOTS` (8) slots.
+The products picture has `MAXIMUM_SLOTS` (8) slots.
 `getProducts()` fails the build when more products are published.
 `scenes/product-slots.ts` holds the slots and the build check.
 It has no DOM, so the build does not load the scene.
 Writing reads hooks inside the closest `[data-writing-page]`.
-Use `[data-writing-list]`, `[data-writing-entry-id]`, and `[data-writing-label]`.
+Use `[data-writing-list]`, `[data-writing-entry-identifier]`, and `[data-writing-label]`.
 Keep page bindings separate from geometry helpers and drawing.
 
 ## Lifecycle and clocks
@@ -24,7 +24,7 @@ Keep page bindings separate from geometry helpers and drawing.
 `../motion/` is the shared canvas layer. It does not import from `page-graphics/` or `lyra-globe/`.
 Scenes own layout, drawing, and interaction listeners.
 Active time excludes hidden tabs and periods outside the viewport.
-Every canvas caps one frame interval at `FRAME_INTERVAL_CAP_MS` (64 milliseconds).
+Every canvas caps one frame interval at `MAXIMUM_FRAME_INTERVAL_MILLISECONDS` (64 milliseconds).
 A long frame then slows the motion for a moment instead of skipping part of it.
 Page scenes cap device pixel ratios at 2 and preserve their clocks across restored pages.
 The globe caps device pixel ratios at 1.75 and restarts its entrance after a restored page.
@@ -52,7 +52,7 @@ Reduced motion completes entrances immediately and runs no continuous frames, dr
 ## Fonts and colors
 
 `--font-mono` supplies the label font family, and `--fs-graphic-label` supplies its size in pixels.
-A label line is `LABEL_LINE_RATIO` (1.2) times that size. `labelFont.lineCssPx` holds it.
+A label line is `LABEL_LINE_RATIO` (1.2) times that size. `labelFont.lineHeightInPixels` holds it.
 The globe labels in `home.css` read the same two tokens.
 `label-font.ts` caches measured widths in CSS pixels.
 Font completion, failure, and resizing rebuild these measurements.
@@ -83,10 +83,10 @@ Globe labels use canvas entrance progress and pause with the drawing.
 - `../motion/clock.ts`: `DURATION`, `entranceProgress()`, and `stagger()`. The globe uses the same clock.
 - `../motion/palette.ts`: validated site colors and a cached glow sprite. The globe uses the same palette.
 - `math.ts`: easing, interpolation, and stable numeric samples.
-- `lyra.ts`: `layoutLyra(width, height)` preserves proportions and caps the figure at `LYRA_MAX_SIZE`.
+- `lyra.ts`: `layoutLyra(width, height)` preserves proportions and caps the figure at `LYRA_MAXIMUM_SIZE`.
 - `label-font.ts`: measured label widths and the canvas font.
 - `labels.ts`: `placeLabel()` uses measured widths, the label line, and `labelBounds()`.
-- `inset.ts`: `FIGURE_INSET` and `figureRect()` keep the figure inside the edge fade.
+- `inset.ts`: `FIGURE_INSET` and `figureRectangle()` keep the figure inside the edge fade.
   A scene must keep the reach of its marks inside the inset, not only the mark centres.
   The products scene keeps `SLOT_REACH`, the largest ring or halo round a slot.
 - `mesh.ts`: sparse neural meshes and cached site grids.
@@ -105,8 +105,8 @@ Globe labels use canvas entrance progress and pause with the drawing.
    Keep CSS breakpoints in styles.
    Draw from `state.progress` for the default entrance.
    Use `state.activeTime` for motion that continues after the entrance.
-2. Measure labels with `state.labelFont.widthCssPx(text)` during layout.
-   Pass each width and `state.labelFont.lineCssPx` to `placeLabel()`.
+2. Measure labels with `state.labelFont.widthInPixels(text)` during layout.
+   Pass each width and `state.labelFont.lineHeightInPixels` to `placeLabel()`.
    Use `labelBounds()` for each label.
    Pass `state.labelFont.canvasFont` to `drawLabel()`.
    Draw the neural mesh first with `drawMesh()`.

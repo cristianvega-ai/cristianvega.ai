@@ -70,13 +70,13 @@ export function projectGlobe(globe: Globe): GlobeProjection {
 }
 
 /** Write the projection as custom properties on the globe host. */
-export function globeProjectionCss(globe: Globe): string {
+export function globeProjectionStylesheet(globe: Globe): string {
   const projection = projectGlobe(globe);
   const property = (name: string) => `--globe-${name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`;
   return `.hero__globe{${Object.entries(projection).map(([name, value]) => `${property(name)}:${value};`).join("")}}`;
 }
 
-export const globeProjectionStyles = globeProjectionCss(buildGlobe());
+export const globeProjectionStyles = globeProjectionStylesheet(buildGlobe());
 // A model change gets a new URL, so cached measurements stay with their build.
 export const globeProjectionVersion = createHash("sha256").update(globeProjectionStyles).digest("hex").slice(0, 16);
-export const globeProjectionHref = `/globe-projection/${globeProjectionVersion}.css`;
+export const globeProjectionAddress = `/globe-projection/${globeProjectionVersion}.css`;

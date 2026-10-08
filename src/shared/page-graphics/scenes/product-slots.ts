@@ -6,16 +6,16 @@ export const SLOT_OFFSET = [0, 52, -52, -112, 112, 172, -165, 30] as const;
 /** The orbit that each slot sits on, as an index into RINGS in products.ts. */
 export const SLOT_RING = [1, 2, 0, 2, 0, 2, 1, 2] as const;
 /** The picture never shows more slots than this. */
-export const MAX_SLOTS = SLOT_OFFSET.length;
+export const MAXIMUM_SLOTS = SLOT_OFFSET.length;
 
 /**
  * Reject a published product count that the picture cannot show. getProducts() calls it, so a build
  * with more published products than slots fails with this message instead of a picture with a missing star.
  */
 export function assertProductCapacity(count: number): void {
-  if (count > MAX_SLOTS) {
+  if (count > MAXIMUM_SLOTS) {
     throw new Error(
-      `The site publishes ${count} products, but the products graphic has ${MAX_SLOTS} slots. ` +
+      `The site publishes ${count} products, but the products graphic has ${MAXIMUM_SLOTS} slots. ` +
         "Set draft: true on a product, or add a slot to SLOT_OFFSET and SLOT_RING in src/shared/page-graphics/scenes/product-slots.ts.",
     );
   }

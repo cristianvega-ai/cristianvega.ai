@@ -21,16 +21,16 @@ function smooth(value: number): number {
   return t * t * (3 - 2 * t);
 }
 
-/** The point at a distance along a route, written into `out`. */
-function pointAt(route: GlobeRoute, distance: number, out: Point): Point {
+/** The point at a distance along a route, written into `outputPoint`. */
+function pointAt(route: GlobeRoute, distance: number, outputPoint: Point): Point {
   const { points, lengths } = route;
   let i = 1;
   while (i < points.length - 1 && lengths[i] < distance) i++;
   const span = lengths[i] - lengths[i - 1];
   const share = span > 0 ? clamp((distance - lengths[i - 1]) / span) : 1;
-  out.x = points[i - 1].x + (points[i].x - points[i - 1].x) * share;
-  out.y = points[i - 1].y + (points[i].y - points[i - 1].y) * share;
-  return out;
+  outputPoint.x = points[i - 1].x + (points[i].x - points[i - 1].x) * share;
+  outputPoint.y = points[i - 1].y + (points[i].y - points[i - 1].y) * share;
+  return outputPoint;
 }
 
 // The globe at one point of the entrance, mark for mark as the build-time SVG
@@ -39,27 +39,27 @@ function pointAt(route: GlobeRoute, distance: number, out: Point): Point {
 // mark is whole, so the last frame is the finished picture. Before that the
 // mesh draws from the far side to the near side, the neurons appear in turn,
 // and the figure draws toward Vega. Each mark eases in, so nothing flashes.
-function paintGlobe(ctx: CanvasRenderingContext2D, globe: Globe, palette: Palette, glow: HTMLCanvasElement, progress: number) {
-  ctx.lineCap = "round";
-  ctx.fillStyle = palette.meta;
+function paintGlobe(drawingContext: CanvasRenderingContext2D, globe: Globe, palette: Palette, glow: HTMLCanvasElement, progress: number) {
+  drawingContext.lineCap = "round";
+  drawingContext.fillStyle = palette.metadata;
   const starsIn = smooth(progress / 0.5);
   for (let i = 0; i < globe.stars.length; i++) {
     const star = globe.stars[i];
-    ctx.globalAlpha = star.alpha * starsIn;
-    ctx.beginPath();
-    ctx.arc(star.x, star.y, star.radius, 0, FULL_TURN_RADIANS);
-    ctx.fill();
+    drawingContext.globalAlpha = star.alpha * starsIn;
+    drawingContext.beginPath();
+    drawingContext.arc(star.x, star.y, star.radius, 0, FULL_TURN_RADIANS);
+    drawingContext.fill();
   }
-  ctx.strokeStyle = palette.sky;
-  ctx.lineWidth = 0.7;
+  drawingContext.strokeStyle = palette.sky;
+  drawingContext.lineWidth = 0.7;
   const ringsIn = smooth((progress - 0.04) / 0.5);
   for (let i = 0; i < globe.rings.length; i++) {
     const ring = globe.rings[i];
     const grow = 0.94 + 0.06 * easeOutCubic(ringsIn);
-    ctx.globalAlpha = ring.alpha * ringsIn;
-    ctx.beginPath();
-    ctx.ellipse(ring.x, ring.y, ring.rx * grow, ring.ry * grow, ring.rotate, 0, FULL_TURN_RADIANS);
-    ctx.stroke();
+    drawingContext.globalAlpha = ring.alpha * ringsIn;
+    drawingContext.beginPath();
+    drawingContext.ellipse(ring.x, ring.y, ring.rx * grow, ring.ry * grow, ring.rotate, 0, FULL_TURN_RADIANS);
+    drawingContext.stroke();
   }
   for (let i = 0; i < globe.edges.length; i++) {
     const edge = globe.edges[i];
@@ -68,13 +68,13 @@ function paintGlobe(ctx: CanvasRenderingContext2D, globe: Globe, palette: Palett
     const from = edge.from;
     const to = edge.from === edge.a ? edge.b : edge.a;
     const grow = easeOutCubic(t);
-    ctx.strokeStyle = edge.hot ? palette.sky : palette.meta;
-    ctx.globalAlpha = (edge.hot ? 0.7 : edge.alpha) * smooth(t * 2);
-    ctx.lineWidth = edge.hot ? 1.1 : 0.65;
-    ctx.beginPath();
-    ctx.moveTo(from.x, from.y);
-    ctx.lineTo(from.x + (to.x - from.x) * grow, from.y + (to.y - from.y) * grow);
-    ctx.stroke();
+    drawingContext.strokeStyle = edge.hot ? palette.sky : palette.metadata;
+    drawingContext.globalAlpha = (edge.hot ? 0.7 : edge.alpha) * smooth(t * 2);
+    drawingContext.lineWidth = edge.hot ? 1.1 : 0.65;
+    drawingContext.beginPath();
+    drawingContext.moveTo(from.x, from.y);
+    drawingContext.lineTo(from.x + (to.x - from.x) * grow, from.y + (to.y - from.y) * grow);
+    drawingContext.stroke();
   }
   for (let i = 0; i < globe.nodes.length; i++) {
     const node = globe.nodes[i];
@@ -83,35 +83,35 @@ function paintGlobe(ctx: CanvasRenderingContext2D, globe: Globe, palette: Palett
     const grow = easeOutCubic(t);
     if (node.hot) {
       const reach = (node.vega ? 18 : 8) * grow;
-      ctx.globalAlpha = grow;
-      ctx.drawImage(glow, node.x - reach, node.y - reach, reach * 2, reach * 2);
+      drawingContext.globalAlpha = grow;
+      drawingContext.drawImage(glow, node.x - reach, node.y - reach, reach * 2, reach * 2);
     }
-    ctx.globalAlpha = node.alpha * smooth(t * 1.5);
-    ctx.fillStyle = palette.text;
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, node.radius * (0.4 + 0.6 * grow), 0, FULL_TURN_RADIANS);
-    ctx.fill();
+    drawingContext.globalAlpha = node.alpha * smooth(t * 1.5);
+    drawingContext.fillStyle = palette.text;
+    drawingContext.beginPath();
+    drawingContext.arc(node.x, node.y, node.radius * (0.4 + 0.6 * grow), 0, FULL_TURN_RADIANS);
+    drawingContext.fill();
     if (node.vega) {
-      ctx.globalAlpha = 0.6 * grow;
-      ctx.strokeStyle = palette.sky;
-      ctx.lineWidth = 0.7;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, 10 * (0.6 + 0.4 * grow), 0, FULL_TURN_RADIANS);
-      ctx.stroke();
+      drawingContext.globalAlpha = 0.6 * grow;
+      drawingContext.strokeStyle = palette.sky;
+      drawingContext.lineWidth = 0.7;
+      drawingContext.beginPath();
+      drawingContext.arc(node.x, node.y, 10 * (0.6 + 0.4 * grow), 0, FULL_TURN_RADIANS);
+      drawingContext.stroke();
     }
   }
-  ctx.globalAlpha = 1;
+  drawingContext.globalAlpha = 1;
 }
 
 /** Put the build-time SVG in the box. It is the picture when the canvas cannot draw. Returns its removal. */
 function showFallback(root: HTMLElement): () => void {
   const template = root.querySelector("template");
-  const svg = template?.content.firstElementChild?.cloneNode(true) as Element | undefined;
-  if (!template || !svg) return () => {};
-  root.prepend(svg);
+  const fallbackDrawing = template?.content.firstElementChild?.cloneNode(true) as Element | undefined;
+  if (!template || !fallbackDrawing) return () => {};
+  root.prepend(fallbackDrawing);
   root.dataset.fallback = "true";
   return () => {
-    svg.remove();
+    fallbackDrawing.remove();
     root.removeAttribute("data-fallback");
   };
 }
@@ -174,7 +174,7 @@ function drawGlobe(root: HTMLElement): (() => void) | undefined {
     vega = globe.hotNodes.find((node) => node.vega);
   }
 
-  function draw(ctx: CanvasRenderingContext2D, state: FrameState) {
+  function draw(drawingContext: CanvasRenderingContext2D, state: FrameState) {
     if (!globe) return;
     if (state.entranceComplete) {
       for (let i = 0; i < labelAnimations.length; i++) labelAnimations[i].animation.finish();
@@ -186,34 +186,34 @@ function drawGlobe(root: HTMLElement): (() => void) | undefined {
       binding.animation.currentTime = clamp((state.progress - binding.start) / binding.span);
     }
     const ease = easeOutCubic(state.progress);
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    ctx.save();
+    drawingContext.setTransform(scale, 0, 0, scale, 0, 0);
+    drawingContext.save();
     // Settle the globe on its finished pose.
-    ctx.translate(GLOBE_WIDTH / 2, GLOBE_HEIGHT / 2);
-    ctx.rotate(globe.rotation * (1 - ease));
-    ctx.scale(0.985 + 0.015 * ease, 0.985 + 0.015 * ease);
-    ctx.translate(-GLOBE_WIDTH / 2, -GLOBE_HEIGHT / 2);
-    paintGlobe(ctx, globe, state.palette, state.glow, state.progress);
-    if (!state.entranceComplete) drawSignals(ctx, state.progress, state.palette, state.glow);
-    ctx.restore();
+    drawingContext.translate(GLOBE_WIDTH / 2, GLOBE_HEIGHT / 2);
+    drawingContext.rotate(globe.rotation * (1 - ease));
+    drawingContext.scale(0.985 + 0.015 * ease, 0.985 + 0.015 * ease);
+    drawingContext.translate(-GLOBE_WIDTH / 2, -GLOBE_HEIGHT / 2);
+    paintGlobe(drawingContext, globe, state.palette, state.glow, state.progress);
+    if (!state.entranceComplete) drawSignals(drawingContext, state.progress, state.palette, state.glow);
+    drawingContext.restore();
   }
 
   /** Draw comets and the temporary Vega bloom. */
-  function drawSignals(ctx: CanvasRenderingContext2D, progress: number, palette: Palette, glow: HTMLCanvasElement) {
-    ctx.globalCompositeOperation = "lighter";
-    ctx.lineCap = "round";
-    ctx.strokeStyle = palette.sky;
-    for (let i = 0; i < globe!.routes.length; i++) drawComet(ctx, globe!.routes[i], progress, palette, glow);
+  function drawSignals(drawingContext: CanvasRenderingContext2D, progress: number, palette: Palette, glow: HTMLCanvasElement) {
+    drawingContext.globalCompositeOperation = "lighter";
+    drawingContext.lineCap = "round";
+    drawingContext.strokeStyle = palette.sky;
+    for (let i = 0; i < globe!.routes.length; i++) drawComet(drawingContext, globe!.routes[i], progress, palette, glow);
     const bloom = smooth((progress - 0.62) / 0.22) * (1 - smooth((progress - 0.84) / 0.16));
     if (vega && bloom > 0) {
-      ctx.globalAlpha = 0.5 * bloom;
-      ctx.drawImage(glow, vega.x - VEGA_GLOW / 2, vega.y - VEGA_GLOW / 2, VEGA_GLOW, VEGA_GLOW);
+      drawingContext.globalAlpha = 0.5 * bloom;
+      drawingContext.drawImage(glow, vega.x - VEGA_GLOW / 2, vega.y - VEGA_GLOW / 2, VEGA_GLOW, VEGA_GLOW);
     }
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = "source-over";
+    drawingContext.globalAlpha = 1;
+    drawingContext.globalCompositeOperation = "source-over";
   }
 
-  function drawComet(ctx: CanvasRenderingContext2D, route: GlobeRoute, progress: number, palette: Palette, glow: HTMLCanvasElement) {
+  function drawComet(drawingContext: CanvasRenderingContext2D, route: GlobeRoute, progress: number, palette: Palette, glow: HTMLCanvasElement) {
     const travel = (progress - route.start) / route.span;
     if (travel <= 0 || travel >= 1) return;
     // Slow each comet as it reaches the star.
@@ -227,22 +227,22 @@ function drawGlobe(root: HTMLElement): (() => void) | undefined {
       if (behind < 0) break;
       const fade = 1 - slice / TAIL_SLICES;
       pointAt(route, behind, tailEnd);
-      ctx.globalAlpha = 0.75 * strength * fade * fade;
-      ctx.lineWidth = 0.5 + 1.3 * fade;
-      ctx.beginPath();
-      ctx.moveTo(tailStart.x, tailStart.y);
-      ctx.lineTo(tailEnd.x, tailEnd.y);
-      ctx.stroke();
+      drawingContext.globalAlpha = 0.75 * strength * fade * fade;
+      drawingContext.lineWidth = 0.5 + 1.3 * fade;
+      drawingContext.beginPath();
+      drawingContext.moveTo(tailStart.x, tailStart.y);
+      drawingContext.lineTo(tailEnd.x, tailEnd.y);
+      drawingContext.stroke();
       tailStart.x = tailEnd.x;
       tailStart.y = tailEnd.y;
     }
-    ctx.globalAlpha = 0.85 * strength;
-    ctx.drawImage(glow, head.x - COMET_GLOW / 2, head.y - COMET_GLOW / 2, COMET_GLOW, COMET_GLOW);
-    ctx.globalAlpha = strength;
-    ctx.fillStyle = palette.text;
-    ctx.beginPath();
-    ctx.arc(head.x, head.y, 1.2, 0, FULL_TURN_RADIANS);
-    ctx.fill();
+    drawingContext.globalAlpha = 0.85 * strength;
+    drawingContext.drawImage(glow, head.x - COMET_GLOW / 2, head.y - COMET_GLOW / 2, COMET_GLOW, COMET_GLOW);
+    drawingContext.globalAlpha = strength;
+    drawingContext.fillStyle = palette.text;
+    drawingContext.beginPath();
+    drawingContext.arc(head.x, head.y, 1.2, 0, FULL_TURN_RADIANS);
+    drawingContext.fill();
   }
 
   const handle = mountCanvasController(root, { draw, onResize: resize, attach: attachLabels }, GLOBE_POLICY, () => {
