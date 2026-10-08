@@ -1,5 +1,5 @@
 ---
-import { productUrl, type Product } from "../shared/products";
+import { productAddress, type Product } from "../shared/products";
 
 interface Props {
   products: Product[];
@@ -13,13 +13,13 @@ const Heading = `h${level}` as const;
 
 <ol class="entries entries--products">
   {products.map((product) => (
-    <li class="entries__item" data-product-id={product.id}>
+    <li class="entries__item" data-product-identifier={product.id}>
       <p class="entries__meta">
         <span>{product.data.status ?? "Product"}</span>
         {product.data.draft && <span class="draft-label">Draft</span>}
       </p>
       <div class="entries__main">
-        <Heading class="entries__title"><a class="entries__link" href={productUrl(product)}>{product.data.title}</a></Heading>
+        <Heading class="entries__title"><a class="entries__link" href={productAddress(product)}>{product.data.title}</a></Heading>
         <p class="entries__excerpt">{product.data.description}</p>
       </div>
     </li>

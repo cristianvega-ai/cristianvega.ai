@@ -7,7 +7,7 @@ export async function getArticles(): Promise<Article[]> {
   return articles.sort((a, b) => b.data.date.getTime() - a.data.date.getTime() || a.id.localeCompare(b.id));
 }
 
-export function articleUrl(article: Article): string {
+export function articleAddress(article: Article): string {
   return `/writing/${article.id}/`;
 }
 

@@ -100,14 +100,14 @@ export function pageProblems(page, types = ["error"]) {
 }
 
 /** Record each CSP violation of the page. Call it before the page loads. */
-export const recordCspViolations = (page) =>
+export const recordContentSecurityPolicyViolations = (page) =>
   page.addInitScript(() => {
-    window.__csp = [];
-    document.addEventListener("securitypolicyviolation", (event) => window.__csp.push(event.violatedDirective));
+    window.__contentSecurityPolicyViolations = [];
+    document.addEventListener("securitypolicyviolation", (event) => window.__contentSecurityPolicyViolations.push(event.violatedDirective));
   });
 
-/** The directives the page violated since `recordCspViolations`. */
-export const cspViolations = (page) => page.evaluate(() => window.__csp);
+/** The directives the page violated since `recordContentSecurityPolicyViolations`. */
+export const contentSecurityPolicyViolations = (page) => page.evaluate(() => window.__contentSecurityPolicyViolations);
 
 /** Read the facts that keep a page graphic decorative: hidden, inert, one canvas, and no text or style. */
 export const decorativeState = (page, selector) =>
@@ -197,7 +197,7 @@ export async function tabTo(page, selector, limit = 25) {
  * menu, so this opens the menu first when its button is showing.
  * Returns the link locator. Call it again after each navigation.
  */
-export function navLink(page, name) {
+export function navigationLink(page, name) {
   const link = page.locator(".nav:visible, .nav-menu:visible").getByRole("link", { name, exact: true });
   return {
     async click() {
@@ -241,23 +241,23 @@ export const stepFrame = (page, time) => page.evaluate((value) => window.__step(
 export const pendingFrames = (page) => page.evaluate(() => window.__pending());
 
 /** Advance the manual clock in 16 ms frames. */
-export const playFrames = (page, ms) =>
+export const playFrames = (page, milliseconds) =>
   page.evaluate((span) => {
     window.__time = window.__time ?? 0;
     for (let end = window.__time + span; window.__time < end; ) {
       window.__time += 16;
       window.__step(window.__time);
     }
-  }, ms);
+  }, milliseconds);
 
 /** Count canvas pixels above the supplied alpha threshold. */
-export const paintedPixels = (page, graphic, minAlpha) =>
+export const paintedPixels = (page, graphic, minimumAlpha) =>
   page.locator(`${graphic} canvas`).evaluate((canvas, threshold) => {
     const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
     let count = 0;
     for (let i = 3; i < data.length; i += 4) if (data[i] > threshold) count += 1;
     return count;
-  }, minAlpha);
+  }, minimumAlpha);
 
 /** Open a page and wait for its graphic. */
 export async function openGraphic(page, target) {
@@ -366,9 +366,9 @@ export async function drawnLabels(page) {
 /**
  * Count the strongly painted canvas pixels within `inset` CSS pixels of each canvas edge.
  * The figure must keep out of this zone. The faint mesh, star field, and grid may enter it,
- * so only a pixel with an alpha above `minAlpha` (0 to 255) counts.
+ * so only a pixel with an alpha above `minimumAlpha` (0 to 255) counts.
  */
-export async function edgePaint(page, graphic, inset = 28, minAlpha = 140) {
+export async function edgePaint(page, graphic, inset = 28, minimumAlpha = 140) {
   return page.locator(`${graphic} canvas`).evaluate(
     (canvas, [zone, threshold]) => {
       const scale = canvas.width / canvas.getBoundingClientRect().width;
@@ -388,7 +388,7 @@ export async function edgePaint(page, graphic, inset = 28, minAlpha = 140) {
         bottom: count(0, height - band, width, band),
       };
     },
-    [inset, minAlpha],
+    [inset, minimumAlpha],
   );
 }
 

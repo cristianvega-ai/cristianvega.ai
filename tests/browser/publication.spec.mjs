@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { permissionsPolicy, publishedContent } from "../helpers.mjs";
-import { cspViolations, latestWork, navLink, pageProblems, publicationTest as test, recordCspViolations, settle, tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { contentSecurityPolicyViolations, latestWork, navigationLink, pageProblems, publicationTest as test, recordContentSecurityPolicyViolations, settle, tabTo, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 function expectProductionHeaders(headers) {
   expect(headers["x-content-type-options"]).toBe("nosniff");
@@ -19,7 +19,7 @@ test.describe("mixed published content in the production runtime", () => {
   for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     test(`${name} opens published writing and products with working scripts`, async ({ page, publication }) => {
       const errors = pageProblems(page, ["error", "warning"]);
-      await recordCspViolations(page);
+      await recordContentSecurityPolicyViolations(page);
       await page.addInitScript(() => {
         window.__publicationCopies = [];
         Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
@@ -34,17 +34,17 @@ test.describe("mixed published content in the production runtime", () => {
       await settle(page);
       await expect(page.locator(".hero__next-item")).toHaveText(latestWork.map((item) => `${item.label} →`));
       await expect(page.locator(".hero__next a")).toHaveCount(2);
-      await expect(page.locator(".hero__next-soon, [data-article-id], [data-product-id]")).toHaveCount(0);
+      await expect(page.locator(".hero__next-soon, [data-article-identifier], [data-product-identifier]")).toHaveCount(0);
       await expect(page.locator("[data-lyra-globe]")).toHaveAttribute("data-ready", "true");
 
       const published = publishedContent(publication.inventory);
       expect(published.writing.map((entry) => entry.id)).toEqual(["newer-writing", "alpha-tied", "zulu-tied"]);
       expect(published.products.map((entry) => entry.id)).toEqual(["default-order", "alpha-product", "zulu-product"]);
-      await navLink(page, "writing").click();
+      await navigationLink(page, "writing").click();
       await expect(page.locator(".nav__link[href='/writing/']")).toHaveAttribute("aria-current", "page");
       await expect(page.locator("meta[name='robots'], .draft-label")).toHaveCount(0);
       await expect(page.locator("[data-graphic='writing']")).toHaveAttribute("data-ready", "true");
-      expect(await page.locator(".article-list__item").evaluateAll((rows) => rows.map((row) => row.dataset.articleId)))
+      expect(await page.locator(".article-list__item").evaluateAll((rows) => rows.map((row) => row.dataset.articleIdentifier)))
         .toEqual(published.writing.map((entry) => entry.id));
       expect(await page.locator(".article-list__link").evaluateAll((links) => links.map((link) => link.getAttribute("href"))))
         .toEqual(published.writing.map((entry) => entry.href));
@@ -75,11 +75,11 @@ test.describe("mixed published content in the production runtime", () => {
       await page.getByRole("link", { name: /Older/ }).click();
       await expect(page.locator("#article-title")).toHaveText(published.writing[2].data.title);
 
-      await navLink(page, "products").click();
+      await navigationLink(page, "products").click();
       await expect(page.locator(".nav__link[href='/products/']")).toHaveAttribute("aria-current", "page");
       await expect(page.locator("meta[name='robots'], .draft-label")).toHaveCount(0);
       await expect(page.locator("[data-graphic='products']")).toHaveAttribute("data-ready", "true");
-      expect(await page.locator(".entries__item").evaluateAll((rows) => rows.map((row) => row.dataset.productId)))
+      expect(await page.locator(".entries__item").evaluateAll((rows) => rows.map((row) => row.dataset.productIdentifier)))
         .toEqual(published.products.map((entry) => entry.id));
       for (const product of published.products) {
         await page.getByRole("link", { name: product.data.title, exact: true }).click();
@@ -96,10 +96,10 @@ test.describe("mixed published content in the production runtime", () => {
           await expect(outbound).toHaveAttribute("href", product.data.url);
           await expect(outbound).toHaveAttribute("rel", "noopener noreferrer");
         } else await expect(outbound).toHaveCount(0);
-        expect(await cspViolations(page)).toEqual([]);
+        expect(await contentSecurityPolicyViolations(page)).toEqual([]);
         await page.getByRole("link", { name: "All products →" }).click();
       }
-      expect(await cspViolations(page)).toEqual([]);
+      expect(await contentSecurityPolicyViolations(page)).toEqual([]);
       expect(errors).toEqual([]);
     });
   }
@@ -190,7 +190,7 @@ test.describe("mixed published content in the production runtime", () => {
       await expect(page.locator(".prose")).toContainText("Body for alpha-tied.");
       await expect(page.getByRole("button", { name: "copy link" })).toBeHidden();
       await expect(page.getByRole("link", { name: "Share on LinkedIn" })).toBeVisible();
-      await navLink(page, "products").click();
+      await navigationLink(page, "products").click();
       await page.getByRole("link", { name: "Alpha product", exact: true }).click();
       await expect(page.locator(".product__prose")).toContainText("Body for alpha-product.");
       const product = publishedContent(publication.inventory).products.find((entry) => entry.id === "alpha-product");

@@ -1,4 +1,4 @@
-import { clamp, easeOutCubic, smooth, TAU, unit } from "./math.ts";
+import { clamp, easeOutCubic, smooth, FULL_TURN_RADIANS, unit } from "./math.ts";
 import type { Palette } from "../motion/palette.ts";
 
 // The neural mesh: a sparse field of faint nodes and synapses behind a page graphic, so each page
@@ -41,42 +41,42 @@ export interface Mesh {
 
 /** Build a mesh for the supplied width and height. The same box and seed give the same mesh. */
 export function makeMesh(width: number, height: number, seed = 0, cell = CELL): Mesh {
-  const cols = Math.max(1, Math.ceil(width / cell));
+  const columns = Math.max(1, Math.ceil(width / cell));
   const rows = Math.max(1, Math.ceil(height / cell));
-  const slot = new Int16Array(cols * rows).fill(-1);
-  const xs = new Float32Array(cols * rows);
-  const ys = new Float32Array(cols * rows);
-  const radius = new Float32Array(cols * rows);
-  const hot = new Uint8Array(cols * rows);
+  const slot = new Int16Array(columns * rows).fill(-1);
+  const xs = new Float32Array(columns * rows);
+  const ys = new Float32Array(columns * rows);
+  const radius = new Float32Array(columns * rows);
+  const hot = new Uint8Array(columns * rows);
   let count = 0;
   for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const key = (row * cols + col) * 6 + seed * 1000;
+    for (let column = 0; column < columns; column++) {
+      const key = (row * columns + column) * 6 + seed * 1000;
       if (unit(key) < EMPTY) continue;
-      slot[row * cols + col] = count;
-      xs[count] = clamp((col + 0.15 + unit(key + 1) * 0.7) * cell, 0, width);
+      slot[row * columns + column] = count;
+      xs[count] = clamp((column + 0.15 + unit(key + 1) * 0.7) * cell, 0, width);
       ys[count] = clamp((row + 0.15 + unit(key + 2) * 0.7) * cell, 0, height);
       radius[count] = 0.7 + unit(key + 3) * 0.7;
       hot[count] = unit(key + 4) > 0.9 ? 1 : 0;
       count++;
     }
   }
-  const links = new Uint16Array(cols * rows * 8);
+  const links = new Uint16Array(columns * rows * 8);
   let linkCount = 0;
   let diagonalFrom = 0;
   // Two passes keep the straight links first and the fainter diagonal arcs last.
   for (let pass = 0; pass < 2; pass++) {
     if (pass) diagonalFrom = linkCount;
     for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const from = slot[row * cols + col];
+      for (let column = 0; column < columns; column++) {
+        const from = slot[row * columns + column];
         if (from < 0) continue;
-        for (let s = pass ? FIRST_DIAGONAL : 0; s < (pass ? STEPS.length : FIRST_DIAGONAL); s++) {
-          const c = col + STEPS[s][0];
-          const r = row + STEPS[s][1];
-          if (c < 0 || c >= cols || r >= rows) continue;
-          const to = slot[r * cols + c];
-          if (to < 0 || unit((row * cols + col) * 6 + 5 + s * 17 + seed * 1000) > CHANCE[s]) continue;
+        for (let step = pass ? FIRST_DIAGONAL : 0; step < (pass ? STEPS.length : FIRST_DIAGONAL); step++) {
+          const neighborColumn = column + STEPS[step][0];
+          const r = row + STEPS[step][1];
+          if (neighborColumn < 0 || neighborColumn >= columns || r >= rows) continue;
+          const to = slot[r * columns + neighborColumn];
+          if (to < 0 || unit((row * columns + column) * 6 + 5 + step * 17 + seed * 1000) > CHANCE[step]) continue;
           links[linkCount * 2] = from;
           links[linkCount * 2 + 1] = to;
           linkCount++;
@@ -88,38 +88,38 @@ export function makeMesh(width: number, height: number, seed = 0, cell = CELL): 
 }
 
 /** Draw the mesh. `progress` 0..1 is the entrance: synapses draw in one after another, then the nodes settle. */
-export function drawMesh(ctx: CanvasRenderingContext2D, palette: Palette, mesh: Mesh, progress: number, strength = 1): void {
+export function drawMesh(drawingContext: CanvasRenderingContext2D, palette: Palette, mesh: Mesh, progress: number, strength = 1): void {
   const fade = smooth(progress / 0.35) * strength;
   if (fade <= 0) return;
-  ctx.lineCap = "round";
-  ctx.lineWidth = 0.6;
-  ctx.strokeStyle = palette.meta;
+  drawingContext.lineCap = "round";
+  drawingContext.lineWidth = 0.6;
+  drawingContext.strokeStyle = palette.metadata;
   for (let pass = 0; pass < 2; pass++) {
-    ctx.globalAlpha = (pass ? DIAGONAL_ALPHA : EDGE_ALPHA) * fade;
-    ctx.beginPath();
+    drawingContext.globalAlpha = (pass ? DIAGONAL_ALPHA : EDGE_ALPHA) * fade;
+    drawingContext.beginPath();
     for (let i = pass ? mesh.diagonalFrom : 0; i < (pass ? mesh.linkCount : mesh.diagonalFrom); i++) {
       const a = mesh.links[i * 2];
       const b = mesh.links[i * 2 + 1];
       const t = easeOutCubic(clamp((progress - 0.04 - (i / mesh.linkCount) * 0.4) / 0.3));
       if (t <= 0) continue;
-      ctx.moveTo(mesh.xs[a], mesh.ys[a]);
-      ctx.lineTo(mesh.xs[a] + (mesh.xs[b] - mesh.xs[a]) * t, mesh.ys[a] + (mesh.ys[b] - mesh.ys[a]) * t);
+      drawingContext.moveTo(mesh.xs[a], mesh.ys[a]);
+      drawingContext.lineTo(mesh.xs[a] + (mesh.xs[b] - mesh.xs[a]) * t, mesh.ys[a] + (mesh.ys[b] - mesh.ys[a]) * t);
     }
-    ctx.stroke();
+    drawingContext.stroke();
   }
   for (let pass = 0; pass < 2; pass++) {
-    ctx.fillStyle = pass ? palette.sky : palette.meta;
-    ctx.globalAlpha = (pass ? HOT_ALPHA : NODE_ALPHA) * fade;
-    ctx.beginPath();
+    drawingContext.fillStyle = pass ? palette.sky : palette.metadata;
+    drawingContext.globalAlpha = (pass ? HOT_ALPHA : NODE_ALPHA) * fade;
+    drawingContext.beginPath();
     for (let i = 0; i < mesh.count; i++) {
       if (mesh.hot[i] !== pass) continue;
       const r = mesh.radius[i] * (pass ? 1.3 : 1);
-      ctx.moveTo(mesh.xs[i] + r, mesh.ys[i]);
-      ctx.arc(mesh.xs[i], mesh.ys[i], r, 0, TAU);
+      drawingContext.moveTo(mesh.xs[i] + r, mesh.ys[i]);
+      drawingContext.arc(mesh.xs[i], mesh.ys[i], r, 0, FULL_TURN_RADIANS);
     }
-    ctx.fill();
+    drawingContext.fill();
   }
-  ctx.globalAlpha = 1;
+  drawingContext.globalAlpha = 1;
 }
 
 /** The pitch of the site grid, in CSS pixels. It matches the homepage and the CSS grid on the other pages. */
@@ -133,32 +133,32 @@ export function makeGridLayer(width: number, height: number, ratio: number, pale
   const layer = document.createElement("canvas");
   layer.width = Math.max(1, Math.round(width * ratio));
   layer.height = Math.max(1, Math.round(height * ratio));
-  const ctx = layer.getContext("2d");
-  if (!ctx) return null;
-  ctx.scale(ratio, ratio);
-  ctx.strokeStyle = palette.grid;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
+  const drawingContext = layer.getContext("2d");
+  if (!drawingContext) return null;
+  drawingContext.scale(ratio, ratio);
+  drawingContext.strokeStyle = palette.grid;
+  drawingContext.lineWidth = 1;
+  drawingContext.beginPath();
   for (let x = GRID_PITCH / 2; x < width; x += GRID_PITCH) {
-    ctx.moveTo(Math.round(x) + 0.5, 0);
-    ctx.lineTo(Math.round(x) + 0.5, height);
+    drawingContext.moveTo(Math.round(x) + 0.5, 0);
+    drawingContext.lineTo(Math.round(x) + 0.5, height);
   }
   for (let y = GRID_PITCH / 2; y < height; y += GRID_PITCH) {
-    ctx.moveTo(0, Math.round(y) + 0.5);
-    ctx.lineTo(width, Math.round(y) + 0.5);
+    drawingContext.moveTo(0, Math.round(y) + 0.5);
+    drawingContext.lineTo(width, Math.round(y) + 0.5);
   }
-  ctx.stroke();
-  ctx.globalCompositeOperation = "destination-in";
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  drawingContext.stroke();
+  drawingContext.globalCompositeOperation = "destination-in";
+  drawingContext.setTransform(1, 0, 0, 1, 0, 0);
   // A unit radial gradient, stretched to the ellipse of the box.
-  ctx.translate(layer.width / 2, layer.height / 2);
-  ctx.scale(layer.width / 2, layer.height / 2);
-  const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+  drawingContext.translate(layer.width / 2, layer.height / 2);
+  drawingContext.scale(layer.width / 2, layer.height / 2);
+  const gradient = drawingContext.createRadialGradient(0, 0, 0, 0, 0, 1);
   gradient.addColorStop(0, "rgb(0 0 0)");
   gradient.addColorStop(0.3, "rgb(0 0 0)");
   gradient.addColorStop(0.6, "rgb(0 0 0 / 0.42)");
   gradient.addColorStop(0.94, "rgb(0 0 0 / 0)");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(-1, -1, 2, 2);
+  drawingContext.fillStyle = gradient;
+  drawingContext.fillRect(-1, -1, 2, 2);
   return layer;
 }

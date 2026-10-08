@@ -23,7 +23,7 @@ function assertPublicationNavigation(html, sourceInventory) {
 
 function assertHomepagePublication(html, sourceInventory) {
   assert.equal((html.match(/<h2\b/g) ?? []).length, 0, "the homepage must hold no section heading");
-  assert.doesNotMatch(html, /home-writing|home-products|entries__item|data-article-id|data-product-id/);
+  assert.doesNotMatch(html, /home-writing|home-products|entries__item|data-article-identifier|data-product-identifier/);
   assert.doesNotMatch(html, /href="#"/);
   const list = html.match(/<ul class="hero__next"[^>]*>[\s\S]*?<\/ul>/)?.[0];
   assert.ok(list, "the homepage must hold the calls to action");
@@ -57,7 +57,7 @@ function assertPublishedPages(buildDirectory, sourceInventory) {
     assertPageBasics(index);
     assertPublicationNavigation(index, sourceInventory);
     assert.doesNotMatch(index, /name="robots" content="noindex|class="draft-label"|local preview/i);
-    const attribute = section === "writing" ? "data-article-id" : "data-product-id";
+    const attribute = section === "writing" ? "data-article-identifier" : "data-product-identifier";
     const listed = [...index.matchAll(new RegExp(`<li\\b[^>]*${attribute}="([^"]+)"`, "g"))].map(([, id]) => id);
     assert.deepEqual(listed, entries.map((entry) => entry.id), `${section} list must follow its content order`);
     for (const draft of sourceInventory[section].filter((entry) => entry.data.draft)) {

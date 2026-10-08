@@ -299,7 +299,7 @@ test.describe("the products graphic shows the products", () => {
   for (const target of [PAGES.products, PAGES.product]) {
     test(`the ${target.name} uses its count when list classes change or unrelated products appear`, async ({ page }) => {
       await open(page, PAGES.products);
-      const listed = await page.locator("[data-product-id]").count();
+      const listed = await page.locator("[data-product-identifier]").count();
       expect(listed).toBeGreaterThan(0);
       await useProductMarks(page);
       await useReducedMotion(page);

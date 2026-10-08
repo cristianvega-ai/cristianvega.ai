@@ -61,7 +61,7 @@ export function createScrollReader(container: HTMLElement): ScrollReader {
         settled = true;
         return 1;
       }
-      const dt = clamp(state.activeTime - last, 0, 64);
+      const elapsedMilliseconds = clamp(state.activeTime - last, 0, 64);
       last = state.activeTime;
       // A page that cannot scroll rests at the end, so its graphic shows the whole journey.
       const target = scrolls ? clamp(scrollY / max) : 1;
@@ -70,7 +70,7 @@ export function createScrollReader(container: HTMLElement): ScrollReader {
         primed = true;
         value = target;
       }
-      value += (target - value) * (1 - Math.exp(-dt / 160));
+      value += (target - value) * (1 - Math.exp(-elapsedMilliseconds / 160));
       settled = Math.abs(target - value) < SETTLE_DISTANCE;
       if (settled) value = target;
       return value;

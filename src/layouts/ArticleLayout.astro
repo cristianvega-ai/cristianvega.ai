@@ -1,6 +1,6 @@
 ---
 import BaseLayout from "./BaseLayout.astro";
-import { articleDate, articleUrl, readingMinutes, type Article } from "../shared/writing";
+import { articleDate, articleAddress, readingMinutes, type Article } from "../shared/writing";
 import "../styles/writing.css";
 
 interface Props {
@@ -10,7 +10,7 @@ interface Props {
 }
 
 const { article, older, newer } = Astro.props;
-const url = new URL(articleUrl(article), Astro.site).href;
+const shareAddress = new URL(articleAddress(article), Astro.site).href;
 ---
 
 <BaseLayout title={article.data.title} description={article.data.description} active="article" noindex={article.data.draft} published={article.data.draft ? undefined : article.data.date.toISOString()}>
@@ -33,15 +33,15 @@ const url = new URL(articleUrl(article), Astro.site).href;
         <div class="prose wrap wrap--read"><slot /></div>
         {!article.data.draft && <div class="wrap wrap--read">
           <div class="author__share">
-            <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`} target="_blank" rel="noopener noreferrer" aria-label="Share on LinkedIn">linkedin</a>
-            <a href={`https://x.com/intent/post?url=${encodeURIComponent(url)}&text=${encodeURIComponent(article.data.title)}`} target="_blank" rel="noopener noreferrer" aria-label="Share on X">x</a>
-            <button type="button" data-copy-link={url} hidden>copy link</button>
+            <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareAddress)}`} target="_blank" rel="noopener noreferrer" aria-label="Share on LinkedIn">linkedin</a>
+            <a href={`https://x.com/intent/post?url=${encodeURIComponent(shareAddress)}&text=${encodeURIComponent(article.data.title)}`} target="_blank" rel="noopener noreferrer" aria-label="Share on X">x</a>
+            <button type="button" data-copy-link={shareAddress} hidden>copy link</button>
             <span class="share-status" role="status"></span>
           </div>
         </div>}
         {(older || newer) && <nav class="read-next wrap wrap--read" aria-label="More posts">
-          {older && <a href={articleUrl(older)}><span>← Older{older.data.draft && " · Draft"}</span><strong>{older.data.title}</strong></a>}
-          {newer && <a href={articleUrl(newer)} class="read-next__newer"><span>Newer{newer.data.draft && " · Draft"} →</span><strong>{newer.data.title}</strong></a>}
+          {older && <a href={articleAddress(older)}><span>← Older{older.data.draft && " · Draft"}</span><strong>{older.data.title}</strong></a>}
+          {newer && <a href={articleAddress(newer)} class="read-next__newer"><span>Newer{newer.data.draft && " · Draft"} →</span><strong>{newer.data.title}</strong></a>}
         </nav>}
       </div>
     </article>

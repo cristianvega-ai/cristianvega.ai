@@ -1,7 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageGraphic from "../../components/PageGraphic.astro";
-import { getArticles, articleDate, articleUrl, readingMinutes } from "../../shared/writing";
+import { getArticles, articleDate, articleAddress, readingMinutes } from "../../shared/writing";
 import "../../styles/writing.css";
 
 // Build /writing/ only when an article is visible. Production has no published
@@ -25,9 +25,9 @@ const hasDrafts = articles.some((article) => article.data.draft);
     <section class="writing-index__list" data-writing-list aria-labelledby="writing-title">
       <ol class="article-list">
         {articles.map((article, index) => (
-          <li class="article-list__item" data-article-id={article.id} data-writing-entry-id={article.id}>
+          <li class="article-list__item" data-article-identifier={article.id} data-writing-entry-identifier={article.id}>
             <span class="article-list__num" data-writing-label aria-hidden="true">N° {String(articles.length - index).padStart(2, "0")}</span>
-            <h2 class="article-list__title"><a class="article-list__link" href={articleUrl(article)}>{article.data.title}</a></h2>
+            <h2 class="article-list__title"><a class="article-list__link" href={articleAddress(article)}>{article.data.title}</a></h2>
             <p class="article-list__meta"><time datetime={article.data.date.toISOString().slice(0, 10)}>{articleDate(article)}</time> · {article.data.topic} · {readingMinutes(article)} min{article.data.draft && <span class="draft-label"> · Draft</span>}</p>
             <p class="article-list__excerpt">{article.data.description}</p>
           </li>

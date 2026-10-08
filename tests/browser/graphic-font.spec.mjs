@@ -205,7 +205,7 @@ test("wakes a resting scene when refreshed labels need more motion", async ({ pa
     window.__fontHandle = mountCanvas(root, {
       duration: 1,
       onResize(state) {
-        state.labelFont.widthCssPx("Writing");
+        state.labelFont.widthInPixels("Writing");
         if (state.labelFont.canvasFont.includes("serif")) window.__fontMotion = 3;
       },
       draw() {

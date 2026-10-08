@@ -2,8 +2,7 @@ import { clamp, easeOutCubic, FULL_TURN_RADIANS } from "../motion/easing.ts";
 
 // One import point for the page graphics. The shared easing helpers live in
 // `../motion/easing.ts`, so this file only adds what they lack.
-export { clamp, easeOutCubic };
-export const TAU = FULL_TURN_RADIANS;
+export { clamp, easeOutCubic, FULL_TURN_RADIANS };
 
 /** Ease from 0 to 1 with no jump at either end. */
 export function smooth(value: number): number {
@@ -11,7 +10,7 @@ export function smooth(value: number): number {
   return t * t * (3 - 2 * t);
 }
 
-export function lerp(from: number, to: number, t: number): number {
+export function interpolate(from: number, to: number, t: number): number {
   return from + (to - from) * t;
 }
 

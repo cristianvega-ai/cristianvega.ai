@@ -27,7 +27,7 @@ export const figureBox = (points) => {
 };
 
 // Keep the reference star widths in CSS pixels.
-export const starWidthsCssPx = [66, 0, 0, 0, 42, 42];
+export const starWidthsInPixels = [66, 0, 0, 0, 42, 42];
 
 // Read Markdown independently from the application content helpers.
 export function readContentInventory(projectRoot = root) {

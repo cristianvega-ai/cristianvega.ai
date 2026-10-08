@@ -16,7 +16,7 @@ export interface CanvasHandle extends ControllerHandle {
 }
 
 export interface MountOptions extends Omit<ControllerOptions, "draw" | "onResize" | "attach"> {
-  draw: (ctx: CanvasRenderingContext2D, state: FrameState) => boolean | void;
+  draw: (drawingContext: CanvasRenderingContext2D, state: FrameState) => boolean | void;
   /** Build the scene when its canvas box or loaded fonts change. */
   onResize?: (state: FrameState) => void;
   attach?: (handle: CanvasHandle) => (() => void) | void;
@@ -24,13 +24,13 @@ export interface MountOptions extends Omit<ControllerOptions, "draw" | "onResize
 
 /** Mount a page scene. Preserve its entrance across restores. */
 export function mountCanvas(container: HTMLElement, options: MountOptions): CanvasHandle | null {
-  const ctx = container.querySelector("canvas")?.getContext("2d");
-  if (!ctx) return null;
+  const drawingContext = container.querySelector("canvas")?.getContext("2d");
+  if (!drawingContext) return null;
 
   function prepareFont(state: ControllerState): FrameState {
     const pageState = state as FrameState;
     const style = getComputedStyle(container);
-    pageState.labelFont = makeLabelFont(ctx!, style.getPropertyValue("--font-mono"), style.getPropertyValue("--fs-graphic-label"));
+    pageState.labelFont = makeLabelFont(drawingContext!, style.getPropertyValue("--font-mono"), style.getPropertyValue("--fs-graphic-label"));
     return pageState;
   }
 

@@ -82,10 +82,10 @@ const NODE_COUNT = 70;
 const GOLDEN_ANGLE = 2.399963;
 const EDGE_REACH = 0.53;
 // A comet runs only along the brighter edges of the near face and the hot edges.
-const ROUTE_MIN_ALPHA = 0.12;
+const ROUTE_MINIMUM_ALPHA = 0.12;
 const ROUTE_COUNT = 12;
 // A comet starts no closer to Vega than this, so every route is a real journey.
-const ROUTE_MIN_REACH = 170;
+const ROUTE_MINIMUM_REACH = 170;
 // Grid units per share of the entrance. The comets share one speed.
 const ROUTE_SPEED = 1150;
 // The first arrival and the last arrival, as shares of the entrance.
@@ -119,7 +119,7 @@ function stepsToVega(globe: Globe, vega: GlobeNode): Map<GlobeNode, GlobeNode> {
   const next = new Map<GlobeNode, GlobeNode>();
   const cost = new Map<GlobeNode, number>([[vega, 0]]);
   const open = new Set<GlobeNode>([vega]);
-  const links = globe.edges.filter((edge) => edge.hot || edge.alpha >= ROUTE_MIN_ALPHA);
+  const links = globe.edges.filter((edge) => edge.hot || edge.alpha >= ROUTE_MINIMUM_ALPHA);
   while (open.size) {
     let node!: GlobeNode;
     for (const candidate of open) if (!node || cost.get(candidate)! < cost.get(node)!) node = candidate;
@@ -152,7 +152,7 @@ function buildRoutes(globe: Globe, sphere: GlobeNode[], vega: GlobeNode, cx: num
     let best: GlobeNode | undefined;
     for (const node of sphere) {
       const turn = (Math.atan2(node.y - cy, node.x - cx) + Math.PI) / (Math.PI * 2);
-      if (Math.floor(turn * ROUTE_COUNT) !== sector || !next.has(node) || node.alpha < 0.3 || reach(node) < ROUTE_MIN_REACH) continue;
+      if (Math.floor(turn * ROUTE_COUNT) !== sector || !next.has(node) || node.alpha < 0.3 || reach(node) < ROUTE_MINIMUM_REACH) continue;
       if (!best || reach(node) > reach(best)) best = node;
     }
     if (best) starts.push(best);

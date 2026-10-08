@@ -1,19 +1,19 @@
 import { LYRA_LINKS } from "../../lyra/constellation.ts";
-import { around, placeLabel, type LabelAlign, type PlacedLabel, type Rect, type Segment } from "../labels.ts";
+import { around, placeLabel, type LabelAlign, type PlacedLabel, type Rectangle, type Segment } from "../labels.ts";
 import { FIGURE_INSET } from "../inset.ts";
 import { layoutLyra, type LyraPoint } from "../lyra.ts";
-import { TAU, unit } from "../math.ts";
+import { FULL_TURN_RADIANS, unit } from "../math.ts";
 
 // The layout of the Writing graphic, "Reading field". It has no DOM and no canvas,
-// so a test can run it. The caller gives the box, the article ids, and the label texts.
-// Every place comes from the ids, so a reload keeps the picture.
+// so a test can run it. The caller gives the box, the article identifiers, and the label texts.
+// Every place comes from the identifiers, so a reload keeps the picture.
 
 /** Field stars that link the articles to the sky. They carry no label. */
 const FILLER = 26;
 /** The clear distance a label keeps from a star centre, in CSS pixels. */
 const STAR_CLEARANCE = 10;
-export type { LabelAlign, Rect };
-export { rectsOverlap as overlaps } from "../labels.ts";
+export type { LabelAlign, Rectangle };
+export { rectanglesOverlap as overlaps } from "../labels.ts";
 
 export interface FieldPoint {
   x: number;
@@ -36,19 +36,19 @@ export interface FieldLink {
 export type FieldLabel = PlacedLabel;
 
 export interface FieldInput {
-  ids: readonly string[];
+  articleIdentifiers: readonly string[];
   labels: readonly string[];
   /** Measured text widths in CSS pixels, in label order. */
-  labelWidthsCssPx: readonly number[];
+  labelWidthsInPixels: readonly number[];
   /** Measured text widths in CSS pixels, in Lyra star order. */
-  starWidthsCssPx: readonly number[];
+  starWidthsInPixels: readonly number[];
   /** The height of one label line in CSS pixels, from the label font. */
-  lineCssPx?: number;
+  lineHeightInPixels?: number;
   /** The box in CSS pixels. Text must not enter the part of the slot outside it. */
   width: number;
   height: number;
   /** Where labels may sit, in the same pixels. It defaults to the box. */
-  bounds?: Rect;
+  bounds?: Rectangle;
 }
 
 export interface FieldLayout {
@@ -134,15 +134,15 @@ function spread(
   }
 }
 
-export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, lineCssPx, width, height, bounds = { x0: 0, y0: 0, x1: width, y1: height } }: FieldInput): FieldLayout {
-  const count = ids.length;
+export function buildField({ articleIdentifiers, labels, labelWidthsInPixels, starWidthsInPixels, lineHeightInPixels, width, height, bounds = { x0: 0, y0: 0, x1: width, y1: height } }: FieldInput): FieldLayout {
+  const count = articleIdentifiers.length;
   const tall = height > width * 1.05;
-  const labelWidth = labelWidthsCssPx.reduce((widest, width) => Math.max(widest, width), 0);
+  const labelWidth = labelWidthsInPixels.reduce((widest, width) => Math.max(widest, width), 0);
   const cx = width / 2 + (tall ? 8 : 0);
   const cy = height / 2;
 
   // The Lyra figure sits in the middle. Upright in a tall box, on its side in a wide one.
-  const stars = layoutLyra(Math.min(width * 0.42, 220), Math.min(height * (tall ? 0.3 : 0.4), 260), { pad: 2, rotate: tall ? 0 : Math.PI / 2 });
+  const stars = layoutLyra(Math.min(width * 0.42, 220), Math.min(height * (tall ? 0.3 : 0.4), 260), { padding: 2, rotate: tall ? 0 : Math.PI / 2 });
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;
@@ -161,16 +161,16 @@ export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, lin
   }
   const zone = { x: (maxX - minX) / 2 + 26, y: (maxY - minY) / 2 + 26 };
 
-  // Articles: the angle slots follow the hash order, so the ids place the stars and the ring stays even.
+  // Articles: the angle slots follow the hash order, so the identifiers place the stars and the ring stays even.
   const margins = { l: labelWidth + 26, r: labelWidth + 26, t: Math.max(40, FIGURE_INSET), b: Math.max(40, FIGURE_INSET) };
   const rx = (width - margins.l - margins.r) / 2;
   const ry = (height - margins.t - margins.b) / 2;
-  const order = ids.map((id, index) => ({ index, angle: hashUnit(id, 1) })).sort((a, b) => a.angle - b.angle);
+  const order = articleIdentifiers.map((identifier, index) => ({ index, angle: hashUnit(identifier, 1) })).sort((a, b) => a.angle - b.angle);
   const points: FieldPoint[] = new Array(count);
   order.forEach(({ index }, rank) => {
-    const id = ids[index];
-    const angle = -Math.PI / 2 + ((rank + 0.5 + (hashUnit(id, 3) - 0.5) * 0.5) / count) * TAU + 0.35;
-    const reach = 0.66 + 0.34 * hashUnit(id, 2);
+    const identifier = articleIdentifiers[index];
+    const angle = -Math.PI / 2 + ((rank + 0.5 + (hashUnit(identifier, 3) - 0.5) * 0.5) / count) * FULL_TURN_RADIANS + 0.35;
+    const reach = 0.66 + 0.34 * hashUnit(identifier, 2);
     points[index] = { x: cx + Math.cos(angle) * rx * reach * 1.1, y: cy + Math.sin(angle) * ry * reach, radius: 0, alpha: 1, article: true };
   });
   spread(points, { x: cx, y: cy }, zone, Math.min(width, height) * 0.2 + 10, margins, width, height);
@@ -183,17 +183,17 @@ export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, lin
     const ny = (y - cy) / zone.y;
     if (nx * nx + ny * ny < 1.1) continue;
     if (points.some((p) => Math.hypot(p.x - x, p.y - y) < 30)) continue;
-    points.push({ x, y, radius: 0.6 + unit(i * 5 + 11) * 0.7, alpha: 0.5 + 0.3 * Math.sin(unit(i * 5 + 12) * TAU), article: false });
+    points.push({ x, y, radius: 0.6 + unit(i * 5 + 11) * 0.7, alpha: 0.5 + 0.3 * Math.sin(unit(i * 5 + 12) * FULL_TURN_RADIANS), article: false });
   }
 
   // Synapses: each point links to its two nearest neighbours, once for each pair.
   const links: FieldLink[] = [];
   const seen = new Set<number>();
-  const maxDistance = Math.max(width, height) * 0.24;
+  const maximumDistance = Math.max(width, height) * 0.24;
   points.forEach((p, i) => {
     const ranked = points
       .map((q, j) => ({ j, d: Math.hypot(q.x - p.x, q.y - p.y) }))
-      .filter((entry) => entry.j !== i && entry.d < maxDistance)
+      .filter((entry) => entry.j !== i && entry.d < maximumDistance)
       .sort((a, b) => a.d - b.d)
       .slice(0, 2);
     for (const { j } of ranked) {
@@ -208,20 +208,20 @@ export function buildField({ ids, labels, labelWidthsCssPx, starWidthsCssPx, lin
   const synapses: Segment[] = links.map((link) => ({ ax: points[link.from].x, ay: points[link.from].y, bx: points[link.to].x, by: points[link.to].y }));
   const figure: Segment[] = LYRA_LINKS.map(([a, b]) => ({ ax: stars[a].x, ay: stars[a].y, bx: stars[b].x, by: stars[b].y }));
   const segments = [...synapses, ...figure];
-  const taken: Rect[] = [];
+  const taken: Rectangle[] = [];
   for (const star of stars) taken.push(around(star.x, star.y, STAR_CLEARANCE));
   for (let i = 0; i < count; i++) taken.push(around(points[i].x, points[i].y, STAR_CLEARANCE));
 
   const articleLabels = labels.map((text, i) => {
     const { x, y } = points[i];
-    const out = x >= cx;
-    return placeLabel(text, x, y, { widthCssPx: labelWidthsCssPx[i], lineCssPx, bounds, segments, avoid: taken, gap: 13, prefer: out ? ["right", "left", "above", "below"] : ["left", "right", "above", "below"] });
+    const placeOnRight = x >= cx;
+    return placeLabel(text, x, y, { widthInPixels: labelWidthsInPixels[i], lineHeightInPixels, bounds, segments, avoid: taken, gap: 13, prefer: placeOnRight ? ["right", "left", "above", "below"] : ["left", "right", "above", "below"] });
   });
 
   const starLabels = stars.map((star, i) => {
     if (!star.name) return null;
     // A star name keeps clear of the figure links. A faint synapse under it only breaks a tie, and the halo cuts it out.
-    const label = placeLabel(star.name, star.x, star.y, { widthCssPx: starWidthsCssPx[i], lineCssPx, bounds, segments: figure, soft: synapses, avoid: taken, gap: 14, lift: star.vega ? -10 : 0 });
+    const label = placeLabel(star.name, star.x, star.y, { widthInPixels: starWidthsInPixels[i], lineHeightInPixels, bounds, segments: figure, soft: synapses, avoid: taken, gap: 14, lift: star.vega ? -10 : 0 });
     return label.clear ? label : null;
   });
 

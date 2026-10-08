@@ -1,4 +1,4 @@
-import type { Rect } from "./labels.ts";
+import type { Rectangle } from "./labels.ts";
 
 /**
  * The one bounding rule of every page graphic: the figure fits inside the graphic box with this
@@ -10,7 +10,7 @@ import type { Rect } from "./labels.ts";
 export const FIGURE_INSET = 32;
 
 /** The figure box uses the supplied canvas width and height. */
-export function figureRect(width: number, height: number): Rect {
+export function figureRectangle(width: number, height: number): Rectangle {
   return { x0: FIGURE_INSET, y0: FIGURE_INSET, x1: width - FIGURE_INSET, y1: height - FIGURE_INSET };
 }
 
@@ -20,5 +20,5 @@ export function figureRect(width: number, height: number): Rect {
  * `origin` is the left edge of the drawing area inside the box, which is 0 unless the figure shares the box.
  */
 export function reportFigureLeft(container: HTMLElement, width: number, height: number, origin = 0): void {
-  container.dataset.figureLeft = String(origin + figureRect(width, height).x0);
+  container.dataset.figureLeft = String(origin + figureRectangle(width, height).x0);
 }

@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { LYRA, LYRA_LINKS } from "../src/shared/lyra/constellation.ts";
-import { LYRA_MAX_SIZE, layoutLyra } from "../src/shared/page-graphics/lyra.ts";
-import { FIGURE_INSET, figureRect } from "../src/shared/page-graphics/inset.ts";
+import { LYRA_MAXIMUM_SIZE, layoutLyra } from "../src/shared/page-graphics/lyra.ts";
+import { FIGURE_INSET, figureRectangle } from "../src/shared/page-graphics/inset.ts";
 import { makeMesh } from "../src/shared/page-graphics/mesh.ts";
 import { makeRoute } from "../src/shared/page-graphics/marks.ts";
 import { figureBox } from "./helpers.mjs";
@@ -16,7 +16,7 @@ test("the Lyra figure links only stars that exist", () => {
 });
 
 test("layoutLyra fits the Lyra figure inside the padded box and keeps Vega first", () => {
-  const points = layoutLyra(400, 200, { pad: 20 });
+  const points = layoutLyra(400, 200, { padding: 20 });
   assert.equal(points.length, LYRA.length);
   assert.equal(points[0].vega, true);
   assert.equal(points.filter((point) => point.vega).length, 1);
@@ -24,20 +24,20 @@ test("layoutLyra fits the Lyra figure inside the padded box and keeps Vega first
     assert.ok(point.x >= 19.999 && point.x <= 380.001, `x ${point.x} must sit inside the box`);
     assert.ok(point.y >= 19.999 && point.y <= 180.001, `y ${point.y} must sit inside the box`);
   }
-  const reused = layoutLyra(300, 300, { out: points });
+  const reused = layoutLyra(300, 300, { outputPoints: points });
   assert.equal(reused, points, "layoutLyra must fill the array it receives");
 });
 
 test("layoutLyra keeps the same proportions and a capped size on every canvas", () => {
-  assert.ok(LYRA_MAX_SIZE <= 320, "the cap must stay near the size of the homepage and Writing figures");
+  assert.ok(LYRA_MAXIMUM_SIZE <= 320, "the cap must stay near the size of the homepage and Writing figures");
   const native = figureBox(LYRA.map((star) => ({ x: star.x, y: star.y })));
   for (const [w, h] of [[300, 300], [380, 720], [460, 900], [700, 150], [1200, 1200], [2000, 3000], [3000, 400]]) {
     const box = figureBox(layoutLyra(w, h));
     assert.ok(Math.abs(box.aspect - native.aspect) < 1e-9, `${w}x${h}: the aspect must match the figure, not the canvas`);
-    assert.ok(Math.max(box.width, box.height) <= LYRA_MAX_SIZE + 1e-9, `${w}x${h}: the figure must not grow past the cap`);
+    assert.ok(Math.max(box.width, box.height) <= LYRA_MAXIMUM_SIZE + 1e-9, `${w}x${h}: the figure must not grow past the cap`);
   }
-  const small = figureBox(layoutLyra(200, 120, { pad: 10 }));
-  assert.ok(Math.max(small.width, small.height) < LYRA_MAX_SIZE, "a small canvas must still shrink the figure");
+  const small = figureBox(layoutLyra(200, 120, { padding: 10 }));
+  assert.ok(Math.max(small.width, small.height) < LYRA_MAXIMUM_SIZE, "a small canvas must still shrink the figure");
   const tall = layoutLyra(460, 900);
   const cx = (Math.min(...tall.map((p) => p.x)) + Math.max(...tall.map((p) => p.x))) / 2;
   assert.ok(Math.abs(cx - 230) < 1e-6, "a capped figure must sit centred in the canvas");
@@ -74,7 +74,7 @@ test("the shared mesh reduces node count and draws fewer diagonal arcs after str
   }
 });
 
-test("the figure inset is 32px, larger than the 24px edge fade, and figureRect follows it", () => {
+test("the figure inset is 32px, larger than the 24px edge fade, and figureRectangle follows it", () => {
   assert.equal(FIGURE_INSET, 32);
-  assert.deepEqual(figureRect(456, 762), { x0: 32, y0: 32, x1: 424, y1: 730 });
+  assert.deepEqual(figureRectangle(456, 762), { x0: 32, y0: 32, x1: 424, y1: 730 });
 });
