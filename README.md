@@ -19,6 +19,5 @@ Until then, the homepage marks each section as coming soon.
 ## Maintenance
 
 Cristian Vega maintains this website; it does not accept outside contributions.
-See the [maintenance guide](docs/maintenance.md) for internal procedures.
 [AGENTS.md](AGENTS.md) holds the canonical repository policy.
 Report security problems through [SECURITY.md](SECURITY.md).
