@@ -1,11 +1,31 @@
 import type { Point } from "../../motion/easing.ts";
 import { LYRA, LYRA_LINKS } from "../../lyra/constellation.ts";
 import { stagger } from "../../motion/clock.ts";
-import { around, ellipseSegments, labelBounds, placeLabel, type PlacedLabel, type Rectangle, type Segment } from "../labels.ts";
+import {
+  around,
+  ellipseSegments,
+  labelBounds,
+  placeLabel,
+  type PlacedLabel,
+  type Rectangle,
+  type Segment,
+} from "../labels.ts";
 import { FIGURE_INSET, reportFigureLeft } from "../inset.ts";
 import { LYRA_MAXIMUM_SIZE } from "../lyra.ts";
 import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
-import { drawComet, drawEdge, drawLabel, drawNode, drawStarField, drawVegaBloom, makeRoute, makeStarField, NODE_HALO, type FieldStar, type Route } from "../marks.ts";
+import {
+  drawComet,
+  drawEdge,
+  drawLabel,
+  drawNode,
+  drawStarField,
+  drawVegaBloom,
+  makeRoute,
+  makeStarField,
+  NODE_HALO,
+  type FieldStar,
+  type Route,
+} from "../marks.ts";
 import { easeOutCubic, smooth, FULL_TURN_RADIANS } from "../math.ts";
 import { mountCanvas, type CanvasHandle, type FrameState } from "../mount.ts";
 import { MAXIMUM_SLOTS, SLOT_OFFSET, SLOT_RING } from "./product-slots.ts";
@@ -68,7 +88,15 @@ export function productProgress(progress: number, index: number, count: number, 
 }
 
 /** Put a slot on its orbit. `wide` is a band: the figure lies to the left and the slots turn with it. */
-export function orbitSlot(output: Point, index: number, wide: boolean, cx: number, cy: number, halfWidth: number, halfHeight: number): Point {
+export function orbitSlot(
+  output: Point,
+  index: number,
+  wide: boolean,
+  cx: number,
+  cy: number,
+  halfWidth: number,
+  halfHeight: number,
+): Point {
   const away = ((wide ? -145 : -55) * Math.PI) / 180;
   const angle = away + (SLOT_OFFSET[index] * Math.PI) / 180;
   const ring = RINGS[SLOT_RING[index]];
@@ -82,7 +110,14 @@ export function orbitSlot(output: Point, index: number, wide: boolean, cx: numbe
  * half box (rx, ry), with one uniform scale and a cap on its size. A wide box turns the figure a
  * quarter turn. Fills `output` and returns it.
  */
-export function fitLyraAtVega(output: Point[], cx: number, cy: number, rx: number, ry: number, wide: boolean): Point[] {
+export function fitLyraAtVega(
+  output: Point[],
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  wide: boolean,
+): Point[] {
   const rotate = wide ? -Math.PI / 2 : 0;
   const cos = Math.cos(rotate);
   const sin = Math.sin(rotate);
@@ -136,25 +171,34 @@ export function orbitBox(width: number, height: number): OrbitBox {
 }
 
 /** A link from a product to Vega, drawn in from the product. */
-function drawLink(drawingContext: CanvasRenderingContext2D, sky: string, ax: number, ay: number, bx: number, by: number, t: number, alpha: number): void {
-  if (t <= 0) return;
-  const g = easeOutCubic(t);
-  drawingContext.globalAlpha = alpha * smooth(t * 2);
+function drawLink(
+  drawingContext: CanvasRenderingContext2D,
+  sky: string,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  progress: number,
+  alpha: number,
+): void {
+  if (progress <= 0) return;
+  const growth = easeOutCubic(progress);
+  drawingContext.globalAlpha = alpha * smooth(progress * 2);
   drawingContext.strokeStyle = sky;
   drawingContext.lineWidth = 0.8;
   drawingContext.beginPath();
   drawingContext.moveTo(ax, ay);
-  drawingContext.lineTo(ax + (bx - ax) * g, ay + (by - ay) * g);
+  drawingContext.lineTo(ax + (bx - ax) * growth, ay + (by - ay) * growth);
   drawingContext.stroke();
   drawingContext.globalAlpha = 1;
 }
 
 export function mountProducts(container: HTMLElement): CanvasHandle | null {
   // Both product pages pass the count through the graphic component.
-  const { lit, total } = planOrbit(Number(container.dataset.products));
+  const { lit: litProductCount, total: slotCount } = planOrbit(Number(container.dataset.products));
   // The product page marks its own product, so the picture can show which star it is.
-  const current = container.dataset.current === undefined ? -1 : Number(container.dataset.current);
-  container.dataset.products = String(lit);
+  const currentProductIndex = container.dataset.current === undefined ? -1 : Number(container.dataset.current);
+  container.dataset.products = String(litProductCount);
 
   let cx = 0;
   let cy = 0;
@@ -175,27 +219,47 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
     cy = state.height / 2;
     ({ halfWidth, halfHeight, wide } = orbitBox(state.width, state.height));
     fitLyraAtVega(stars, cx, cy, halfWidth * 0.8, halfHeight * 0.8, wide);
-    for (let i = 0; i < total; i++) orbitSlot(spots[i], i, wide, cx, cy, halfWidth, halfHeight);
+    for (let i = 0; i < slotCount; i++) orbitSlot(spots[i], i, wide, cx, cy, halfWidth, halfHeight);
     routes.length = 0;
-    for (let i = 0; i < Math.min(lit, 3); i++) routes.push(makeRoute([spots[i], stars[0]]));
+    for (let i = 0; i < Math.min(litProductCount, 3); i++) routes.push(makeRoute([spots[i], stars[0]]));
     field = makeStarField(state.width, state.height, Math.round((state.width * state.height) / 11_000), 11);
     mesh = makeMesh(state.width, state.height, 11);
     const widthsInPixels = LYRA.map((star) => star.name ? state.labelFont.widthInPixels(star.name) : 0);
-    labels = placeLabels(labelBounds(container, state.width, state.height), state.height > 300, widthsInPixels, state.labelFont.lineHeightInPixels);
+    labels = placeLabels(
+      labelBounds(container, state.width, state.height),
+      state.height > 300,
+      widthsInPixels,
+      state.labelFont.lineHeightInPixels,
+    );
   }
 
   // Each name takes the side of its star that no link or product line crosses. The rings only break a tie.
-  function placeLabels(bounds: Rectangle, showNames: boolean, widthsInPixels: readonly number[], lineHeightInPixels: number): PlacedLabel[] {
+  function placeLabels(
+    bounds: Rectangle,
+    showNames: boolean,
+    widthsInPixels: readonly number[],
+    lineHeightInPixels: number,
+  ): PlacedLabel[] {
     const segments: Segment[] = LYRA_LINKS.map(([a, b]) => ({ ax: stars[a].x, ay: stars[a].y, bx: stars[b].x, by: stars[b].y }));
-    for (let i = 0; i < lit; i++) segments.push({ ax: spots[i].x, ay: spots[i].y, bx: stars[0].x, by: stars[0].y });
+    for (let i = 0; i < litProductCount; i++) segments.push({ ax: spots[i].x, ay: spots[i].y, bx: stars[0].x, by: stars[0].y });
     const soft: Segment[] = [];
     for (const ring of RINGS) ellipseSegments(cx, cy, ring * halfWidth, ring * halfHeight, 48, soft);
     const avoid: Rectangle[] = stars.map((star) => around(star.x, star.y, 9));
-    for (let i = 0; i < total; i++) avoid.push(around(spots[i].x, spots[i].y, 12));
+    for (let i = 0; i < slotCount; i++) avoid.push(around(spots[i].x, spots[i].y, 12));
     const placed: PlacedLabel[] = [];
     for (const i of [0, 4, 5]) {
       const name = LYRA[i].name;
-      if (name && (i === 0 || showNames)) placed.push(placeLabel(name, stars[i].x, stars[i].y, { widthInPixels: widthsInPixels[i], lineHeightInPixels, bounds, segments, soft, avoid, gap: i ? 12 : 14 }));
+      if (name && (i === 0 || showNames)) {
+        placed.push(placeLabel(name, stars[i].x, stars[i].y, {
+          widthInPixels: widthsInPixels[i],
+          lineHeightInPixels,
+          bounds,
+          segments,
+          soft,
+          avoid,
+          gap: i ? 12 : 14,
+        }));
+      }
     }
     return placed;
   }
@@ -209,12 +273,20 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
     // Orbits, drawn in one after another.
     drawingContext.lineWidth = 0.7;
     drawingContext.strokeStyle = palette.metadata;
-    for (let r = 0; r < RINGS.length; r++) {
-      const g = easeOutCubic(stagger(progress, 0.03 + r * 0.09, 0.36));
-      if (g <= 0) continue;
-      drawingContext.globalAlpha = 0.3 - r * 0.05;
+    for (let ringIndex = 0; ringIndex < RINGS.length; ringIndex++) {
+      const growth = easeOutCubic(stagger(progress, 0.03 + ringIndex * 0.09, 0.36));
+      if (growth <= 0) continue;
+      drawingContext.globalAlpha = 0.3 - ringIndex * 0.05;
       drawingContext.beginPath();
-      drawingContext.ellipse(cx, cy, RINGS[r] * halfWidth, RINGS[r] * halfHeight, 0, -Math.PI / 2, -Math.PI / 2 + FULL_TURN_RADIANS * g);
+      drawingContext.ellipse(
+        cx,
+        cy,
+        RINGS[ringIndex] * halfWidth,
+        RINGS[ringIndex] * halfHeight,
+        0,
+        -Math.PI / 2,
+        -Math.PI / 2 + FULL_TURN_RADIANS * growth,
+      );
       drawingContext.stroke();
     }
     drawingContext.globalAlpha = 1;
@@ -227,7 +299,13 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
       const angle = SATELLITE_PHASE[i] + drift * SATELLITE_SPEED[i];
       drawingContext.globalAlpha = 0.55 * satelliteProgress;
       drawingContext.beginPath();
-      drawingContext.arc(cx + Math.cos(angle) * RINGS[SATELLITE_RING[i]] * halfWidth, cy + Math.sin(angle) * RINGS[SATELLITE_RING[i]] * halfHeight, 1.1, 0, FULL_TURN_RADIANS);
+      drawingContext.arc(
+        cx + Math.cos(angle) * RINGS[SATELLITE_RING[i]] * halfWidth,
+        cy + Math.sin(angle) * RINGS[SATELLITE_RING[i]] * halfHeight,
+        1.1,
+        0,
+        FULL_TURN_RADIANS,
+      );
       drawingContext.fill();
     }
     drawingContext.globalAlpha = 1;
@@ -235,17 +313,40 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
     // The Lyra figure.
     for (let i = 0; i < LYRA_LINKS.length; i++) {
       const [a, b] = LYRA_LINKS[i];
-      drawEdge(drawingContext, palette, stars[a].x, stars[a].y, stars[b].x, stars[b].y, stagger(progress, 0.14 + i * 0.05, 0.2), i < 2, 0.4);
+      drawEdge(
+        drawingContext,
+        palette,
+        stars[a].x,
+        stars[a].y,
+        stars[b].x,
+        stars[b].y,
+        stagger(progress, 0.14 + i * 0.05, 0.2),
+        i < 2,
+        0.4,
+      );
     }
-    for (let i = 0; i < stars.length; i++) drawNode(drawingContext, palette, state.glow, stars[i].x, stars[i].y, i ? 1.8 : 2.6, stagger(progress, 0.1 + i * 0.05, 0.14), i === 0, 0.9, i === 0);
+    for (let i = 0; i < stars.length; i++) {
+      drawNode(
+        drawingContext,
+        palette,
+        state.glow,
+        stars[i].x,
+        stars[i].y,
+        i ? 1.8 : 2.6,
+        stagger(progress, 0.1 + i * 0.05, 0.14),
+        i === 0,
+        0.9,
+        i === 0,
+      );
+    }
 
     // Empty rings: room to grow.
     drawingContext.strokeStyle = palette.metadata;
     drawingContext.lineWidth = 0.7;
-    for (let i = lit; i < total; i++) {
-      const g = smooth(stagger(progress, 0.3 + i * 0.03, 0.2));
-      if (g <= 0) continue;
-      drawingContext.globalAlpha = 0.42 * g;
+    for (let i = litProductCount; i < slotCount; i++) {
+      const growth = smooth(stagger(progress, 0.3 + i * 0.03, 0.2));
+      if (growth <= 0) continue;
+      drawingContext.globalAlpha = 0.42 * growth;
       drawingContext.beginPath();
       drawingContext.arc(spots[i].x, spots[i].y, EMPTY_RING, 0, FULL_TURN_RADIANS);
       drawingContext.stroke();
@@ -253,19 +354,39 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
     drawingContext.globalAlpha = 1;
 
     // The products ignite in turn, each with a link to Vega.
-    for (let i = 0; i < lit; i++) {
-      const g = productProgress(progress, i, lit, "node");
-      drawLink(drawingContext, palette.sky, spots[i].x, spots[i].y, stars[0].x, stars[0].y, productProgress(progress, i, lit, "link"), 0.32);
-      drawNode(drawingContext, palette, state.glow, spots[i].x, spots[i].y, 2.6, g, true, 1, false);
-      if (g > 0) {
+    for (let i = 0; i < litProductCount; i++) {
+      const growth = productProgress(progress, i, litProductCount, "node");
+      drawLink(
+        drawingContext,
+        palette.sky,
+        spots[i].x,
+        spots[i].y,
+        stars[0].x,
+        stars[0].y,
+        productProgress(progress, i, litProductCount, "link"),
+        0.32,
+      );
+      drawNode(
+        drawingContext,
+        palette,
+        state.glow,
+        spots[i].x,
+        spots[i].y,
+        2.6,
+        growth,
+        true,
+        1,
+        false,
+      );
+      if (growth > 0) {
         drawingContext.strokeStyle = palette.sky;
         drawingContext.lineWidth = MARK_LINE;
-        drawingContext.globalAlpha = 0.5 * easeOutCubic(g);
+        drawingContext.globalAlpha = 0.5 * easeOutCubic(growth);
         drawingContext.beginPath();
         drawingContext.arc(spots[i].x, spots[i].y, PRODUCT_RING, 0, FULL_TURN_RADIANS);
         drawingContext.stroke();
-        if (i === current) {
-          drawingContext.globalAlpha = 0.9 * easeOutCubic(g);
+        if (i === currentProductIndex) {
+          drawingContext.globalAlpha = 0.9 * easeOutCubic(growth);
           drawingContext.beginPath();
           drawingContext.arc(spots[i].x, spots[i].y, CURRENT_RING, 0, FULL_TURN_RADIANS);
           drawingContext.stroke();
@@ -276,12 +397,38 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
 
     // Comets converge on Vega, then the bloom. Both are part of the entrance only.
     if (!state.entranceComplete) {
-      for (let i = 0; i < routes.length; i++) drawComet(drawingContext, palette, state.glow, routes[i], stagger(progress, 0.5 + i * 0.05, 0.4), 46);
-      drawVegaBloom(drawingContext, state.glow, stars[0].x, stars[0].y, smooth((progress - 0.66) / 0.2) * (1 - smooth((progress - 0.86) / 0.14)));
+      for (let i = 0; i < routes.length; i++) {
+        drawComet(
+          drawingContext,
+          palette,
+          state.glow,
+          routes[i],
+          stagger(progress, 0.5 + i * 0.05, 0.4),
+          46,
+        );
+      }
+      drawVegaBloom(
+        drawingContext,
+        state.glow,
+        stars[0].x,
+        stars[0].y,
+        smooth((progress - 0.66) / 0.2) * (1 - smooth((progress - 0.86) / 0.14)),
+      );
     }
 
-    const label = smooth((progress - 0.7) / 0.2);
-    for (let i = 0; i < labels.length; i++) drawLabel(drawingContext, palette, state.labelFont.canvasFont, labels[i].text, labels[i].x, labels[i].y, labels[i].align, label);
+    const labelProgress = smooth((progress - 0.7) / 0.2);
+    for (let i = 0; i < labels.length; i++) {
+      drawLabel(
+        drawingContext,
+        palette,
+        state.labelFont.canvasFont,
+        labels[i].text,
+        labels[i].x,
+        labels[i].y,
+        labels[i].align,
+        labelProgress,
+      );
+    }
 
     // Ask for more frames only while the satellites still drift.
     return !state.reduced && state.activeTime < DRIFT_DURATION_MILLISECONDS;

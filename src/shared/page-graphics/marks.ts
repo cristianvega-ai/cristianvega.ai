@@ -25,32 +25,38 @@ export function drawNode(
   halo = 1,
 ): void {
   if (grow <= 0) return;
-  const g = easeOutCubic(grow);
+  const growth = easeOutCubic(grow);
   if (hot && halo > 0) {
-    const reach = (vega ? VEGA_HALO : NODE_HALO) * g;
-    drawingContext.globalAlpha = g * halo;
+    const reach = (vega ? VEGA_HALO : NODE_HALO) * growth;
+    drawingContext.globalAlpha = growth * halo;
     drawingContext.drawImage(glow, x - reach, y - reach, reach * 2, reach * 2);
   }
   drawingContext.globalAlpha = alpha * smooth(grow * 1.5);
   drawingContext.fillStyle = palette.text;
   drawingContext.beginPath();
-  drawingContext.arc(x, y, radius * (0.4 + 0.6 * g), 0, FULL_TURN_RADIANS);
+  drawingContext.arc(x, y, radius * (0.4 + 0.6 * growth), 0, FULL_TURN_RADIANS);
   drawingContext.fill();
   if (vega) {
-    drawingContext.globalAlpha = 0.6 * g;
+    drawingContext.globalAlpha = 0.6 * growth;
     drawingContext.strokeStyle = palette.sky;
     drawingContext.lineWidth = 0.7;
     drawingContext.beginPath();
-    drawingContext.arc(x, y, 10 * (0.6 + 0.4 * g), 0, FULL_TURN_RADIANS);
+    drawingContext.arc(x, y, 10 * (0.6 + 0.4 * growth), 0, FULL_TURN_RADIANS);
     drawingContext.stroke();
   }
   drawingContext.globalAlpha = 1;
 }
 
-function edgeStyle(drawingContext: CanvasRenderingContext2D, palette: Palette, t: number, hot: boolean, alpha: number): void {
+function edgeStyle(
+  drawingContext: CanvasRenderingContext2D,
+  palette: Palette,
+  progress: number,
+  hot: boolean,
+  alpha: number,
+): void {
   drawingContext.lineCap = "round";
   drawingContext.strokeStyle = hot ? palette.sky : palette.metadata;
-  drawingContext.globalAlpha = (hot ? 0.7 : alpha) * smooth(t * 2);
+  drawingContext.globalAlpha = (hot ? 0.7 : alpha) * smooth(progress * 2);
   drawingContext.lineWidth = hot ? 1.1 : 0.65;
 }
 
@@ -67,11 +73,11 @@ export function drawEdge(
   alpha = 0.35,
 ): void {
   if (progress <= 0) return;
-  const g = easeOutCubic(clamp(progress));
+  const growth = easeOutCubic(clamp(progress));
   edgeStyle(drawingContext, palette, progress, hot, alpha);
   drawingContext.beginPath();
   drawingContext.moveTo(ax, ay);
-  drawingContext.lineTo(ax + (bx - ax) * g, ay + (by - ay) * g);
+  drawingContext.lineTo(ax + (bx - ax) * growth, ay + (by - ay) * growth);
   drawingContext.stroke();
   drawingContext.globalAlpha = 1;
 }
@@ -93,21 +99,21 @@ export function drawCurve(
   alpha = 0.35,
 ): void {
   if (progress <= 0) return;
-  const g = easeOutCubic(clamp(progress));
-  const q0x = ax + (c1x - ax) * g;
-  const q0y = ay + (c1y - ay) * g;
-  const q1x = c1x + (c2x - c1x) * g;
-  const q1y = c1y + (c2y - c1y) * g;
-  const q2x = c2x + (bx - c2x) * g;
-  const q2y = c2y + (by - c2y) * g;
-  const r0x = q0x + (q1x - q0x) * g;
-  const r0y = q0y + (q1y - q0y) * g;
-  const r1x = q1x + (q2x - q1x) * g;
-  const r1y = q1y + (q2y - q1y) * g;
+  const growth = easeOutCubic(clamp(progress));
+  const q0x = ax + (c1x - ax) * growth;
+  const q0y = ay + (c1y - ay) * growth;
+  const q1x = c1x + (c2x - c1x) * growth;
+  const q1y = c1y + (c2y - c1y) * growth;
+  const q2x = c2x + (bx - c2x) * growth;
+  const q2y = c2y + (by - c2y) * growth;
+  const r0x = q0x + (q1x - q0x) * growth;
+  const r0y = q0y + (q1y - q0y) * growth;
+  const r1x = q1x + (q2x - q1x) * growth;
+  const r1y = q1y + (q2y - q1y) * growth;
   edgeStyle(drawingContext, palette, progress, hot, alpha);
   drawingContext.beginPath();
   drawingContext.moveTo(ax, ay);
-  drawingContext.bezierCurveTo(q0x, q0y, r0x, r0y, r0x + (r1x - r0x) * g, r0y + (r1y - r0y) * g);
+  drawingContext.bezierCurveTo(q0x, q0y, r0x, r0y, r0x + (r1x - r0x) * growth, r0y + (r1y - r0y) * growth);
   drawingContext.stroke();
   drawingContext.globalAlpha = 1;
 }
@@ -141,12 +147,12 @@ const tailEnd: Point = { x: 0, y: 0 };
 
 function routePoint(route: Route, distance: number, outputPoint: Point): Point {
   const { xs, ys, lengths } = route;
-  let i = 1;
-  while (i < lengths.length - 1 && lengths[i] < distance) i++;
-  const span = lengths[i] - lengths[i - 1];
-  const share = span > 0 ? clamp((distance - lengths[i - 1]) / span) : 1;
-  outputPoint.x = xs[i - 1] + (xs[i] - xs[i - 1]) * share;
-  outputPoint.y = ys[i - 1] + (ys[i] - ys[i - 1]) * share;
+  let segmentIndex = 1;
+  while (segmentIndex < lengths.length - 1 && lengths[segmentIndex] < distance) segmentIndex++;
+  const span = lengths[segmentIndex] - lengths[segmentIndex - 1];
+  const share = span > 0 ? clamp((distance - lengths[segmentIndex - 1]) / span) : 1;
+  outputPoint.x = xs[segmentIndex - 1] + (xs[segmentIndex] - xs[segmentIndex - 1]) * share;
+  outputPoint.y = ys[segmentIndex - 1] + (ys[segmentIndex] - ys[segmentIndex - 1]) * share;
   return outputPoint;
 }
 
@@ -268,7 +274,12 @@ export function makeStarField(width: number, height: number, count: number, seed
   return field;
 }
 
-export function drawStarField(drawingContext: CanvasRenderingContext2D, palette: Palette, field: readonly FieldStar[], progress: number): void {
+export function drawStarField(
+  drawingContext: CanvasRenderingContext2D,
+  palette: Palette,
+  field: readonly FieldStar[],
+  progress: number,
+): void {
   const fadeIn = smooth(progress / 0.5);
   drawingContext.fillStyle = palette.metadata;
   for (let i = 0; i < field.length; i++) {
