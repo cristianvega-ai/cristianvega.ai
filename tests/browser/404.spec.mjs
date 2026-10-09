@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-import { contentSecurityPolicyViolations, paintedPixels, recordContentSecurityPolicyViolations, pendingFrames, playFrames, useManualFrames, drawnLabels, edgePaint, GRAPHIC_VIEWPORTS as SIZES, openGraphic as open, settle, textBoxes, useLabelSpy, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { contentSecurityPolicyViolations, paintedPixels, recordContentSecurityPolicyViolations, pendingFrames, playFrames, useManualFrames, drawnLabels, edgePaint, GRAPHIC_VIEWPORTS, openGraphic, settle, textBoxes, useLabelSpy, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 // Check the 404 graphic, search pulses, and fallback.
 
 const PAGES = {
-  notFound: { name: "404 page", url: "/no-such-page-for-the-graphic/", graphic: "[data-graphic='404']", restMs: 31_000 },
+  notFound: { name: "404 page", address: "/no-such-page-for-the-graphic/", graphic: "[data-graphic='404']", restMilliseconds: 31_000 },
 };
 
 for (const target of Object.values(PAGES)) {
@@ -13,7 +13,7 @@ for (const target of Object.values(PAGES)) {
     test.use({ viewport: VIEWPORTS.desktop });
 
     test("hides from assistive technology and takes no pointer input", async ({ page }) => {
-      await open(page, target);
+      await openGraphic(page, target);
       const state = await page.evaluate((selector) => {
         const root = document.querySelector(selector);
         return {
@@ -37,10 +37,10 @@ for (const target of Object.values(PAGES)) {
   });
 
   test.describe(`the ${target.name} graphic never overlaps text`, () => {
-    for (const size of SIZES) {
+    for (const size of GRAPHIC_VIEWPORTS) {
       test(`keeps clear of every text box at ${size.width}px`, async ({ page }) => {
         await page.setViewportSize(size);
-        await open(page, target);
+        await openGraphic(page, target);
         await settle(page);
         // The fixed box stays in view. The band scrolls, so it is checked at the top and at the bottom of the page.
         for (const place of ["top", "bottom"]) {
@@ -51,17 +51,17 @@ for (const target of Object.values(PAGES)) {
             return { top, now: scrollY };
           }, place);
           expect(Math.abs(scroll.now - scroll.top), `${place}: the page is at the ${place}`).toBeLessThanOrEqual(1);
-          const shape = await page.locator(target.graphic).evaluate((el) => {
-            const rect = el.getBoundingClientRect();
-            return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
+          const shape = await page.locator(target.graphic).evaluate((element) => {
+            const rectangle = element.getBoundingClientRect();
+            return { x: rectangle.left, y: rectangle.top, width: rectangle.width, height: rectangle.height };
           });
-          expect(shape.w, `${place}: the box has a width`).toBeGreaterThan(100);
-          expect(shape.h, `${place}: the box has a height`).toBeGreaterThan(100);
+          expect(shape.width, `${place}: the box has a width`).toBeGreaterThan(100);
+          expect(shape.height, `${place}: the box has a height`).toBeGreaterThan(100);
           const texts = await textBoxes(page);
           expect(texts.length).toBeGreaterThan(0);
           for (const text of texts) {
             const apart =
-              text.x + text.w <= shape.x || shape.x + shape.w <= text.x || text.y + text.h <= shape.y || shape.y + shape.h <= text.y;
+              text.x + text.width <= shape.x || shape.x + shape.width <= text.x || text.y + text.height <= shape.y || shape.y + shape.height <= text.y;
             expect(apart, `${place}: the graphic overlaps a text box at ${JSON.stringify(text)}`).toBe(true);
           }
         }
@@ -70,11 +70,11 @@ for (const target of Object.values(PAGES)) {
   });
 
   test.describe(`the ${target.name} graphic bounds`, () => {
-    for (const size of SIZES) {
+    for (const size of GRAPHIC_VIEWPORTS) {
       test(`keeps every strong mark 28px inside the canvas edge at ${size.width}px`, async ({ page }) => {
         await page.setViewportSize(size);
         await useReducedMotion(page);
-        await open(page, target);
+        await openGraphic(page, target);
         const painted = await edgePaint(page, target.graphic);
         // A band is short, so only the sides count there. The mesh, the star field, and the grid may enter the edge fade.
         const sides = size.width >= 1100 ? ["left", "right", "top", "bottom"] : ["left", "right"];
@@ -84,12 +84,12 @@ for (const target of Object.values(PAGES)) {
   });
 
   test.describe(`the ${target.name} graphic labels`, () => {
-    for (const size of SIZES) {
+    for (const size of GRAPHIC_VIEWPORTS) {
       test(`keep 32px from the viewport edge, clear of the fade, and inside the canvas at ${size.width}px`, async ({ page }) => {
         await page.setViewportSize(size);
         await useLabelSpy(page);
         await useReducedMotion(page);
-        await open(page, target);
+        await openGraphic(page, target);
         const { labels, viewport } = await drawnLabels(page);
         expect(labels.length, "the graphic names Vega").toBeGreaterThan(0);
         expect(labels.map((label) => label.text)).toContain("VEGA · α LYR");
@@ -106,7 +106,7 @@ for (const target of Object.values(PAGES)) {
       await page.setViewportSize(VIEWPORTS.desktop);
       await useLabelSpy(page);
       await useReducedMotion(page);
-      await open(page, target);
+      await openGraphic(page, target);
       const { labels, ink } = await drawnLabels(page);
       expect(labels.length).toBeGreaterThan(0);
       for (const label of labels) {
@@ -120,7 +120,7 @@ for (const target of Object.values(PAGES)) {
 
     test("fades the canvas edges with a mask", async ({ page }) => {
       await page.setViewportSize(VIEWPORTS.desktop);
-      await open(page, target);
+      await openGraphic(page, target);
       const mask = await page.locator(`${target.graphic} canvas`).evaluate((canvas) => {
         const style = getComputedStyle(canvas);
         return { image: style.maskImage || style.webkitMaskImage, composite: style.maskComposite || style.webkitMaskComposite };
@@ -136,7 +136,7 @@ test.describe("the 404 graphic search", () => {
 
   test("pulses at about 2.9 s, is calm between pulses, and rests when the last pulse is done", async ({ page }) => {
     await useManualFrames(page);
-    await open(page, PAGES.notFound);
+    await openGraphic(page, PAGES.notFound);
     const graphic = PAGES.notFound.graphic;
     const root = page.locator(graphic);
     // The first pulse runs from 2.9 s to 5.5 s. Its middle is at 4.2 s.
@@ -163,7 +163,7 @@ test.describe("the graphics without JavaScript", () => {
   for (const size of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
     test(`take no space and show only the 404 page at ${size.width}px`, async ({ page }) => {
       await page.setViewportSize(size);
-      await page.goto(PAGES.notFound.url);
+      await page.goto(PAGES.notFound.address);
       await expect(page.locator(PAGES.notFound.graphic)).toHaveCSS("display", "none");
       await expect(page.locator("h1")).toBeVisible();
     });
@@ -175,14 +175,14 @@ test.describe("the 404 graphic in production", () => {
     const problems = [];
     page.on("console", (message) => {
       // The browser logs the 404 status of the page itself. It is not a script error.
-      const missingPage = message.location().url.endsWith(PAGES.notFound.url) && message.text().includes("404");
+      const missingPage = message.location().url.endsWith(PAGES.notFound.address) && message.text().includes("404");
       if ((message.type() === "error" || message.type() === "warning") && !missingPage) problems.push(message.text());
     });
     page.on("pageerror", (error) => problems.push(error.message));
     await recordContentSecurityPolicyViolations(page);
     for (const size of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
       await page.setViewportSize(size);
-      const response = await page.goto(PAGES.notFound.url);
+      const response = await page.goto(PAGES.notFound.address);
       expect(response.status()).toBe(404);
       await expect(page.locator(PAGES.notFound.graphic)).toHaveAttribute("data-ready", "true");
       expect(await contentSecurityPolicyViolations(page)).toEqual([]);

@@ -1,6 +1,6 @@
-import { expect, test as base } from "@playwright/test";
+import { expect, test as baseTest } from "@playwright/test";
 import { spawn } from "node:child_process";
-import { cp } from "node:fs/promises";
+import { cp as copyFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join } from "node:path";
 import { createContentBuild, latestWork, publishedContent, readContentInventory, root } from "../helpers.mjs";
@@ -10,13 +10,13 @@ export const currentPublished = publishedContent(currentContent);
 export { latestWork };
 
 // Serve the isolated build through the same local Cloudflare runtime.
-export const publicationTest = base.extend({
+export const publicationTest = baseTest.extend({
   publication: [async ({}, use) => {
     const fixture = await createContentBuild("mixed");
     let server;
     let closed;
     try {
-      await cp(join(root, "wrangler.jsonc"), join(fixture.root, "wrangler.jsonc"));
+      await copyFile(join(root, "wrangler.jsonc"), join(fixture.root, "wrangler.jsonc"));
       const port = await new Promise((resolve, reject) => {
         const probe = createServer();
         probe.once("error", reject);
@@ -160,10 +160,10 @@ export const bandHeight = (screenHeight) => Math.min(240, Math.max(144, screenHe
 export async function settle(page) {
   await page
     .locator("main")
-    .evaluate(async (el) => {
+    .evaluate(async (element) => {
       await Promise.all([...document.fonts].map((face) => face.load().catch(() => undefined)));
       await document.fonts.ready;
-      await Promise.all(el.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)));
+      await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)));
     });
 }
 
@@ -184,9 +184,9 @@ export async function useReducedMotion(page, reducedMotion = "reduce") {
 export async function tabTo(page, selector, limit = 25) {
   const target = page.locator(selector);
 
-  for (let i = 0; i < limit; i += 1) {
+  for (let focusAttempt = 0; focusAttempt < limit; focusAttempt += 1) {
     await page.keyboard.press("Tab");
-    if (await target.evaluate((el) => el === document.activeElement)) return true;
+    if (await target.evaluate((element) => element === document.activeElement)) return true;
   }
 
   return false;
@@ -222,8 +222,8 @@ export async function useManualFrames(page) {
       queue.set(next, callback);
       return next;
     };
-    window.cancelAnimationFrame = (id) => {
-      queue.delete(id);
+    window.cancelAnimationFrame = (frameIdentifier) => {
+      queue.delete(frameIdentifier);
     };
     window.__pending = () => queue.size;
     window.__step = (time) => {
@@ -255,13 +255,13 @@ export const paintedPixels = (page, graphic, minimumAlpha) =>
   page.locator(`${graphic} canvas`).evaluate((canvas, threshold) => {
     const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
     let count = 0;
-    for (let i = 3; i < data.length; i += 4) if (data[i] > threshold) count += 1;
+    for (let alphaIndex = 3; alphaIndex < data.length; alphaIndex += 4) if (data[alphaIndex] > threshold) count += 1;
     return count;
   }, minimumAlpha);
 
 /** Open a page and wait for its graphic. */
 export async function openGraphic(page, target) {
-  await page.goto(target.url);
+  await page.goto(target.address);
   await expect(page.locator(target.graphic)).toHaveAttribute("data-ready", "true", { timeout: 20_000 });
 }
 
@@ -274,9 +274,9 @@ export async function textBoxes(page) {
       if (!node.textContent.trim()) continue;
       const range = document.createRange();
       range.selectNodeContents(node);
-      for (const rect of range.getClientRects()) {
-        if (rect.width > 0 && rect.bottom > 0 && rect.top < innerHeight) {
-          boxes.push({ x: rect.left, y: rect.top, w: rect.width, h: rect.height });
+      for (const rectangle of range.getClientRects()) {
+        if (rectangle.width > 0 && rectangle.bottom > 0 && rectangle.top < innerHeight) {
+          boxes.push({ x: rectangle.left, y: rectangle.top, width: rectangle.width, height: rectangle.height });
         }
       }
     }
@@ -296,26 +296,26 @@ export async function useLabelSpy(page) {
       colour.fillStyle = value;
       return colour.fillStyle;
     };
-    const proto = CanvasRenderingContext2D.prototype;
-    const fillText = proto.fillText;
-    const strokeText = proto.strokeText;
-    const measureText = proto.measureText;
+    const canvasPrototype = CanvasRenderingContext2D.prototype;
+    const fillText = canvasPrototype.fillText;
+    const strokeText = canvasPrototype.strokeText;
+    const measureText = canvasPrototype.measureText;
     window.__labels = new Map();
     window.__labelMeasureCount = 0;
     const canvases = new WeakMap();
-    let canvasId = 0;
-    proto.measureText = function (...args) {
+    let canvasIdentifier = 0;
+    canvasPrototype.measureText = function (...measurementArguments) {
       window.__labelMeasureCount += 1;
-      return measureText.apply(this, args);
+      return measureText.apply(this, measurementArguments);
     };
     let halo = null;
-    proto.strokeText = function (text, x, y, ...rest) {
+    canvasPrototype.strokeText = function (text, x, y, ...rest) {
       halo = { text, x, y, lineWidth: this.lineWidth, lineJoin: this.lineJoin, style: normalise(this.strokeStyle) };
       return strokeText.call(this, text, x, y, ...rest);
     };
-    proto.fillText = function (text, x, y, ...rest) {
+    canvasPrototype.fillText = function (text, x, y, ...rest) {
       const transform = this.getTransform();
-      if (!canvases.has(this.canvas)) canvases.set(this.canvas, ++canvasId);
+      if (!canvases.has(this.canvas)) canvases.set(this.canvas, ++canvasIdentifier);
       const key = `${text}@${canvases.get(this.canvas)}`;
       window.__labels.set(key, {
         text,
@@ -375,10 +375,10 @@ export async function edgePaint(page, graphic, inset = 28, minimumAlpha = 140) {
       const band = Math.round(zone * scale);
       const { width, height } = canvas;
       const context = canvas.getContext("2d");
-      const count = (x, y, w, h) => {
-        const { data } = context.getImageData(x, y, w, h);
+      const count = (x, y, width, height) => {
+        const { data } = context.getImageData(x, y, width, height);
         let total = 0;
-        for (let i = 3; i < data.length; i += 4) if (data[i] > threshold) total += 1;
+        for (let alphaIndex = 3; alphaIndex < data.length; alphaIndex += 4) if (data[alphaIndex] > threshold) total += 1;
         return total;
       };
       return {

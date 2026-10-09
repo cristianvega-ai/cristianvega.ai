@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { DRAFT_ORIGIN as dev, settle, useReducedMotion } from "./fixtures.mjs";
+import { DRAFT_ORIGIN, settle, useReducedMotion } from "./fixtures.mjs";
 
 // One type scale runs the whole site. These tests read computed styles, so a
 // page that drifts from the scale fails here. Drafts and the writing pages
@@ -13,17 +13,17 @@ const WIDTHS = [
 ];
 // The page, its title, its lede, and its body text.
 const PAGES = {
-  about: { url: "/about/", h1: ".about__title", lede: ".about__lede", body: ".about__profile p", eyebrow: ".about .eyebrow" },
-  writing: { url: "/writing/", h1: ".writing-index__introduction h1", eyebrow: ".writing-index__introduction .eyebrow" },
-  products: { url: "/products/", h1: ".product__title", eyebrow: ".product .eyebrow" },
-  product: { url: "/products/product-layout-fixture/", h1: ".product__title", lede: ".product__lede", body: ".product__prose p", eyebrow: ".product .eyebrow" },
-  notFound: { url: "/nope/", h1: "h1", lede: ".about__lede", eyebrow: ".about .eyebrow" },
-  article: { url: "/writing/full-article-layout-fixture/", h1: ".article__title", lede: ".article__description", body: ".prose p", eyebrow: ".article__header .eyebrow" },
-  shortArticle: { url: "/writing/short-article-typography-fixture/", h1: ".article__title", lede: ".article__description", eyebrow: ".article__header .eyebrow" },
+  about: { address: "/about/", heading: ".about__title", lede: ".about__lede", body: ".about__profile p", eyebrow: ".about .eyebrow" },
+  writing: { address: "/writing/", heading: ".writing-index__introduction h1", eyebrow: ".writing-index__introduction .eyebrow" },
+  products: { address: "/products/", heading: ".product__title", eyebrow: ".product .eyebrow" },
+  product: { address: "/products/product-layout-fixture/", heading: ".product__title", lede: ".product__lede", body: ".product__prose p", eyebrow: ".product .eyebrow" },
+  notFound: { address: "/nope/", heading: "h1", lede: ".about__lede", eyebrow: ".about .eyebrow" },
+  article: { address: "/writing/full-article-layout-fixture/", heading: ".article__title", lede: ".article__description", body: ".prose p", eyebrow: ".article__header .eyebrow" },
+  shortArticle: { address: "/writing/short-article-typography-fixture/", heading: ".article__title", lede: ".article__description", eyebrow: ".article__header .eyebrow" },
 };
 
-async function measure(page, url, selector) {
-  await page.goto(dev + url);
+async function measure(page, pageAddress, selector) {
+  await page.goto(DRAFT_ORIGIN + pageAddress);
   await settle(page);
   return page.locator(selector).first().evaluate((element) => {
     const style = getComputedStyle(element);
@@ -41,15 +41,15 @@ async function readRole(page, viewport, role) {
   await page.setViewportSize(viewport);
   await useReducedMotion(page);
   const result = {};
-  for (const [name, spec] of Object.entries(PAGES)) {
-    if (spec[role]) result[name] = await measure(page, spec.url, spec[role]);
+  for (const [name, pageSpecification] of Object.entries(PAGES)) {
+    if (pageSpecification[role]) result[name] = await measure(page, pageSpecification.address, pageSpecification[role]);
   }
   return result;
 }
 
 for (const viewport of WIDTHS) {
   test(`every page title has one size at ${viewport.width}px`, async ({ page }) => {
-    const titles = await readRole(page, viewport, "h1");
+    const titles = await readRole(page, viewport, "heading");
     const sizes = Object.values(titles).map((title) => title.size);
     expect(Object.keys(titles)).toHaveLength(7);
     expect(new Set(sizes).size, JSON.stringify(titles)).toBe(1);
@@ -112,7 +112,7 @@ for (const viewport of WIDTHS) {
   });
 
   test(`the sizes fall in order: title, lede, body, eyebrow at ${viewport.width}px`, async ({ page }) => {
-    const titles = await readRole(page, viewport, "h1");
+    const titles = await readRole(page, viewport, "heading");
     const ledes = await readRole(page, viewport, "lede");
     const body = await readRole(page, viewport, "body");
     const eyebrows = await readRole(page, viewport, "eyebrow");

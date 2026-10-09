@@ -72,6 +72,7 @@ To choose a layer, ask what the test must look at:
 
 ## Rules
 
+- Apply the naming rules to local test variables, parameters, object fields, and imported aliases.
 - Do not assert on `.astro` or `.ts` source text. A regular expression over source proves only that the code looks correct. It passes when the behavior is broken, and it fails after a safe rename. If a guarantee needs the browser, write a browser spec instead.
 - Node tests end in `.test.mjs`. Browser specs end in `.spec.mjs`. The `tests/*.test.mjs` glob is not recursive, which is what keeps the two runners apart. Never name a browser spec `.test.mjs`, and never put a Node test in `tests/browser/`.
 - Share browser helpers through `tests/browser/fixtures.mjs` and Node helpers through `tests/helpers.mjs`. Do not copy a helper into a second file.

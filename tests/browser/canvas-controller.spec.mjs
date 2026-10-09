@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { DRAFT_ORIGIN as dev, pageProblems, settle, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, stepFrame } from "./fixtures.mjs";
+import { DRAFT_ORIGIN, pageProblems, settle, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, stepFrame } from "./fixtures.mjs";
 
 const lifetimes = (page) => page.evaluate(() => window.__lifetimes());
 const clock = (page) => page.evaluate(() => {
@@ -21,8 +21,8 @@ async function useLifetimeSpy(page) {
           super(callback);
           window.__observers[name].push({ observer: this, callback });
         }
-        observe(...args) {
-          super.observe(...args);
+        observe(...observationArguments) {
+          super.observe(...observationArguments);
           live[name].add(this);
           if (name === "intersection" && window.__failIntersection) throw new Error("Observe failed");
         }
@@ -32,8 +32,8 @@ async function useLifetimeSpy(page) {
         }
       };
     }
-    const add = EventTarget.prototype.addEventListener;
-    const remove = EventTarget.prototype.removeEventListener;
+    const originalAddEventListener = EventTarget.prototype.addEventListener;
+    const originalRemoveEventListener = EventTarget.prototype.removeEventListener;
     const key = (target, type) => {
       if (target === document && type === "visibilitychange") return type;
       if (target === window && (type === "pagehide" || type === "pageshow")) return type;
@@ -42,12 +42,12 @@ async function useLifetimeSpy(page) {
     EventTarget.prototype.addEventListener = function (type, listener, options) {
       const name = key(this, type);
       if (name) listeners.get(name).add(listener);
-      return add.call(this, type, listener, options);
+      return originalAddEventListener.call(this, type, listener, options);
     };
     EventTarget.prototype.removeEventListener = function (type, listener, options) {
       const name = key(this, type);
       if (name) listeners.get(name).delete(listener);
-      return remove.call(this, type, listener, options);
+      return originalRemoveEventListener.call(this, type, listener, options);
     };
     window.__lifetimes = () => ({
       resize: live.resize.size,
@@ -61,12 +61,12 @@ async function useLifetimeSpy(page) {
 async function mountScene(page, policy, { duration = 2300, busy = false, count = 1 } = {}) {
   await useManualFrames(page);
   await useLifetimeSpy(page);
-  const url = `${dev}/__canvas-controller__/`;
-  await page.route(url, (route) => route.fulfill({
+  const sceneAddress = `${DRAFT_ORIGIN}/__canvas-controller__/`;
+  await page.route(sceneAddress, (route) => route.fulfill({
     contentType: "text/html",
     body: "<!doctype html><html><head><title>Canvas controller test</title></head><body></body></html>",
   }));
-  await page.goto(url);
+  await page.goto(sceneAddress);
   await page.evaluate(async (settings) => {
     const { mountCanvas } = await import("/src/shared/page-graphics/mount.ts");
     const { GLOBE_POLICY, mountCanvasController } = await import("/src/shared/motion/canvas-controller.ts");
@@ -78,9 +78,9 @@ async function mountScene(page, policy, { duration = 2300, busy = false, count =
     window.__detached = 0;
     window.__handles = [];
     window.__stateChanged = false;
-    for (let i = 0; i < settings.count; i += 1) {
+    for (let sceneIndex = 0; sceneIndex < settings.count; sceneIndex += 1) {
       const root = document.createElement("div");
-      root.dataset.scene = String(i);
+      root.dataset.scene = String(sceneIndex);
       root.style.cssText = "width:240px;height:160px;margin:24px";
       root.append(document.createElement("canvas"));
       root.firstElementChild.style.cssText = "display:block;width:100%;height:100%";
@@ -196,9 +196,9 @@ for (const policy of ["page", "globe"]) {
         const restored = policy === "page" ? saved : { ...saved, elapsed: 0, activeTime: 0 };
         expect(await clock(page)).toEqual(restored);
         const draws = await page.evaluate(() => window.__draws);
-        await page.evaluate((old) => {
-          window.__observers.resize[old].callback([{ contentRect: { width: 1, height: 1 } }]);
-          window.__observers.intersection[old].callback([{ isIntersecting: false }]);
+        await page.evaluate((previousObserverIndex) => {
+          window.__observers.resize[previousObserverIndex].callback([{ contentRect: { width: 1, height: 1 } }]);
+          window.__observers.intersection[previousObserverIndex].callback([{ isIntersecting: false }]);
         }, cycle - 1);
         expect(await page.evaluate(() => window.__draws)).toBe(draws);
         expect(await pendingFrames(page)).toBe(1);
@@ -260,18 +260,18 @@ for (const policy of ["page", "globe"]) {
 /** Hold reduced-motion change events until the test runs them, so a rebuild can come first. */
 async function useDeferredPreference(page) {
   await page.addInitScript(() => {
-    const add = MediaQueryList.prototype.addEventListener;
-    const remove = MediaQueryList.prototype.removeEventListener;
+    const originalAddEventListener = MediaQueryList.prototype.addEventListener;
+    const originalRemoveEventListener = MediaQueryList.prototype.removeEventListener;
     const wrappers = new WeakMap();
     window.__preferenceJobs = [];
     MediaQueryList.prototype.addEventListener = function (type, listener, options) {
-      if (type !== "change" || !this.media.includes("prefers-reduced-motion")) return add.call(this, type, listener, options);
+      if (type !== "change" || !this.media.includes("prefers-reduced-motion")) return originalAddEventListener.call(this, type, listener, options);
       const wrapped = (event) => window.__preferenceJobs.push(() => listener.call(this, event));
       wrappers.set(listener, wrapped);
-      return add.call(this, type, wrapped, options);
+      return originalAddEventListener.call(this, type, wrapped, options);
     };
     MediaQueryList.prototype.removeEventListener = function (type, listener, options) {
-      return remove.call(this, type, wrappers.get(listener) ?? listener, options);
+      return originalRemoveEventListener.call(this, type, wrappers.get(listener) ?? listener, options);
     };
   });
 }
@@ -359,12 +359,12 @@ for (const scene of scenes) {
       const sizes = await page.locator(`${scene.selector} canvas`).evaluate((canvas) => new Promise((resolve) => {
         const observer = new ResizeObserver(([entry]) => {
           observer.disconnect();
-          const [device] = entry.devicePixelContentBoxSize;
-          resolve({ bitmap: [canvas.width, canvas.height], device: [device.inlineSize, device.blockSize] });
+          const [devicePixelBox] = entry.devicePixelContentBoxSize;
+          resolve({ bitmap: [canvas.width, canvas.height], devicePixels: [devicePixelBox.inlineSize, devicePixelBox.blockSize] });
         });
         observer.observe(canvas, { box: "device-pixel-content-box" });
       }));
-      expect(sizes.bitmap, "the bitmap has the device pixels that show the canvas, so the screen does not resample it").toEqual(sizes.device);
+      expect(sizes.bitmap, "the bitmap has the device pixels that show the canvas, so the screen does not resample it").toEqual(sizes.devicePixels);
       await useReducedMotion(page, "no-preference");
       await expect(page.locator(scene.selector)).toHaveAttribute("data-motion-state", "still");
       expect(await pendingFrames(page)).toBe(0);
@@ -388,11 +388,11 @@ for (const scene of scenes) {
  * browser device modes and audit tools do. `cells` holds the share of strong paint in each cell of a
  * 4 x 4 grid over the bitmap, so pictures at two ratios compare cell by cell.
  */
-async function readPicture(browser, baseURL, scene, deviceScaleFactor) {
+async function readPicture(browser, baseAddress, scene, deviceScaleFactor) {
   const context = await browser.newContext({ viewport: VIEWPORTS.desktop, deviceScaleFactor });
   const page = await context.newPage();
   await useReducedMotion(page);
-  await page.goto(new URL(scene.route, baseURL).href);
+  await page.goto(new URL(scene.route, baseAddress).href);
   await expect(page.locator(scene.selector)).toHaveAttribute("data-motion-state", "still");
   await settle(page);
   const picture = await page.locator(`${scene.selector} canvas`).evaluate((canvas) => {
@@ -415,23 +415,23 @@ async function readPicture(browser, baseURL, scene, deviceScaleFactor) {
 }
 
 for (const [scene, deviceScaleFactor] of [[scenes[1], 2], [scenes[0], 1.5]]) {
-  test(`${scene.name} draws its whole picture at a device pixel ratio of ${deviceScaleFactor}`, async ({ browser, baseURL }) => {
-    const plain = await readPicture(browser, baseURL, scene, 1);
-    const dense = await readPicture(browser, baseURL, scene, deviceScaleFactor);
+  test(`${scene.name} draws its whole picture at a device pixel ratio of ${deviceScaleFactor}`, async ({ browser, baseURL: baseAddress }) => {
+    const plain = await readPicture(browser, baseAddress, scene, 1);
+    const dense = await readPicture(browser, baseAddress, scene, deviceScaleFactor);
     expect(dense.ratio).toBe(deviceScaleFactor);
     // The ratio is under the cap of each scene, so the bitmap has the CSS size times the ratio.
     expect(Math.abs(dense.bitmap[0] - dense.box[0] * deviceScaleFactor), `bitmap ${dense.bitmap} for box ${dense.box}`).toBeLessThanOrEqual(1);
     expect(Math.abs(dense.bitmap[1] - dense.box[1] * deviceScaleFactor), `bitmap ${dense.bitmap} for box ${dense.box}`).toBeLessThanOrEqual(1);
     // The same marks paint in the same cells, so little paint moves: under 0.15 of it on macOS.
     // A cropped picture moves its paint to other cells: 1.5 for the globe and 2 for About.
-    const moved = dense.cells.reduce((sum, share, i) => sum + Math.abs(share - plain.cells[i]), 0);
+    const moved = dense.cells.reduce((sum, share, cellIndex) => sum + Math.abs(share - plain.cells[cellIndex]), 0);
     expect(moved, "the picture at the higher ratio is the whole picture, not a crop").toBeLessThan(0.5);
   });
 }
 
 test("resumes product drift after reduced motion ends", async ({ page }) => {
   await useManualFrames(page);
-  await page.goto(`${dev}/products/`);
+  await page.goto(`${DRAFT_ORIGIN}/products/`);
   await expect(page.locator("[data-graphic='products']")).toHaveAttribute("data-motion-state", "playing");
   await expect.poll(() => pendingFrames(page)).toBe(1);
   await useReducedMotion(page);

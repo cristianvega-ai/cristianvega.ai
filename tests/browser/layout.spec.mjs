@@ -2,7 +2,7 @@ import { chromium, expect, test } from "@playwright/test";
 import sharp from "sharp";
 
 import { headerLinks } from "../helpers.mjs";
-import { bandHeight, openGraphic as open, currentContent, currentPublished, DRAFT_ORIGIN as dev, settle, tabTo, textBoxes, VIEWPORTS } from "./fixtures.mjs";
+import { bandHeight, openGraphic, currentContent, currentPublished, DRAFT_ORIGIN, settle, tabTo, textBoxes, VIEWPORTS } from "./fixtures.mjs";
 
 /**
  * Shell contracts that every route owes the reader, checked on all of them at
@@ -25,13 +25,13 @@ const ROUTES = [
 /** Content-edge insets of every centred page container, ignoring the box's own bleed. */
 async function containers(page) {
   return page.evaluate(() =>
-    [...document.querySelectorAll("main .wrap:not(.wrap--read)")].map((el) => {
-      const rect = el.getBoundingClientRect();
-      const style = getComputedStyle(el);
+    [...document.querySelectorAll("main .wrap:not(.wrap--read)")].map((element) => {
+      const rectangle = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
       return {
-        left: Math.round(rect.left + parseFloat(style.paddingLeft)),
+        left: Math.round(rectangle.left + parseFloat(style.paddingLeft)),
         right: Math.round(
-          document.documentElement.clientWidth - (rect.right - parseFloat(style.paddingRight)),
+          document.documentElement.clientWidth - (rectangle.right - parseFloat(style.paddingRight)),
         ),
       };
     }),
@@ -57,7 +57,7 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
           // Every container starts in the same place. Centring each one
           // separately is not enough — two different caps share a centre while
           // starting 170px apart, which is exactly the drift that shipped.
-          const lefts = new Set(boxes.map((b) => b.left));
+          const lefts = new Set(boxes.map((rectangle) => rectangle.left));
           expect([...lefts]).toHaveLength(1);
 
           // And each is centred, so the page is not simply inset from one side.
@@ -111,13 +111,13 @@ test.describe("the footer holds the foot of the viewport", () => {
 
       const afterScroll = await page.evaluate(() => {
         const footer = document.querySelector(".site-footer");
-        const rect = footer.getBoundingClientRect();
+        const rectangle = footer.getBoundingClientRect();
         const main = document.querySelector("#main-content");
         const last = main.getBoundingClientRect().bottom;
         return {
-          gap: window.innerHeight - rect.bottom,
+          gap: window.innerHeight - rectangle.bottom,
           // The bar must never cover the end of the page.
-          contentClear: rect.top - last,
+          contentClear: rectangle.top - last,
         };
       });
       expect(afterScroll.gap).toBeLessThanOrEqual(1);
@@ -130,9 +130,9 @@ test.describe("the footer fade", () => {
   const scrolling = [
     "/about/",
     "/no-such-page/",
-    `${dev}/writing/`,
-    `${dev}/writing/full-article-layout-fixture/`,
-    `${dev}/products/`,
+    `${DRAFT_ORIGIN}/writing/`,
+    `${DRAFT_ORIGIN}/writing/full-article-layout-fixture/`,
+    `${DRAFT_ORIGIN}/products/`,
   ];
 
   for (const viewport of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
@@ -223,21 +223,21 @@ test.describe("the footer disclaimer on narrow screens", () => {
 });
 
 test.describe("the footer items keep apart", () => {
-  const SIZES = [
+  const LAYOUT_VIEWPORTS = [
     { width: 1920, height: 1080 },
     { width: 1440, height: 900 },
     { width: 820, height: 1180 },
     { width: 390, height: 844 },
     { width: 360, height: 740 },
   ];
-  for (const viewport of SIZES) {
+  for (const viewport of LAYOUT_VIEWPORTS) {
     test(`keeps the disclaimer and the copyright apart at ${viewport.width}px`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.goto("/");
       await settle(page);
       const boxes = await page.evaluate(() => {
-        const plain = (el) => {
-          const { left, top, right, bottom } = el.getBoundingClientRect();
+        const plain = (element) => {
+          const { left, top, right, bottom } = element.getBoundingClientRect();
           return { left, top, right, bottom };
         };
         return {
@@ -275,7 +275,7 @@ test.describe("the compact header", () => {
         return {
           headerHeight: header.height,
           wordmarkShown: getComputedStyle(wordmark).display !== "none",
-          inlineNavShown: getComputedStyle(document.querySelector(".navigation")).display !== "none",
+          inlineNavigationShown: getComputedStyle(document.querySelector(".navigation")).display !== "none",
           overlap: brand.right > toggle.left + 0.5,
           toggleInside: toggle.right <= document.documentElement.clientWidth,
           overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -284,7 +284,7 @@ test.describe("the compact header", () => {
 
       expect(state.headerHeight).toBeLessThanOrEqual(65);
       expect(state.wordmarkShown).toBe(true);
-      expect(state.inlineNavShown).toBe(false);
+      expect(state.inlineNavigationShown).toBe(false);
       expect(state.overlap).toBe(false);
       expect(state.toggleInside).toBe(true);
       expect(state.overflow).toBeLessThanOrEqual(1);
@@ -312,7 +312,7 @@ test.describe("the compact header", () => {
         expect(box.right).toBeLessThanOrEqual(width);
       }
       // The panel opens over the page. It must not change the header height.
-      expect(await page.locator(".site-header").evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(65);
+      expect(await page.locator(".site-header").evaluate((element) => element.getBoundingClientRect().height)).toBeLessThanOrEqual(65);
     });
   }
 
@@ -322,8 +322,8 @@ test.describe("the compact header", () => {
     await settle(page);
 
     expect(await tabTo(page, ".navigation-menu__toggle")).toBe(true);
-    const ring = await page.locator(".navigation-menu__toggle").evaluate((el) => {
-      const style = getComputedStyle(el);
+    const ring = await page.locator(".navigation-menu__toggle").evaluate((element) => {
+      const style = getComputedStyle(element);
       return { style: style.outlineStyle, width: parseFloat(style.outlineWidth) };
     });
     expect(ring.style).not.toBe("none");
@@ -360,10 +360,10 @@ test.describe("the compact header", () => {
   });
 
   // Test focus exit with production content and local preview content.
-  for (const [name, url] of [["production", "/"], ["draft", dev + "/"]]) {
+  for (const [name, pageAddress] of [["production", "/"], ["draft", DRAFT_ORIGIN + "/"]]) {
     test(`closes when focus tabs past the last link on the ${name} homepage`, async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 800 });
-      await page.goto(url);
+      await page.goto(pageAddress);
       await settle(page);
 
       expect(await tabTo(page, ".navigation-menu__toggle")).toBe(true);
@@ -408,10 +408,10 @@ test.describe("the compact header", () => {
     await expect(page.locator(".navigation-menu__panel")).toBeHidden();
   });
 
-  test("works without JavaScript", async ({ browser, baseURL }) => {
+  test("works without JavaScript", async ({ browser, baseURL: baseAddress }) => {
     const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 800 } });
     const page = await context.newPage();
-    await page.goto(new URL("/", baseURL).href);
+    await page.goto(new URL("/", baseAddress).href);
     await page.locator(".navigation-menu__toggle").click();
     const sections = Object.values(currentPublished).filter((entries) => entries.length > 0).length;
     await expect(page.locator(".navigation-menu__panel").getByRole("link")).toHaveCount(4 + sections);
@@ -438,24 +438,24 @@ test.describe("the compact header", () => {
     // The dev server shows drafts, so its nav holds about, writing, products,
     // and the three profile links: the widest header the site can build.
     await page.setViewportSize({ width: 641, height: 800 });
-    await page.goto(dev + "/");
+    await page.goto(DRAFT_ORIGIN + "/");
     await settle(page);
 
     const state = await page.evaluate(() => {
       const brand = document.querySelector(".brand").getBoundingClientRect();
-      const nav = document.querySelector(".navigation").getBoundingClientRect();
+      const navigationRectangle = document.querySelector(".navigation").getBoundingClientRect();
       return {
         count: document.querySelectorAll(".navigation__link").length,
         height: document.querySelector(".site-header").getBoundingClientRect().height,
-        overlap: brand.right > nav.left,
-        navInside: nav.right <= document.documentElement.clientWidth,
+        overlap: brand.right > navigationRectangle.left,
+        navigationInside: navigationRectangle.right <= document.documentElement.clientWidth,
       };
     });
 
     expect(state.count).toBe(6);
     expect(state.height).toBeLessThanOrEqual(65);
     expect(state.overlap).toBe(false);
-    expect(state.navInside).toBe(true);
+    expect(state.navigationInside).toBe(true);
   });
 });
 
@@ -489,7 +489,7 @@ test.describe("the 404 page uses the same dark ground as every page", () => {
     // The title starts where the about title starts.
     await page.goto("/about/");
     await settle(page);
-    const about = await page.locator("main h1").evaluate((el) => el.getBoundingClientRect().left);
+    const about = await page.locator("main h1").evaluate((element) => element.getBoundingClientRect().left);
     expect(Math.abs(state.titleLeft - about)).toBeLessThanOrEqual(1);
   });
 });
@@ -500,9 +500,9 @@ test.describe("the 404 page uses the same dark ground as every page", () => {
  * 1600px. Its padding is 32px, or 20px at 760px and below.
  */
 const frameLeft = (client) => {
-  const pad = client <= 760 ? 20 : 32;
+  const padding = client <= 760 ? 20 : 32;
   const frame = client >= 1600 ? 1120 : 960;
-  return Math.max(0, (client - frame) / 2) + pad;
+  return Math.max(0, (client - frame) / 2) + padding;
 };
 
 test.describe("one site frame at every width", () => {
@@ -518,10 +518,10 @@ test.describe("one site frame at every width", () => {
     "/",
     "/about/",
     "/no-such-page/",
-    dev + "/",
-    dev + "/writing/full-article-layout-fixture/",
-    dev + "/products/",
-    dev + "/writing/",
+    DRAFT_ORIGIN + "/",
+    DRAFT_ORIGIN + "/writing/full-article-layout-fixture/",
+    DRAFT_ORIGIN + "/products/",
+    DRAFT_ORIGIN + "/writing/",
   ];
 
   for (const viewport of WIDE) {
@@ -551,7 +551,7 @@ test.describe("one site frame at every width", () => {
 
   test("keeps the reading column on the frame edge and under 745px on a wide screen", async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
-    for (const route of ["/about/", dev + "/writing/full-article-layout-fixture/"]) {
+    for (const route of ["/about/", DRAFT_ORIGIN + "/writing/full-article-layout-fixture/"]) {
       await page.goto(route);
       await settle(page);
       const column = await page.evaluate(() => {
@@ -561,9 +561,9 @@ test.describe("one site frame at every width", () => {
       expect(Math.abs(column.title - frameLeft(column.client)), route).toBeLessThanOrEqual(1);
     }
     await page.goto("/about/");
-    const read = await page.locator("main .wrap--read").first().evaluate((el) => {
-      const box = el.getBoundingClientRect();
-      return { width: box.width, left: box.left + parseFloat(getComputedStyle(el).paddingLeft) };
+    const read = await page.locator("main .wrap--read").first().evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      return { width: box.width, left: box.left + parseFloat(getComputedStyle(element).paddingLeft) };
     });
     expect(read.width).toBeLessThanOrEqual(744);
     expect(Math.abs(read.left - frameLeft(1920))).toBeLessThanOrEqual(1);
@@ -588,11 +588,11 @@ test.describe("the header holds still between short and long pages", () => {
   let browser;
   let page;
 
-  test.beforeAll(async ({ baseURL }, testInfo) => {
+  test.beforeAll(async ({ baseURL: baseAddress }, testInformation) => {
     browser = await chromium.launch({ ignoreDefaultArgs: ["--hide-scrollbars"] });
-    const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 700 } });
+    const context = await browser.newContext({ baseURL: baseAddress, viewport: { width: 1440, height: 700 } });
     page = await context.newPage();
-    testInfo.setTimeout(60_000);
+    testInformation.setTimeout(60_000);
   });
 
   test.afterAll(async () => {
@@ -608,7 +608,7 @@ test.describe("the header holds still between short and long pages", () => {
         overflows: document.documentElement.scrollHeight > document.documentElement.clientHeight,
         client: document.documentElement.clientWidth,
         logo: document.querySelector(".brand__mark").getBoundingClientRect().left,
-        nav: document.querySelector(".navigation").getBoundingClientRect().right,
+        navigation: document.querySelector(".navigation").getBoundingClientRect().right,
       }));
     };
     const short = await measure("/no-such-page/");
@@ -618,7 +618,7 @@ test.describe("the header holds still between short and long pages", () => {
     expect(short.overflowY).toBe("scroll");
     expect(long.overflowY).toBe("scroll");
     expect(Math.abs(short.logo - long.logo)).toBeLessThanOrEqual(0.5);
-    expect(Math.abs(short.nav - long.nav)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(short.navigation - long.navigation)).toBeLessThanOrEqual(0.5);
 
     // Classic scrollbars take width. Overlay scrollbars take none, so no gutter exists to measure.
     const gutter = await page.evaluate(() => {
@@ -661,7 +661,7 @@ test.describe("the desktop nav targets", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 
   test("give every link a 40px tall target and at least 24px width", async ({ page }) => {
-    await page.goto(dev + "/");
+    await page.goto(DRAFT_ORIGIN + "/");
     await settle(page);
     const links = await page.locator(".navigation__link").evaluateAll((nodes) => nodes.map((node) => {
       const box = node.getBoundingClientRect();
@@ -673,11 +673,11 @@ test.describe("the desktop nav targets", () => {
       expect(link.width, link.name).toBeGreaterThanOrEqual(24);
     }
     // Targets do not overlap.
-    for (let i = 1; i < links.length; i += 1) expect(links[i].left).toBeGreaterThanOrEqual(links[i - 1].right);
+    for (let linkIndex = 1; linkIndex < links.length; linkIndex += 1) expect(links[linkIndex].left).toBeGreaterThanOrEqual(links[linkIndex - 1].right);
   });
 
   test("centres the divider in the gap between the internal and profile links", async ({ page }) => {
-    await page.goto(dev + "/");
+    await page.goto(DRAFT_ORIGIN + "/");
     await settle(page);
     const state = await page.evaluate(() => {
       const divided = document.querySelector(".navigation__link--divided");
@@ -697,7 +697,7 @@ test.describe("the desktop nav targets", () => {
   });
 
   test("leaves equal visible space around every word and the divider", async ({ page }) => {
-    await page.goto(dev + "/");
+    await page.goto(DRAFT_ORIGIN + "/");
     await settle(page);
     const words = await page.evaluate(() => [...document.querySelectorAll(".navigation__link")].map((link) => {
       const range = document.createRange();
@@ -708,8 +708,8 @@ test.describe("the desktop nav targets", () => {
     const gaps = words.slice(1).map((word, index) => word.left - words[index].right);
     // Every word pair shares one visible space, the divider pair included once
     // the divider's own space is taken out.
-    const at = words.findIndex((word) => word.divided);
-    const plain = gaps.filter((_, index) => index !== at);
+    const dividedWordIndex = words.findIndex((word) => word.divided);
+    const plain = gaps.filter((unusedGap, index) => index !== dividedWordIndex);
     for (const gap of plain) expect(Math.abs(gap - plain[0]), plain.join(",")).toBeLessThanOrEqual(1);
 
     // The divider has the same space on each side as two words have between them.
@@ -719,8 +719,8 @@ test.describe("the desktop nav targets", () => {
       const box = link.getBoundingClientRect();
       return { x: box.right - parseFloat(line.right) };
     });
-    expect(Math.abs(divider.x - 1 - words[at].right - plain[0])).toBeLessThanOrEqual(1);
-    expect(Math.abs(words[at + 1].left - divider.x - plain[0])).toBeLessThanOrEqual(1);
+    expect(Math.abs(divider.x - 1 - words[dividedWordIndex].right - plain[0])).toBeLessThanOrEqual(1);
+    expect(Math.abs(words[dividedWordIndex + 1].left - divider.x - plain[0])).toBeLessThanOrEqual(1);
   });
 });
 
@@ -728,7 +728,7 @@ test.describe("the desktop nav targets", () => {
    The homepage is one screen with no scrolling, so its header does not stick. */
 const STICKY_PAGES = [
   ["about", "/about/"],
-  ["article", dev + "/writing/full-article-layout-fixture/"],
+  ["article", DRAFT_ORIGIN + "/writing/full-article-layout-fixture/"],
 ];
 
 test.describe("the sticky header", () => {
@@ -757,10 +757,10 @@ test.describe("the sticky header", () => {
       expect(header.position).not.toBe("fixed");
     });
 
-    for (const [pageName, url] of STICKY_PAGES) {
+    for (const [pageName, pageAddress] of STICKY_PAGES) {
       test(`stays at the top with an opaque ground on ${pageName} at ${viewportName} width`, async ({ page }) => {
         await page.setViewportSize(viewport);
-        await page.goto(url);
+        await page.goto(pageAddress);
         await settle(page);
 
         await page.evaluate(() => window.scrollTo({ top: 600, behavior: "instant" }));
@@ -802,9 +802,9 @@ test.describe("the sticky header", () => {
  * A pixel that differs from the ground belongs to the grid.
  * Decode it in Node to avoid a large browser transfer.
  */
-const MOTIF_DEV = dev;
-const MOTIF_ROUTES = ["/about/", "/no-such-page/", `${MOTIF_DEV}/products/`, `${MOTIF_DEV}/products/product-layout-fixture/`];
-const MOTIF_GROUND = [20, 24, 31];
+
+const GRAPHIC_ROUTES = ["/about/", "/no-such-page/", `${DRAFT_ORIGIN}/products/`, `${DRAFT_ORIGIN}/products/product-layout-fixture/`];
+const GRAPHIC_GROUND_COLOR = [20, 24, 31];
 
 /** Screenshot the page with only the ground and the grid visible. */
 async function gridPixels(page) {
@@ -815,27 +815,27 @@ async function gridPixels(page) {
     );
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
   });
-  const { data, info } = await sharp(await page.screenshot())
+  const { data, info: imageInformation } = await sharp(await page.screenshot())
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
-  return { width: info.width, height: info.height, pixels: data };
+  return { width: imageInformation.width, height: imageInformation.height, pixels: data };
 }
 
 /** Largest channel difference from the ground inside a box. Columns sum up for the line test. */
-function gridIn(shot, box) {
+function gridIn(screenshot, box) {
   const x0 = Math.max(0, Math.floor(box.x));
   const y0 = Math.max(0, Math.floor(box.y));
-  const x1 = Math.min(shot.width, Math.ceil(box.x + box.w));
-  const y1 = Math.min(shot.height, Math.ceil(box.y + box.h));
+  const x1 = Math.min(screenshot.width, Math.ceil(box.x + box.width));
+  const y1 = Math.min(screenshot.height, Math.ceil(box.y + box.height));
   let peak = 0;
   const columns = new Map();
   for (let y = y0; y < y1; y += 1) {
     for (let x = x0; x < x1; x += 1) {
-      const at = (y * shot.width + x) * 4;
-      const diff = Math.max(...MOTIF_GROUND.map((value, i) => Math.abs(shot.pixels[at + i] - value)));
-      peak = Math.max(peak, diff);
-      columns.set(x, (columns.get(x) ?? 0) + diff);
+      const pixelOffset = (y * screenshot.width + x) * 4;
+      const difference = Math.max(...GRAPHIC_GROUND_COLOR.map((value, channelIndex) => Math.abs(screenshot.pixels[pixelOffset + channelIndex] - value)));
+      peak = Math.max(peak, difference);
+      columns.set(x, (columns.get(x) ?? 0) + difference);
     }
   }
   return { peak, columns };
@@ -844,39 +844,39 @@ function gridIn(shot, box) {
 test.describe("the blueprint grid right of the reading column", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 
-  for (const route of MOTIF_ROUTES) {
+  for (const route of GRAPHIC_ROUTES) {
     test(`${route} shows a grid on the right and none behind text, bars, or edges at 1440px`, async ({ page }) => {
       await page.goto(route);
       await settle(page);
       const { width, height } = VIEWPORTS.desktop;
-      const column = await page.locator("main .wrap--read").first().evaluate((el) => el.getBoundingClientRect().right);
+      const column = await page.locator("main .wrap--read").first().evaluate((element) => element.getBoundingClientRect().right);
       const text = await textBoxes(page);
       const bar = await page.evaluate(() => {
         const fade = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--footer-fade"));
         return document.querySelector(".site-footer").getBoundingClientRect().height + fade;
       });
-      const shot = await gridPixels(page);
+      const screenshot = await gridPixels(page);
 
       // Nothing behind any text box, and nothing anywhere left of the column edge.
       expect(text.length).toBeGreaterThan(0);
       for (const box of text) {
-        expect(gridIn(shot, { x: box.x - 8, y: box.y - 8, w: box.w + 16, h: box.h + 16 }).peak).toBeLessThanOrEqual(1);
+        expect(gridIn(screenshot, { x: box.x - 8, y: box.y - 8, width: box.width + 16, height: box.height + 16 }).peak).toBeLessThanOrEqual(1);
       }
-      expect(gridIn(shot, { x: 0, y: 0, w: column, h: height }).peak, "no grid under the column").toBeLessThanOrEqual(1);
+      expect(gridIn(screenshot, { x: 0, y: 0, width: column, height: height }).peak, "no grid under the column").toBeLessThanOrEqual(1);
 
       // Nothing at the viewport edges, behind the header, or behind the footer and its fade.
-      expect(gridIn(shot, { x: 0, y: 0, w: width, h: 64 }).peak, "header").toBeLessThanOrEqual(1);
-      expect(gridIn(shot, { x: 0, y: height - bar, w: width, h: bar }).peak, "footer").toBeLessThanOrEqual(1);
-      expect(gridIn(shot, { x: width - 3, y: 0, w: 3, h: height }).peak, "right edge").toBeLessThanOrEqual(1);
-      expect(gridIn(shot, { x: 0, y: 0, w: 3, h: height }).peak, "left edge").toBeLessThanOrEqual(1);
+      expect(gridIn(screenshot, { x: 0, y: 0, width: width, height: 64 }).peak, "header").toBeLessThanOrEqual(1);
+      expect(gridIn(screenshot, { x: 0, y: height - bar, width: width, height: bar }).peak, "footer").toBeLessThanOrEqual(1);
+      expect(gridIn(screenshot, { x: width - 3, y: 0, width: 3, height: height }).peak, "right edge").toBeLessThanOrEqual(1);
+      expect(gridIn(screenshot, { x: 0, y: 0, width: 3, height: height }).peak, "left edge").toBeLessThanOrEqual(1);
 
       // A visible, but faint, grid in the right area.
-      const right = gridIn(shot, { x: column, y: 64, w: width - column, h: height - 64 - bar });
+      const right = gridIn(screenshot, { x: column, y: 64, width: width - column, height: height - 64 - bar });
       expect(right.peak, "the grid shows").toBeGreaterThanOrEqual(6);
       expect(right.peak, "the grid stays fainter than the homepage grid").toBeLessThanOrEqual(26);
 
       // The strongest vertical line sits on a homepage line position.
-      const strongest = [...right.columns.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      const strongest = [...right.columns.entries()].sort((firstEntry, secondEntry) => secondEntry[1] - firstEntry[1])[0][0];
       const offset = (((strongest - frameLeft(width)) % 40) + 40) % 40;
       expect(Math.min(offset, 40 - offset)).toBeLessThanOrEqual(1);
     });
@@ -886,8 +886,8 @@ test.describe("the blueprint grid right of the reading column", () => {
         await page.setViewportSize(size);
         await page.goto(route);
         await settle(page);
-        const shot = await gridPixels(page);
-        expect(gridIn(shot, { x: 0, y: 0, w: size.width, h: size.height }).peak, `${size.width}px`).toBeLessThanOrEqual(1);
+        const screenshot = await gridPixels(page);
+        expect(gridIn(screenshot, { x: 0, y: 0, width: size.width, height: size.height }).peak, `${size.width}px`).toBeLessThanOrEqual(1);
       }
     });
   }
@@ -903,7 +903,7 @@ test.describe("the blueprint grid right of the reading column", () => {
     expect(layer.content).toBe('""');
   });
 
-  for (const route of ["/", `${MOTIF_DEV}/writing/`, `${MOTIF_DEV}/writing/full-article-layout-fixture/`]) {
+  for (const route of ["/", `${DRAFT_ORIGIN}/writing/`, `${DRAFT_ORIGIN}/writing/full-article-layout-fixture/`]) {
     test(`${route} has no grid layer from this rule`, async ({ page }) => {
       await page.goto(route);
       await settle(page);
@@ -915,8 +915,8 @@ test.describe("the blueprint grid right of the reading column", () => {
 
 test.describe("page headers", () => {
 
-  async function headerMetrics(page, url, eyebrow, heading) {
-    await page.goto(url);
+  async function headerMetrics(page, pageAddress, eyebrow, heading) {
+    await page.goto(pageAddress);
     await settle(page);
     return page.evaluate(([eyebrowSelector, headingSelector]) => ({
       eyebrowTop: document.querySelector(eyebrowSelector).getBoundingClientRect().top,
@@ -927,13 +927,13 @@ test.describe("page headers", () => {
   test("the writing header matches the about header at 1440px", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
     const about = await headerMetrics(page, "/about/", ".about .eyebrow", "#about-title");
-    const writing = await headerMetrics(page, `${dev}/writing/`, ".writing-index__introduction .eyebrow", "#writing-title");
+    const writing = await headerMetrics(page, `${DRAFT_ORIGIN}/writing/`, ".writing-index__introduction .eyebrow", "#writing-title");
     expect(Math.abs(writing.eyebrowTop - about.eyebrowTop)).toBeLessThanOrEqual(2);
     expect(Math.abs(writing.fontSize - about.fontSize)).toBeLessThanOrEqual(2);
   });
 
   // The seven screens of the homepage suite. Home and About must start their title in one place.
-  const HEAD_SCREENS = [
+  const HEADER_SCREENS = [
     { width: 1920, height: 1080 },
     { width: 1440, height: 900 },
     { width: 1280, height: 800 },
@@ -949,7 +949,7 @@ test.describe("page headers", () => {
    * otherwise. Under 1100px both pages put a band above the title. The inner pages call it
    * [data-graphic], and the homepage holds its globe in .hero__globe.
    */
-  const headPosition = (page, eyebrow, title, bandSelector) =>
+  const headerPosition = (page, eyebrow, title, bandSelector) =>
     page.evaluate(([eyebrowSelector, titleSelector, bandQuery]) => {
       const box = (selector) => document.querySelector(selector).getBoundingClientRect();
       const band = document.querySelector(bandQuery);
@@ -965,17 +965,17 @@ test.describe("page headers", () => {
       };
     }, [eyebrow, title, bandSelector]);
 
-  for (const screen of HEAD_SCREENS) {
+  for (const screen of HEADER_SCREENS) {
     test(`the home intro starts where the About header starts at ${screen.width}x${screen.height}`, async ({ page }) => {
       await page.setViewportSize(screen);
       await page.goto("/about/");
       await settle(page);
       if (screen.width < 1100) await expect(page.locator("[data-graphic='about']")).toHaveAttribute("data-ready", "true");
-      const about = await headPosition(page, ".about .eyebrow", ".about__title", "[data-graphic]");
+      const about = await headerPosition(page, ".about .eyebrow", ".about__title", "[data-graphic]");
       await page.goto("/");
       await settle(page);
       if (screen.width < 1100) await expect(page.locator("[data-lyra-globe]")).toHaveAttribute("data-ready", "true");
-      const home = await headPosition(page, ".hero .eyebrow", ".hero__name", screen.width < 1100 ? ".hero__globe" : "[data-graphic]");
+      const home = await headerPosition(page, ".hero .eyebrow", ".hero__name", screen.width < 1100 ? ".hero__globe" : "[data-graphic]");
 
       expect(home.fontSize).toBe(about.fontSize);
       // The room above the eyebrow is the same rule on both pages.
@@ -1000,7 +1000,7 @@ test.describe("page headers", () => {
 
   test("the writing article count sits under the heading", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
-    await page.goto(`${dev}/writing/`);
+    await page.goto(`${DRAFT_ORIGIN}/writing/`);
     await settle(page);
     const boxes = await page.evaluate(() => ({
       heading: document.querySelector("#writing-title").getBoundingClientRect().bottom,
@@ -1042,11 +1042,11 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
  * words and the picture changed from page to page.
  */
 const GRAPHIC_PAGES = [
-  { name: "about", url: "/about/", graphic: "[data-graphic='about']" },
-  { name: "writing", url: `${MOTIF_DEV}/writing/`, graphic: "[data-graphic='writing']" },
-  { name: "products", url: `${MOTIF_DEV}/products/`, graphic: "[data-graphic='products']" },
-  { name: "product detail", url: `${MOTIF_DEV}/products/product-layout-fixture/`, graphic: "[data-graphic='products']" },
-  { name: "404", url: "/no-such-page/", graphic: "[data-graphic='404']" },
+  { name: "about", address: "/about/", graphic: "[data-graphic='about']" },
+  { name: "writing", address: `${DRAFT_ORIGIN}/writing/`, graphic: "[data-graphic='writing']" },
+  { name: "products", address: `${DRAFT_ORIGIN}/products/`, graphic: "[data-graphic='products']" },
+  { name: "product detail", address: `${DRAFT_ORIGIN}/products/product-layout-fixture/`, graphic: "[data-graphic='products']" },
+  { name: "404", address: "/no-such-page/", graphic: "[data-graphic='404']" },
 ];
 /** The shared inset of the figure inside its box. It is FIGURE_INSET in src/shared/page-graphics/inset.ts. */
 const FIGURE_INSET = 32;
@@ -1083,7 +1083,7 @@ test.describe("the page graphic keeps one place on every inner page", () => {
       await page.setViewportSize({ width, height: 900 });
       const found = [];
       for (const target of GRAPHIC_PAGES) {
-        await page.goto(target.url);
+        await page.goto(target.address);
         await expect(page.locator(target.graphic)).toHaveAttribute("data-ready", "true");
         await settle(page);
         found.push({ name: target.name, ...(await readGraphic(page, target.graphic)) });
@@ -1110,7 +1110,7 @@ test.describe("the page graphic keeps one place on every inner page", () => {
       await page.setViewportSize({ width, height: 900 });
       const found = [];
       for (const target of GRAPHIC_PAGES) {
-        await page.goto(target.url);
+        await page.goto(target.address);
         await expect(page.locator(target.graphic)).toHaveAttribute("data-ready", "true");
         await settle(page);
         found.push({ name: target.name, ...(await readGraphic(page, target.graphic)) });
@@ -1142,25 +1142,25 @@ const GLOBE_SCREENS = [
 const EDGE_FADE = 24;
 
 /** Read the globe box, the sphere, Vega, and the labels of the homepage in a page with no JavaScript. */
-async function readPlainGlobe(browser, baseURL, viewport) {
+async function readPlainGlobe(browser, baseAddress, viewport) {
   const context = await browser.newContext({ javaScriptEnabled: false, viewport });
   const plain = await context.newPage();
-  await plain.goto(new URL("/", baseURL).href);
+  await plain.goto(new URL("/", baseAddress).href);
   await settle(plain);
   const read = await plain.evaluate(() => {
     const box = document.querySelector("[data-lyra-globe]").getBoundingClientRect();
-    const svg = document.querySelector(".lyra-globe__fallback");
+    const vectorGraphic = document.querySelector(".lyra-globe__fallback");
     // The sphere is every neuron and the round ring. The tilted ring has a loose box, so it is not counted.
-    const sphere = [...svg.querySelectorAll("circle.lyra-globe__node, ellipse.lyra-globe__ring")]
-      .filter((el) => el.tagName === "circle" || el.getAttribute("rx") === el.getAttribute("ry"))
-      .map((el) => el.getBoundingClientRect());
+    const sphere = [...vectorGraphic.querySelectorAll("circle.lyra-globe__node, ellipse.lyra-globe__ring")]
+      .filter((element) => element.tagName === "circle" || element.getAttribute("rx") === element.getAttribute("ry"))
+      .map((element) => element.getBoundingClientRect());
     const plainBox = ({ left, right, top, bottom }) => ({ left, right, top, bottom });
     return {
       boxLeft: box.left,
-      sphereLeft: Math.min(...sphere.map((rect) => rect.left)),
-      sphereRight: Math.max(...sphere.map((rect) => rect.right)),
+      sphereLeft: Math.min(...sphere.map((rectangle) => rectangle.left)),
+      sphereRight: Math.max(...sphere.map((rectangle) => rectangle.right)),
       // The halo of Vega is the one circle with a radius of 18 grid units.
-      vegaGlow: plainBox(svg.querySelector('circle[r="18"]').getBoundingClientRect()),
+      vegaGlow: plainBox(vectorGraphic.querySelector('circle[r="18"]').getBoundingClientRect()),
       labels: [...document.querySelectorAll("[data-lyra-globe] text")].map((text) => ({ text: text.textContent, ...plainBox(text.getBoundingClientRect()) })),
       viewport: innerWidth,
     };
@@ -1171,20 +1171,20 @@ async function readPlainGlobe(browser, baseURL, viewport) {
 
 test.describe("the homepage globe lines up with the inner page graphic", () => {
   for (const screen of GLOBE_SCREENS) {
-    test(`shares the box left and the figure inset of About at ${screen.width}px`, async ({ page, browser, baseURL }) => {
+    test(`shares the box left and the figure inset of About at ${screen.width}px`, async ({ page, browser, baseURL: baseAddress }) => {
       await page.setViewportSize(screen);
       await page.goto("/about/");
       await expect(page.locator("[data-graphic='about']")).toHaveAttribute("data-ready", "true");
       await settle(page);
       const about = await readGraphic(page, "[data-graphic='about']");
-      const home = await readPlainGlobe(browser, baseURL, screen);
+      const home = await readPlainGlobe(browser, baseAddress, screen);
 
       expect(Math.abs(home.boxLeft - about.left), "the globe box left is the About graphic box left").toBeLessThanOrEqual(1);
       expect(Math.abs(home.sphereLeft - (about.left + FIGURE_INSET)), "the sphere starts one figure inset inside the box").toBeLessThanOrEqual(2);
     });
 
-    test(`keeps most of the sphere, Vega, and every label clear of the screen edge fade at ${screen.width}px`, async ({ browser, baseURL }) => {
-      const home = await readPlainGlobe(browser, baseURL, screen);
+    test(`keeps most of the sphere, Vega, and every label clear of the screen edge fade at ${screen.width}px`, async ({ browser, baseURL: baseAddress }) => {
+      const home = await readPlainGlobe(browser, baseAddress, screen);
       const clearRight = home.viewport - EDGE_FADE;
 
       const visible = (Math.min(home.viewport, home.sphereRight) - home.sphereLeft) / (home.sphereRight - home.sphereLeft);
@@ -1202,17 +1202,17 @@ test.describe("the homepage globe lines up with the inner page graphic", () => {
 
 test.describe("the graphic bands share one height below 1100px", () => {
   const PAGES = {
-    products: { url: `${dev}/products/`, graphic: "[data-graphic='products']" },
-    notFound: { url: "/no-such-page-for-the-graphic/", graphic: "[data-graphic='404']" },
+    products: { address: `${DRAFT_ORIGIN}/products/`, graphic: "[data-graphic='products']" },
+    notFound: { address: "/no-such-page-for-the-graphic/", graphic: "[data-graphic='404']" },
   };
 
   for (const size of [{ width: 1024, height: 768 }, { width: 820, height: 1180 }, VIEWPORTS.mobile, { width: 360, height: 740 }, { width: 820, height: 2000 }]) {
     test(`about, products, the 404 page, and the homepage hold the shared band height at ${size.width}x${size.height}`, async ({ page }) => {
       await page.setViewportSize(size);
       const heights = [];
-      for (const target of [PAGES.products, PAGES.notFound, { url: `${dev}/about/`, graphic: "[data-graphic='about']" }, { url: "/", graphic: ".hero__globe [data-lyra-globe]" }]) {
-        await open(page, target);
-        heights.push(await page.locator(target.graphic).evaluate((el) => el.getBoundingClientRect().height));
+      for (const target of [PAGES.products, PAGES.notFound, { address: `${DRAFT_ORIGIN}/about/`, graphic: "[data-graphic='about']" }, { address: "/", graphic: ".hero__globe [data-lyra-globe]" }]) {
+        await openGraphic(page, target);
+        heights.push(await page.locator(target.graphic).evaluate((element) => element.getBoundingClientRect().height));
       }
       for (const height of heights) {
         expect(Math.abs(height - bandHeight(size.height)), `band heights ${heights}`).toBeLessThanOrEqual(1);

@@ -1,20 +1,20 @@
-import { readFileSync } from "node:fs";
-import { expect, test as base } from "@playwright/test";
+import { readFileSync as readFileSynchronously } from "node:fs";
+import { expect, test as baseTest } from "@playwright/test";
 
-import { DRAFT_ORIGIN as dev, drawnLabels, settle, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames } from "./fixtures.mjs";
+import { DRAFT_ORIGIN, drawnLabels, settle, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames } from "./fixtures.mjs";
 
 const missingPath = "/__graphic-font-missing__/";
-const pages = ["/about/", `${dev}/writing/`, `${dev}/products/`, missingPath];
+const pages = ["/about/", `${DRAFT_ORIGIN}/writing/`, `${DRAFT_ORIGIN}/products/`, missingPath];
 const wideFontPath = "/__graphic-wide-font__.woff2";
-const monoFont = readFileSync(new URL("../../src/assets/fonts/ibm-plex-mono-latin-400.woff2", import.meta.url));
+const monospacedFont = readFileSynchronously(new URL("../../src/assets/fonts/ibm-plex-mono-latin-400.woff2", import.meta.url));
 
-const test = base.extend({
+const test = baseTest.extend({
   problems: async ({ page }, use) => {
     const problems = [];
     page.on("pageerror", (error) => problems.push(error.message));
     page.on("console", (message) => {
-      const expected404 = message.location().url.endsWith(missingPath) && message.text().includes("404");
-      if (!expected404 && ["error", "warning"].includes(message.type())) problems.push(message.text());
+      const expectedMissingPageError = message.location().url.endsWith(missingPath) && message.text().includes("404");
+      if (!expectedMissingPageError && ["error", "warning"].includes(message.type())) problems.push(message.text());
     });
     await use(problems);
     expect(problems).toEqual([]);
@@ -88,7 +88,7 @@ test("refreshes delayed wide font measurements and resized placement", async ({ 
   await useFontToken(page, '"Wide Label", monospace');
   await page.route(`**${wideFontPath}`, (route) => new Promise((resolve) => {
     release = async () => {
-      await route.fulfill({ contentType: "font/woff2", body: monoFont });
+      await route.fulfill({ contentType: "font/woff2", body: monospacedFont });
       resolve();
     };
   }));
@@ -126,7 +126,7 @@ test("refreshes delayed wide font measurements and resized placement", async ({ 
 test("keeps label measurement outside animation frames", async ({ page, problems }) => {
   await useLabelSpy(page);
   await useManualFrames(page);
-  for (const target of ["/about/", `${dev}/writing/`]) {
+  for (const target of ["/about/", `${DRAFT_ORIGIN}/writing/`]) {
     await page.goto(target);
     await expect(page.locator("[data-graphic]")).toHaveAttribute("data-ready", "true");
     await settle(page);
@@ -153,18 +153,18 @@ test("applies a pending motion preference when a font refresh comes first", asyn
   await useLabelSpy(page);
   await useManualFrames(page);
   await page.addInitScript(() => {
-    const add = MediaQueryList.prototype.addEventListener;
-    const remove = MediaQueryList.prototype.removeEventListener;
+    const originalAddEventListener = MediaQueryList.prototype.addEventListener;
+    const originalRemoveEventListener = MediaQueryList.prototype.removeEventListener;
     const wrappers = new WeakMap();
     window.__preferenceJobs = [];
     MediaQueryList.prototype.addEventListener = function (type, listener, options) {
-      if (type !== "change" || !this.media.includes("prefers-reduced-motion")) return add.call(this, type, listener, options);
+      if (type !== "change" || !this.media.includes("prefers-reduced-motion")) return originalAddEventListener.call(this, type, listener, options);
       const wrapped = (event) => window.__preferenceJobs.push(() => listener.call(this, event));
       wrappers.set(listener, wrapped);
-      return add.call(this, type, wrapped, options);
+      return originalAddEventListener.call(this, type, wrapped, options);
     };
     MediaQueryList.prototype.removeEventListener = function (type, listener, options) {
-      return remove.call(this, type, wrappers.get(listener) ?? listener, options);
+      return originalRemoveEventListener.call(this, type, wrappers.get(listener) ?? listener, options);
     };
   });
   await page.goto("/about/");
@@ -190,7 +190,7 @@ test("applies a pending motion preference when a font refresh comes first", asyn
 
 test("wakes a resting scene when refreshed labels need more motion", async ({ page, problems }) => {
   await useManualFrames(page);
-  const target = `${dev}/__graphic-font-idle__/`;
+  const target = `${DRAFT_ORIGIN}/__graphic-font-idle__/`;
   await page.route(target, (route) => route.fulfill({
     contentType: "text/html",
     body: '<!doctype html><html><head><title>Graphic font motion</title></head><body><div id="scene"><canvas></canvas></div></body></html>',

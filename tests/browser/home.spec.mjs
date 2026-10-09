@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { currentContent, currentPublished, DRAFT_ORIGIN as dev, latestWork, pageProblems, setHomepageState, settle, tabTo, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames } from "./fixtures.mjs";
+import { currentContent, currentPublished, DRAFT_ORIGIN, latestWork, pageProblems, setHomepageState, settle, tabTo, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames } from "./fixtures.mjs";
 
 /**
  * The homepage: one screen with the intro, two calls to action for Writing
@@ -67,10 +67,10 @@ test.describe("the globe is decorative", () => {
  * returns how far they differ, mark for mark, as a share of the first one's
  * light.
  */
-async function measureLight(page, ...shots) {
+async function measureLight(page, ...screenshots) {
   return page.evaluate(async (list) => {
-    const decode = async (base64) => {
-      const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+    const decode = async (encodedImage) => {
+      const bytes = Uint8Array.from(atob(encodedImage), (character) => character.charCodeAt(0));
       const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
       const scratch = new OffscreenCanvas(bitmap.width, bitmap.height);
       const scratchContext = scratch.getContext("2d");
@@ -78,9 +78,9 @@ async function measureLight(page, ...shots) {
       const { data } = scratchContext.getImageData(0, 0, bitmap.width, bitmap.height);
       const luminance = new Float32Array(data.length / 4);
       const counts = new Map();
-      for (let i = 0; i < luminance.length; i += 1) {
-        luminance[i] = 0.2126 * data[i * 4] + 0.7152 * data[i * 4 + 1] + 0.0722 * data[i * 4 + 2];
-        const key = Math.round(luminance[i]);
+      for (let pixelIndex = 0; pixelIndex < luminance.length; pixelIndex += 1) {
+        luminance[pixelIndex] = 0.2126 * data[pixelIndex * 4] + 0.7152 * data[pixelIndex * 4 + 1] + 0.0722 * data[pixelIndex * 4 + 2];
+        const key = Math.round(luminance[pixelIndex]);
         counts.set(key, (counts.get(key) ?? 0) + 1);
       }
       let ground = 0;
@@ -92,19 +92,19 @@ async function measureLight(page, ...shots) {
         }
       }
       let lift = 0;
-      for (let i = 0; i < luminance.length; i += 1) lift += Math.max(0, luminance[i] - ground);
+      for (let pixelIndex = 0; pixelIndex < luminance.length; pixelIndex += 1) lift += Math.max(0, luminance[pixelIndex] - ground);
       return { luminance, mean: lift / luminance.length };
     };
     const pictures = await Promise.all(list.map(decode));
-    let diff = 0;
+    let difference = 0;
     if (pictures.length > 1) {
-      const [one, two] = pictures;
+      const [firstPicture, secondPicture] = pictures;
       let sum = 0;
-      for (let i = 0; i < one.luminance.length; i += 1) sum += Math.abs(one.luminance[i] - two.luminance[i]);
-      diff = sum / one.luminance.length / one.mean;
+      for (let pixelIndex = 0; pixelIndex < firstPicture.luminance.length; pixelIndex += 1) sum += Math.abs(firstPicture.luminance[pixelIndex] - secondPicture.luminance[pixelIndex]);
+      difference = sum / firstPicture.luminance.length / firstPicture.mean;
     }
-    return { means: pictures.map((picture) => picture.mean), diff };
-  }, shots.map((shot) => shot.toString("base64")));
+    return { means: pictures.map((picture) => picture.mean), difference };
+  }, screenshots.map((screenshot) => screenshot.toString("base64")));
 }
 
 /**
@@ -119,32 +119,32 @@ async function shootGlobe(page) {
 }
 
 /** The picture of a visitor without JavaScript: the SVG in the noscript. */
-async function readPlainGlobe(browser, baseURL, viewport) {
+async function readPlainGlobe(browser, baseAddress, viewport) {
   const plain = await browser.newContext({ javaScriptEnabled: false, viewport });
   const plainPage = await plain.newPage();
-  await plainPage.goto(new URL("/", baseURL).href);
+  await plainPage.goto(new URL("/", baseAddress).href);
   await settle(plainPage);
-  const shot = await shootGlobe(plainPage);
+  const screenshot = await shootGlobe(plainPage);
   await plain.close();
-  return shot;
+  return screenshot;
 }
 
 test.describe("the globe draws without its canvas", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 
-  test("shows the SVG when JavaScript is off", async ({ browser, baseURL }) => {
+  test("shows the SVG when JavaScript is off", async ({ browser, baseURL: baseAddress }) => {
     const context = await browser.newContext({ javaScriptEnabled: false, viewport: VIEWPORTS.desktop });
     const page = await context.newPage();
-    await page.goto(new URL("/", baseURL).href);
+    await page.goto(new URL("/", baseAddress).href);
 
-    const svg = page.locator(`${globe} .lyra-globe__fallback`);
-    await expect(svg).toBeVisible();
-    await expect(svg).toHaveCSS("opacity", "1");
+    const vectorGraphic = page.locator(`${globe} .lyra-globe__fallback`);
+    await expect(vectorGraphic).toBeVisible();
+    await expect(vectorGraphic).toHaveCSS("opacity", "1");
     await expect(page.locator(`${globe} canvas`)).toBeHidden();
     await expect(page.locator(globe)).not.toHaveAttribute("data-ready", /.*/);
-    expect((await svg.boundingBox()).width).toBeGreaterThan(300);
+    expect((await vectorGraphic.boundingBox()).width).toBeGreaterThan(300);
     // The route and the figure are in the picture, not only the sphere.
-    expect(await svg.locator("path.is-hot").count()).toBeGreaterThanOrEqual(10);
+    expect(await vectorGraphic.locator("path.is-hot").count()).toBeGreaterThanOrEqual(10);
     // The labels show at full strength with no script to reveal them.
     await expect(page.locator(`${globe} .lyra-globe__labels`)).toHaveCSS("opacity", "1");
     await expect(page.locator(`${globe} text`).first()).toBeVisible();
@@ -160,12 +160,12 @@ test.describe("the globe draws without its canvas", () => {
     await page.waitForFunction(() => document.readyState === "complete");
     await page.evaluate(() => document.fonts.ready);
 
-    const svg = page.locator(`${globe} .lyra-globe__fallback`);
-    await expect(svg).toHaveCount(1);
-    await expect(svg).toBeVisible();
-    await expect(svg).toHaveCSS("opacity", "1");
-    expect((await svg.boundingBox()).width).toBeGreaterThan(300);
-    expect(await svg.locator("path.is-hot").count()).toBeGreaterThanOrEqual(10);
+    const vectorGraphic = page.locator(`${globe} .lyra-globe__fallback`);
+    await expect(vectorGraphic).toHaveCount(1);
+    await expect(vectorGraphic).toBeVisible();
+    await expect(vectorGraphic).toHaveCSS("opacity", "1");
+    expect((await vectorGraphic.boundingBox()).width).toBeGreaterThan(300);
+    expect(await vectorGraphic.locator("path.is-hot").count()).toBeGreaterThanOrEqual(10);
     await expect(page.locator(globe)).not.toHaveAttribute("data-ready", /.*/);
     await expect(page.locator(globe)).not.toHaveAttribute("data-motion-state", /.*/);
     // The labels show with the copy, because no canvas will reveal them.
@@ -220,8 +220,8 @@ test.describe("the globe entrance", () => {
     expect(await page.evaluate(() => window.__fallbacks)).toBe(0);
   });
 
-  test("reveals the picture: it starts empty, grows, and ends on the finished SVG", async ({ browser, baseURL, page }) => {
-    const plain = await readPlainGlobe(browser, baseURL, VIEWPORTS.desktop);
+  test("reveals the picture: it starts empty, grows, and ends on the finished SVG", async ({ browser, baseURL: baseAddress, page }) => {
+    const plain = await readPlainGlobe(browser, baseAddress, VIEWPORTS.desktop);
     const [full] = (await measureLight(page, plain)).means;
 
     await useManualFrames(page);
@@ -248,7 +248,7 @@ test.describe("the globe entrance", () => {
     // Wait for the fonts after the canvas clock finishes the labels.
     await settle(page);
     const last = await shootGlobe(page);
-    const [final] = (await measureLight(page, last)).means;
+    const [finalLight] = (await measureLight(page, last)).means;
     const match = await measureLight(page, plain, last);
 
     // How much of the finished picture each frame holds, from 0 to 1.
@@ -256,16 +256,16 @@ test.describe("the globe entrance", () => {
     expect(share[0], "the first frame is nearly empty").toBeLessThan(0.05);
     expect(share[3], "the middle of the entrance holds part of the picture").toBeGreaterThan(0.2);
     expect(share[3], "the middle of the entrance is not yet complete").toBeLessThan(0.9);
-    for (let i = 1; i < 6; i += 1) expect(share[i], `frame ${i} adds to frame ${i - 1}`).toBeGreaterThanOrEqual(share[i - 1] - 0.02);
+    for (let frameIndex = 1; frameIndex < 6; frameIndex += 1) expect(share[frameIndex], `frame ${frameIndex} adds to frame ${frameIndex - 1}`).toBeGreaterThanOrEqual(share[frameIndex - 1] - 0.02);
     // The last frame is the finished picture: it matches the SVG closely. The canvas draws the thin
     // lines a few percent dimmer than the SVG. The screen shows 78% of the box at 1440px, and that
     // share holds more thin lines and less grid, so the allowance is 4.5% and no longer 3%.
-    expect(Math.abs(final - full) / full, "the final light matches the SVG").toBeLessThan(0.045);
-    expect(match.diff, "the final frame matches the SVG mark for mark").toBeLessThan(0.3);
+    expect(Math.abs(finalLight - full) / full, "the final light matches the SVG").toBeLessThan(0.045);
+    expect(match.difference, "the final frame matches the SVG mark for mark").toBeLessThan(0.3);
   });
 
-  test("reduced motion paints the finished picture on the first frame", async ({ browser, baseURL, page }) => {
-    const plain = await readPlainGlobe(browser, baseURL, VIEWPORTS.desktop);
+  test("reduced motion paints the finished picture on the first frame", async ({ browser, baseURL: baseAddress, page }) => {
+    const plain = await readPlainGlobe(browser, baseAddress, VIEWPORTS.desktop);
     await useManualFrames(page);
     await useReducedMotion(page);
     await page.goto("/");
@@ -278,7 +278,7 @@ test.describe("the globe entrance", () => {
     const match = await measureLight(page, plain, shown);
     // The allowance is 4.5% for the reason given in the entrance test above.
     expect(Math.abs(match.means[1] - match.means[0]) / match.means[0], "the light matches the SVG").toBeLessThan(0.045);
-    expect(match.diff, "the picture matches the SVG mark for mark").toBeLessThan(0.3);
+    expect(match.difference, "the picture matches the SVG mark for mark").toBeLessThan(0.3);
   });
 
   test("finishes within three seconds and is not instant", async ({ page }) => {
@@ -303,7 +303,7 @@ test.describe("the globe labels", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 
   for (const viewport of [VIEWPORTS.desktop, VIEWPORTS.mobile, WIDTHS.narrow]) {
-    test(`keeps the labels at a readable pixel size, the same with and without the canvas, at ${viewport.width}px`, async ({ browser, baseURL, page }) => {
+    test(`keeps the labels at a readable pixel size, the same with and without the canvas, at ${viewport.width}px`, async ({ browser, baseURL: baseAddress, page }) => {
       const read = () => page.evaluate(() => {
         const root = document.querySelector("[data-lyra-globe]");
         const rootBox = root.getBoundingClientRect();
@@ -334,7 +334,7 @@ test.describe("the globe labels", () => {
 
       const plain = await browser.newContext({ javaScriptEnabled: false, viewport });
       const plainPage = await plain.newPage();
-      await plainPage.goto(new URL("/", baseURL).href);
+      await plainPage.goto(new URL("/", baseAddress).href);
       await settle(plainPage);
       const withoutCanvas = await plainPage.evaluate(() => [...document.querySelectorAll("[data-lyra-globe] text")].map((text) => {
         const box = text.getBoundingClientRect();
@@ -433,7 +433,7 @@ test.describe("the globe motion", () => {
 
   test("pauses while the globe is off-screen and resumes when it returns", async ({ page }) => {
     await useManualFrames(page);
-    await page.goto(dev + "/");
+    await page.goto(DRAFT_ORIGIN + "/");
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
     await expect.poll(() => pendingFrames(page)).toBe(1);
 
@@ -481,14 +481,14 @@ for (const [name, viewport] of Object.entries(WIDTHS)) {
       await settle(page);
 
       const layout = await page.evaluate((selector) => {
-        const rect = (query) => document.querySelector(query).getBoundingClientRect();
-        const main = rect(".hero__main");
-        const art = rect(selector);
+        const getRectangle = (query) => document.querySelector(query).getBoundingClientRect();
+        const main = getRectangle(".hero__main");
+        const graphicRectangle = getRectangle(selector);
         const title = document.querySelector("h1");
         return {
           overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           main: { left: main.left, right: main.right, top: main.top, bottom: main.bottom },
-          art: { left: art.left, right: art.right, top: art.top, bottom: art.bottom, width: art.width },
+          graphic: { left: graphicRectangle.left, right: graphicRectangle.right, top: graphicRectangle.top, bottom: graphicRectangle.bottom, width: graphicRectangle.width },
           titleClipped: title.scrollWidth > title.clientWidth,
           width: document.documentElement.clientWidth,
         };
@@ -499,15 +499,15 @@ for (const [name, viewport] of Object.entries(WIDTHS)) {
       if (viewport.width >= 1100) {
         // Side by side: the globe sits to the right of the intro. Its box runs past the screen edge,
         // and the screen shows most of it.
-        expect(layout.art.width).toBeGreaterThanOrEqual(400);
-        expect(layout.art.left).toBeGreaterThanOrEqual(layout.main.right - 0.5);
-        expect((layout.width - layout.art.left) / layout.art.width, "the screen shows most of the globe box").toBeGreaterThanOrEqual(0.65);
+        expect(layout.graphic.width).toBeGreaterThanOrEqual(400);
+        expect(layout.graphic.left).toBeGreaterThanOrEqual(layout.main.right - 0.5);
+        expect((layout.width - layout.graphic.left) / layout.graphic.width, "the screen shows most of the globe box").toBeGreaterThanOrEqual(0.65);
       } else {
         // Stacked: the globe band sits above the intro, inside the screen.
-        expect(layout.art.width).toBeGreaterThanOrEqual(Math.min(680, viewport.width - 40) - 1);
-        expect(layout.art.bottom).toBeLessThanOrEqual(layout.main.top + 0.5);
-        expect(layout.art.left).toBeGreaterThanOrEqual(0);
-        expect(layout.art.right).toBeLessThanOrEqual(layout.width + 0.5);
+        expect(layout.graphic.width).toBeGreaterThanOrEqual(Math.min(680, viewport.width - 40) - 1);
+        expect(layout.graphic.bottom).toBeLessThanOrEqual(layout.main.top + 0.5);
+        expect(layout.graphic.left).toBeGreaterThanOrEqual(0);
+        expect(layout.graphic.right).toBeLessThanOrEqual(layout.width + 0.5);
       }
     });
 
@@ -539,7 +539,7 @@ for (const [name, viewport] of Object.entries(WIDTHS)) {
 
     test("shows two links and no lists with the drafts on the dev server", async ({ page }) => {
       const errors = pageProblems(page);
-      await page.goto(dev + "/");
+      await page.goto(DRAFT_ORIGIN + "/");
       await settle(page);
 
       // The Astro dev toolbar adds its own headings, so scope to main.
@@ -614,8 +614,8 @@ for (const viewport of [VIEWPORTS.desktop, VIEWPORTS.mobile, WIDTHS.narrow]) {
 
 /** Read the box of the list of calls to action and of each row in it. */
 const readNext = (page) => page.evaluate(() => {
-  const plain = (el) => {
-    const { left, top, right, bottom, width, height } = el.getBoundingClientRect();
+  const plain = (element) => {
+    const { left, top, right, bottom, width, height } = element.getBoundingClientRect();
     return { left, top, right, bottom, width, height };
   };
   return {
@@ -626,7 +626,7 @@ const readNext = (page) => page.evaluate(() => {
   };
 });
 
-const overlaps = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+const overlaps = (firstRectangle, secondRectangle) => firstRectangle.left < secondRectangle.right - 1 && secondRectangle.left < firstRectangle.right - 1 && firstRectangle.top < secondRectangle.bottom - 1 && secondRectangle.top < firstRectangle.bottom - 1;
 
 for (const viewport of [WIDTHS.wide, VIEWPORTS.desktop, VIEWPORTS.tablet, VIEWPORTS.mobile, WIDTHS.narrow]) {
   test.describe(`the calls to action at ${viewport.width}px`, () => {
@@ -643,8 +643,8 @@ for (const viewport of [WIDTHS.wide, VIEWPORTS.desktop, VIEWPORTS.tablet, VIEWPO
       expect(soon.items).toHaveLength(2);
       expect(live.items).toHaveLength(2);
       // The two rows of one state match in height, and so do the two states.
-      for (const [one, two] of [[soon.items[0], soon.items[1]], [live.items[0], live.items[1]], [soon.items[0], live.items[0]], [soon.items[1], live.items[1]]]) {
-        expect(Math.abs(one.height - two.height)).toBeLessThanOrEqual(1);
+      for (const [firstRow, secondRow] of [[soon.items[0], soon.items[1]], [live.items[0], live.items[1]], [soon.items[0], live.items[0]], [soon.items[1], live.items[1]]]) {
+        expect(Math.abs(firstRow.height - secondRow.height)).toBeLessThanOrEqual(1);
       }
       // The list has one place and one size in both states.
       expect(Math.abs(soon.list.top - live.list.top)).toBeLessThanOrEqual(1);
@@ -694,10 +694,10 @@ test.describe("the live calls to action", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 
   test("take a visible focus ring, a hover state, and follow their links", async ({ page }) => {
-    await page.goto(dev + "/");
+    await page.goto(DRAFT_ORIGIN + "/");
     await settle(page);
     const link = page.getByRole("link", { name: "Read my latest writing", exact: true });
-    const color = () => link.evaluate((el) => getComputedStyle(el).color);
+    const color = () => link.evaluate((element) => getComputedStyle(element).color);
 
     const box = await link.boundingBox();
     const resting = await color();
@@ -708,7 +708,7 @@ test.describe("the live calls to action", () => {
 
     // The arrow steps right by at least 4px on hover, and rests at zero.
     const arrow = link.locator(".hero__next-arrow");
-    const shift = () => arrow.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m41);
+    const shift = () => arrow.evaluate((element) => new DOMMatrix(getComputedStyle(element).transform).m41);
     await page.mouse.move(box.x + 8, box.y + box.height / 2);
     await expect.poll(shift).toBeGreaterThanOrEqual(4);
     await page.mouse.move(2, 400);
@@ -752,7 +752,7 @@ async function readGrid(page) {
     }
     const hero = box(".hero");
     return {
-      intro: box(".hero__main"),
+      introduction: box(".hero__main"),
       globe: box(".lyra-globe"),
       cards: box(".hero__next"),
       header: box(".site-header"),
@@ -762,23 +762,23 @@ async function readGrid(page) {
       height: window.innerHeight,
     };
   });
-  const shot = await page.screenshot();
-  return page.evaluate(async ({ base64, geometry: g }) => {
-    const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  const screenshot = await page.screenshot();
+  return page.evaluate(async ({ encodedImage, geometry }) => {
+    const bytes = Uint8Array.from(atob(encodedImage), (character) => character.charCodeAt(0));
     const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
     const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
     const context = canvas.getContext("2d");
     context.drawImage(bitmap, 0, 0);
     const { data, width } = context.getImageData(0, 0, bitmap.width, bitmap.height);
     const green = (x, y) => data[(y * width + x) * 4 + 1];
-    const edge = Math.round(g.intro.left);
+    const edge = Math.round(geometry.introduction.left);
     // The mean strength of the line columns inside a rectangle.
     const strength = (left, top, right, bottom) => {
       let sum = 0;
       let count = 0;
       const first = edge + Math.ceil((Math.max(left, 4) - edge) / 40) * 40;
-      for (let x = first; x < Math.min(right, g.width - 1); x += 40) {
-        for (let y = Math.max(0, Math.floor(top)); y < Math.min(bottom, g.height); y += 2) {
+      for (let x = first; x < Math.min(right, geometry.width - 1); x += 40) {
+        for (let y = Math.max(0, Math.floor(top)); y < Math.min(bottom, geometry.height); y += 2) {
           sum += green(x, y) - green(x - 4, y);
           count += 1;
         }
@@ -788,14 +788,14 @@ async function readGrid(page) {
     // The strongest 120px cell across the room between the header and the footer.
     let peak = { contrast: -Infinity, x: 0, y: 0 };
     let quiet = 0;
-    const all = [];
+    const contrasts = [];
     let cells = 0;
-    for (let top = g.hero.top; top + 120 <= g.hero.bottom; top += 60) {
-      for (let left = 0; left + 120 <= g.width; left += 60) {
+    for (let top = geometry.hero.top; top + 120 <= geometry.hero.bottom; top += 60) {
+      for (let left = 0; left + 120 <= geometry.width; left += 60) {
         const contrast = strength(left, top, left + 120, top + 120);
         cells += 1;
         if (contrast < 0.5) quiet += 1;
-        all.push(contrast);
+        contrasts.push(contrast);
         if (contrast > peak.contrast) peak = { contrast, x: left + 60, y: top + 60 };
       }
     }
@@ -807,7 +807,7 @@ async function readGrid(page) {
       let sum = 0;
       let count = 0;
       for (let column = start + offset; column < peak.x + 60; column += 40) {
-        if (column < 4 || column >= g.width) continue;
+        if (column < 4 || column >= geometry.width) continue;
         for (let y = peak.y - 60; y < peak.y + 60; y += 2) {
           sum += green(column, y);
           count += 1;
@@ -823,16 +823,16 @@ async function readGrid(page) {
       peak,
       lineOffset,
       quiet: quiet / cells,
-      strong: all.filter((contrast) => contrast >= peak.contrast / 2).length / cells,
-      globe: g.globe,
-      intro: strength(g.intro.left, g.intro.top, g.intro.right, g.intro.bottom),
-      header: strength(0, g.header.top, g.width, g.header.bottom),
-      footer: strength(0, g.footer.top, g.width, g.footer.bottom),
-      cards: strength(g.cards.left, g.cards.top, g.cards.right, g.cards.bottom),
-      below: strength(0, g.hero.bottom - 24, g.width, g.footer.top),
-      headerSeam: strength(0, g.header.bottom, g.width, g.header.bottom + 24),
+      strong: contrasts.filter((contrast) => contrast >= peak.contrast / 2).length / cells,
+      globe: geometry.globe,
+      introduction: strength(geometry.introduction.left, geometry.introduction.top, geometry.introduction.right, geometry.introduction.bottom),
+      header: strength(0, geometry.header.top, geometry.width, geometry.header.bottom),
+      footer: strength(0, geometry.footer.top, geometry.width, geometry.footer.bottom),
+      cards: strength(geometry.cards.left, geometry.cards.top, geometry.cards.right, geometry.cards.bottom),
+      below: strength(0, geometry.hero.bottom - 24, geometry.width, geometry.footer.top),
+      headerSeam: strength(0, geometry.header.bottom, geometry.width, geometry.header.bottom + 24),
     };
-  }, { base64: shot.toString("base64"), geometry });
+  }, { encodedImage: screenshot.toString("base64"), geometry });
 }
 
 /**
@@ -848,12 +848,12 @@ async function readGridEdges(page) {
       document.querySelector(selector).style.visibility = "hidden";
     }
     const host = document.querySelector(".hero__globe");
-    const rect = host.getBoundingClientRect();
+    const rectangle = host.getBoundingClientRect();
     const layer = getComputedStyle(host, "::after");
     return {
       layer: {
-        left: rect.left + parseFloat(layer.left),
-        top: rect.top + parseFloat(layer.top),
+        left: rectangle.left + parseFloat(layer.left),
+        top: rectangle.top + parseFloat(layer.top),
         width: parseFloat(layer.width),
         height: parseFloat(layer.height),
       },
@@ -861,19 +861,19 @@ async function readGridEdges(page) {
       height: window.innerHeight,
     };
   });
-  const shot = await page.screenshot();
-  return page.evaluate(async ({ base64, g }) => {
-    const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  const screenshot = await page.screenshot();
+  return page.evaluate(async ({ encodedImage, geometry }) => {
+    const bytes = Uint8Array.from(atob(encodedImage), (character) => character.charCodeAt(0));
     const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
     const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
     const context = canvas.getContext("2d");
     context.drawImage(bitmap, 0, 0);
     const { data, width, height } = context.getImageData(0, 0, bitmap.width, bitmap.height);
-    const scale = bitmap.width / g.width;
+    const scale = bitmap.width / geometry.width;
     // The ground is the most common level of green.
     const counts = new Map();
-    for (let i = 1; i < data.length; i += 4 * 97) counts.set(data[i], (counts.get(data[i]) ?? 0) + 1);
-    const ground = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    for (let pixelOffset = 1; pixelOffset < data.length; pixelOffset += 4 * 97) counts.set(data[pixelOffset], (counts.get(data[pixelOffset]) ?? 0) + 1);
+    const ground = [...counts.entries()].sort((firstEntry, secondEntry) => secondEntry[1] - firstEntry[1])[0][0];
     // The largest difference from the ground in a strip, in CSS pixels.
     const strip = (left, top, right, bottom) => {
       let largest = 0;
@@ -886,7 +886,7 @@ async function readGridEdges(page) {
       }
       return largest;
     };
-    const { layer } = g;
+    const { layer } = geometry;
     const right = layer.left + layer.width;
     const bottom = layer.top + layer.height;
     const band = 6;
@@ -901,13 +901,13 @@ async function readGridEdges(page) {
         bottom: strip(layer.left, bottom - band, right, bottom),
       },
       screenEdges: {
-        left: strip(0, 0, band, g.height),
-        right: strip(g.width - band, 0, g.width, g.height),
-        top: strip(0, 0, g.width, band),
-        bottom: strip(0, g.height - band, g.width, g.height),
+        left: strip(0, 0, band, geometry.height),
+        right: strip(geometry.width - band, 0, geometry.width, geometry.height),
+        top: strip(0, 0, geometry.width, band),
+        bottom: strip(0, geometry.height - band, geometry.width, geometry.height),
       },
     };
-  }, { base64: shot.toString("base64"), g: geometry });
+  }, { encodedImage: screenshot.toString("base64"), geometry: geometry });
 }
 
 test.describe("the homepage is one screen", () => {
@@ -940,18 +940,18 @@ test.describe("the homepage is one screen", () => {
               if (!node.textContent.trim() || node.parentElement.closest("[data-lyra-globe]")) continue;
               const range = document.createRange();
               range.selectNodeContents(node);
-              for (const rect of range.getClientRects()) {
+              for (const rectangle of range.getClientRects()) {
                 // Skip the closed menu, which has no box.
-                if (rect.width > 0 && rect.height > 0) lines.push({ text: node.textContent.trim(), ...plain(rect) });
+                if (rectangle.width > 0 && rectangle.height > 0) lines.push({ text: node.textContent.trim(), ...plain(rectangle) });
               }
             }
           }
-          const labels = [...document.querySelectorAll("[data-lyra-globe] svg text")].map((el) => ({ text: el.textContent, ...plain(el.getBoundingClientRect()) }));
-          const items = [...document.querySelectorAll(".hero__next-item")].map((el) => plain(el.getBoundingClientRect()));
+          const labels = [...document.querySelectorAll("[data-lyra-globe] svg text")].map((element) => ({ text: element.textContent, ...plain(element.getBoundingClientRect()) }));
+          const items = [...document.querySelectorAll(".hero__next-item")].map((element) => plain(element.getBoundingClientRect()));
           return { lines, labels, items };
         });
 
-        const overlap = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+        const overlap = (firstRectangle, secondRectangle) => firstRectangle.left < secondRectangle.right - 1 && secondRectangle.left < firstRectangle.right - 1 && firstRectangle.top < secondRectangle.bottom - 1 && secondRectangle.top < firstRectangle.bottom - 1;
         expect(boxes.labels.length).toBeGreaterThan(0);
         expect(boxes.lines.length).toBeGreaterThan(0);
         for (const label of boxes.labels) {
@@ -990,7 +990,7 @@ test.describe("the homepage is one screen", () => {
             expectedLeft: columnEdge + parseFloat(rootStyle.getPropertyValue("--graphic-gap")),
             viewport: innerWidth,
             centre: (box.top + box.bottom) / 2,
-            introCentre: (main.top + list.bottom) / 2,
+            introductionCentre: (main.top + list.bottom) / 2,
             clearOfFooter: footer.top - box.bottom,
             // The picture is drawn larger than the box, and the box crops it.
             zoom: canvas.width / box.width,
@@ -1008,7 +1008,7 @@ test.describe("the homepage is one screen", () => {
         expect(Math.abs(read.left - read.expectedLeft), "the globe box starts at the reading column edge plus the graphic gap").toBeLessThanOrEqual(1);
         expect(read.left, "the globe box starts inside the screen").toBeLessThan(read.viewport);
         // The intro uses the wide reading column, so it is shorter than it was in a narrow column.
-        expect(Math.abs(read.centre - read.introCentre), "the globe centre stays near the intro centre").toBeLessThanOrEqual(100);
+        expect(Math.abs(read.centre - read.introductionCentre), "the globe centre stays near the intro centre").toBeLessThanOrEqual(100);
         expect(read.listBottom, "the intro stays on the screen").toBeLessThan(read.screen);
       });
 
@@ -1024,8 +1024,8 @@ test.describe("the homepage is one screen", () => {
               if (!node.textContent.trim() || node.parentElement.closest("[data-lyra-globe]")) continue;
               const range = document.createRange();
               range.selectNodeContents(node);
-              for (const rect of range.getClientRects()) {
-                if (rect.width > 0 && rect.height > 0) lines.push({ text: node.textContent.trim(), ...plain(rect) });
+              for (const rectangle of range.getClientRects()) {
+                if (rectangle.width > 0 && rectangle.height > 0) lines.push({ text: node.textContent.trim(), ...plain(rectangle) });
               }
             }
           }
@@ -1057,9 +1057,9 @@ test.describe("the homepage is one screen", () => {
 
         // Compare the rows on each side of each seam, in columns between two
         // grid lines. A full-width line would show as a brighter row.
-        const shot = await page.screenshot();
-        const seams = await page.evaluate(async ({ base64, headerBottom, footerTop, contentLeft, width }) => {
-          const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+        const screenshot = await page.screenshot();
+        const seams = await page.evaluate(async ({ encodedImage, headerBottom, footerTop, contentLeft, width }) => {
+          const bytes = Uint8Array.from(atob(encodedImage), (character) => character.charCodeAt(0));
           const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
           const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
           const context = canvas.getContext("2d");
@@ -1078,7 +1078,7 @@ test.describe("the homepage is one screen", () => {
             return Math.max(...columns.map((x) => Math.max(...rows.map((row) => green(x, row))) - Math.min(...rows.map((row) => green(x, row)))));
           };
           return { header: spread(Math.round(headerBottom)), footer: spread(Math.round(footerTop)) };
-        }, { base64: shot.toString("base64"), headerBottom: style.headerBottom, footerTop: style.footerTop, contentLeft: style.contentLeft, width: style.width });
+        }, { encodedImage: screenshot.toString("base64"), headerBottom: style.headerBottom, footerTop: style.footerTop, contentLeft: style.contentLeft, width: style.width });
         expect(seams.header, "no line under the header").toBeLessThanOrEqual(1);
         expect(seams.footer, "no line over the footer").toBeLessThanOrEqual(1);
       });
@@ -1093,9 +1093,9 @@ test.describe("the homepage is one screen", () => {
             contentLeft: document.querySelector(".hero__main").getBoundingClientRect().left,
           };
         });
-        const shot = await page.screenshot();
-        const spread = await page.evaluate(async ({ base64, top, bottom, contentLeft }) => {
-          const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+        const screenshot = await page.screenshot();
+        const spread = await page.evaluate(async ({ encodedImage, top, bottom, contentLeft }) => {
+          const bytes = Uint8Array.from(atob(encodedImage), (character) => character.charCodeAt(0));
           const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
           const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
           const context = canvas.getContext("2d");
@@ -1115,7 +1115,7 @@ test.describe("the homepage is one screen", () => {
             widest = Math.max(widest, Math.max(...values) - Math.min(...values));
           }
           return { widest, columns: columns.length };
-        }, { base64: shot.toString("base64"), ...state });
+        }, { encodedImage: screenshot.toString("base64"), ...state });
         expect(spread.columns).toBeGreaterThan(0);
         // A grid line would raise a row by 4 or more in the green channel.
         expect(spread.widest, "no horizontal line inside the footer bar").toBeLessThanOrEqual(1);
@@ -1140,7 +1140,7 @@ test.describe("the homepage is one screen", () => {
         expect(grid.strong, "only a small part holds the grid at half strength").toBeLessThanOrEqual(0.3);
 
         // Behind the text and at the seams it is gone.
-        expect(grid.intro, "no grid line behind the intro").toBeLessThanOrEqual(0.6);
+        expect(grid.introduction, "no grid line behind the intro").toBeLessThanOrEqual(0.6);
         expect(grid.header, "no grid line behind the header").toBeLessThanOrEqual(0.6);
         expect(grid.footer, "no grid line behind the footer").toBeLessThanOrEqual(0.6);
         expect(grid.cards, "no grid line behind the calls to action").toBeLessThanOrEqual(1.5);
@@ -1223,7 +1223,7 @@ test.describe("the globe band below 1100px", () => {
         }
       });
 
-      test("puts the Vega label in the same place with and without the canvas", async ({ browser, baseURL, page }) => {
+      test("puts the Vega label in the same place with and without the canvas", async ({ browser, baseURL: baseAddress, page }) => {
         await useReducedMotion(page);
         await page.goto("/");
         await settle(page);
@@ -1237,7 +1237,7 @@ test.describe("the globe band below 1100px", () => {
         const withCanvas = await star(page.locator("body"));
         const plain = await browser.newContext({ javaScriptEnabled: false, viewport: screen });
         const plainPage = await plain.newPage();
-        await plainPage.goto(new URL("/", baseURL).href);
+        await plainPage.goto(new URL("/", baseAddress).href);
         await settle(plainPage);
         const withoutCanvas = await star(plainPage.locator("body"));
         await plain.close();
@@ -1250,7 +1250,7 @@ test.describe("the globe band below 1100px", () => {
       test("draws no grid layer behind the band, as the inner pages draw none", async ({ page }) => {
         await page.goto("/");
         await settle(page);
-        const layers = await page.evaluate(() => ["::before", "::after"].map((pseudo) => getComputedStyle(document.querySelector(".hero__globe"), pseudo).display));
+        const layers = await page.evaluate(() => ["::before", "::after"].map((pseudoElement) => getComputedStyle(document.querySelector(".hero__globe"), pseudoElement).display));
         expect(layers).toEqual(["none", "none"]);
       });
 
@@ -1344,9 +1344,9 @@ test.describe("the intro on a tablet uses the reading column", () => {
       await settle(page);
       const widths = await page.evaluate(() => {
         const column = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--reading-column"));
-        const pad = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--frame-padding"));
+        const padding = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--frame-padding"));
         return {
-          text: column - 2 * pad,
+          text: column - 2 * padding,
           thesis: document.querySelector(".hero__thesis").getBoundingClientRect().width,
           next: document.querySelector(".hero__next").getBoundingClientRect().width,
         };
@@ -1417,7 +1417,7 @@ test.describe("the live call to action focus ring", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 
   test("keeps the text on the column edge and surrounds text and arrow evenly", async ({ page }) => {
-    await page.goto(dev + "/");
+    await page.goto(DRAFT_ORIGIN + "/");
     await settle(page);
     expect(await tabTo(page, ".hero__next a[href='/writing/']")).toBe(true);
     const read = await page.evaluate(() => {

@@ -1,4 +1,4 @@
-import config from "../../astro.config.mjs";
+import siteConfiguration from "../../astro.config.mjs";
 
 // The draft preview server for the browser tests. It uses the site
 // configuration with one change: the server sends no reload to the browser.
@@ -8,4 +8,4 @@ import config from "../../astro.config.mjs";
 // A test page that is open at that time loses its document, and the test
 // fails with "Execution context was destroyed". The tests do not edit
 // files, so they need no reload.
-export default { ...config, vite: { ...config.vite, server: { ...config.vite?.server, hmr: false } } };
+export default { ...siteConfiguration, vite: { ...siteConfiguration.vite, server: { ...siteConfiguration.vite?.server, hmr: false } } };
