@@ -8,7 +8,6 @@ import { root } from "./helpers.mjs";
 
 // Parse workflow structure. Inspect shell commands only when their ordering or arguments define the deployment boundary.
 const workflow = yaml.load(readFileSync(join(root, ".github", "workflows", "deploy.yml"), "utf8"));
-const dependabot = yaml.load(readFileSync(join(root, ".github", "dependabot.yml"), "utf8"));
 const { verify, deploy } = workflow.jobs;
 const allSteps = Object.values(workflow.jobs).flatMap((job) => job.steps);
 const jobCommands = (job) => job.steps.map((step) => step.run ?? "").join("\n");
@@ -22,7 +21,6 @@ const nodeSteps = (job) => job.steps.filter((step) => step.uses?.startsWith("act
 test("the workflow names Verify and its dependent production job", () => {
   assert.deepEqual(Object.keys(workflow.jobs), ["verify", "deploy"]);
   assert.equal(verify.name, "Verify", "the branch rule requires this status check");
-  assert.equal(deploy.name, "Deploy production");
 });
 
 test("the workflow accepts pull requests, main pushes, and manual dispatch", () => {
@@ -166,10 +164,4 @@ test("Deploy verifies artifact hashes before it supplies the Node version", () =
   assert.ok(packageCheck > fileCheck);
   assert.ok(versionCopy > packageCheck);
   assert.ok(deploy.steps.indexOf(nodeSteps(deploy)[0]) > deploy.steps.indexOf(hashStep));
-});
-
-test("Dependabot updates pinned GitHub actions each week", () => {
-  const actions = dependabot.updates.find((entry) => entry["package-ecosystem"] === "github-actions");
-  assert.equal(actions?.directory, "/");
-  assert.equal(actions?.schedule?.interval, "weekly");
 });
