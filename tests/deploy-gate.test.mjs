@@ -217,6 +217,7 @@ test("the live gate accepts the exact verified homepage", async (t) => {
 test("the live gate accepts the security headers of the local Cloudflare build", async (t) => {
   const origin = await startLocalCloudflare(t);
   const result = await runGate({ ORIGIN: origin, EXPECTED_INDEX: "" }, 30_000);
+  assert.equal(result.code, 0, result.output);
   for (const label of ["homepage", "404 response", "/about/", "/writing/"]) {
     assert.ok(result.output.includes(`verify-deployment: ${label} security headers match the approved policy`), result.output);
   }
@@ -258,6 +259,7 @@ test("the live gate rejects an injected script without requesting it", async (t)
   assert.equal(result.code, 1, result.output);
   assert.match(result.output, /the live homepage does not match the verified build/);
   assert.ok(!result.requests.includes("/injected.js"));
+  assert.doesNotMatch(result.output, /verify-deployment: OK/);
 });
 
 test("the live gate checks each repeated script URL once", async (t) => {
@@ -503,26 +505,20 @@ for (const writingStatus of [404, 200]) {
   });
 }
 
-for (const [page, route, options] of [
-  ["/about/", "/about/", {}],
-  ["/writing/ with HTTP 404", "/writing/", {}],
-  ["/writing/ with HTTP 200", "/writing/", { writingStatus: 200 }],
+// Homepage cases cover every header parser. Check representative failures on each additional response path.
+for (const [page, route, options, headers, message] of [
+  ["/about/", "/about/", {}, { "Content-Security-Policy": cspWithSources("script-src", "'self' *") }, "content-security-policy must match the approved _headers policy"],
+  ["/writing/ with HTTP 404", "/writing/", {}, { "Content-Security-Policy": null }, "missing content-security-policy"],
+  ["/writing/ with HTTP 200", "/writing/", { writingStatus: 200 }, { "Referrer-Policy": "unsafe-url" }, "referrer-policy must match the approved _headers policy"],
 ]) {
   const option = route === "/about/" ? "aboutHeaders" : "writingHeaders";
-  for (const [name, headers, message] of [
-    ["wildcard scripts", { "Content-Security-Policy": cspWithSources("script-src", "'self' *") }, "content-security-policy must match the approved _headers policy"],
-    ["a missing CSP", { "Content-Security-Policy": null }, "missing content-security-policy"],
-    ["a missing frame option", { "X-Frame-Options": null }, "missing x-frame-options"],
-    ["an unsafe referrer policy", { "Referrer-Policy": "unsafe-url" }, "referrer-policy must match the approved _headers policy"],
-  ]) {
-    test(`the live gate rejects ${name} on ${page}`, async (t) => {
-      const result = await checkDeployment(t, { ...options, [option]: headers });
-      assert.equal(result.code, 1, result.output);
-      assert.ok(result.output.includes(`verify-deployment: ${route} ${message}`), result.output);
-      assert.match(result.output, /homepage security headers match the approved policy/);
-      assert.doesNotMatch(result.output, /verify-deployment: OK/);
-    });
-  }
+  test(`the live gate rejects an unsafe policy on ${page}`, async (t) => {
+    const result = await checkDeployment(t, { ...options, [option]: headers });
+    assert.equal(result.code, 1, result.output);
+    assert.ok(result.output.includes(`verify-deployment: ${route} ${message}`), result.output);
+    assert.match(result.output, /homepage security headers match the approved policy/);
+    assert.doesNotMatch(result.output, /verify-deployment: OK/);
+  });
 }
 
 for (const writingStatus of [301, 500]) {
@@ -535,8 +531,6 @@ for (const writingStatus of [301, 500]) {
 }
 
 for (const [name, options, message] of [
-  ["an injected analytics script", { html: homepage + '<script src="/injected.js"></script>' },
-    /the live homepage does not match the verified build/],
   ["a different build", { expectedHtml: homepage + "\n" },
     /the live homepage does not match the verified build/],
   ["a temporary redirect", { redirectStatus: 302 },

@@ -2,201 +2,174 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
+import yaml from "js-yaml";
 
 import { root } from "./helpers.mjs";
 
-// The deployment workflow cannot run on a laptop, so this suite holds it to
-// its shape instead: which events run it, that every action is pinned to a
-// commit, that Verify never sees a secret, that Deploy production runs only
-// for the current main commit with the kill switch on, and that Cloudflare
-// receives the verified build. Each test reads the block for one job, not the whole file, so
-// a rule about one job cannot be satisfied by text in the other.
+// Parse workflow structure. Inspect shell commands only when their ordering or arguments define the deployment boundary.
+const workflow = yaml.load(readFileSync(join(root, ".github", "workflows", "deploy.yml"), "utf8"));
+const dependabot = yaml.load(readFileSync(join(root, ".github", "dependabot.yml"), "utf8"));
+const { verify, deploy } = workflow.jobs;
+const allSteps = Object.values(workflow.jobs).flatMap((job) => job.steps);
+const jobCommands = (job) => job.steps.map((step) => step.run ?? "").join("\n");
+const deployCommands = jobCommands(deploy);
+const packageStep = verify.steps.find((step) => step.id === "package");
+const publishStep = deploy.steps.find((step) => step.id === "publish");
+const hashStep = deploy.steps.find((step) => step.env?.EXPECTED_MANIFEST_SHA256);
+const liveChecks = deploy.steps.filter((step) => step.env?.EXPECTED_INDEX);
+const nodeSteps = (job) => job.steps.filter((step) => step.uses?.startsWith("actions/setup-node@"));
 
-const workflowPath = join(root, ".github", "workflows", "deploy.yml");
-const workflow = readFileSync(workflowPath, "utf8");
-const dependabot = readFileSync(join(root, ".github", "dependabot.yml"), "utf8");
-
-/** Split a two-space-indented YAML document into its top-level blocks. */
-function topLevelBlocks(text) {
-  const blocks = new Map();
-  let current = null;
-  for (const line of text.split("\n")) {
-    const key = line.match(/^([A-Za-z_][\w-]*):/);
-    if (key) {
-      current = key[1];
-      blocks.set(current, []);
-    } else if (current) {
-      blocks.get(current).push(line);
-    }
-  }
-  return new Map([...blocks].map(([key, lines]) => [key, lines.join("\n")]));
-}
-
-/** The blocks under `jobs:`, keyed by job id. */
-function jobBlocks(text) {
-  const jobs = topLevelBlocks(text).get("jobs") ?? "";
-  const blocks = new Map();
-  let current = null;
-  for (const line of jobs.split("\n")) {
-    const key = line.match(/^  ([A-Za-z_][\w-]*):\s*$/);
-    if (key) {
-      current = key[1];
-      blocks.set(current, []);
-    } else if (current) {
-      blocks.get(current).push(line);
-    }
-  }
-  return new Map([...blocks].map(([key, lines]) => [key, lines.join("\n")]));
-}
-
-const top = topLevelBlocks(workflow);
-const jobs = jobBlocks(workflow);
-const verify = jobs.get("verify");
-const deploy = jobs.get("deploy");
-
-test("the workflow has exactly the two jobs the deployment design names", () => {
-  assert.deepEqual([...jobs.keys()], ["verify", "deploy"]);
-  assert.match(verify, /^\s+name: Verify$/m, "the Verify job is the required status check");
-  assert.match(deploy, /^\s+name: Deploy production$/m);
+test("the workflow names Verify and its dependent production job", () => {
+  assert.deepEqual(Object.keys(workflow.jobs), ["verify", "deploy"]);
+  assert.equal(verify.name, "Verify", "the branch rule requires this status check");
+  assert.equal(deploy.name, "Deploy production");
 });
 
-test("the workflow runs on pull requests, pushes to main, and manual dispatch only", () => {
-  const events = [...(top.get("on") ?? "").matchAll(/^  ([\w-]+):/gm)].map(([, name]) => name).sort();
-  assert.deepEqual(events, ["pull_request", "push", "workflow_dispatch"]);
-  assert.doesNotMatch(workflow, /pull_request_target|workflow_run/, "no privileged event may run this workflow");
-  assert.match(top.get("on"), /^  push:\n(?:.*\n)*?      - main$/m);
+test("the workflow accepts pull requests, main pushes, and manual dispatch", () => {
+  assert.deepEqual(Object.keys(workflow.on).sort(), ["pull_request", "push", "workflow_dispatch"]);
+  assert.deepEqual(workflow.on.push.branches, ["main"]);
+  assert.deepEqual(workflow.on.pull_request.branches, ["main"]);
 });
 
-test("every action is owned by GitHub and pinned to a full commit SHA", () => {
-  const uses = [...workflow.matchAll(/^\s+uses:\s*(\S+)/gm)].map(([, ref]) => ref);
-  assert.ok(uses.length >= 4, "expected checkout, setup-node, upload-artifact, and download-artifact");
-  for (const ref of uses) {
-    assert.match(ref, /^actions\/[\w.-]+@[0-9a-f]{40}$/, `${ref} must be a GitHub-owned action at a 40-character commit SHA`);
+test("every action belongs to GitHub and has a full commit pin", () => {
+  const actions = allSteps.filter((step) => step.uses).map((step) => step.uses);
+  assert.ok(actions.length >= 4, "checkout, Node setup, upload, and download actions must exist");
+  for (const action of actions) assert.match(action, /^actions\/[\w.-]+@[0-9a-f]{40}$/);
+});
+
+test("the workflow token permits reading repository contents only", () => {
+  assert.deepEqual(workflow.permissions, { contents: "read" });
+  for (const job of Object.values(workflow.jobs)) assert.equal(job.permissions, undefined, "jobs must not widen permissions");
+});
+
+test("Verify receives no secrets or production environment", () => {
+  assert.doesNotMatch(JSON.stringify(verify), /secrets\./);
+  assert.doesNotMatch(JSON.stringify(workflow.env ?? {}), /secrets\./);
+  assert.equal(verify.environment, undefined);
+  const checkout = verify.steps.find((step) => step.uses?.startsWith("actions/checkout@"));
+  assert.equal(checkout?.with?.["persist-credentials"], false);
+});
+
+test("Verify installs locked dependencies and runs audits and the complete gate", () => {
+  const commands = verify.steps.map((step) => step.run);
+  for (const command of ["npm ci", "npm audit --audit-level=high", "npm audit signatures", "npx playwright install --with-deps chromium", "npm run verify"]) {
+    assert.ok(commands.includes(command), `Verify must run ${command}`);
   }
 });
 
-test("the workflow token is read-only and no job widens it", () => {
-  assert.equal(top.get("permissions").trim(), "contents: read");
-  assert.doesNotMatch(verify, /^\s+permissions:/m);
-  assert.doesNotMatch(deploy, /^\s+permissions:/m);
-  assert.doesNotMatch(workflow, /:\s*write\b/, "no permission may be write");
-});
-
-test("Verify sees no secret and no environment", () => {
-  assert.doesNotMatch(verify, /secrets\./);
-  assert.doesNotMatch(verify, /^\s+environment:/m);
-  assert.match(verify, /^\s+persist-credentials: false$/m, "the checkout must not leave a token in .git");
-});
-
-test("Verify installs from the lockfile, audits, and runs the complete gate", () => {
-  for (const command of [
-    "npm ci",
-    "npm audit --audit-level=high",
-    "npm audit signatures",
-    "npx playwright install --with-deps chromium",
-    "npm run verify",
-  ]) {
-    const literal = command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    assert.match(verify, new RegExp(`^\\s+run: ${literal}$`, "m"), `Verify must run ${command}`);
-  }
-});
-
-test("Verify packs the required files and the live verifier, and records the package and manifest hashes", () => {
+test("Verify packages the site, verifier, tooling, and content hashes", () => {
+  const commands = packageStep.run;
   for (const name of ["_headers", "_redirects", "index.html", "404.html", "robots.txt", "sitemap-index.xml"]) {
-    assert.ok(verify.includes(name), `Verify must require dist/${name} before packing`);
+    assert.ok(commands.includes(name), `packaging must require dist/${name}`);
   }
-  assert.match(verify, /--format=ustar/);
-  assert.match(verify, /cp scripts\/verify-deployment\.mjs/);
-  assert.match(verify, /cp \.nvmrc "\$package_dir\/node-version"/);
-  assert.match(verify, /sha256sum site\.tar\.gz verify-deployment\.mjs wrangler\.jsonc package\.json package-lock\.json node-version > SHA256SUMS/);
-  assert.match(verify, /package_sha256=.*>> "\$GITHUB_OUTPUT"/);
-  assert.match(verify, /sha256sum "\$package_dir\/SHA256SUMS"/);
-  assert.match(verify, /manifest_sha256=.*>> "\$GITHUB_OUTPUT"/);
-  assert.match(verify, /^\s+if: github\.event_name != 'pull_request'$/m, "pull requests must not store a production package");
+  assert.match(commands, /--format=ustar/);
+  assert.match(commands, /cp scripts\/verify-deployment\.mjs/);
+  assert.match(commands, /cp \.nvmrc "\$package_dir\/node-version"/);
+  assert.match(commands, /sha256sum site\.tar\.gz verify-deployment\.mjs wrangler\.jsonc package\.json package-lock\.json node-version > SHA256SUMS/);
+  assert.match(commands, /package_sha256=.*>> "\$GITHUB_OUTPUT"/);
+  assert.match(commands, /sha256sum "\$package_dir\/SHA256SUMS"/);
+  assert.match(commands, /manifest_sha256=.*>> "\$GITHUB_OUTPUT"/);
+  assert.deepEqual(verify.outputs, {
+    package_sha256: "${{ steps.package.outputs.package_sha256 }}",
+    manifest_sha256: "${{ steps.package.outputs.manifest_sha256 }}",
+  });
+  const upload = verify.steps.find((step) => step.uses?.startsWith("actions/upload-artifact@"));
+  assert.equal(upload?.if, "github.event_name != 'pull_request'");
+  assert.equal(upload?.with?.name, "production-site-${{ github.sha }}");
 });
 
-test("Deploy production runs only for the current main commit with the kill switch on", () => {
-  assert.match(deploy, /^\s+needs: verify$/m);
-  assert.match(deploy, /^\s+environment:\n\s+name: production$/m);
-  const condition = deploy.match(/^\s+if: >-\n((?:\s{6}.*\n)+)/m)?.[1] ?? "";
-  for (const clause of [
-    "needs.verify.result == 'success'",
-    "github.event_name == 'push' || github.event_name == 'workflow_dispatch'",
-    "github.ref == 'refs/heads/main'",
-    "github.repository == 'cristianvega-ai/cristianvega.ai'",
-    "vars.PRODUCTION_DEPLOY_ENABLED == 'true'",
-  ]) {
-    assert.ok(condition.includes(clause), `the deploy condition must require ${clause}`);
+test("production requires verified current main, owner repository, and the enabled switch", () => {
+  assert.equal(deploy.needs, "verify");
+  assert.equal(deploy.environment.name, "production");
+  assert.equal(deploy.if.replace(/\s+/g, " ").trim(),
+    "needs.verify.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && " +
+    "github.ref == 'refs/heads/main' && github.repository == 'cristianvega-ai/cristianvega.ai' && " +
+    "vars.PRODUCTION_DEPLOY_ENABLED == 'true'");
+  assert.deepEqual(deploy.concurrency, { group: "cristianvega-ai-production", "cancel-in-progress": false });
+  const current = deploy.steps.find((step) => step.id === "current");
+  assert.equal(current.env.EXPECTED_SHA, "${{ github.sha }}");
+  assert.match(current.run, /git ls-remote[\s\S]*?refs\/heads\/main/);
+  assert.match(current.run, /"\$current_sha" == "\$EXPECTED_SHA"/);
+  for (const step of deploy.steps.filter((step) => step !== current)) {
+    const expected = "steps.current.outputs.deploy == 'true'" +
+      (step.env?.ORIGIN === "https://cristianvega.ai" ? " && vars.CLOUDFLARE_PRODUCTION_READY == 'true'" : "");
+    assert.equal(step.if?.replace(/\s+/g, " ").trim(), expected, "each deployment step must require fresh main");
   }
-  assert.match(deploy, /^\s+concurrency:\n\s+group: cristianvega-ai-production\n\s+cancel-in-progress: false$/m);
-  assert.match(deploy, /git ls-remote[\s\S]*?refs\/heads\/main/, "the freshness check must read main from GitHub");
-  assert.match(deploy, /if: steps\.current\.outputs\.deploy == 'true'/);
 });
 
-test("Deploy production never checks out the repository and runs the verifier from the package", () => {
-  assert.doesNotMatch(deploy, /actions\/checkout/);
-  assert.match(deploy, /node verify-deployment\.mjs/);
-  assert.doesNotMatch(deploy, /scripts\/verify-deployment\.mjs/);
-  assert.match(deploy, /sha256sum --check SHA256SUMS/);
-  assert.match(deploy, /EXPECTED_PACKAGE_SHA256: \$\{\{ needs\.verify\.outputs\.package_sha256 \}\}/);
-  assert.match(deploy, /EXPECTED_INDEX: dist\/index\.html/);
-  assert.match(deploy, /EXPECTED_MANIFEST_SHA256: \$\{\{ needs\.verify\.outputs\.manifest_sha256 \}\}/);
-  assert.match(deploy, /"\$manifest" != "\$EXPECTED_MANIFEST_SHA256"/);
+test("Deploy uses the verified package without checking out or rebuilding source", () => {
+  assert.ok(!deploy.steps.some((step) => step.uses?.startsWith("actions/checkout@")));
+  assert.doesNotMatch(deployCommands, /npm run build|astro build|scripts\/verify-deployment\.mjs/);
+  assert.match(hashStep.run, /sha256sum --check SHA256SUMS/);
+  assert.equal(hashStep.env.EXPECTED_PACKAGE_SHA256, "${{ needs.verify.outputs.package_sha256 }}");
+  assert.equal(hashStep.env.EXPECTED_MANIFEST_SHA256, "${{ needs.verify.outputs.manifest_sha256 }}");
+  assert.match(hashStep.run, /"\$manifest" != "\$EXPECTED_MANIFEST_SHA256"/);
+  const download = deploy.steps.find((step) => step.uses?.startsWith("actions/download-artifact@"));
+  assert.equal(download?.with?.name, "production-site-${{ github.sha }}");
+  assert.equal(liveChecks.length, 2, "both deployed origins must use the packaged verifier");
+  for (const step of liveChecks) {
+    assert.match(step.run, /node verify-deployment\.mjs/);
+    assert.equal(step.env.EXPECTED_INDEX, "dist/index.html");
+  }
 });
 
-test("Cloudflare receives the verified artifact and only the deploy step receives its token", () => {
-  assert.match(deploy, /run: npm ci --ignore-scripts/);
-  assert.match(deploy, /npx --no-install wrangler deploy --config wrangler.jsonc --no-autoconfig --env ""/);
-  assert.doesNotMatch(deploy, /npm run build|astro build|DEPLOY_SSH|ssh-keyscan/);
+test("only the publish step receives Cloudflare secrets", () => {
+  const install = deploy.steps.find((step) => step.run === "npm ci --ignore-scripts");
+  assert.ok(install, "deployment installation must disable dependency scripts");
+  assert.match(publishStep.run, /npx --no-install wrangler deploy --config wrangler\.jsonc --no-autoconfig --env ""/);
+  assert.doesNotMatch(deployCommands, /DEPLOY_SSH|ssh-keyscan/);
   for (const secret of ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]) {
-    assert.ok(deploy.includes(secret + ": ${{ secrets." + secret + " }}"));
+    assert.equal(publishStep.env[secret], "${{ secrets." + secret + " }}");
   }
-  assert.equal([...deploy.matchAll(/secrets\.CLOUDFLARE_API_TOKEN/g)].length, 1);
-  assert.match(deploy, /WRANGLER_OUTPUT_FILE_PATH:/);
-  assert.match(deploy, /record.type === "deploy"/);
-  assert.match(deploy, /ORIGIN: \$\{\{ steps\.publish\.outputs\.origin \}\}/);
+  assert.doesNotMatch(JSON.stringify(deploy.env ?? {}), /secrets\./);
+  for (const step of deploy.steps.filter((step) => step !== publishStep)) assert.doesNotMatch(JSON.stringify(step), /secrets\./);
+  assert.ok(publishStep.env.WRANGLER_OUTPUT_FILE_PATH);
+  assert.match(publishStep.run, /record.type === "deploy"/);
+  assert.ok(liveChecks.some((step) => step.env.ORIGIN === "${{ steps.publish.outputs.origin }}"));
 });
 
-test("production checks run only after the domain switch is confirmed", () => {
-  assert.match(deploy, /vars\.CLOUDFLARE_PRODUCTION_READY == 'true'/);
-  assert.match(deploy, /CHECK_CANONICAL_REDIRECTS: 'true'/);
-  assert.match(deploy, /ORIGIN: https:\/\/cristianvega\.ai/);
+test("production domain checks require completed Cloudflare cutover", () => {
+  const production = liveChecks.find((step) => step.env.ORIGIN === "https://cristianvega.ai");
+  assert.ok(production.if.includes("vars.CLOUDFLARE_PRODUCTION_READY == 'true'"));
+  assert.equal(production.env.CHECK_CANONICAL_REDIRECTS, "true");
   const config = JSON.parse(readFileSync(join(root, "wrangler.jsonc"), "utf8"));
   assert.equal(config.workers_dev, true);
   assert.equal(config.main, undefined, "the site must remain static");
   assert.deepEqual(config.routes, [
     { pattern: "cristianvega.ai", custom_domain: true },
     { pattern: "www.cristianvega.ai", custom_domain: true },
-  ], "both public hosts must use Cloudflare as their origin");
+  ]);
   assert.equal(config.assets.directory, "./dist");
   assert.equal(config.assets.not_found_handling, "404-page");
   assert.equal(config.assets.html_handling, "force-trailing-slash");
-  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-  assert.match(pkg.devDependencies.wrangler, /^\d+\.\d+\.\d+$/);
+  const dependencies = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).devDependencies;
+  assert.match(dependencies.wrangler, /^\d+\.\d+\.\d+$/);
 });
 
-test("both jobs read the shared Node version file", () => {
+test("both jobs read exactly one shared Node version", () => {
   for (const job of [verify, deploy]) {
-    assert.match(job, /^\s+node-version-file: \.nvmrc$/m);
-    assert.equal([...job.matchAll(/uses: actions\/setup-node@/g)].length, 1);
-    assert.doesNotMatch(job, /^\s+node-version:/m, "a Node version must not override the shared file");
+    const steps = nodeSteps(job);
+    assert.equal(steps.length, 1);
+    assert.equal(steps[0].with["node-version-file"], ".nvmrc");
+    assert.equal(steps[0].with["node-version"], undefined);
   }
 });
 
-test("Deploy reads the Node version only after it checks the artifact hashes", () => {
-  const manifestCheck = deploy.indexOf('"$manifest" != "$EXPECTED_MANIFEST_SHA256"');
-  const fileCheck = deploy.indexOf("sha256sum --check SHA256SUMS");
-  const packageCheck = deploy.indexOf('"$actual" != "$EXPECTED_PACKAGE_SHA256"');
-  const versionCopy = deploy.indexOf('cp node-version "$GITHUB_WORKSPACE/.nvmrc"');
-  const nodeSetup = deploy.indexOf("uses: actions/setup-node@");
-  assert.ok(manifestCheck >= 0, "Deploy must check the manifest hash");
-  assert.ok(fileCheck > manifestCheck, "Deploy must check every file after it checks the manifest");
-  assert.ok(packageCheck > fileCheck, "Deploy must check the recorded package hash");
-  assert.ok(versionCopy > packageCheck, "Deploy must copy the verified Node version after every hash check");
-  assert.ok(nodeSetup > versionCopy, "Deploy must receive the verified Node version before setup-node reads it");
+test("Deploy verifies artifact hashes before it supplies the Node version", () => {
+  const commands = hashStep.run;
+  const manifestCheck = commands.indexOf('"$manifest" != "$EXPECTED_MANIFEST_SHA256"');
+  const fileCheck = commands.indexOf("sha256sum --check SHA256SUMS");
+  const packageCheck = commands.indexOf('"$actual" != "$EXPECTED_PACKAGE_SHA256"');
+  const versionCopy = commands.indexOf('cp node-version "$GITHUB_WORKSPACE/.nvmrc"');
+  assert.ok(manifestCheck >= 0);
+  assert.ok(fileCheck > manifestCheck);
+  assert.ok(packageCheck > fileCheck);
+  assert.ok(versionCopy > packageCheck);
+  assert.ok(deploy.steps.indexOf(nodeSteps(deploy)[0]) > deploy.steps.indexOf(hashStep));
 });
 
-test("Dependabot keeps the action pins current", () => {
-  assert.match(dependabot, /package-ecosystem: github-actions/);
-  assert.match(dependabot, /interval: weekly/);
+test("Dependabot updates pinned GitHub actions each week", () => {
+  const actions = dependabot.updates.find((entry) => entry["package-ecosystem"] === "github-actions");
+  assert.equal(actions?.directory, "/");
+  assert.equal(actions?.schedule?.interval, "weekly");
 });
