@@ -9,36 +9,10 @@ body[data-page="article"] {
   --muted: var(--masthead-metadata);
   --line: var(--masthead-line);
   --surface-well: var(--ink);
-  --brand-second-ring-surface: var(--brand-second-ring-ink);
   color: var(--masthead-text);
   background: var(--ink);
 }
 
-body:is([data-page="writing"], [data-page="article"]) .site-header {
-  background: var(--ink);
-  box-shadow: 0 1px 0 var(--masthead-line);
-}
-
-body:is([data-page="writing"], [data-page="article"]) .brand {
-  color: var(--masthead-text);
-}
-
-body:is([data-page="writing"], [data-page="article"]) .brand__word i,
-body:is([data-page="writing"], [data-page="article"]) .navigation {
-  color: var(--masthead-metadata);
-}
-
-body:is([data-page="writing"], [data-page="article"]) .brand__mark i:last-child {
-  border-color: var(--brand-second-ring-ink);
-}
-
-body:is([data-page="writing"], [data-page="article"]) .navigation__link:hover,
-body:is([data-page="writing"], [data-page="article"]) .navigation__link[aria-current] {
-  color: var(--masthead-text);
-}
-
-body:is([data-page="writing"], [data-page="article"]) .site-header :focus-visible,
-body:is([data-page="writing"], [data-page="article"]) .skip-link:focus,
 .writing-index :focus-visible,
 .article :focus-visible {
   outline-color: var(--sky);

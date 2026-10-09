@@ -45,14 +45,11 @@ test("global.css defines the sky token that the graphics read", () => {
 // that reads --ink-raised turned light on light. Add an entry only with the reason the new meaning is safe.
 const TOKEN_OVERRIDES = {
   "writing.css": {
-    // Article pages sit on ink. The shared header, brand, and nav rules in global.css read the "on surface"
-    // tokens, so the article page gives them their ink values. Each one keeps its role: text stays text,
-    // and a ground stays a ground.
+    // Article pages sit on ink. These body tokens keep article text, lines, and backgrounds on the same ground.
     "--foreground": "article pages sit on ink",
     "--muted": "article pages sit on ink",
     "--line": "article pages sit on ink",
     "--surface-well": "article pages sit on ink",
-    "--brand-second-ring-surface": "article pages sit on ink",
   },
   "home.css": {
     // The homepage grid is faded, so its lines can be a little stronger. The token keeps its meaning.
