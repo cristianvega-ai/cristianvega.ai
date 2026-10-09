@@ -3,6 +3,18 @@
 This Astro site contains Cristian Vega's homepage, profile, and writing section.
 It also contains an optional products section and a custom 404 page.
 
+## Owner maintenance
+
+Cristian Vega maintains this personal website.
+This repository does not accept outside contributions.
+GitHub allows only repository collaborators to create pull requests.
+The owner is the only collaborator.
+Issues, discussions, projects, and the wiki stay disabled.
+Owner-authorized automation and Dependabot remain part of maintenance.
+Changes to `main` must pass the pull request and `Verify` gates.
+Read [AGENTS.md](AGENTS.md) for the internal maintenance rules.
+Report security problems privately through the process in [SECURITY.md](SECURITY.md).
+
 ## Develop
 
 Use the exact supported Node.js version in [.nvmrc](.nvmrc).

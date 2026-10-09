@@ -9,7 +9,19 @@ The owner's request in the conversation comes first. This file comes second.
 A nested `AGENTS.md` adds rules for its own directory.
 If two rules conflict, follow the more specific rule and name the conflict in your summary.
 
-`AGENTS.md` is the canonical repository policy. `tests/AGENTS.md` and `CONTRIBUTING.md` hold detail that this file points to. A tool-specific file must point here instead of duplicating these rules.
+`AGENTS.md` is the canonical repository policy.
+`tests/AGENTS.md` holds test detail.
+A tool-specific file must point here instead of duplicating these rules.
+
+## Owner maintenance
+
+The owner controls maintenance of this personal website.
+Do not accept outside contributions.
+GitHub restricts pull request creation to repository collaborators.
+The owner is the only collaborator.
+Keep issues, discussions, projects, and the wiki disabled.
+Owner-authorized agents and Dependabot can prepare maintenance changes under the rules below.
+Preserve private security reporting through `SECURITY.md`.
 
 ## Language
 
@@ -51,7 +63,7 @@ npm run generate:touch-icon
 ## Where to look
 
 - Use `tests/AGENTS.md` before you add, move, or change a test.
-- Use `CONTRIBUTING.md` before you open a pull request.
+- Use the pull request checklist below before you open a pull request.
 - Use `README.md` before you change deployment, Cloudflare domain routes, or image derivatives.
 - `src/styles/global.css` holds the site-wide design system and the responsive behavior.
 - `src/shared/` holds content helpers, article interactions, and canvas modules.
@@ -180,18 +192,63 @@ Never weaken an assertion merely to make a check pass.
 
 Use the complete word. Do not use a short form such as `feat`, `docs`, or `perf`.
 
-### Pull requests
+### Owner maintenance pull requests
 
-Every change to `main` must arrive through a pull request. The repository's initial publication is the only bootstrap exception unless the owner explicitly approves another.
+Every change to `main` must arrive through a pull request.
+The repository's initial publication is the only bootstrap exception unless the owner explicitly approves another.
 
-The `main` ruleset enforces this: it requires a pull request and a green `Verify` check, and it has no bypass. A push straight to `main` is refused.
+The `main` ruleset requires a pull request and a green `Verify` check.
+It has no bypass.
+GitHub refuses a push straight to `main`.
 
-The automated webmaster is not an exception, but it does not have to wait.
-An agent that runs unattended may commit a small content or copy change to a branch, open a pull request, and enable auto-merge with `gh pr merge --auto --squash`. The pull request merges when `Verify` passes, and GitHub Actions deploys it. "Small" means words on the site and nothing else. Every other change from that agent goes to a pull request that waits for the owner. That includes code, tests, configuration, dependencies, layout, navigation, deployment behavior, and any change over about five files.
+The owner-authorized automated webmaster follows these gates.
+It can commit a small content or copy change to a branch.
+It can open a pull request and enable auto-merge with `gh pr merge --auto --squash`.
+The pull request merges when `Verify` passes, and GitHub Actions deploys it.
+"Small" means words on the site and nothing else.
+Every other change from that agent requires a pull request that waits for the owner.
+This includes code, tests, configuration, dependencies, layout, navigation, deployment behavior, and any change over about five files.
 
-No agent deploys from a laptop in the normal path. GitHub builds the merged commit, so the live site always matches a commit on `main`. Report the merged commit hash and the workflow run. A manual GitHub workflow run must also build and verify the current `main` commit. Cloudflare domain routes live in `wrangler.jsonc`. Follow README.md before changing those routes. Enable `CLOUDFLARE_PRODUCTION_READY` only after that switch passes the live checks.
+No agent deploys from a laptop in the normal path.
+GitHub builds the merged commit, so the live site always matches a commit on `main`.
+Report the merged commit hash and the workflow run.
+A manual GitHub workflow run must also build and verify the current `main` commit.
+Cloudflare domain routes live in `wrangler.jsonc`.
+Follow README.md before changing those routes.
+Enable `CLOUDFLARE_PRODUCTION_READY` only after that switch passes the live checks.
 
-Follow `CONTRIBUTING.md` for the checklist, the title rule, and the required description.
+#### Before you open a pull request
+
+1. Rebase or merge the current `main` into the branch.
+   Resolve conflicts locally.
+2. Review the complete diff for unrelated files, generated noise, secrets, and temporary tooling artifacts.
+3. Run `npm run verify`.
+4. Run `npm audit` when dependency files changed.
+5. Browser-test affected routes and interactions.
+   Include desktop and mobile evidence for visual changes.
+
+#### Title and description
+
+Use the same complete-word prefixes for pull request titles and commits.
+Keep each pull request focused on one outcome.
+
+Include these items in every pull request description:
+
+- **Summary:** what changed and why;
+- **Changes:** the important implementation details;
+- **Verification:** exact commands and browser scenarios run;
+- **Visual evidence:** before/after screenshots or video for interface changes, or `Not applicable`;
+- **Risk and rollback:** likely failure modes and how to revert safely;
+- **Related work:** linked prior work when applicable.
+
+#### Review and merge
+
+Use a draft pull request while behavior or verification is incomplete.
+Complete the description, pass checks, and remove temporary debugging code before you mark it ready.
+Keep the branch reviewable commit by commit.
+Resolve every review thread explicitly.
+Prefer a squash merge when branch history is exploratory.
+Preserve multiple commits only when they form an intentional, independently understandable sequence.
 
 ## Done
 
