@@ -14,7 +14,7 @@ const writing = defineCollection({
   }),
 });
 
-// Products stay drafts until the owner announces them. See README.md, "Products".
+// Products stay drafts until the owner announces them. See docs/maintenance.md, "Products".
 const products = defineCollection({
   loader: glob({ pattern: "*.md", base: "./src/content/products" }),
   schema: z.object({

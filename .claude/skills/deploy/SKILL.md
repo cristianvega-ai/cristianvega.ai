@@ -5,7 +5,7 @@ description: Publish the site through GitHub Actions to Cloudflare, or check the
 
 # Deploy the site
 
-Read `AGENTS.md` for repository policy. Follow `README.md` for the deployment
+Read `AGENTS.md` for repository policy. Follow `docs/maintenance.md` for the deployment
 and domain switch. GitHub Actions is the default publication path.
 
 1. Work on a focused branch. Run `npm run verify`. Run `npm audit` when
@@ -24,7 +24,7 @@ to retry the current `main` commit. Do not deploy from a laptop.
 
 A successful test address does not prove that the public domain has moved.
 Domain routes live in `wrangler.jsonc`. Follow the domain switch steps in
-README.md before calling the migration complete.
+docs/maintenance.md before calling the migration complete.
 
 Report the merged commit, workflow run, deployed address, and live check
 result. Report any incomplete domain or account step.
