@@ -64,7 +64,7 @@ npm run generate:touch-icon
 
 - Use `tests/AGENTS.md` before you add, move, or change a test.
 - Use the pull request checklist below before you open a pull request.
-- Use `README.md` before you change deployment, Cloudflare domain routes, or image derivatives.
+- Use [the maintenance guide](docs/maintenance.md) before you change deployment, Cloudflare domain routes, or image derivatives.
 - `src/styles/global.css` holds the site-wide design system and the responsive behavior.
 - `src/shared/` holds content helpers, article interactions, and canvas modules.
 - `src/shared/lyra-globe/` holds the Lyra globe. `src/shared/lyra/` holds its star data.
@@ -214,7 +214,7 @@ GitHub builds the merged commit, so the live site always matches a commit on `ma
 Report the merged commit hash and the workflow run.
 A manual GitHub workflow run must also build and verify the current `main` commit.
 Cloudflare domain routes live in `wrangler.jsonc`.
-Follow README.md before changing those routes.
+Follow [the maintenance guide](docs/maintenance.md#domain-switch) before changing those routes.
 Enable `CLOUDFLARE_PRODUCTION_READY` only after that switch passes the live checks.
 
 #### Before you open a pull request
