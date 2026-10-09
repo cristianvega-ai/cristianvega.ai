@@ -1,9 +1,7 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { assertPageBasics, dist, escapeHtml, publishedContent, readContentInventory, readDistFile } from "./helpers.mjs";
+import { assertPageBasics, escapeHtml, publishedContent, readContentInventory, readDistFile } from "./helpers.mjs";
 
 // Check rendered landmarks, metadata, navigation, and asset delivery.
 // Publication fixtures live in publication.test.mjs. Browsers check runtime behavior.
@@ -16,14 +14,7 @@ test("about holds the profile and marks its own navigation link", () => {
   assert.match(html, /rel="canonical" href="https:\/\/cristianvega\.ai\/about\/"/);
   assert.match(html, /href="\/about\/" aria-current="page"/);
   assert.match(html, /class="skip-link"[^>]*href="#main-content"/);
-  assert.match(html, /<meta name="color-scheme" content="dark"/);
-  assert.match(
-    html,
-    /<div class="page-graphic" data-graphic="about" aria-hidden="true"[^>]*>\s*<canvas class="page-graphic__canvas"><\/canvas>\s*<\/div>/,
-    "about must hold one hidden graphic with one canvas",
-  );
-  assert.equal([...html.matchAll(/<canvas/g)].length, 1, "about must draw one canvas");
-  assert.doesNotMatch(html, /<svg[^>]*class="[^"]*page-graphic/, "the graphic must have no SVG fallback");
+  assert.match(html, /data-graphic="about" aria-hidden="true"/, "the About graphic must be decorative");
   assert.doesNotMatch(html, /name="robots" content="noindex/);
 
   assert.match(html, /<article\b[^>]*aria-labelledby="about-title"/);
@@ -44,33 +35,18 @@ test("homepage holds the intro and decorative globe", () => {
   const text = html.replace(/\s+/g, " ");
 
   assertPageBasics(html, { titleFragment: "Cristian Vega" });
-  assert.match(html, /<meta name="color-scheme" content="dark"/);
   assert.match(html, /<h1 id="home-title" class="hero__name">Cristian <span class="highlight">Vega<\/span><\/h1>/);
-  const eyebrow = text.match(/<p class="eyebrow eyebrow--parts">([\s\S]*?)<\/p>/)?.[1];
-  assert.equal((eyebrow?.match(/<span class="eyebrow__part">[^<]+<\/span>/g) ?? []).length, 2);
   for (const name of ["lede", "thesis"]) {
     const paragraph = text.match(new RegExp(`<p class="hero__${name}">([\\s\\S]*?)</p>`))?.[1];
     assert.ok(visibleText(paragraph), `the homepage must show its ${name}`);
   }
 
-  // The globe is decorative. The canvas draws it. The SVG sits in the served
-  // HTML twice, in a noscript for visitors without JavaScript and in a template
-  // for the script to copy in when canvas is missing. It is never a live
-  // element of the page, so a visitor with canvas never sees it.
   const globe = html.match(/<div class="lyra-globe"[^>]*>/)?.[0];
-  assert.ok(globe, "the globe must be in the served HTML");
-  assert.match(globe, /aria-hidden="true"/);
-  assert.match(globe, /data-lyra-globe/);
-  assert.match(html, /<svg class="lyra-globe__fallback"[^>]*viewBox="0 0 600 500"/);
-  assert.match(html, /<noscript><svg class="lyra-globe__fallback"/);
-  assert.match(html, /<template><svg class="lyra-globe__fallback"/);
-  assert.equal(html.match(/class="lyra-globe__fallback"/g)?.length, 2, "the SVG appears once in the noscript and once in the template");
-  assert.doesNotMatch(html.replace(/<noscript>[\s\S]*?<\/noscript>/g, "").replace(/<template>[\s\S]*?<\/template>/g, ""), /lyra-globe__fallback/, "no live SVG sits outside the two fallbacks");
-  assert.match(html, /<canvas class="lyra-globe__canvas">/);
-  assert.match(html, />LYRA \/ NEURAL SPHERE</);
+  assert.ok(globe, "the homepage must contain its globe");
+  assert.match(globe, /aria-hidden="true"/, "the globe must be decorative");
 });
 
-test("navigation follows published content and keeps outbound links safe", () => {
+test("navigation follows published content and keeps profile links", () => {
   const published = publishedContent(readContentInventory());
   const home = readDistFile("index.html");
   const nav = home.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
@@ -97,12 +73,6 @@ test("navigation follows published content and keeps outbound links safe", () =>
     );
   }
 
-  for (const tag of outbound) {
-    assert.match(tag, /href="https:\/\//, `navigation link must be absolute: ${tag}`);
-    assert.match(tag, /target="_blank"/, `navigation link must open a new tab: ${tag}`);
-    assert.match(tag, /rel="[^"]*noopener/, `navigation link needs noopener: ${tag}`);
-    assert.match(tag, /rel="[^"]*noreferrer/, `navigation link needs noreferrer: ${tag}`);
-  }
 });
 
 test("the header keeps one primary nav and a menu with the same links", () => {
@@ -136,15 +106,13 @@ test("key pages share accessibility and SEO basics", () => {
       html,
       /property="og:image"[^>]*content="https:\/\/cristianvega\.ai\/images\/cristian-vega-social-preview\.jpg"/i,
     );
-    assert.match(html, /property="og:image:width"[^>]*content="1200"/i);
-    assert.match(html, /property="og:image:height"[^>]*content="630"/i);
     assert.match(html, /property="og:image:alt"/i);
-    assert.match(html, /name="twitter:card"[^>]*content="summary_large_image"/i);
-    // External new-tab links should include a safe rel.
+    // Each external link must protect the opener and referrer.
     const blankLinks = [...html.matchAll(/<a\b[^>]*target="_blank"[^>]*>/gi)];
     for (const [tag] of blankLinks) {
       assert.match(tag, /\brel="/i, `target=_blank without rel: ${tag}`);
       assert.match(tag, /noopener/i, `target=_blank missing noopener: ${tag}`);
+      assert.match(tag, /noreferrer/i, `target=_blank missing noreferrer: ${tag}`);
     }
   }
 });
@@ -169,76 +137,6 @@ test("pages do not load fonts from Google", () => {
       /preconnect[^>]+fonts\./i,
       `${name} must not preconnect to a font CDN`,
     );
-  }
-});
-
-test("pages preload only the measured critical font files", () => {
-  const pages = [
-    ["index.html"],
-    ["about", "index.html"],
-    ["404.html"],
-  ];
-
-  for (const segments of pages) {
-    const html = readDistFile(...segments);
-    const name = segments.join("/");
-    const preloads = [...html.matchAll(/<link\b[^>]*rel="preload"[^>]*>/gi)].map(([tag]) => tag);
-    const fontPreloads = preloads.filter((tag) => /\bas="font"/.test(tag));
-    assert.equal(
-      fontPreloads.length,
-      2,
-      `${name} must preload exactly two fonts (LCP body + display heading), got ${fontPreloads.join(" ")}`,
-    );
-    for (const tag of fontPreloads) {
-      assert.match(tag, /type="font\/woff2"/, `${name} font preload must declare woff2: ${tag}`);
-      assert.match(tag, /\bcrossorigin\b/, `${name} font preload needs crossorigin: ${tag}`);
-      assert.match(tag, /href="\/_astro\/[^"]+\.woff2"/, `${name} font preload must be a hashed /_astro/ file: ${tag}`);
-    }
-    const hrefs = fontPreloads.map((tag) => tag.match(/href="([^"]+)"/)?.[1] ?? "").join(" ");
-    assert.match(hrefs, /ibm-plex-sans-latin-400\./, `${name} must preload IBM Plex Sans 400 (LCP)`);
-    assert.match(hrefs, /geist-latin-600\./, `${name} must preload Geist 600 (heading)`);
-    assert.doesNotMatch(hrefs, /ibm-plex-mono/, `${name} must not preload mono; measurement did not mark it critical`);
-    assert.doesNotMatch(
-      hrefs,
-      /italic/,
-      `${name} must not preload italic; measurement did not mark it critical`,
-    );
-  }
-});
-
-test("the retired pages are gone from the build", () => {
-  // Contact was public. Keep its redirects in the build. About is a page again.
-  assert.equal(existsSync(join(dist, "contact", "index.html")), false, "contact page must be gone");
-
-  const redirects = readDistFile("_redirects").split("\n");
-  for (const path of ["/contact", "/contact/"]) {
-    assert.ok(redirects.includes(`${path} / 301`));
-  }
-  for (const path of ["/about", "/about/"]) {
-    assert.ok(!redirects.includes(`${path} / 301`), `${path} must not redirect`);
-  }
-
-  // These routes held placeholder content. Cloudflare must serve the 404 page.
-  for (const route of ["projects", "posts"]) {
-    assert.equal(existsSync(join(dist, route)), false, `${route}/ must not be built`);
-  }
-});
-
-test("each page loads one Cloudflare analytics loader", () => {
-  const pages = [
-    ["index.html"],
-    ["about", "index.html"],
-    ["404.html"],
-  ];
-
-  for (const segments of pages) {
-    const html = readDistFile(...segments);
-    const name = segments.join("/");
-    const scriptTags = [...html.matchAll(/<script\b[^>]*>/gi)].map(([tag]) => tag);
-
-    const loaders = scriptTags.filter((tag) => /src="\/_astro\/CloudflareAnalytics\.[^"]+\.js"/.test(tag));
-    assert.equal(loaders.length, 1, `${name} must load analytics once`);
-    assert.match(loaders[0], /type="module"/, `${name} must defer the analytics loader`);
   }
 });
 

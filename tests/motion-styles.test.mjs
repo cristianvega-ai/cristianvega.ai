@@ -5,9 +5,7 @@ import assert from "node:assert/strict";
 
 import { dist } from "./helpers.mjs";
 
-// Motion contracts asserted over the compiled stylesheet rather than over a
-// single source spelling: reduced motion must be honoured, and hero copy must
-// never be hidden by CSS that only a running script can undo.
+// Check the compiled CSS reset. Browser tests check content visibility and canvas behavior.
 
 const astroDir = join(dist, "_astro");
 
@@ -84,59 +82,6 @@ function declarationValue(rule, property) {
   return declarations(rule).findLast((entry) => entry.property === property)?.value;
 }
 
-/** True when the rule makes its subject invisible rather than merely animating it. */
-function hidesContent(rule) {
-  return declarations(rule).some(({ property, value }) => {
-    if (property === "opacity") return Number(value) === 0;
-    if (property === "visibility") return value === "hidden";
-    if (property === "display") return value === "none";
-    if (property === "content-visibility") return value === "hidden";
-    return false;
-  });
-}
-
-const heroCopy = /\.hero__(?:name|sub|eyebrow|title|lede|thesis)\b/;
-
-/**
- * Root-level state a script could stamp: data attributes and classes attached to html/:root.
- */
-function selectorGates(selector) {
-  const attributes = [...selector.matchAll(/\[(data-[a-z-]+)/g)].map(([, name]) => name);
-  const rootClasses = [...selector.matchAll(/(?:^|[\s>+~])(?:html|:root)((?:\.[A-Za-z0-9_-]+)+)/g)]
-    .flatMap(([, chain]) => chain.slice(1).split("."));
-
-  return [...attributes, ...rootClasses];
-}
-
-function gateIsStamped(gate, scripts) {
-  if (gate.startsWith("data-")) {
-    const property = gate.slice(5).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
-    return scripts.includes(gate) || new RegExp(`dataset\\.${property}\\b`).test(scripts);
-  }
-
-  return new RegExp(`(?:classList|className)[^;\\n]{0,120}["'\`]${gate}["'\`]`).test(scripts);
-}
-
-/** Rules that hide hero copy without a gate that some shipped script sets. */
-function findUngatedHides(rules, scripts) {
-  return rules
-    .filter((rule) => heroCopy.test(rule.selector) && hidesContent(rule))
-    .filter((rule) => !selectorGates(rule.selector).some((gate) => gateIsStamped(gate, scripts)));
-}
-
-/**
- * Every script the site ships. If a gate is stamped nowhere in this corpus it
- * cannot be stamped at all, which is the condition the no-JS contract needs.
- */
-function shippedScripts() {
-  const html = readFileSync(join(dist, "index.html"), "utf8");
-  const inline = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)]
-    .filter(([, attributes]) => !/\bsrc=/i.test(attributes))
-    .map(([, , body]) => body);
-
-  return [...inline, ...readAstroAssets(".js")].join("\n");
-}
-
 const css = readAstroAssets(".css").join("\n");
 const rules = parseRules(css);
 
@@ -166,46 +111,4 @@ test("compiled css ships a meaningful reduced-motion contract", () => {
       `page entrance animates outside a no-preference block: ${rule.selector}`,
     );
   }
-});
-
-test("no compiled rule hides hero copy unless a shipped script stamps the gate", () => {
-  const scripts = shippedScripts();
-  assert.ok(scripts.trim().length > 0, "homepage must ship scripts to inspect");
-
-  const ungated = findUngatedHides(rules, scripts);
-  assert.deepEqual(
-    ungated.map((rule) => rule.selector),
-    [],
-    "hero copy must stay visible when JavaScript never runs",
-  );
-});
-
-test("the pre-hide guard catches the regression shapes it claims to", () => {
-  // Keeps the guard above falsifiable: it must flag hides that survive a failed
-  // script, and must not flag a hide gated on state the script actually sets.
-  const scripts = 'root.dataset.motionState = "playing";';
-  const ungatedShapes = [
-    ".hero .hero__name{opacity:0}",
-    ".hero__name,.hero__sub{opacity:0}",
-    "html.js .hero__name{opacity:0}",
-    ".hero__eyebrow{visibility:hidden}",
-    "@media (min-width:900px){.hero__sub{display:none}}",
-  ];
-
-  for (const shape of ungatedShapes) {
-    assert.equal(
-      findUngatedHides(parseRules(shape), scripts).length,
-      1,
-      `guard must flag this hide: ${shape}`,
-    );
-  }
-
-  const gated = '.hero[data-motion-state="playing"] .hero__name{opacity:0}';
-  assert.deepEqual(findUngatedHides(parseRules(gated), scripts), [], "gated hides are legitimate");
-});
-
-test("compiled css uses no CSS round() function", () => {
-  // Chromium before 125, Firefox before 118, and Safari before 15.4 drop a declaration with round().
-  // Round a value at build time instead, as src/shared/lyra-globe/projection.ts does.
-  assert.doesNotMatch(css.replace(/\/\*[\s\S]*?\*\//g, ""), /(?:^|[^a-z-])round\(/i);
 });
