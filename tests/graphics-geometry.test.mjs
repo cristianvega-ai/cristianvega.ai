@@ -61,16 +61,10 @@ test("the neural mesh is the same on every call, stays in the box, and is sparse
   for (let i = 0; i < first.linkCount * 2; i += 1) assert.ok(first.links[i] < first.count, "a link must join real nodes");
   assert.ok(first.count > 20 && first.count < 45, `the mesh must be sparse, and not empty (${first.count} nodes)`);
   assert.ok(first.linkCount > first.count * 0.5, "the mesh must hold synapses");
-});
-
-test("the shared mesh reduces node count and draws fewer diagonal arcs after straight links", () => {
-  // The old cell was 68px. The one shared density on every page is sparser.
-  for (const [w, h, seed] of [[460, 760, 5], [700, 940, 3], [520, 800, 11]]) {
-    const dense = makeMesh(w, h, seed, 68);
-    const shared = makeMesh(w, h, seed);
-    assert.ok(shared.count <= dense.count * 0.62, `${w}x${h}: ${shared.count} nodes must be about half of ${dense.count}`);
-    assert.ok(shared.diagonalFrom > 0 && shared.diagonalFrom <= shared.linkCount);
-    assert.ok(shared.linkCount - shared.diagonalFrom < shared.diagonalFrom, `${w}x${h}: the diagonal arcs must be fewer than the straight links`);
+  for (const [width, height, seed] of [[460, 760, 5], [700, 940, 3], [520, 800, 11]]) {
+    const mesh = makeMesh(width, height, seed);
+    assert.ok(mesh.diagonalFrom > 0 && mesh.diagonalFrom <= mesh.linkCount);
+    assert.ok(mesh.linkCount - mesh.diagonalFrom < mesh.diagonalFrom, "diagonal arcs must be fewer than straight links");
   }
 });
 

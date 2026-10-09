@@ -99,13 +99,14 @@ test("the reading field links each point once, and every link joins two real poi
   assert.ok(field.links.length > 8, "the field must hold synapses");
 });
 
-test("the reading field keeps labels clear of links, synapses, and the 24px edge", () => {
+test("clear reading labels avoid links, synapses, and the 24px edge", () => {
   for (const [w, h] of fieldSizes) {
     const { articleIdentifiers, labels, labelWidthsInPixels } = fieldArticles(8);
     const bounds = { x0: 28, y0: 28, x1: w - 28, y1: h - 28 };
     const field = buildField({ articleIdentifiers, labels, labelWidthsInPixels, starWidthsInPixels, width: w, height: h, bounds });
     const hits = (label, a, b) => segmentIntersectsRectangle({ ax: a.x, ay: a.y, bx: b.x, by: b.y }, label.rectangle);
     const shown = [...field.articleLabels.map((label) => [label, true]), ...field.starLabels.filter(Boolean).map((label) => [label, false])];
+    assert.ok(field.articleLabels.some((label) => label.clear), `${w}x${h}: collision checks must examine clear article labels`);
     for (const [label, isArticle] of shown) {
       if (!label.clear) continue;
       assert.ok(label.rectangle.x0 >= 24 && label.rectangle.x1 <= w - 24 && label.rectangle.y0 >= 24 && label.rectangle.y1 <= h - 24, `${w}x${h}: "${label.text}" must keep 24px from the edge`);

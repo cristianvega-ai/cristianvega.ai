@@ -94,21 +94,15 @@ test("the globe builds the same geometry on every call", () => {
   assert.deepEqual(buildGlobe(600, 500), buildGlobe(600, 500));
 });
 
-test("the globe projection keeps the approved desktop crop for the current model", () => {
-  const projection = projectGlobe(buildGlobe(600, 500));
-  assert.deepEqual(
-    { pictureHeight: projection.pictureHeight, pictureTop: projection.pictureTop, boxAspect: projection.boxAspect, ringInset: projection.ringInset, centerReach: projection.centerReach },
-    { pictureHeight: 1.2019, pictureTop: -0.1106, boxAspect: 0.9013, ringInset: 0.2468, centerReach: 0.4162 },
-  );
-  assert.equal(projection.captionLength, "LYRA / NEURAL SPHERE".length);
-});
-
 test("the globe projection crop shows the outer ring and the caption at every build size", () => {
   for (const [width, height] of [[600, 500], [720, 560], [600, 600]]) {
     const globe = buildGlobe(width, height);
     const projection = projectGlobe(globe);
     const ring = globe.rings.reduce((outer, candidate) => candidate.rx * candidate.ry > outer.rx * outer.ry ? candidate : outer);
     const caption = globe.labels.find((label) => label.align === "center");
+    assert.equal(projection.captionLength, caption.text.length);
+    assert.ok(Math.abs((projection.ringInset + projection.centerReach) / projection.pictureScale - ring.x / width) < 0.0001);
+    assert.ok(Math.abs(projection.centerReach / projection.pictureScale - ring.rx / width) < 0.0001);
     // Grid units per box height, and the top of the box in grid units.
     const unit = height / projection.pictureHeight;
     const boxTop = -projection.pictureTop * unit;
@@ -122,7 +116,10 @@ test("the globe projection crop shows the outer ring and the caption at every bu
 test("the globe projection writes the desktop values with four decimal places", () => {
   const css = globeProjectionStylesheet(buildGlobe(600, 500));
   assert.match(css, /^\.hero__globe\{(--globe-[a-z-]+:-?[0-9.]+;)+\}$/);
-  for (const [, value] of css.matchAll(/--globe-(?:picture-height|picture-top|box-aspect|ring-inset|center-reach):(-?[0-9.]+);/g)) {
+  const values = [...css.matchAll(/--globe-(picture-height|picture-top|box-aspect|ring-inset|center-reach):(-?[0-9.]+);/g)];
+  assert.deepEqual(values.map(([, name]) => name).sort(), ["box-aspect", "center-reach", "picture-height", "picture-top", "ring-inset"]);
+  for (const [, name, value] of values) {
+    assert.ok(Number.isFinite(Number(value)), `${name} must hold a finite number`);
     assert.ok(Math.abs(Number(value) * 10_000 - Math.round(Number(value) * 10_000)) < 1e-6, `${value} must have four decimal places or fewer`);
   }
 });

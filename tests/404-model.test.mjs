@@ -32,7 +32,7 @@ test("the missing star and its empty ring stay inside the box for a column and a
   }
 });
 
-test("the search pulses start at 2.9 s, come at most every 8 s, and all end before the picture rests", () => {
+test("search pulses start at 2.9 s, wait at least 8 s, and finish before rest", () => {
   assert.equal(PULSE_STARTS[0], 2900);
   for (let i = 1; i < PULSE_STARTS.length; i += 1) {
     assert.ok(PULSE_STARTS[i] - PULSE_STARTS[i - 1] >= 8000, `pulse ${i} must come 8 s or more after the last`);
