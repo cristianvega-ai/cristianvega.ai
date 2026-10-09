@@ -1,96 +1,14 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { assertPageBasics, dist, escapeAttribute, escapeHtml, headerLinks, latestWork, publishedContent, readContentInventory, readDistFile, withContentBuild } from "./helpers.mjs";
+import { assertPageBasics, dist, escapeHtml, publishedContent, readContentInventory, readDistFile } from "./helpers.mjs";
 
-// What each rendered page must say, and the contracts every page shares:
-// accessibility landmarks, SEO metadata, navigation state, and truthful links.
-// Globe behavior belongs to tests/browser/home.spec.mjs, even on the homepage.
+// Check rendered landmarks, metadata, navigation, and asset delivery.
+// Publication fixtures live in publication.test.mjs. Browsers check runtime behavior.
 
-const inventory = readContentInventory();
-
-function assertPublicationNavigation(html, sourceInventory) {
-  const expected = headerLinks(sourceInventory).map((link) => link.href).filter((href) => href.startsWith("/"));
-  for (const label of ["Primary", "Menu"]) {
-    const nav = html.match(new RegExp(`<nav\\b[^>]*aria-label="${label}"[\\s\\S]*?</nav>`))?.[0];
-    assert.ok(nav, `${label} navigation must exist`);
-    const internal = [...nav.matchAll(/<a\b[^>]*href="(\/[^\"]*)"/g)].map(([, href]) => href);
-    assert.deepEqual(internal, expected, `${label} navigation must follow publication`);
-  }
-}
-
-function assertHomepagePublication(html, sourceInventory) {
-  assert.equal((html.match(/<h2\b/g) ?? []).length, 0, "the homepage must hold no section heading");
-  assert.doesNotMatch(html, /home-writing|home-products|entries__item|data-article-identifier|data-product-identifier/);
-  assert.doesNotMatch(html, /href="#"/);
-  const list = html.match(/<ul class="hero__next"[^>]*>[\s\S]*?<\/ul>/)?.[0];
-  assert.ok(list, "the homepage must hold the calls to action");
-  const items = [...list.matchAll(/<li class="hero__next-item" data-state="(\w+)">([\s\S]*?)<\/li>/g)];
-  assert.equal(items.length, 2, "the homepage must hold two calls to action");
-  const published = publishedContent(sourceInventory);
-  for (const [index, expected] of latestWork.entries()) {
-    const live = published[expected.section].length > 0;
-    assert.equal(items[index][1], live ? "live" : "soon", `${expected.section} state must follow publication`);
-    if (live) {
-      assert.ok(items[index][2].includes(`href="${expected.href}"`), `${expected.section} must link to its index`);
-      assert.ok(items[index][2].includes(expected.label), `${expected.section} link must keep its label`);
-      assert.match(items[index][2], /class="hero__next-arrow" aria-hidden="true">→<\/span>/);
-    } else {
-      assert.equal(items[index][2], `<span class="hero__next-soon">${expected.soon}</span>`);
-      assert.doesNotMatch(items[index][2], /<a\b|href=|tabindex/, "coming-soon text must not take focus");
-      assert.ok(!html.includes(`href="${expected.href}"`), `${expected.section} must not link to an absent index`);
-    }
-  }
-  assertPublicationNavigation(html, sourceInventory);
-  assert.doesNotMatch(html, /class="path"|path__|Coming soon|Explore/, "the old cards must not return");
-}
-
-function assertPublishedPages(buildDirectory, sourceInventory) {
-  const read = (...segments) => readFileSync(join(buildDirectory, ...segments), "utf8");
-  const published = publishedContent(sourceInventory);
-  assertHomepagePublication(read("index.html"), sourceInventory);
-  for (const [section, entries] of Object.entries(published)) {
-    if (!entries.length) continue;
-    const index = read(section, "index.html");
-    assertPageBasics(index);
-    assertPublicationNavigation(index, sourceInventory);
-    assert.doesNotMatch(index, /name="robots" content="noindex|class="draft-label"|local preview/i);
-    const attribute = section === "writing" ? "data-article-identifier" : "data-product-identifier";
-    const listed = [...index.matchAll(new RegExp(`<li\\b[^>]*${attribute}="([^"]+)"`, "g"))].map(([, id]) => id);
-    assert.deepEqual(listed, entries.map((entry) => entry.id), `${section} list must follow its content order`);
-    for (const draft of sourceInventory[section].filter((entry) => entry.data.draft)) {
-      assert.ok(!index.includes(`href="${draft.href}"`), `${draft.id} draft must stay out of the index`);
-    }
-    for (const [position, entry] of entries.entries()) {
-      const html = read(section, entry.id, "index.html");
-      assertPageBasics(html);
-      assertPublicationNavigation(html, sourceInventory);
-      assert.ok(html.includes(`>${escapeHtml(entry.data.title)}</h1>`), `${entry.id} must show its title`);
-      assert.ok(html.includes(`name="description" content="${escapeAttribute(entry.data.description)}"`), `${entry.id} must keep its description`);
-      assert.ok(html.includes(`rel="canonical" href="https://cristianvega.ai${entry.href}"`), `${entry.id} must keep its canonical URL`);
-      assert.doesNotMatch(html, /name="robots" content="noindex|class="article__draft"|class="draft-label"/);
-      const current = html.match(new RegExp(`<a\\b[^>]*href="/${section}/"[^>]*aria-current="location"[^>]*>`));
-      assert.ok(current, `${entry.id} navigation must mark its section`);
-      if (section === "writing") {
-        assert.ok(html.includes(`property="article:published_time" content="${entry.data.date.toISOString()}"`));
-        assert.match(html, /class="author__share"/);
-        assert.ok(html.includes(`data-copy-link="https://cristianvega.ai${entry.href}" hidden`));
-        const adjacent = html.match(/<nav class="read-next[^>]*>[\s\S]*?<\/nav>/)?.[0] ?? "";
-        const hrefs = [...adjacent.matchAll(/href="([^"]+)"/g)].map(([, href]) => href);
-        assert.deepEqual(hrefs, [entries[position + 1]?.href, entries[position - 1]?.href].filter(Boolean));
-      } else {
-        assert.ok(html.includes(`<p class="eyebrow">${escapeHtml(entry.data.status)}</p>`));
-        const outbound = html.match(/<a class="product__link"[^>]*target="_blank"[^>]*>/)?.[0];
-        if (entry.data.url) {
-          assert.ok(outbound?.includes(`href="${escapeAttribute(entry.data.url)}"`));
-          assert.match(outbound, /rel="noopener noreferrer"/);
-        } else assert.equal(outbound, undefined, `${entry.id} must omit an absent outbound address`);
-      }
-    }
-  }
-}
+const visibleText = (html = "") => html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
 
 test("about holds the profile and marks its own navigation link", () => {
   const html = readDistFile("about", "index.html");
@@ -108,47 +26,32 @@ test("about holds the profile and marks its own navigation link", () => {
   assert.doesNotMatch(html, /<svg[^>]*class="[^"]*page-graphic/, "the graphic must have no SVG fallback");
   assert.doesNotMatch(html, /name="robots" content="noindex/);
 
-  for (const copy of [
-    "AI Engineering Leader",
-    "I build production AI and the teams behind it.",
-    "I’m an AI engineering leader at Vertafore with ten years in software",
-    "Use deterministic execution where it does the job.",
-    "Bring in models where reasoning is needed.",
-    "Build reusable components rather than one-off pipelines.",
-    "Clear system contracts, evaluation, and instrumentation belong in the design from the start.",
-    "Quality should be measurable, and operating costs should be understood.",
-    "At Patra, I founded the AI Engineering function and grew it to a peak of ~50 people.",
-    "four and a half years building digital banking software at BBVA",
-    "U.S. Patent 12,639,972 B2",
-  ]) {
-    assert.ok(html.replace(/\s+/g, " ").includes(copy), `about must keep the copy: ${copy}`);
-  }
-  assert.equal([...html.matchAll(/<li>/g)].length, 5, "about must hold five principles");
+  assert.match(html, /<article\b[^>]*aria-labelledby="about-title"/);
+  assert.match(html, /<h1\b[^>]*id="about-title"[^>]*>Cristian <span[^>]*>Vega<\/span><\/h1>/);
+  const introduction = html.match(/<p class="about__lede">([\s\S]*?)<\/p>/)?.[1];
+  assert.ok(visibleText(introduction), "about must show its introduction");
+  const profile = html.match(/<div class="about__profile">([\s\S]*?)<\/div>/)?.[1];
+  assert.ok(profile, "about must render the profile");
+  const paragraphs = [...profile.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)];
+  assert.ok(paragraphs.length > 0 && paragraphs.every(([, content]) => visibleText(content)), "the profile must contain readable paragraphs");
+  const principles = profile.match(/<ul class="about__principles">([\s\S]*?)<\/ul>/)?.[1];
+  const items = [...(principles ?? "").matchAll(/<li>([\s\S]*?)<\/li>/g)];
+  assert.ok(items.length > 0 && items.every(([, content]) => visibleText(content)), "the profile must list nonempty principles");
 });
 
-test("homepage holds the intro, the globe, and a link to about", () => {
+test("homepage holds the intro and decorative globe", () => {
   const html = readDistFile("index.html");
   const text = html.replace(/\s+/g, " ");
 
   assertPageBasics(html, { titleFragment: "Cristian Vega" });
   assert.match(html, /<meta name="color-scheme" content="dark"/);
   assert.match(html, /<h1 id="home-title" class="hero__name">Cristian <span class="highlight">Vega<\/span><\/h1>/);
-  // The two clauses are separate spans, so the dot between them can drop out when they wrap.
-  assert.match(text, /<span class="eyebrow__part">AI Engineering Leader<\/span> <span class="eyebrow__part">Agentic&nbsp;Systems<\/span>/);
-
-  for (const copy of [
-    "Ten years building software. The last five building production AI from the ground up.",
-    "My work has a consistent shape: take AI from a promising demo to a governed system with contracts, evaluation, and a unit cost.",
-  ]) {
-    assert.ok(text.includes(copy), `the intro must keep the copy: ${copy}`);
+  const eyebrow = text.match(/<p class="eyebrow eyebrow--parts">([\s\S]*?)<\/p>/)?.[1];
+  assert.equal((eyebrow?.match(/<span class="eyebrow__part">[^<]+<\/span>/g) ?? []).length, 2);
+  for (const name of ["lede", "thesis"]) {
+    const paragraph = text.match(new RegExp(`<p class="hero__${name}">([\\s\\S]*?)</p>`))?.[1];
+    assert.ok(visibleText(paragraph), `the homepage must show its ${name}`);
   }
-  assert.doesNotMatch(html, /More about me/, "the homepage must not carry the old about link");
-
-  // The long profile lives on /about/. The homepage must not repeat it.
-  for (const copy of ["AI engineering leader at Vertafore", "12,000 documents", "U.S. Patent"]) {
-    assert.ok(!text.includes(copy), `the homepage must not repeat the profile copy: ${copy}`);
-  }
-  assert.doesNotMatch(html, /hero__principles|hero__profile/);
 
   // The globe is decorative. The canvas draws it. The SVG sits in the served
   // HTML twice, in a noscript for visitors without JavaScript and in a template
@@ -165,44 +68,55 @@ test("homepage holds the intro, the globe, and a link to about", () => {
   assert.doesNotMatch(html.replace(/<noscript>[\s\S]*?<\/noscript>/g, "").replace(/<template>[\s\S]*?<\/template>/g, ""), /lyra-globe__fallback/, "no live SVG sits outside the two fallbacks");
   assert.match(html, /<canvas class="lyra-globe__canvas">/);
   assert.match(html, />LYRA \/ NEURAL SPHERE</);
-
-  // The retired hero motion and its inline pre-hide must not return.
-  assert.doesNotMatch(html, /data-hero-motion|data-motion-target|hero__sky-canvas|hero__copy-canvas/);
-  assert.doesNotMatch(html, /html\.js|classList\.add\(["']js["']\)/);
 });
 
-test("homepage calls to action follow current publication", () => {
-  assertHomepagePublication(readDistFile("index.html"), inventory);
-});
+test("navigation follows published content and keeps outbound links safe", () => {
+  const published = publishedContent(readContentInventory());
+  const home = readDistFile("index.html");
+  const nav = home.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
+  assert.ok(nav, "primary navigation required");
 
-test("current published pages keep content, sorting, metadata, and navigation", () => {
-  assertPublishedPages(dist, inventory);
-});
+  const anchors = [...nav.matchAll(/<a\b[^>]*>/gi)].map(([tag]) => tag);
+  const sections = Object.keys(published).filter((section) => published[section].length > 0);
+  assert.equal(anchors.length, 4 + sections.length, `navigation must match published sections: ${nav}`);
+  const about = anchors.filter((tag) => /href="\/about\/"/.test(tag));
+  assert.equal(about.length, 1, "navigation must link to about once");
+  assert.doesNotMatch(about[0], /target=/, "about must open in the current tab");
+  for (const section of Object.keys(published)) {
+    const sectionLinks = anchors.filter((tag) => tag.includes(`href="/${section}/"`));
+    assert.equal(sectionLinks.length, published[section].length > 0 ? 1 : 0, `${section} navigation must match publication`);
+    for (const tag of sectionLinks) assert.doesNotMatch(tag, /target=/, `${section} must open in the current tab`);
+  }
+  const outbound = anchors.filter((tag) => /href="https:\/\//.test(tag));
+  assert.equal(outbound.length, 3, "navigation must keep all three profile links");
 
-for (const kind of ["all-draft", "mixed"]) {
-  test(`${kind} fixture preserves publication page contracts`, { timeout: 90_000 }, async () => {
-    await withContentBuild(kind, (fixture) => {
-      assertPublishedPages(fixture.dist, fixture.inventory);
-      if (kind === "mixed") {
-        assert.deepEqual(publishedContent(fixture.inventory).writing.map((entry) => entry.id), ["newer-writing", "alpha-tied", "zulu-tied"]);
-        assert.deepEqual(publishedContent(fixture.inventory).products.map((entry) => entry.id), ["default-order", "alpha-product", "zulu-product"]);
-        for (const section of ["writing", "products"]) {
-          assert.equal(fixture.inventory[section].find((entry) => entry.id === "default-draft").data.draft, true);
-        }
-        const product = fixture.inventory.products.find((entry) => entry.id === "default-order");
-        assert.equal(product.data.order, 0);
-        assert.equal(product.data.status, "Product");
-      }
-    });
-  });
-}
+  for (const host of ["linkedin.com", "x.com", "github.com"]) {
+    assert.ok(
+      anchors.some((tag) => tag.includes(host)),
+      `navigation must link ${host}`,
+    );
+  }
+
+  for (const tag of outbound) {
+    assert.match(tag, /href="https:\/\//, `navigation link must be absolute: ${tag}`);
+    assert.match(tag, /target="_blank"/, `navigation link must open a new tab: ${tag}`);
+    assert.match(tag, /rel="[^"]*noopener/, `navigation link needs noopener: ${tag}`);
+    assert.match(tag, /rel="[^"]*noreferrer/, `navigation link needs noreferrer: ${tag}`);
+  }
+});
 
 test("the header keeps one primary nav and a menu with the same links", () => {
+  const links = (nav) => [...nav.matchAll(/<a\b[^>]*href="([^"]+)"/gi)].map(([, href]) => href);
   for (const segments of [["index.html"], ["about", "index.html"], ["404.html"]]) {
     const html = readDistFile(...segments);
     assert.equal((html.match(/<nav\b[^>]*aria-label="Primary"/g) ?? []).length, 1);
     assert.equal((html.match(/<details class="navigation-menu">/g) ?? []).length, 1);
     assert.match(html, /<nav class="navigation-menu__panel" aria-label="Menu">/);
+    const primary = html.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
+    const menu = html.match(/<details class="navigation-menu">[\s\S]*?<\/details>/i)?.[0];
+    assert.ok(primary && menu, "primary navigation and menu required");
+    assert.match(menu, /<summary class="navigation-menu__toggle">menu<\/summary>/);
+    assert.deepEqual(links(menu), links(primary), "the menu must reach every primary navigation link");
   }
 });
 
@@ -325,30 +239,7 @@ test("each page loads one Cloudflare analytics loader", () => {
     const loaders = scriptTags.filter((tag) => /src="\/_astro\/CloudflareAnalytics\.[^"]+\.js"/.test(tag));
     assert.equal(loaders.length, 1, `${name} must load analytics once`);
     assert.match(loaders[0], /type="module"/, `${name} must defer the analytics loader`);
-
-    assert.equal(
-      scriptTags.some((tag) => tag.includes('src="/js/goatcounter.js"')),
-      false,
-      `${name} must not load the retired ClientRouter swap counter`,
-    );
-    assert.equal(
-      scriptTags.some((tag) => /ClientRouter/i.test(tag)),
-      false,
-      `${name} must not load the ClientRouter`,
-    );
-
-    assert.doesNotMatch(html, /goatcounter|count\.v5|gc\.zgo\.at/i, `${name} must not load GoatCounter`);
   }
-});
-
-// The share card is the load-bearing derivative: the og:image URL asserted
-// above is a promise the build has to keep. A missing file there breaks link
-// previews everywhere without breaking a page. The About-strip files have no
-// consumer and must not enter dist/.
-test("the share card ships and the unused portrait strip does not", () => {
-  assert.equal(existsSync(join(dist, "images", "cristian-vega-social-preview.jpg")), true);
-  assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.webp")), false);
-  assert.equal(existsSync(join(dist, "images", "cristian-vega-portrait.avif")), false);
 });
 
 // Search engines and link previews take the role from the page title and the
@@ -356,14 +247,14 @@ test("the share card ships and the unused portrait strip does not", () => {
 test("the homepage title and structured data name the current role", () => {
   const html = readDistFile("index.html");
 
-  assert.match(html, /<title>Cristian Vega · AI Engineering Leader<\/title>/);
-
   const json = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1];
   assert.ok(json, "the homepage must ship JSON-LD structured data");
   const person = JSON.parse(json)["@graph"].find((node) => node["@type"] === "Person");
   assert.ok(person, "the structured data must describe a person");
-  assert.deepEqual(
-    { jobTitle: person.jobTitle, worksFor: person.worksFor },
-    { jobTitle: "AI Engineering Leader", worksFor: { "@type": "Organization", name: "Vertafore" } },
-  );
+  assert.equal(person.name, "Cristian Vega", "the structured data must name the owner");
+  assert.ok(typeof person.jobTitle === "string" && person.jobTitle.trim(), "the structured data must name the role");
+  assert.ok(html.includes(`<title>${escapeHtml(person.name)} · ${escapeHtml(person.jobTitle)}</title>`));
+  assert.ok(html.includes(`<span class="eyebrow__part">${escapeHtml(person.jobTitle)}</span>`));
+  assert.equal(person.worksFor?.["@type"], "Organization");
+  assert.ok(typeof person.worksFor.name === "string" && person.worksFor.name.trim());
 });

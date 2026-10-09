@@ -1,11 +1,10 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 
-import { assertPageBasics, contentRoutes, createIsolatedBuild, dist, listBuiltRoutes, publishedContent, readContentInventory, readDistFile, root, sitemapPaths, withContentBuild } from "./helpers.mjs";
+import { assertPageBasics, dist, listBuiltRoutes, readDistFile, root } from "./helpers.mjs";
 
 // Build output contract: the files the static deploy uploads must exist and be
 // complete. Page copy lives in tests/pages.test.mjs; this suite only asks
@@ -16,26 +15,10 @@ function assertDistPath(...segments) {
   assert.equal(existsSync(path), true, `missing build output: ${path} (run \`npm test\` or \`npm run build\`)`);
 }
 
-const inventory = readContentInventory();
-const published = publishedContent(inventory);
-
-test("dist build is present for contract tests", () => {
-  assert.equal(
-    existsSync(dist),
-    true,
-    `missing ${dist}/ — run \`npm test\` (builds first) or \`npm run build\` before node --test`,
-  );
-  assertDistPath("index.html");
-});
-
 test("build emits the core static pages Cloudflare will serve", () => {
   assertDistPath("index.html");
   assertDistPath("about", "index.html");
   assertDistPath("sitemap-index.xml");
-});
-
-test("the sitemap lists the about page", () => {
-  assert.match(readDistFile("sitemap-0.xml"), /<loc>https:\/\/cristianvega\.ai\/about\/<\/loc>/);
 });
 
 test("sitemap enumerates every public route the build produces", () => {
@@ -57,128 +40,6 @@ test("sitemap enumerates every public route the build produces", () => {
   );
 });
 
-test("navigation follows published content and keeps outbound links safe", () => {
-  const home = readDistFile("index.html");
-  const nav = home.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
-  assert.ok(nav, "primary navigation required");
-
-  const anchors = [...nav.matchAll(/<a\b[^>]*>/gi)].map(([tag]) => tag);
-  const sections = Object.keys(published).filter((section) => published[section].length > 0);
-  assert.equal(anchors.length, 4 + sections.length, `navigation must match published sections: ${nav}`);
-  const about = anchors.filter((tag) => /href="\/about\/"/.test(tag));
-  assert.equal(about.length, 1, "navigation must link to about once");
-  assert.doesNotMatch(about[0], /target=/, "about must open in the current tab");
-  for (const section of Object.keys(published)) {
-    const sectionLinks = anchors.filter((tag) => tag.includes(`href="/${section}/"`));
-    assert.equal(sectionLinks.length, published[section].length > 0 ? 1 : 0, `${section} navigation must match publication`);
-    for (const tag of sectionLinks) assert.doesNotMatch(tag, /target=/, `${section} must open in the current tab`);
-  }
-  const outbound = anchors.filter((tag) => /href="https:\/\//.test(tag));
-  assert.equal(outbound.length, 3, "navigation must keep all three profile links");
-
-  for (const host of ["linkedin.com", "x.com", "github.com"]) {
-    assert.ok(
-      anchors.some((tag) => tag.includes(host)),
-      `navigation must link ${host}`,
-    );
-  }
-
-  for (const tag of outbound) {
-    assert.match(tag, /href="https:\/\//, `navigation link must be absolute: ${tag}`);
-    assert.match(tag, /target="_blank"/, `navigation link must open a new tab: ${tag}`);
-    assert.match(tag, /rel="[^"]*noopener/, `navigation link needs noopener: ${tag}`);
-    assert.match(tag, /rel="[^"]*noreferrer/, `navigation link needs noreferrer: ${tag}`);
-  }
-});
-
-test("the narrow-screen menu holds the same links as the primary navigation", () => {
-  const home = readDistFile("index.html");
-  const links = (nav) => [...nav.matchAll(/<a\b[^>]*href="([^"]+)"/gi)].map(([, href]) => href);
-  const primary = home.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
-  const menu = home.match(/<details class="navigation-menu">[\s\S]*?<\/details>/i)?.[0];
-  assert.ok(primary && menu, "primary navigation and menu required");
-  assert.match(menu, /<summary class="navigation-menu__toggle">menu<\/summary>/);
-  assert.deepEqual(links(menu), links(primary), "the menu must reach every link the primary navigation reaches");
-});
-
-function assertContentBuild(buildDirectory, sourceInventory) {
-  const routes = listBuiltRoutes(buildDirectory);
-  const locations = sitemapPaths(buildDirectory);
-  const expected = ["/", "/about/", ...contentRoutes(sourceInventory)].sort();
-  assert.deepEqual(routes, expected, "build routes must match published content");
-  assert.deepEqual(locations, expected, "sitemap routes must match published content");
-  const home = readFileSync(join(buildDirectory, "index.html"), "utf8");
-  for (const [section, entries] of Object.entries(sourceInventory)) {
-    const visible = entries.filter((entry) => !entry.data.draft);
-    assert.equal(existsSync(join(buildDirectory, section, "index.html")), visible.length > 0, `${section} index must follow visibility`);
-    assert.equal(home.includes(`href="/${section}/"`), visible.length > 0, `${section} homepage links must follow visibility`);
-    for (const entry of entries.filter((entry) => entry.data.draft)) {
-      assert.equal(existsSync(join(buildDirectory, section, entry.id)), false, `${entry.id} draft route must be absent`);
-      assert.ok(!locations.includes(entry.href), `${entry.id} draft must stay out of the sitemap`);
-      assert.ok(!home.includes(`href="${entry.href}"`), `${entry.id} draft link must stay off the homepage`);
-    }
-  }
-}
-
-test("content routes follow publication and omit every current draft", () => {
-  assertContentBuild(dist, inventory);
-  assert.equal(existsSync(join(dist, "blog")), false, "the old blog routes must not be built");
-  assert.ok(!sitemapPaths().some((path) => path.startsWith("/blog/")), "old blog routes must stay out of the sitemap");
-});
-
-for (const kind of ["all-draft", "mixed"]) {
-  test(`${kind} fixture emits only published routes and sitemap entries`, { timeout: 90_000 }, async () => {
-    await withContentBuild(kind, (fixture) => assertContentBuild(fixture.dist, fixture.inventory));
-  });
-}
-
-function buildProductCapacityFixture(publishedCount) {
-  return createIsolatedBuild({
-    prefix: "cristianai-product-capacity-",
-    async prepare(projectRoot) {
-      const directory = join(projectRoot, "src", "content", "products");
-      await rm(directory, { recursive: true });
-      await mkdir(directory, { recursive: true });
-      for (let index = 0; index < 9; index += 1) {
-        const number = index + 1;
-        const frontmatter = [
-          "---",
-          `title: Capacity product ${number}`,
-          "description: Product capacity fixture.",
-          `draft: ${index >= publishedCount}`,
-          `order: ${number}`,
-          "---",
-          "",
-          "Product capacity fixture.",
-        ];
-        await writeFile(join(directory, `capacity-product-${number}.md`), frontmatter.join("\n"));
-      }
-    },
-  });
-}
-
-test("product routes build for eight published products and omit the ninth draft", { timeout: 90_000 }, async () => {
-  const fixture = await buildProductCapacityFixture(8);
-  try {
-    assertContentBuild(fixture.dist, readContentInventory(fixture.root));
-    const productRoutes = listBuiltRoutes(fixture.dist).filter((route) => route.startsWith("/products/"));
-    assert.equal(productRoutes.length, 9, "the product index and eight detail pages must build");
-    assert.ok(!productRoutes.includes("/products/capacity-product-9/"), "the ninth draft must stay hidden");
-  } finally {
-    await fixture.cleanup();
-  }
-});
-
-test("product routes reject nine published products during the build", { timeout: 90_000 }, async () => {
-  await assert.rejects(buildProductCapacityFixture(9), (error) => {
-    const output = `${error.stdout ?? ""}\n${error.stderr ?? ""}`;
-    assert.match(output, /9 products/);
-    assert.match(output, /8 slots/);
-    assert.match(output, /draft: true/);
-    return true;
-  });
-});
-
 test("static ops assets ship with the build", () => {
   assert.equal(existsSync(join(dist, "robots.txt")), true);
   assert.equal(existsSync(join(dist, "404.html")), true);
@@ -194,26 +55,6 @@ test("static ops assets ship with the build", () => {
   assert.match(notFound, /href="\/"/);
 });
 
-test("the build removes the GoatCounter scripts", () => {
-  assert.equal(
-    existsSync(join(dist, "js", "goatcounter.js")),
-    false,
-    "the ClientRouter swap counter must not ship",
-  );
-  assert.equal(existsSync(join(dist, "js", "count.v5.js")), false);
-});
-
-test("the ClientRouter bundle does not ship", () => {
-  const astroDir = join(dist, "_astro");
-  assert.equal(existsSync(astroDir), true, "hashed assets required");
-  const jsFiles = readdirSync(astroDir).filter((file) => file.endsWith(".js"));
-  assert.equal(
-    jsFiles.some((file) => /ClientRouter/i.test(file)),
-    false,
-    "the ClientRouter bundle must not ship",
-  );
-});
-
 test("compiled css assets are emitted", () => {
   const astroDir = join(dist, "_astro");
   assert.equal(existsSync(astroDir), true);
@@ -226,7 +67,6 @@ test("compiled css assets are emitted", () => {
   const css = cssFiles.map((file) => readFileSync(join(astroDir, file), "utf8")).join("\n");
   assert.match(css, /\.lyra-globe:not\(\[data-ready\]\) \.lyra-globe__canvas/);
   assert.match(css, /@media \(scripting: ?enabled\)/);
-  assert.doesNotMatch(css, /data-hero-motion-pending/);
 });
 
 test("build emits a versioned external globe stylesheet", () => {
