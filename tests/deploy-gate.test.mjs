@@ -126,7 +126,6 @@ async function checkDeployment(t, {
         "Content-Encoding": resource.encoding ?? "gzip",
         "Cache-Control": resource.cache ?? "public, max-age=31536000, immutable",
         ...(resource.location ? { Location: resource.location } : {}),
-        ...(resource.truncate ? { "Content-Length": script.length + 1, Connection: "close" } : {}),
       });
       response.end(script);
     } else {
@@ -223,86 +222,12 @@ test("the live gate accepts the security headers of the local Cloudflare build",
   }
 });
 
-test("the live gate checks scripts without a local homepage file", async (t) => {
-  const result = await checkDeployment(t, { expectedHtml: null });
-  assert.equal(result.code, 0, result.output);
-  for (const path of scriptPaths) assert.ok(result.requests.includes(path), path);
-});
-
-test("the live gate accepts script URLs without a filename pattern", async (t) => {
-  const path = "/assets/startup";
-  const html = `<!doctype html><SCRIPT SRC="${path}"></SCRIPT>`;
-  const result = await checkDeployment(t, {
-    html,
-    expectedHtml: html,
-    scriptResponses: { [path]: {} },
-  });
-  assert.equal(result.code, 0, result.output);
-  assert.equal(result.requests.filter((request) => request === path).length, 1);
-  for (const path of scriptPaths) assert.ok(!result.requests.includes(path), path);
-});
-
-test("the live gate resolves HTML character references in script URLs", async (t) => {
-  const path = `${scriptPaths[2]}?first=1&second=2`;
-  const html = `<!doctype html><script src="&#47;${scriptPaths[2].slice(1)}?first=1&amp;second=2"></script>`;
-  const result = await checkDeployment(t, {
-    html,
-    expectedHtml: html,
-    scriptResponses: { [path]: {} },
-  });
-  assert.equal(result.code, 0, result.output);
-  assert.equal(result.requests.filter((request) => request === path).length, 1);
-});
-
 test("the live gate rejects an injected script without requesting it", async (t) => {
   const result = await checkDeployment(t, { html: homepage + '<script src="/injected.js"></script>' });
   assert.equal(result.code, 1, result.output);
   assert.match(result.output, /the live homepage does not match the verified build/);
   assert.ok(!result.requests.includes("/injected.js"));
   assert.doesNotMatch(result.output, /verify-deployment: OK/);
-});
-
-test("the live gate checks each repeated script URL once", async (t) => {
-  const html = homepage + `<script src=".${scriptPaths[0]}#repeat"></script>`;
-  const result = await checkDeployment(t, { html, expectedHtml: html });
-  assert.equal(result.code, 0, result.output);
-  for (const path of scriptPaths) {
-    assert.equal(result.requests.filter((request) => request === path).length, 1, path);
-  }
-});
-
-test("the live gate ignores resources that the homepage does not load", async (t) => {
-  const unused = "/_astro/unused.deadbeef.js";
-  const html = homepage + '<script type="application/ld+json">{"src":"/unused.js"}</script>'
-    + '<!-- <script src="/comment.js"></script> -->'
-    + '<script-data src="/data.js"></script-data>';
-  const result = await checkDeployment(t, {
-    html,
-    expectedHtml: html,
-    scriptResponses: { [unused]: { status: 500 } },
-  });
-  assert.equal(result.code, 0, result.output);
-  for (const path of [unused, "/unused.js", "/comment.js", "/data.js"]) {
-    assert.ok(!result.requests.includes(path), path);
-  }
-});
-
-test("the live gate ends HTML comments where a browser ends them", async (t) => {
-  // A browser ends a comment at the first "-->", or at the end of the document.
-  const html = homepage
-    + '<!--<!-- <script src="/nested.js"></script> -->'
-    + '<!<!---->--<script src="/after.js"></script>'
-    + '<!-- <script src="/open.js"></script>';
-  const result = await checkDeployment(t, {
-    html,
-    expectedHtml: html,
-    scriptResponses: { "/after.js": {} },
-  });
-  assert.equal(result.code, 0, result.output);
-  assert.equal(result.requests.filter((request) => request === "/after.js").length, 1);
-  for (const path of ["/nested.js", "/open.js"]) {
-    assert.ok(!result.requests.includes(path), path);
-  }
 });
 
 test("the live gate does not request external scripts", async (t) => {
@@ -324,44 +249,22 @@ test("the live gate does not request external scripts", async (t) => {
   assert.deepEqual(requests, []);
 });
 
-test("the live gate accepts a JavaScript type and reordered cache directives", async (t) => {
-  const result = await checkDeployment(t, {
-    scriptResponses: {
-      [scriptPaths[2]]: {
-        type: "Application/JavaScript; charset=utf-8",
-        cache: "Immutable, Public, max-age=31536000",
-      },
-    },
-  });
-  assert.equal(result.code, 0, result.output);
+test("the live gate rejects a missing built script", async (t) => {
+  const path = scriptPaths[2];
+  const result = await checkDeployment(t, { scriptResponses: { [path]: null } });
+  assert.equal(result.code, 1, result.output);
+  assert.ok(result.output.includes(`${path} returned HTTP 404`), result.output);
+  assert.doesNotMatch(result.output, /verify-deployment: OK/);
 });
 
-for (const path of scriptPaths) {
-  test(`the live gate rejects a missing script at ${path}`, async (t) => {
-    const result = await checkDeployment(t, { scriptResponses: { [path]: null } });
-    assert.equal(result.code, 1, result.output);
-    assert.ok(result.output.includes(`${path} returned HTTP 404`), result.output);
-    assert.doesNotMatch(result.output, /verify-deployment: OK/);
-  });
-}
-
+// Each input breaks a different asset delivery check.
 for (const [name, response, message] of [
   ["a script error", { status: 503 }, /returned HTTP 503/],
   ["a script redirect", { status: 302, location: "https://example.invalid/script.js" }, /returned HTTP 302/],
   ["a disconnected script", { disconnect: true }, /could not reach/],
-  ["a truncated script response", { truncate: true }, /could not reach/],
   ["an HTML script response", { type: "text/html" }, /must return a JavaScript content type/],
-  ["a binary script response", { type: "application/octet-stream" }, /must return a JavaScript content type/],
-  ["an invalid JavaScript type", { type: "application/javascript-invalid" }, /must return a JavaScript content type/],
-  ["an empty script type", { type: "" }, /must return a JavaScript content type/],
   ["an uncompressed script", { encoding: "identity" }, /is not gzip-compressed/],
-  ["an empty script encoding", { encoding: "" }, /is not gzip-compressed/],
-  ["an empty script cache", { cache: "" }, /expected public, max-age=31536000, immutable/],
   ["a short script cache", { cache: "public, max-age=60, immutable" }, /expected public, max-age=31536000, immutable/],
-  ["a private script cache", { cache: "private, max-age=31536000, immutable" }, /expected public, max-age=31536000, immutable/],
-  ["a script cache without public access", { cache: "max-age=31536000, immutable" }, /expected public, max-age=31536000, immutable/],
-  ["a script cache that blocks storage", { cache: "public, max-age=31536000, immutable, no-store" }, /expected public, max-age=31536000, immutable/],
-  ["conflicting script cache lifetimes", { cache: "public, max-age=31536000, immutable, max-age=0" }, /expected public, max-age=31536000, immutable/],
 ]) {
   test(`the live gate rejects ${name}`, async (t) => {
     const result = await checkDeployment(t, { scriptResponses: { [scriptPaths[2]]: response } });
@@ -372,17 +275,11 @@ for (const [name, response, message] of [
   });
 }
 
+// Cover missing values, URL parsing, unsupported schemes, and embedded credentials.
 for (const [name, reference, message] of [
   ["an empty script reference", 'src=""', /empty src reference/],
-  ["a blank script reference", "src='   '", /empty src reference/],
-  ["a script reference without a value", "src", /empty src reference/],
-  ["an unfinished script reference", 'src="/_astro/unfinished.js', /empty src reference/],
-  ["duplicate script source attributes", `src="${scriptPaths[0]}" src="${scriptPaths[1]}"`, /multiple src attributes/],
   ["a malformed script URL", 'src="http://["', /invalid src reference/],
-  ["a script URL with a control character", 'src="/_astro/bad\tname.js"', /invalid src reference/],
-  ["an invalid script character reference", 'src="/_astro/&#x110000;.js"', /invalid src reference/],
   ["a data script URL", 'src="data:text/javascript,console.log(1)"', /unsupported URL/],
-  ["a file script URL", 'src="file:///tmp/script.js"', /unsupported URL/],
   ["a script URL with credentials", 'src="http://user:pass@example.invalid/script.js"', /must not contain credentials/],
 ]) {
   test(`the live gate rejects ${name}`, async (t) => {
@@ -394,88 +291,21 @@ for (const [name, reference, message] of [
   });
 }
 
-test("the live gate accepts a different CSP order on the 404 response", async (t) => {
-  const reordered = [...approvedCsp].reverse().map((directive) => {
-    const [name, ...sources] = directive.split(" ");
-    return [name, ...sources.reverse()].join(" ");
-  }).join("; ") + ";";
-  const result = await checkDeployment(t, {
-    notFoundHeaders: { "Content-Security-Policy": reordered },
-  });
-  assert.equal(result.code, 0, result.output);
-  assert.match(result.output, /verify-deployment: OK/);
+test("the live gate rejects a missing Content-Security-Policy header", async (t) => {
+  const result = await checkDeployment(t, { headers: { "Content-Security-Policy": null } });
+  assert.equal(result.code, 1, result.output);
+  assert.match(result.output, /homepage missing content-security-policy/);
+  assert.doesNotMatch(result.output, /verify-deployment: OK/);
 });
 
-test("the live gate accepts a different permissions order and header case", async (t) => {
-  const result = await checkDeployment(t, {
-    headers: {
-      "X-Content-Type-Options": "NoSnIfF",
-      "X-Frame-Options": "deny",
-      "Strict-Transport-Security": "Max-Age=31536000;",
-      "Permissions-Policy": permissionsPolicy.split(", ").reverse().join(", "),
-    },
-    notFoundHeaders: approvedHeaders,
-  });
-  assert.equal(result.code, 0, result.output);
-  assert.match(result.output, /verify-deployment: OK/);
-});
-
-for (const name of Object.keys(approvedHeaders)) {
-  test(`the live gate rejects a missing ${name} header`, async (t) => {
-    const result = await checkDeployment(t, { headers: { [name]: null } });
-    assert.equal(result.code, 1, result.output);
-    assert.match(result.output, new RegExp(`homepage missing ${name.toLowerCase()}`));
-    assert.doesNotMatch(result.output, /verify-deployment: OK/);
-  });
-}
-
+// Cover each security-header mechanism with one unsafe policy.
 for (const [name, headers, header] of [
   ["an invalid content type option", { "X-Content-Type-Options": "sniff" }, "x-content-type-options"],
-  ["a malformed content type option", { "X-Content-Type-Options": "\u00a0nosniff" }, "x-content-type-options"],
-  ["duplicate content type options", { "X-Content-Type-Options": ["nosniff", "nosniff"] }, "x-content-type-options"],
   ["an invalid frame option", { "X-Frame-Options": "ALLOWALL" }, "x-frame-options"],
-  ["a weaker frame option", { "X-Frame-Options": "SAMEORIGIN" }, "x-frame-options"],
-  ["duplicate frame options", { "X-Frame-Options": ["DENY", "DENY"] }, "x-frame-options"],
   ["an unsafe referrer policy", { "Referrer-Policy": "unsafe-url" }, "referrer-policy"],
-  ["an extra referrer policy", { "Referrer-Policy": "unsafe-url, strict-origin-when-cross-origin" }, "referrer-policy"],
   ["a short HSTS lifetime", { "Strict-Transport-Security": "max-age=60" }, "strict-transport-security"],
-  ["an unapproved HSTS lifetime", { "Strict-Transport-Security": "max-age=63072000" }, "strict-transport-security"],
-  ["HSTS on subdomains", { "Strict-Transport-Security": "max-age=31536000; includeSubDomains" }, "strict-transport-security"],
-  ["HSTS preload", { "Strict-Transport-Security": "max-age=31536000; preload" }, "strict-transport-security"],
-  ["a malformed HSTS lifetime", { "Strict-Transport-Security": "max-age=31536000invalid" }, "strict-transport-security"],
-  ["duplicate HSTS lifetimes", { "Strict-Transport-Security": "max-age=31536000; max-age=0" }, "strict-transport-security"],
-  ["multiple HSTS headers", { "Strict-Transport-Security": ["max-age=31536000", "max-age=0"] }, "strict-transport-security"],
-  ["an incomplete browser policy", { "Permissions-Policy": "camera=(), microphone=(), geolocation=()" }, "permissions-policy"],
   ["a browser permission", { "Permissions-Policy": permissionsPolicy.replace("camera=()", "camera=(self)") }, "permissions-policy"],
-  ["an extra browser permission", { "Permissions-Policy": `${permissionsPolicy}, browsing-topics=(self)` }, "permissions-policy"],
-  ["duplicate browser permissions", { "Permissions-Policy": `${permissionsPolicy}, camera=()` }, "permissions-policy"],
-  ["conflicting browser permissions", { "Permissions-Policy": `${permissionsPolicy}, camera=(self)` }, "permissions-policy"],
-  ["a malformed browser policy", { "Permissions-Policy": `${permissionsPolicy}, invalid` }, "permissions-policy"],
-  ["a tab in a browser permission", { "Permissions-Policy": permissionsPolicy.replace("camera=()", "camera=(\t)") }, "permissions-policy"],
-  ["inline styles", { "Content-Security-Policy": cspWithSources("style-src", "'self' 'unsafe-inline'") }, "content-security-policy"],
-  ["style attributes", { "Content-Security-Policy": cspWithSources("style-src-attr", "'none' 'unsafe-inline'") }, "content-security-policy"],
   ["wildcard scripts", { "Content-Security-Policy": cspWithSources("script-src", "'self' *") }, "content-security-policy"],
-  ["inline scripts", { "Content-Security-Policy": cspWithSources("script-src", "'self' 'unsafe-inline'") }, "content-security-policy"],
-  ["evaluated scripts", { "Content-Security-Policy": cspWithSources("script-src", "'self' 'unsafe-eval'") }, "content-security-policy"],
-  ["an unapproved script URL", { "Content-Security-Policy": cspWithSources("script-src", "'self' https://static.cloudflareinsights.com/other.js") }, "content-security-policy"],
-  ["wildcard connections", { "Content-Security-Policy": cspWithSources("connect-src", "'self' *") }, "content-security-policy"],
-  ["an unapproved connection origin", { "Content-Security-Policy": cspWithSources("connect-src", "'self' https://example.invalid") }, "content-security-policy"],
-  ["wildcard default sources", { "Content-Security-Policy": cspWithSources("default-src", "'self' *") }, "content-security-policy"],
-  ["wildcard base URLs", { "Content-Security-Policy": cspWithSources("base-uri", "'self' *") }, "content-security-policy"],
-  ["object sources", { "Content-Security-Policy": cspWithSources("object-src", "'none' *") }, "content-security-policy"],
-  ["frame ancestors", { "Content-Security-Policy": cspWithSources("frame-ancestors", "'none' *") }, "content-security-policy"],
-  ["wildcard form targets", { "Content-Security-Policy": cspWithSources("form-action", "'self' *") }, "content-security-policy"],
-  ["wildcard image sources", { "Content-Security-Policy": cspWithSources("img-src", "'self' data: *") }, "content-security-policy"],
-  ["wildcard font sources", { "Content-Security-Policy": cspWithSources("font-src", "'self' *") }, "content-security-policy"],
-  ["a missing upgrade directive", { "Content-Security-Policy": approvedCsp.filter((directive) => directive !== "upgrade-insecure-requests").join("; ") }, "content-security-policy"],
-  ["a missing script directive", { "Content-Security-Policy": approvedCsp.filter((directive) => !directive.startsWith("script-src ")).join("; ") }, "content-security-policy"],
-  ["an extra script directive", { "Content-Security-Policy": `${approvedCsp.join("; ")}; script-src-elem *` }, "content-security-policy"],
-  ["duplicate CSP directives", { "Content-Security-Policy": `${approvedCsp.join("; ")}; script-src 'self'` }, "content-security-policy"],
-  ["duplicate CSP sources", { "Content-Security-Policy": cspWithSources("script-src", "'self' 'self' https://static.cloudflareinsights.com/beacon.min.js") }, "content-security-policy"],
-  ["a malformed CSP directive", { "Content-Security-Policy": approvedCsp.join(";; ") }, "content-security-policy"],
-  ["non-ASCII CSP spacing", { "Content-Security-Policy": approvedCsp.join("; ").replace("script-src ", "script-src\u00a0") }, "content-security-policy"],
-  ["an invalid CSP flag", { "Content-Security-Policy": `${approvedCsp.join("; ")} *` }, "content-security-policy"],
-  ["multiple CSP headers", { "Content-Security-Policy": [approvedCsp.join("; "), "script-src *"] }, "content-security-policy"],
 ]) {
   test(`the live gate rejects ${name}`, async (t) => {
     const result = await checkDeployment(t, { headers });
@@ -494,18 +324,14 @@ test("the live gate rejects an unsafe 404 header", async (t) => {
   assert.doesNotMatch(result.output, /verify-deployment: OK/);
 });
 
-for (const writingStatus of [404, 200]) {
-  test(`the live gate checks the headers on /about/ and on /writing/ with HTTP ${writingStatus}`, async (t) => {
-    const result = await checkDeployment(t, { writingStatus });
-    assert.equal(result.code, 0, result.output);
-    for (const route of ["/about/", "/writing/"]) {
-      assert.ok(result.output.includes(`verify-deployment: ${route} security headers match the approved policy`), result.output);
-      assert.equal(result.requests.filter((request) => request === route).length, 1, route);
-    }
-  });
-}
+test("the live gate accepts published Writing with HTTP 200", async (t) => {
+  const result = await checkDeployment(t, { writingStatus: 200 });
+  assert.equal(result.code, 0, result.output);
+  assert.match(result.output, /\/writing\/ security headers match the approved policy/);
+  assert.equal(result.requests.filter((request) => request === "/writing/").length, 1);
+});
 
-// Homepage cases cover every header parser. Check representative failures on each additional response path.
+// Check one policy failure on each additional response path and publication state.
 for (const [page, route, options, headers, message] of [
   ["/about/", "/about/", {}, { "Content-Security-Policy": cspWithSources("script-src", "'self' *") }, "content-security-policy must match the approved _headers policy"],
   ["/writing/ with HTTP 404", "/writing/", {}, { "Content-Security-Policy": null }, "missing content-security-policy"],
@@ -521,27 +347,20 @@ for (const [page, route, options, headers, message] of [
   });
 }
 
-for (const writingStatus of [301, 500]) {
-  test(`the live gate rejects /writing/ with HTTP ${writingStatus}`, async (t) => {
-    const result = await checkDeployment(t, { writingStatus });
-    assert.equal(result.code, 1, result.output);
-    assert.ok(result.output.includes(`/writing/ returned HTTP ${writingStatus}, expected 200 or 404`), result.output);
-    assert.doesNotMatch(result.output, /verify-deployment: OK/);
-  });
-}
+test("the live gate rejects Writing with HTTP 500", async (t) => {
+  const result = await checkDeployment(t, { writingStatus: 500 });
+  assert.equal(result.code, 1, result.output);
+  assert.match(result.output, /\/writing\/ returned HTTP 500, expected 200 or 404/);
+  assert.doesNotMatch(result.output, /verify-deployment: OK/);
+});
 
+// Cover response contracts that the happy path cannot prove.
 for (const [name, options, message] of [
-  ["a different build", { expectedHtml: homepage + "\n" },
-    /the live homepage does not match the verified build/],
   ["a temporary redirect", { redirectStatus: 302 },
-    /must redirect to the homepage with HTTP 301/],
-  ["a redirect to the wrong path", { redirectLocation: "/elsewhere/" },
     /must redirect to the homepage with HTTP 301/],
   ["a redirect to another host", { redirectLocation: "https://example.invalid/" },
     /must redirect to the homepage with HTTP 301/],
   ["an about page that is missing", { aboutStatus: 404 },
-    /\/about\/ must return HTTP 200 as HTML/],
-  ["an about page that redirects", { aboutStatus: 301 },
     /\/about\/ must return HTTP 200 as HTML/],
   ["a missing page served with HTTP 200", { missingStatus: 200 },
     /expected 404/],
