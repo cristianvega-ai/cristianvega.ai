@@ -9,24 +9,25 @@ The suite has two runners and one file per concern. Put each new test in the lay
 | Layer | File | Owns |
 | --- | --- | --- |
 | Easing | `tests/easing.test.mjs` | Clamping, cubic easing, and cubic points. |
-| Globe model | `tests/globe-model.test.mjs` | Globe geometry, routes, entrance order, label anchors, the projection crop, and the rounding of projection values. |
+| Globe model | `tests/globe-model.test.mjs` | Globe geometry, routes, entrance order, label anchors, projection bounds, and rounded stylesheet values. |
 | Graphic clock | `tests/graphics-clock.test.mjs` | Page graphic entrance progress. |
 | Graphic math | `tests/graphics-math.test.mjs` | Staggering, smoothing, interpolation, and stable numeric samples. |
 | Graphic geometry | `tests/graphics-geometry.test.mjs` | Lyra layout, constellation links, route lengths, meshes, and figure insets. |
 | Labels | `tests/labels.test.mjs` | Label placement, rectangle overlap, and segment intersections. |
 | Graphic fonts | `tests/graphic-font.test.mjs` | Font measurement, width caching, and measured placement inputs. |
 | About model | `tests/about-model.test.mjs` | About path geometry, orientation, and ring margins. |
-| Products model | `tests/products-model.test.mjs` | Product capacity and its build guard, entrance timing, slots, orbits, mark reach, and Lyra fitting. |
+| Products model | `tests/products-model.test.mjs` | Product capacity, entrance timing, slots, orbits, mark reach, and Lyra fitting. |
 | 404 model | `tests/404-model.test.mjs` | Missing star layout, search timing, names, and insets. |
 | Writing model | `tests/writing-model.test.mjs` | Writing field placement, links, labels, and insets. |
 | Palette | `tests/palette.test.mjs` | Glow stops from a resolved color, with the color alpha. |
-| Build | `tests/build.test.mjs` | The build emits every expected route, asset, feed, and sitemap entry. |
-| Pages | `tests/pages.test.mjs` | Rendered HTML content, headings, metadata, and navigation state. |
+| Build | `tests/build.test.mjs` | Static files, compiled assets, sitemap completeness, fonts, and private image exclusions. |
+| Pages | `tests/pages.test.mjs` | Core-page content, headings, metadata consistency, navigation state, fallbacks, and font delivery. |
+| Publication | `tests/publication.test.mjs` | Production routes, draft privacy, rendered publication, content order, escaped metadata, and product build capacity. |
 | Diagnostics | `tests/diagnostics.test.mjs` | The real `astro check` reports source files and skips generated and tool folders. |
 | Public input | `tests/public-input.test.mjs` | The prebuild guard keeps operating-system metadata out of `public/`. |
 | Security | `tests/security.test.mjs` | Cloudflare header and cache rules, the CSP, and `security.txt`. |
 | Deployment | `tests/deploy-gate.test.mjs` | The live gate accepts the verified build and rejects broken responses. The gate also runs against the local Cloudflare build. |
-| Workflow | `tests/deploy-workflow.test.mjs` | Workflow triggers, action pins, token scope, secrets, and the deploy conditions. |
+| Workflow | `tests/deploy-workflow.test.mjs` | Parsed workflow triggers, action pins, token scope, secrets, freshness conditions, and artifact integrity. |
 | Node version | `tests/node-version.test.mjs` | The tests and Cursor setup use the exact version in `.nvmrc`. |
 | Design tokens | `tests/design-tokens.test.mjs` | Design-token hygiene in `global.css`, and the allowlist of global tokens that a page stylesheet can redefine. |
 | Selector hygiene | `tests/stylesheet-selector-hygiene.test.mjs` | A class that is the subject of `:focus` or `:focus-visible` must be able to receive focus. |
@@ -42,7 +43,7 @@ The deployment suite starts Wrangler on `dist/`. `npm run test:run` therefore ne
 | File | Owns |
 | --- | --- |
 | `tests/browser/home.spec.mjs` | Homepage layout, content links, publication state, and the globe. |
-| `tests/browser/globe-presentation.spec.mjs` | Globe presentation from model inputs, label clock behavior, projection stylesheet delivery, fallbacks, backdrop alignment, and the label size token. |
+| `tests/browser/globe-presentation.spec.mjs` | Globe presentation, label clocks, stylesheet delivery, fallbacks, backdrop alignment, label size, and restored entrances. |
 | `tests/browser/products.spec.mjs` | Product index and detail flows, metadata, graphic bindings, marks, capacity, labels, and bounds. |
 | `tests/browser/404.spec.mjs` | 404 graphic search, labels, bounds, fallback, content visibility, and console behavior. |
 | `tests/browser/about.spec.mjs` | About graphic layout, reader interaction, and page expectations. |
@@ -55,13 +56,13 @@ The deployment suite starts Wrangler on `dist/`. `npm run test:run` therefore ne
 | `tests/browser/graphic-font.spec.mjs` | CSS font tokens, delayed fonts, measured labels, resizing, and font callback lifetimes. |
 | `tests/browser/layout.spec.mjs` | Shared shell geometry, reading edges, graphic bands, and alignment across pages. |
 | `tests/browser/typography.spec.mjs` | Shared typography sizes, line heights, tracking, and role order. |
-| `tests/browser/palette.spec.mjs` | Graphic sky colors from the CSS token in each CSS color format, and the fallback color. |
+| `tests/browser/palette.spec.mjs` | Graphic sky channels, alpha, color formats, resized scenes, and the fallback color. |
 | `tests/browser/hosting.spec.mjs` | Local Cloudflare responses: headers, redirects, robots, compression, caching, and refused requests. |
 | `tests/browser/security.spec.mjs` | The browser enforces the CSP and the permissions policy. |
 | `tests/browser/analytics.spec.mjs` | The Cloudflare beacon loads on the production origin only, and pages work when it is blocked. |
 
 Keep page selectors and expectations in their owning suite.
-Share identical frame and pixel mechanisms through `tests/browser/fixtures.mjs`.
+Share identical navigation, settlement, frame, and pixel mechanisms through `tests/browser/fixtures.mjs`.
 Pass page selectors and alpha thresholds to the pixel helpers.
 
 To choose a layer, ask what the test must look at:
@@ -69,6 +70,29 @@ To choose a layer, ask what the test must look at:
 1. A pure function — use the unit layer.
 2. A string that must appear in `dist/` — use the matching contract layer.
 3. Anything a browser must compute or execute — use the browser layer.
+
+## Test value
+
+Keep a test only when it detects a distinct failure in behavior or a required contract.
+Do not use case counts as coverage targets.
+
+- Name the failure each case detects.
+- Check existing coverage before adding a case.
+- Do not add import-only or export-existence cases.
+- Merge cases that repeat setup and detect the same failure.
+- Keep every transferred assertion and its useful failure message.
+- Keep checks across layers when they detect different failures.
+- Choose viewport, route, data, and failure matrices from distinct responsive or behavioral boundaries.
+- Record the reason for each matrix dimension near its definition.
+- Avoid full Cartesian products unless their combinations exercise different behavior.
+- Share each isolated build when its assertions use the same fixture and production inputs.
+- Keep route and rendered publication assertions together in `tests/publication.test.mjs`.
+- Use physical bounds and relationships unless an approved visual contract requires fixed geometry values.
+- Keep owner branding fixed.
+- Compare changing profile text with rendered metadata.
+- Require nonempty inputs before looping over expected elements.
+- Include the subject, input, and expected result in failure messages.
+- Preserve security, draft privacy, keyboard access, motion, fallbacks, and cleanup coverage during consolidation.
 
 ## Rules
 
