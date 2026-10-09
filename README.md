@@ -176,6 +176,8 @@ The `product-layout-fixture` file is a draft sample for layout review.
 
 The products graphic has eight slots.
 A build that publishes more than eight products fails.
+The product route checks this limit in `getStaticPaths()`.
+Drafts do not count toward the limit.
 
 ## Navigation
 

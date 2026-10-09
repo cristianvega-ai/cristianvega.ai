@@ -11,7 +11,9 @@ Pass the visible product count on both product routes.
 Pass `null` for `currentProductIndex` on the product index.
 Pass the visible product's list index on detail pages.
 The products picture has `MAXIMUM_SLOTS` (8) slots.
-`getProducts()` fails the build when more products are published.
+The product route's `getStaticPaths()` checks the published count before it returns build paths.
+Drafts do not count toward this limit.
+`getProducts()` only loads and sorts visible content.
 `scenes/product-slots.ts` holds the slots and the build check.
 It has no DOM, so the build does not load the scene.
 Writing reads hooks inside the closest `[data-writing-page]`.
