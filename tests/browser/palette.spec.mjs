@@ -6,14 +6,14 @@ const graphic = "[data-graphic='about']";
 
 async function useSkyToken(page, token) {
   await page.addInitScript((color) => {
-    const apply = () => {
+    const applySkyColor = () => {
       if (!document.documentElement) return false;
       document.documentElement.style.setProperty("--sky", color, "important");
       return true;
     };
-    if (!apply()) {
+    if (!applySkyColor()) {
       const observer = new MutationObserver(() => {
-        if (apply()) observer.disconnect();
+        if (applySkyColor()) observer.disconnect();
       });
       observer.observe(document, { childList: true, subtree: true });
     }
@@ -41,24 +41,24 @@ const parseStop = (stop) => stop.match(/^rgba\((\d+), (\d+), (\d+), ([\d.]+)\)$/
 // Any color that the browser parses paints as itself. A value that it cannot parse paints the fallback and warns.
 // A missing token paints the fallback without a warning.
 const SKY_TOKENS = [
-  { name: "the current hex color", token: "#38BDF8", rgb: [56, 189, 248] },
-  { name: "a mixed-case hex color", token: "#aBcDeF", rgb: [171, 205, 239] },
-  { name: "a trimmed hex color", token: "  #38BDF8  ", rgb: [56, 189, 248] },
-  { name: "an RGB color", token: "rgb(56, 189, 248)", rgb: [56, 189, 248] },
-  { name: "a short hex color", token: "#3bf", rgb: [51, 187, 255] },
-  { name: "an HSL color", token: "hsl(198, 93%, 60%)", rgb: [58, 191, 248] },
+  { name: "the current hex color", token: "#38BDF8", colorChannels: [56, 189, 248] },
+  { name: "a mixed-case hex color", token: "#aBcDeF", colorChannels: [171, 205, 239] },
+  { name: "a trimmed hex color", token: "  #38BDF8  ", colorChannels: [56, 189, 248] },
+  { name: "an RGB color", token: "rgb(56, 189, 248)", colorChannels: [56, 189, 248] },
+  { name: "a short hex color", token: "#3bf", colorChannels: [51, 187, 255] },
+  { name: "an HSL color", token: "hsl(198, 93%, 60%)", colorChannels: [58, 191, 248] },
   { name: "an OKLCH color", token: "oklch(0.7 0.18 50)" },
-  { name: "a named color", token: "orange", rgb: [255, 165, 0] },
-  { name: "a hex color with alpha", token: "#FF8000AA", rgb: [255, 128, 0], alpha: 170 / 255 },
-  { name: "a transparent color", token: "transparent", rgb: [0, 0, 0], alpha: 0 },
-  { name: "an empty token fallback", token: " ", rgb: [56, 189, 248], fallback: true },
-  { name: "an invalid hex fallback", token: "#38BDGG", rgb: [56, 189, 248], fallback: true, warns: true },
-  { name: "an unknown word fallback", token: "not-a-color", rgb: [56, 189, 248], fallback: true, warns: true },
+  { name: "a named color", token: "orange", colorChannels: [255, 165, 0] },
+  { name: "a hex color with alpha", token: "#FF8000AA", colorChannels: [255, 128, 0], alpha: 170 / 255 },
+  { name: "a transparent color", token: "transparent", colorChannels: [0, 0, 0], alpha: 0 },
+  { name: "an empty token fallback", token: " ", colorChannels: [56, 189, 248], fallback: true },
+  { name: "an invalid hex fallback", token: "#38BDGG", colorChannels: [56, 189, 248], fallback: true, warns: true },
+  { name: "an unknown word fallback", token: "not-a-color", colorChannels: [56, 189, 248], fallback: true, warns: true },
 ];
 
 test.describe("graphic sky colors", () => {
   for (const viewport of Object.values(VIEWPORTS)) {
-    for (const { name, token, rgb, alpha = 1, warns = false } of SKY_TOKENS) {
+    for (const { name, token, colorChannels, alpha = 1, warns = false } of SKY_TOKENS) {
       test(`paints ${name} at ${viewport.width}px`, async ({ page }) => {
         const { problems, warnings } = watchProblems(page);
         await page.setViewportSize(viewport);
@@ -73,7 +73,7 @@ test.describe("graphic sky colors", () => {
         expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--sky").trim())).toBe(token.trim());
 
         // Without a fixed expectation, the browser resolves the color through a canvas of its own.
-        const expected = rgb ?? await page.evaluate((value) => {
+        const expected = colorChannels ?? await page.evaluate((value) => {
           const context = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
           context.fillStyle = value;
           context.fillRect(0, 0, 1, 1);
@@ -86,15 +86,15 @@ test.describe("graphic sky colors", () => {
         }
         expect(Math.abs(stops[0][3] - 0.45 * alpha), "the glow keeps the color alpha").toBeLessThanOrEqual(0.002);
         expect(stops[1][3]).toBe(0);
-        if (!rgb) expect(stops[0].slice(0, 3).join(), "the color does not fall back").not.toBe("56,189,248");
+        if (!colorChannels) expect(stops[0].slice(0, 3).join(), "the color does not fall back").not.toBe("56,189,248");
         const skyWarnings = warnings.filter((warning) => warning.includes("--sky"));
         expect(skyWarnings, warns ? "an invalid token warns once" : "a valid or missing token does not warn").toHaveLength(warns ? 1 : 0);
 
         const accentPixels = await page.locator(`${graphic} canvas`).evaluate((canvas, color) => {
           const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
           let count = 0;
-          for (let i = 0; i < data.length; i += 4) {
-            if (data[i + 3] > 24 && color.every((channel, index) => Math.abs(data[i + index] - channel) <= 3)) count += 1;
+          for (let pixelOffset = 0; pixelOffset < data.length; pixelOffset += 4) {
+            if (data[pixelOffset + 3] > 24 && color.every((channel, index) => Math.abs(data[pixelOffset + index] - channel) <= 3)) count += 1;
           }
           return count;
         }, expected);

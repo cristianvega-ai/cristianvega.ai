@@ -29,15 +29,15 @@ async function menuContrast(link) {
   });
 }
 
-test.beforeEach(async ({ page }, testInfo) => {
-  testInfo.errorsOnPage = pageProblems(page);
+test.beforeEach(async ({ page }, testInformation) => {
+  testInformation.errorsOnPage = pageProblems(page);
   await useReducedMotion(page);
   await page.goto(new URL(article, DRAFT_ORIGIN).href);
   await settle(page);
 });
 
-test.afterEach(async ({}, testInfo) => {
-  expect(testInfo.errorsOnPage).toEqual([]);
+test.afterEach(async ({}, testInformation) => {
+  expect(testInformation.errorsOnPage).toEqual([]);
 });
 
 for (const width of [360, 390, 640]) {

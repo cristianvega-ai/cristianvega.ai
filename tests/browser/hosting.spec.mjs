@@ -50,10 +50,10 @@ test("only the Cloudflare test address sends noindex", async ({ request }) => {
 
 test("Cloudflare compresses built scripts and gives them an immutable cache", async ({ request }) => {
   const home = await request.get("/");
-  const html = await home.text();
-  const sources = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, src]) => src);
-  const globe = sources.find((src) => src.includes("LyraGlobe"));
-  const analytics = sources.find((src) => src.includes("CloudflareAnalytics"));
+  const pageMarkup = await home.text();
+  const sources = [...pageMarkup.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, scriptAddress]) => scriptAddress);
+  const globe = sources.find((scriptAddress) => scriptAddress.includes("LyraGlobe"));
+  const analytics = sources.find((scriptAddress) => scriptAddress.includes("CloudflareAnalytics"));
   expect(globe).toBeTruthy();
   expect(analytics).toBeTruthy();
   const paths = [

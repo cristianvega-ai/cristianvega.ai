@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { extname as fileExtension, join } from "node:path";
 import { CROP_ABOVE_RING, CROP_BELOW_CAPTION, PICTURE_SCALE } from "../../src/shared/lyra-globe/projection.ts";
 import { createIsolatedBuild } from "../helpers.mjs";
 import { pageProblems, settle, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames } from "./fixtures.mjs";
@@ -52,7 +52,7 @@ for (const pause of ["hidden", "offscreen"]) {
         document.dispatchEvent(new Event("visibilitychange"));
       } else {
         const spacer = document.createElement("div");
-        for (let i = 0; i < 180; i++) spacer.append(document.createElement("br"));
+        for (let spacerLineIndex = 0; spacerLineIndex < 180; spacerLineIndex++) spacer.append(document.createElement("br"));
         document.querySelector("#main-content").after(spacer);
         window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" });
       }
@@ -206,7 +206,7 @@ for (const viewport of [VIEWPORTS.desktop, { width: 1100, height: 800 }, VIEWPOR
     }
     // The --globe-caption-length fallback gives the caption reach of the model caption.
     const read = await readProjection(page);
-    const captionReach = read.captionLength * 0.5 * read.ch + 2;
+    const captionReach = read.captionLength * 0.5 * read.characterUnitWidth + 2;
     expect(Math.abs(read.captionReach - captionReach), `caption reach ${read.captionReach} without the projection stylesheet`).toBeLessThanOrEqual(1);
     // The backdrop shows from 1100px. The --globe-center-top fallback keeps it on the sphere centre.
     if (viewport.width >= 1100) {
@@ -257,15 +257,15 @@ async function readProjection(page) {
     const hostBox = host.getBoundingClientRect();
     const style = getComputedStyle(host);
     const canvas = document.querySelector(".lyra-globe__canvas").getBoundingClientRect();
-    const svg = document.querySelector("[data-lyra-globe] template").content.querySelector("svg");
-    const ring = [...svg.querySelectorAll("ellipse")].sort((a, b) => b.rx.baseVal.value * b.ry.baseVal.value - a.rx.baseVal.value * a.ry.baseVal.value)[0];
-    const vega = svg.querySelector('circle.is-hot[r="4.1"]');
+    const vectorGraphic = document.querySelector("[data-lyra-globe] template").content.querySelector("svg");
+    const ring = [...vectorGraphic.querySelectorAll("ellipse")].sort((firstEllipse, secondEllipse) => secondEllipse.rx.baseVal.value * secondEllipse.ry.baseVal.value - firstEllipse.rx.baseVal.value * firstEllipse.ry.baseVal.value)[0];
+    const vega = vectorGraphic.querySelector('circle.is-hot[r="4.1"]');
     const caption = document.querySelector("[data-lyra-globe] .lyra-globe__label--caption");
     // 1ch is the advance of one character in the font of the host. A long probe averages out layout rounding.
     const probe = document.createElement("div");
     probe.style.width = "1000ch";
     host.append(probe);
-    const ch = probe.getBoundingClientRect().width / 1000;
+    const characterUnitWidth = probe.getBoundingClientRect().width / 1000;
     probe.remove();
     // The caption reach that home.css computes from --globe-caption-length. A new probe has no
     // earlier width, so the short reduced-motion transition cannot delay the reading.
@@ -275,20 +275,20 @@ async function readProjection(page) {
     const captionReach = reachProbe.getBoundingClientRect().width;
     reachProbe.remove();
     return {
-      width: svg.viewBox.baseVal.width,
-      height: svg.viewBox.baseVal.height,
+      width: vectorGraphic.viewBox.baseVal.width,
+      height: vectorGraphic.viewBox.baseVal.height,
       cx: ring.cx.baseVal.value,
       cy: ring.cy.baseVal.value,
       radius: ring.rx.baseVal.value,
       vegaY: vega.cy.baseVal.value,
       // The caption y is a share of the picture height, in percent.
-      captionY: (parseFloat(caption.getAttribute("y")) / 100) * svg.viewBox.baseVal.height,
+      captionY: (parseFloat(caption.getAttribute("y")) / 100) * vectorGraphic.viewBox.baseVal.height,
       captionLength: caption.textContent.length,
-      ch,
+      characterUnitWidth,
       captionReach,
       inset: parseFloat(style.getPropertyValue("--figure-inset")),
       limits: {
-        max: parseFloat(style.getPropertyValue("--globe-maximum-size")),
+        maximumSize: parseFloat(style.getPropertyValue("--globe-maximum-size")),
         size: parseFloat(style.getPropertyValue("--frame")) * 0.55 - 5,
         height: innerHeight - ["--header-height", "--hero-top-offset", "--footer-reserve"].reduce((sum, name) => sum + parseFloat(style.getPropertyValue(name)), 0)
           - 2 * parseFloat(style.getPropertyValue("--globe-gap")),
@@ -299,8 +299,8 @@ async function readProjection(page) {
       canvas: { x: canvas.left - hostBox.left, y: canvas.top - hostBox.top, width: canvas.width, height: canvas.height },
       // The sphere centre in host pixels, from the drawn picture and the model ring.
       sphere: {
-        x: canvas.left - hostBox.left + (ring.cx.baseVal.value / svg.viewBox.baseVal.width) * canvas.width,
-        y: canvas.top - hostBox.top + (ring.cy.baseVal.value / svg.viewBox.baseVal.height) * canvas.height,
+        x: canvas.left - hostBox.left + (ring.cx.baseVal.value / vectorGraphic.viewBox.baseVal.width) * canvas.width,
+        y: canvas.top - hostBox.top + (ring.cy.baseVal.value / vectorGraphic.viewBox.baseVal.height) * canvas.height,
       },
       // The centre of the backdrop box after its transform, in host pixels.
       underlay: (() => {
@@ -335,7 +335,7 @@ test("updates served globe geometry when the model changes", async ({ page }) =>
       const pathname = new URL(route.request().url()).pathname;
       const file = join(fixture.dist, pathname === "/" ? "index.html" : pathname);
       try {
-        await route.fulfill({ body: await readFile(file), headers: { ...policy, "content-type": types[extname(file)] ?? "application/octet-stream" } });
+        await route.fulfill({ body: await readFile(file), headers: { ...policy, "content-type": types[fileExtension(file)] ?? "application/octet-stream" } });
       } catch { await route.continue(); }
     });
     const round = (value) => Math.round(value * 10000) / 10000;
@@ -363,8 +363,8 @@ test("updates served globe geometry when the model changes", async ({ page }) =>
         const boxAspect = round(aspect * PICTURE_SCALE / pictureHeight);
         const centerReach = round(read.radius / read.width * PICTURE_SCALE);
         // The caption is centred on the sphere. It reaches half its length past the centre, plus 2px of slack.
-        const captionReach = read.captionLength * 0.5 * read.ch + 2;
-        const expectedWidth = Math.min(read.limits.max, read.limits.size, Math.max(260, read.limits.height / boxAspect),
+        const captionReach = read.captionLength * 0.5 * read.characterUnitWidth + 2;
+        const expectedWidth = Math.min(read.limits.maximumSize, read.limits.size, Math.max(260, read.limits.height / boxAspect),
           (read.limits.room - read.inset - captionReach - read.limits.fade) / centerReach);
         expect(Math.abs(read.host.width - expectedWidth)).toBeLessThan(0.03);
         expect(Math.abs(read.canvas.x - (read.inset - ringInset * read.host.width))).toBeLessThan(0.03);

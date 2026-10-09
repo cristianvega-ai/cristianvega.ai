@@ -46,28 +46,28 @@ test.describe("the about graphic never overlaps text", () => {
       await settle(page);
 
       const box = () =>
-        page.locator(graphic).evaluate((el) => {
-          const rect = el.getBoundingClientRect();
-          return { x: rect.left, y: rect.top, w: rect.width, h: rect.height, position: getComputedStyle(el).position };
+        page.locator(graphic).evaluate((element) => {
+          const rectangle = element.getBoundingClientRect();
+          return { x: rectangle.left, y: rectangle.top, width: rectangle.width, height: rectangle.height, position: getComputedStyle(element).position };
         });
       // The fixed box stays in view. The band scrolls, so it is checked at the top and at the bottom of the page.
       for (const place of ["top", "middle", "bottom"]) {
         // The site scrolls smoothly. Scroll at once, so both measurements see the same place.
         const scroll = await page.evaluate((where) => {
-          const max = document.documentElement.scrollHeight - innerHeight;
-          const top = where === "top" ? 0 : where === "middle" ? max / 2 : max;
+          const maximumScroll = document.documentElement.scrollHeight - innerHeight;
+          const top = where === "top" ? 0 : where === "middle" ? maximumScroll / 2 : maximumScroll;
           scrollTo({ top, behavior: "instant" });
           return { top, now: scrollY };
         }, place);
         expect(Math.abs(scroll.now - scroll.top), `${place}: the page is at the ${place}`).toBeLessThanOrEqual(1);
         const shape = await box();
-        expect(shape.w, `${place}: the box has a width`).toBeGreaterThan(100);
-        expect(shape.h, `${place}: the box has a height`).toBeGreaterThan(100);
+        expect(shape.width, `${place}: the box has a width`).toBeGreaterThan(100);
+        expect(shape.height, `${place}: the box has a height`).toBeGreaterThan(100);
         const texts = await textBoxes(page);
         expect(texts.length).toBeGreaterThan(0);
         for (const text of texts) {
           const apart =
-            text.x + text.w <= shape.x || shape.x + shape.w <= text.x || text.y + text.h <= shape.y || shape.y + shape.h <= text.y;
+            text.x + text.width <= shape.x || shape.x + shape.width <= text.x || text.y + text.height <= shape.y || shape.y + shape.height <= text.y;
           expect(apart, `${place}: the graphic overlaps a text box at ${JSON.stringify(text)}`).toBe(true);
         }
       }
@@ -80,7 +80,7 @@ test.describe("the about graphic never overlaps text", () => {
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     const placed = await page.evaluate((selector) => {
       const root = document.querySelector(selector);
-      const rect = root.getBoundingClientRect();
+      const rectangle = root.getBoundingClientRect();
       const style = getComputedStyle(root);
       const footer = document.querySelector(".site-footer").getBoundingClientRect();
       const fade = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--footer-fade"));
@@ -88,13 +88,13 @@ test.describe("the about graphic never overlaps text", () => {
         position: style.position,
         zIndex: style.zIndex,
         gridZIndex: getComputedStyle(document.body, "::before").zIndex,
-        left: rect.left,
+        left: rectangle.left,
         columnRight: document.querySelector("main .wrap--read").getBoundingClientRect().right,
         gap: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--graphic-gap")),
-        top: rect.top,
+        top: rectangle.top,
         header: document.querySelector(".site-header").getBoundingClientRect().bottom,
-        right: rect.right,
-        bottom: rect.bottom,
+        right: rectangle.right,
+        bottom: rectangle.bottom,
         barTop: footer.height + fade,
       };
     }, graphic);
@@ -111,12 +111,12 @@ test.describe("the about graphic never overlaps text", () => {
     await page.goto("/about/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     const band = await page.evaluate((selector) => {
-      const rect = document.querySelector(selector).getBoundingClientRect();
+      const rectangle = document.querySelector(selector).getBoundingClientRect();
       return {
         position: getComputedStyle(document.querySelector(selector)).position,
-        top: rect.top,
-        bottom: rect.bottom,
-        height: rect.height,
+        top: rectangle.top,
+        bottom: rectangle.bottom,
+        height: rectangle.height,
         header: document.querySelector(".site-header").getBoundingClientRect().bottom,
         title: document.querySelector("#about-title").getBoundingClientRect().top,
       };
@@ -165,17 +165,17 @@ test.describe("the about graphic follows the reader", () => {
     await page.goto("/about/");
     await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
     const progress = async () => Number(await page.locator(graphic).getAttribute("data-progress"));
-    const at = (where) => page.evaluate((share) => scrollTo(0, (document.documentElement.scrollHeight - innerHeight) * share), where);
+    const scrollToPageFraction = (where) => page.evaluate((share) => scrollTo(0, (document.documentElement.scrollHeight - innerHeight) * share), where);
 
     await expect.poll(progress, "rests at the start of the path at the top").toBeCloseTo(0, 2);
-    await at(0.5);
+    await scrollToPageFraction(0.5);
     await expect.poll(progress).toBeGreaterThan(0.45);
     await expect.poll(progress).toBeLessThan(0.55);
-    await at(1);
+    await scrollToPageFraction(1);
     await expect.poll(progress, "reaches Vega at the bottom").toBeCloseTo(1, 2);
     // The loop stops once the marker reaches the reader.
     await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
-    await at(0);
+    await scrollToPageFraction(0);
     await expect.poll(progress).toBeCloseTo(0, 2);
   });
 
@@ -196,7 +196,7 @@ test.describe("the about graphic follows the reader", () => {
       page.locator(`${graphic} canvas`).evaluate((canvas) => {
         const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
         let sum = 0;
-        for (let i = 3; i < data.length; i += 4) sum += data[i];
+        for (let alphaIndex = 3; alphaIndex < data.length; alphaIndex += 4) sum += data[alphaIndex];
         return sum;
       });
     // Step one frame at a time through the end of the entrance.
@@ -222,8 +222,8 @@ test.describe("the about graphic follows the reader", () => {
       await playFrames(page, 16);
       lit.push(Number(await page.locator(graphic).getAttribute("data-progress")));
     }
-    for (let i = 1; i < lit.length; i += 1) {
-      expect(lit[i], `frame ${i}: the lit length must not fall`).toBeGreaterThanOrEqual(lit[i - 1]);
+    for (let frameIndex = 1; frameIndex < lit.length; frameIndex += 1) {
+      expect(lit[frameIndex], `frame ${frameIndex}: the lit length must not fall`).toBeGreaterThanOrEqual(lit[frameIndex - 1]);
     }
     const settled = lit[lit.length - 1];
     expect(settled, "the entrance ends at the marker").toBeGreaterThan(0.45);
@@ -284,7 +284,7 @@ test.describe("the about graphic follows the reader", () => {
     await playFrames(page, 3000);
     await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
     const writes = [];
-    for (let i = 0; i < 20; i += 1) {
+    for (let frameIndex = 0; frameIndex < 20; frameIndex += 1) {
       writes.push(
         await page.evaluate(() => {
           window.__observer.takeRecords();

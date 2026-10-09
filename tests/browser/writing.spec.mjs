@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { bandHeight, contentSecurityPolicyViolations, currentContent, currentPublished, decorativeState, DRAFT_ORIGIN as preview, drawnLabels, edgePaint, focusRingAndFade, navigationLink, pageProblems, recordContentSecurityPolicyViolations, settle, tabTo, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames, paintedPixels } from "./fixtures.mjs";
+import { bandHeight, contentSecurityPolicyViolations, currentContent, currentPublished, decorativeState, DRAFT_ORIGIN, drawnLabels, edgePaint, focusRingAndFade, navigationLink, pageProblems, recordContentSecurityPolicyViolations, settle, tabTo, textBoxes, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, playFrames, paintedPixels } from "./fixtures.mjs";
 
 const article = "/writing/full-article-layout-fixture/";
 const qualityArticle = "/writing/article-quality-review-fixture/";
@@ -11,7 +11,7 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
   test(`${name} navigation keeps the header and browser theme consistent`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await useReducedMotion(page);
-    await page.goto(preview + "/");
+    await page.goto(DRAFT_ORIGIN + "/");
     await settle(page);
     const header = await page.locator(".site-header__inner").boundingBox();
     await navigationLink(page, "writing").click();
@@ -19,7 +19,7 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     expect(await page.locator(".site-header__inner").boundingBox()).toEqual(header);
     await page.getByRole("link", { name: "Nisi ut aliquip ex ea", exact: true }).click();
     await expect(page.locator("#article-title")).toBeVisible();
-    await expect(page).toHaveURL(preview + qualityArticle);
+    await expect(page).toHaveURL(DRAFT_ORIGIN + qualityArticle);
     await expect(page.locator("link[rel='canonical']")).toHaveAttribute("href", "https://cristianvega.ai" + qualityArticle);
     await settle(page);
     expect(await page.locator(".site-header__inner").boundingBox()).toEqual(header);
@@ -36,24 +36,24 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       await page.setViewportSize(viewport);
       await useReducedMotion(page);
       const errors = pageProblems(page);
-      await page.goto(preview + route);
+      await page.goto(DRAFT_ORIGIN + route);
       await settle(page);
       await expect(page.locator("main h1")).toHaveCount(1);
       await expect(page.locator(".navigation__link[href='/writing/']")).toHaveAttribute("aria-current", route === "/writing/" ? "page" : "location");
       const layout = await page.evaluate(() => {
         const brand = document.querySelector(".brand").getBoundingClientRect();
         // Narrow screens swap the inline nav for the menu button.
-        const nav = [...document.querySelectorAll(".navigation, .navigation-menu")].find((element) => element.getClientRects().length).getBoundingClientRect();
+        const navigationRectangle = [...document.querySelectorAll(".navigation, .navigation-menu")].find((element) => element.getClientRects().length).getBoundingClientRect();
         const scene = document.querySelector("[data-graphic='writing']");
         const wraps = [...document.querySelectorAll("main .wrap--read")].map((element) => {
-          const rect = element.getBoundingClientRect();
-          return Math.round(rect.left + parseFloat(getComputedStyle(element).paddingLeft));
+          const rectangle = element.getBoundingClientRect();
+          return Math.round(rectangle.left + parseFloat(getComputedStyle(element).paddingLeft));
         });
         const header = document.querySelector(".site-header").getBoundingClientRect();
         const first = document.querySelector("main").firstElementChild.getBoundingClientRect();
         return {
           overflow: document.documentElement.scrollWidth - innerWidth,
-          overlap: brand.right > nav.left,
+          overlap: brand.right > navigationRectangle.left,
           edges: [...new Set(wraps)],
           pointerEvents: scene && getComputedStyle(scene).pointerEvents,
           canvasWidth: scene && scene.querySelector("canvas").getBoundingClientRect().width,
@@ -61,13 +61,13 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
           sceneCount: document.querySelectorAll("[data-graphic]").length,
           headerBottom: header.bottom,
           contentTop: first.top,
-          depthArt: document.querySelectorAll(".lyra-depth__fallback, .reading-hud").length,
+          legacyGraphicCount: document.querySelectorAll(".lyra-depth__fallback, .reading-hud").length,
         };
       });
       expect(layout.overflow).toBeLessThanOrEqual(1);
       expect(layout.overlap).toBe(false);
       expect(layout.edges.length).toBeLessThanOrEqual(1);
-      expect(layout.depthArt).toBe(0);
+      expect(layout.legacyGraphicCount).toBe(0);
       if (route === "/writing/") {
         expect(layout.pointerEvents).toBe("none");
         expect(layout.canvasWidth).toBe(layout.sceneWidth);
@@ -93,7 +93,7 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
 }
 
 test("drafts appear locally and stay unavailable in production", async ({ page, request }) => {
-  await page.goto(preview + "/writing/");
+  await page.goto(DRAFT_ORIGIN + "/writing/");
   await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
   await settle(page);
   await expect(page.locator(".article-list__item")).toHaveCount(currentContent.writing.length);
@@ -110,7 +110,7 @@ test("drafts appear locally and stay unavailable in production", async ({ page, 
 
 test("keyboard focus lights an article and opens its article", async ({ page }) => {
   await useReducedMotion(page);
-  await page.goto(preview + "/writing/");
+  await page.goto(DRAFT_ORIGIN + "/writing/");
   await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
   await settle(page);
   expect(await tabTo(page, ".article-list__link >> nth=0")).toBe(true);
@@ -133,7 +133,7 @@ test("keyboard focus lights an article and opens its article", async ({ page }) 
 
 test("article sections and adjacent articles work", async ({ page }) => {
   await useReducedMotion(page);
-  await page.goto(preview + article);
+  await page.goto(DRAFT_ORIGIN + article);
   await expect(page.locator(".prose h2")).toHaveCount(3);
   await expect(page.locator(".prose .pipeline")).toHaveAttribute("role", "img");
   await expect(page.locator(".prose pre")).toHaveAttribute("tabindex", "0");
@@ -157,12 +157,12 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
   test(`${name} article column starts on the frame edge`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await useReducedMotion(page);
-    await page.goto(preview + article);
+    await page.goto(DRAFT_ORIGIN + article);
     await settle(page);
     const measured = await page.evaluate(() => {
       const box = (selector) => {
-        const rect = document.querySelector(selector).getBoundingClientRect();
-        return { left: rect.left, width: rect.width };
+        const rectangle = document.querySelector(selector).getBoundingClientRect();
+        return { left: rectangle.left, width: rectangle.width };
       };
       return {
         client: document.documentElement.clientWidth,
@@ -192,21 +192,21 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
 test("about and articles share one reading edge at desktop width", async ({ page }) => {
   await page.setViewportSize(VIEWPORTS.desktop);
   await useReducedMotion(page);
-  const edge = async (url, selector) => {
-    await page.goto(url);
+  const edge = async (pageAddress, selector) => {
+    await page.goto(pageAddress);
     await settle(page);
     return page.locator(selector).evaluate((element) => element.getBoundingClientRect().left);
   };
   const about = await edge("/about/", ".about__header");
-  const articleEdge = await edge(preview + article, ".article__header-copy");
+  const articleEdge = await edge(DRAFT_ORIGIN + article, ".article__header-copy");
   expect(Math.abs(about - articleEdge)).toBeLessThanOrEqual(1);
 
   // The header logo, the home intro, and the columns share that same edge.
   const logo = await edge("/about/", ".brand__mark");
   const aboutTitle = await edge("/about/", "main h1");
-  const articleTitle = await edge(preview + article, "main h1");
-  const homeTitle = await edge(preview + "/", "main h1");
-  const productsTitle = await edge(preview + "/products/", "main h1");
+  const articleTitle = await edge(DRAFT_ORIGIN + article, "main h1");
+  const homeTitle = await edge(DRAFT_ORIGIN + "/", "main h1");
+  const productsTitle = await edge(DRAFT_ORIGIN + "/products/", "main h1");
   for (const [name, left] of Object.entries({ aboutTitle, articleTitle, homeTitle, productsTitle })) {
     expect(Math.abs(left - logo), name).toBeLessThanOrEqual(1);
   }
@@ -215,7 +215,7 @@ test("about and articles share one reading edge at desktop width", async ({ page
 test("anchors and the back link sit below the sticky header", async ({ page }) => {
   for (const viewport of Object.values(VIEWPORTS)) {
     await page.setViewportSize(viewport);
-    await page.goto(preview + article);
+    await page.goto(DRAFT_ORIGIN + article);
     await settle(page);
     const headerBottom = await page.locator(".site-header").evaluate((element) => element.getBoundingClientRect().bottom);
     expect(await page.locator(".back-link").evaluate((element) => element.getBoundingClientRect().top)).toBeGreaterThanOrEqual(headerBottom);
@@ -229,7 +229,7 @@ test("anchors and the back link sit below the sticky header", async ({ page }) =
 
 test("the writing index graphic sits below the sticky header", async ({ page }) => {
   await page.setViewportSize(VIEWPORTS.desktop);
-  await page.goto(preview + "/writing/");
+  await page.goto(DRAFT_ORIGIN + "/writing/");
   await settle(page);
   await page.evaluate(() => window.scrollTo({ top: 300, behavior: "instant" }));
   await expect.poll(() => page.evaluate((graphicSelector) => {
@@ -242,7 +242,7 @@ test("the writing index graphic sits below the sticky header", async ({ page }) 
 test("content and links work without JavaScript", async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false, viewport: VIEWPORTS.mobile });
   const page = await context.newPage();
-  await page.goto(preview + "/writing/");
+  await page.goto(DRAFT_ORIGIN + "/writing/");
   await page.getByRole("link", { name: title, exact: true }).click();
   await expect(page.locator("#article-title")).toHaveText(title);
   await expect(page.locator(".prose h2")).toHaveCount(3);
@@ -261,7 +261,7 @@ test("canvas, fonts, and storage failures keep content readable", async ({ page 
     Storage.prototype.setItem = () => { throw new Error("Storage blocked"); };
   });
   await page.route("**/*.woff2*", (route) => route.abort());
-  await page.goto(preview + article);
+  await page.goto(DRAFT_ORIGIN + article);
   await expect(page.locator("#article-title")).toBeVisible();
   await expect(page.locator("#article-title")).toHaveCSS("opacity", "1");
   await expect(page.locator(".prose h2")).toHaveCount(3);
@@ -275,18 +275,18 @@ test("canvas, fonts, and storage failures keep content readable", async ({ page 
 /** The count of painted canvas pixels under each box, given in page pixels. */
 const paintUnder = (page, boxes) =>
   page.locator(`${graphic} canvas`).evaluate((canvas, list) => {
-    const rect = canvas.getBoundingClientRect();
-    const scale = canvas.width / rect.width;
+    const rectangle = canvas.getBoundingClientRect();
+    const scale = canvas.width / rectangle.width;
     const context = canvas.getContext("2d");
     let count = 0;
     for (const box of list) {
-      const x0 = Math.max(0, Math.floor((box.x - rect.left) * scale));
-      const y0 = Math.max(0, Math.floor((box.y - rect.top) * scale));
-      const x1 = Math.min(canvas.width, Math.ceil((box.x + box.w - rect.left) * scale));
-      const y1 = Math.min(canvas.height, Math.ceil((box.y + box.h - rect.top) * scale));
+      const x0 = Math.max(0, Math.floor((box.x - rectangle.left) * scale));
+      const y0 = Math.max(0, Math.floor((box.y - rectangle.top) * scale));
+      const x1 = Math.min(canvas.width, Math.ceil((box.x + box.width - rectangle.left) * scale));
+      const y1 = Math.min(canvas.height, Math.ceil((box.y + box.height - rectangle.top) * scale));
       if (x1 <= x0 || y1 <= y0) continue;
       const { data } = context.getImageData(x0, y0, x1 - x0, y1 - y0);
-      for (let i = 3; i < data.length; i += 4) if (data[i] > 8) count += 1;
+      for (let alphaIndex = 3; alphaIndex < data.length; alphaIndex += 4) if (data[alphaIndex] > 8) count += 1;
     }
     return count;
   }, boxes);
@@ -295,7 +295,7 @@ test.describe("the writing graphic is decorative", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 
   test("hides from assistive technology and takes no pointer input", async ({ page }) => {
-    await page.goto(preview + "/writing/");
+    await page.goto(DRAFT_ORIGIN + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     const state = await decorativeState(page, graphic);
     expect(state.hidden).toBe("true");
@@ -307,7 +307,7 @@ test.describe("the writing graphic is decorative", () => {
   });
 
   test("adds no heading or link, and keeps the list readable", async ({ page }) => {
-    await page.goto(preview + "/writing/");
+    await page.goto(DRAFT_ORIGIN + "/writing/");
     await expect(page.locator("main h1")).toHaveText("Writing");
     await expect(page.locator(`${graphic} :is(h1, h2, h3, a)`)).toHaveCount(0);
     await expect(page.locator(".article-list__item")).toHaveCount(currentContent.writing.length);
@@ -327,7 +327,7 @@ test.describe("the writing graphic is decorative", () => {
       });
     });
     await useReducedMotion(page);
-    await page.goto(preview + "/writing/");
+    await page.goto(DRAFT_ORIGIN + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     const sizes = await page.evaluate(() => [...window.__fontSizes]);
     expect(sizes.length).toBeGreaterThan(0);
@@ -345,24 +345,24 @@ test.describe("the writing graphic never covers text", () => {
     test(`paints no pixel under any text box at ${size.width}px`, async ({ page }) => {
       await page.setViewportSize(size);
       await useReducedMotion(page);
-      await page.goto(preview + "/writing/");
+      await page.goto(DRAFT_ORIGIN + "/writing/");
       await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
       await settle(page);
       for (const place of ["top", "middle"]) {
         // The site scrolls smoothly. Scroll at once, so every measurement sees the same place.
         const scroll = await page.evaluate((where) => {
-          const max = Math.max(0, document.documentElement.scrollHeight - document.documentElement.clientHeight);
-          const top = where === "top" ? 0 : Math.min(max, 300);
+          const maximumScroll = Math.max(0, document.documentElement.scrollHeight - document.documentElement.clientHeight);
+          const top = where === "top" ? 0 : Math.min(maximumScroll, 300);
           scrollTo({ top, behavior: "instant" });
           return { top, now: scrollY };
         }, place);
         expect(Math.abs(scroll.now - scroll.top), `${place}: the page is at the ${place}`).toBeLessThanOrEqual(1);
-        const shape = await page.locator(graphic).evaluate((el) => {
-          const rect = el.getBoundingClientRect();
-          return { w: rect.width, h: rect.height };
+        const shape = await page.locator(graphic).evaluate((element) => {
+          const rectangle = element.getBoundingClientRect();
+          return { width: rectangle.width, height: rectangle.height };
         });
-        expect(shape.w, `${place}: the graphic has a width`).toBeGreaterThan(300);
-        expect(shape.h, `${place}: the graphic has a height`).toBeGreaterThan(150);
+        expect(shape.width, `${place}: the graphic has a width`).toBeGreaterThan(300);
+        expect(shape.height, `${place}: the graphic has a height`).toBeGreaterThan(150);
         const texts = await textBoxes(page);
         expect(texts.length).toBeGreaterThan(0);
         expect(await paintedPixels(page, graphic, 8), `${place}: the picture is drawn`).toBeGreaterThan(3000);
@@ -374,15 +374,15 @@ test.describe("the writing graphic never covers text", () => {
   for (const size of [{ width: 1099, height: 900 }, { width: 1024, height: 768 }, { width: 820, height: 1180 }, VIEWPORTS.mobile]) {
     test(`sits above the list and takes a block 19% taller than the shared band at ${size.width}px`, async ({ page }) => {
       await page.setViewportSize(size);
-      await page.goto(preview + "/writing/");
+      await page.goto(DRAFT_ORIGIN + "/writing/");
       await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
       const block = await page.evaluate((selector) => {
         const root = document.querySelector(selector);
-        const rect = root.getBoundingClientRect();
+        const rectangle = root.getBoundingClientRect();
         return {
           position: getComputedStyle(root).position,
-          height: rect.height,
-          bottom: rect.bottom + scrollY,
+          height: rectangle.height,
+          bottom: rectangle.bottom + scrollY,
           list: document.querySelector(".writing-index__list").getBoundingClientRect().top + scrollY,
         };
       }, graphic);
@@ -394,7 +394,7 @@ test.describe("the writing graphic never covers text", () => {
 
   test("sits beside the list from 1100px, as the fixed box of the other pages", async ({ page }) => {
     await page.setViewportSize({ width: 1100, height: 900 });
-    await page.goto(preview + "/writing/");
+    await page.goto(DRAFT_ORIGIN + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     const place = await page.evaluate((selector) => {
       const root = document.querySelector(selector);
@@ -411,7 +411,7 @@ test.describe("the writing graphic labels and family look", () => {
       await page.setViewportSize(size);
       await useLabelSpy(page);
       await useReducedMotion(page);
-      await page.goto(preview + "/writing/");
+      await page.goto(DRAFT_ORIGIN + "/writing/");
       await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
       const { labels, viewport } = await drawnLabels(page);
       // Every article number is drawn. A star name is drawn only where the layout finds a clear place for it,
@@ -433,7 +433,7 @@ test.describe("the writing graphic labels and family look", () => {
     await page.setViewportSize(VIEWPORTS.desktop);
     await useLabelSpy(page);
     await useReducedMotion(page);
-    await page.goto(preview + "/writing/");
+    await page.goto(DRAFT_ORIGIN + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     const { labels, ink } = await drawnLabels(page);
     for (const label of labels) {
@@ -447,7 +447,7 @@ test.describe("the writing graphic labels and family look", () => {
   test("draws no corner bracket and no plus lattice, only the faint site grid", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
     await useReducedMotion(page);
-    await page.goto(preview + "/writing/");
+    await page.goto(DRAFT_ORIGIN + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     // The old frame put brackets 6px in from every corner. The grid fades to nothing at the corners.
     const painted = await page.locator(`${graphic} canvas`).evaluate((canvas) => {
@@ -456,7 +456,7 @@ test.describe("the writing graphic labels and family look", () => {
       const count = (x, y) => {
         const { data } = context.getImageData(x, y, 20, 20);
         let total = 0;
-        for (let i = 3; i < data.length; i += 4) if (data[i] > 8) total += 1;
+        for (let alphaIndex = 3; alphaIndex < data.length; alphaIndex += 4) if (data[alphaIndex] > 8) total += 1;
         return total;
       };
       return [count(width - 22, 2), count(width - 22, height - 22)];
@@ -471,7 +471,7 @@ test.describe("the writing graphic uses page bindings", () => {
       await page.setViewportSize(size);
       await useReducedMotion(page);
       await useLabelSpy(page);
-      await page.route(`${preview}/writing/`, async (route) => {
+      await page.route(`${DRAFT_ORIGIN}/writing/`, async (route) => {
         const response = await route.fetch();
         const body = (await response.text())
           .replace('class="writing-index__list"', 'class="binding-list"')
@@ -479,7 +479,7 @@ test.describe("the writing graphic uses page bindings", () => {
           .replace(/(class="binding-label"[^>]*>)[^<]*/, "$1Entry A");
         await route.fulfill({ response, body });
       });
-      await page.goto(`${preview}/writing/`);
+      await page.goto(`${DRAFT_ORIGIN}/writing/`);
       await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
       await settle(page);
       const labels = (await drawnLabels(page)).labels.map((label) => label.text);
@@ -491,12 +491,12 @@ test.describe("the writing graphic uses page bindings", () => {
     test(`reads entry identifiers through writing hooks at ${size.width}px`, async ({ page }) => {
       await page.setViewportSize(size);
       await useReducedMotion(page);
-      await page.route(`${preview}/writing/`, async (route) => {
+      await page.route(`${DRAFT_ORIGIN}/writing/`, async (route) => {
         const response = await route.fetch();
         const body = (await response.text()).replaceAll("data-article-identifier=", "data-old-entry=");
         await route.fulfill({ response, body });
       });
-      await page.goto(`${preview}/writing/`);
+      await page.goto(`${DRAFT_ORIGIN}/writing/`);
       await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
       const row = page.locator("[data-writing-entry-identifier]").first();
       await row.dispatchEvent("pointerenter");
@@ -511,13 +511,13 @@ test.describe("the writing graphic uses page bindings", () => {
       await page.setViewportSize(size);
       await useReducedMotion(page);
       await useLabelSpy(page);
-      await page.route(`${preview}/writing/`, async (route) => {
+      await page.route(`${DRAFT_ORIGIN}/writing/`, async (route) => {
         const response = await route.fetch();
         const outside = '<aside data-writing-page hidden><section class="writing-index__list" data-writing-list><ol><li data-article-identifier="outside" data-writing-entry-identifier="outside"><span class="article-list__number" data-writing-label>Outside entry</span></li></ol></section></aside>';
         const body = (await response.text()).replace('<main class="writing-index"', `${outside}<main class="writing-index"`);
         await route.fulfill({ response, body });
       });
-      await page.goto(`${preview}/writing/`);
+      await page.goto(`${DRAFT_ORIGIN}/writing/`);
       await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
       await settle(page);
       const labels = (await drawnLabels(page)).labels.map((label) => label.text);
@@ -536,7 +536,7 @@ test.describe("the writing graphic entrance", () => {
 
   test("keeps the canvas as wide as its box after a resize", async ({ page }) => {
     await useReducedMotion(page);
-    await page.goto(preview + "/writing/");
+    await page.goto(DRAFT_ORIGIN + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     await page.setViewportSize(VIEWPORTS.mobile);
     await expect.poll(() => page.locator(`${graphic} canvas`).evaluate((canvas) =>
@@ -550,7 +550,7 @@ test.describe("the writing graphic pauses and tears down", () => {
   test("cancels its frames and its listeners on pagehide, and sets up again on a restored page", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
     await useManualFrames(page);
-    await page.goto(preview + "/writing/");
+    await page.goto(DRAFT_ORIGIN + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     await playFrames(page, 3000);
     await page.locator(".article-list__item").nth(1).hover();
@@ -595,7 +595,7 @@ test.describe("the writing graphic answers a lit article", () => {
 
   test("the pointer sets the active article once for each change and runs frames only while it is lit", async ({ page }) => {
     await useManualFrames(page);
-    await page.goto(preview + "/writing/");
+    await page.goto(DRAFT_ORIGIN + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     await playFrames(page, 3000);
     await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
@@ -607,7 +607,7 @@ test.describe("the writing graphic answers a lit article", () => {
     await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await second.getAttribute("data-article-identifier"));
     expect(await pendingFrames(page), "a lit article asks for frames").toBe(1);
     const before = await paintedPixels(page, graphic, 200);
-    for (let i = 0; i < 20; i += 1) await playFrames(page, 16);
+    for (let frameIndex = 0; frameIndex < 20; frameIndex += 1) await playFrames(page, 16);
     expect(await writes(page), "twenty frames write no attribute").toBe(1);
     await playFrames(page, 400);
     expect(await paintedPixels(page, graphic, 200), "the path to Vega adds paint").toBeGreaterThan(before);
@@ -621,7 +621,7 @@ test.describe("the writing graphic answers a lit article", () => {
 
   test("keyboard focus sets the active article, and leaving clears it", async ({ page }) => {
     await useReducedMotion(page);
-    await page.goto(preview + "/writing/");
+    await page.goto(DRAFT_ORIGIN + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     await watchActive(page);
     expect(await tabTo(page, ".article-list__link >> nth=1")).toBe(true);
@@ -639,7 +639,7 @@ test.describe("the writing graphic answers a lit article", () => {
   test("reduced motion draws a lit article at once and runs no frame", async ({ page }) => {
     await useManualFrames(page);
     await useReducedMotion(page);
-    await page.goto(preview + "/writing/");
+    await page.goto(DRAFT_ORIGIN + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     const canvas = page.locator(`${graphic} canvas`);
     const rest = await canvas.evaluate((element) => element.toDataURL());
@@ -658,7 +658,7 @@ test.describe("the writing graphic in preview", () => {
     await recordContentSecurityPolicyViolations(page);
     for (const size of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
       await page.setViewportSize(size);
-      await page.goto(preview + "/writing/");
+      await page.goto(DRAFT_ORIGIN + "/writing/");
       await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
       await page.locator(".article-list__item").nth(1).hover();
       await expect(page.locator(graphic)).toHaveAttribute("data-active-article", /.+/);
@@ -682,19 +682,19 @@ test("production writing follows publication and keeps the security policy", asy
 
 test("wide code and diagrams scroll inside the column and show a focus ring", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
-  await page.goto(preview + article);
+  await page.goto(DRAFT_ORIGIN + article);
   await settle(page);
 
   for (const selector of [".prose pre", ".figure__panel"]) {
     const box = page.locator(selector).first();
-    const state = await box.evaluate((el) => {
-      const rect = el.getBoundingClientRect();
+    const state = await box.evaluate((element) => {
+      const rectangle = element.getBoundingClientRect();
       return {
-        overflowX: getComputedStyle(el).overflowX,
-        scrolls: el.scrollWidth > el.clientWidth,
-        right: rect.right,
+        overflowX: getComputedStyle(element).overflowX,
+        scrolls: element.scrollWidth > element.clientWidth,
+        right: rectangle.right,
         client: document.documentElement.clientWidth,
-        tabIndex: el.tabIndex,
+        tabIndex: element.tabIndex,
       };
     });
     expect(state.overflowX, selector).toBe("auto");
@@ -707,8 +707,8 @@ test("wide code and diagrams scroll inside the column and show a focus ring", as
     await page.keyboard.press("Tab");
     await page.keyboard.press("Shift+Tab");
     await expect(box).toBeFocused();
-    const ring = await box.evaluate((el) => {
-      const style = getComputedStyle(el);
+    const ring = await box.evaluate((element) => {
+      const style = getComputedStyle(element);
       return { style: style.outlineStyle, width: parseFloat(style.outlineWidth), offset: parseFloat(style.outlineOffset) };
     });
     expect(ring.style, selector).not.toBe("none");
@@ -716,14 +716,14 @@ test("wide code and diagrams scroll inside the column and show a focus ring", as
     // Inside the box, so the code block's clipped corners cannot hide it.
     expect(ring.offset, selector).toBeLessThan(0);
     await page.keyboard.press("ArrowRight");
-    await expect.poll(() => box.evaluate((el) => el.scrollLeft), { message: selector }).toBeGreaterThan(0);
+    await expect.poll(() => box.evaluate((element) => element.scrollLeft), { message: selector }).toBeGreaterThan(0);
   }
 });
 
 for (const width of [820, 390, 360]) {
   test(`the article eyebrow never ends a line with a dot at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto(preview + article);
+    await page.goto(DRAFT_ORIGIN + article);
     await settle(page);
     const state = await page.locator("main .eyebrow").evaluate((eyebrow) => {
       const parts = [...eyebrow.querySelectorAll(".eyebrow__part")].map((part) => part.getBoundingClientRect());
@@ -744,7 +744,7 @@ test.describe("the last focusable element clears the footer fade", () => {
       test(`the focus ring of the last control on ${route} sits above the fade on ${name}`, async ({ page }) => {
         await page.setViewportSize(viewport);
         await useReducedMotion(page);
-        await page.goto(preview + route);
+        await page.goto(DRAFT_ORIGIN + route);
         await settle(page);
         const focusable = "main :is(a[href], button:not([hidden]), [tabindex='0'])";
         expect(await tabTo(page, `${focusable} >> nth=-1`, 80), "the last control takes keyboard focus").toBe(true);
@@ -766,7 +766,7 @@ test.describe("the writing graphic keeps its figure inside the box", () => {
     test(`keeps every strong mark 28px inside the canvas edge on ${name}`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await useReducedMotion(page);
-      await page.goto(preview + "/writing/");
+      await page.goto(DRAFT_ORIGIN + "/writing/");
       await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
       const painted = await edgePaint(page, graphic);
       for (const side of ["left", "right", "top", "bottom"]) expect(painted[side], `strong paint at the ${side} edge`).toBe(0);
@@ -776,9 +776,9 @@ test.describe("the writing graphic keeps its figure inside the box", () => {
   test("the phone band is at most 20% taller than the about band", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     const height = async (path, selector) => {
-      await page.goto(preview + path);
+      await page.goto(DRAFT_ORIGIN + path);
       await expect(page.locator(selector)).toHaveAttribute("data-ready", "true");
-      return page.locator(selector).evaluate((el) => el.getBoundingClientRect().height);
+      return page.locator(selector).evaluate((element) => element.getBoundingClientRect().height);
     };
     const about = await height("/about/", "[data-graphic='about']");
     const writing = await height("/writing/", graphic);
@@ -788,7 +788,7 @@ test.describe("the writing graphic keeps its figure inside the box", () => {
 
   test("the title has no decode layer and reads as plain text on the first frame", async ({ page }) => {
     await useManualFrames(page);
-    await page.goto(preview + "/writing/");
+    await page.goto(DRAFT_ORIGIN + "/writing/");
     await expect(page.locator("#writing-title")).toHaveText("Writing");
     await expect(page.locator("#writing-title *")).toHaveCount(0);
     await expect(page.locator("#writing-title")).not.toHaveAttribute("data-decode", /.*/);

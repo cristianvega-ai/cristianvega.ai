@@ -7,10 +7,10 @@ const beaconScript = "https://static.cloudflareinsights.com/beacon.min.js";
 const beaconEndpoint = "https://cloudflareinsights.com/cdn-cgi/rum";
 
 // Serve the local build at a chosen browser origin. No production request leaves the test.
-async function serveAtOrigin(page, baseURL, origin) {
+async function serveAtOrigin(page, baseAddress, origin) {
   await page.route(`${origin}/**`, async (route) => {
-    const url = new URL(route.request().url());
-    const response = await page.request.get(new URL(url.pathname + url.search, baseURL).href);
+    const requestAddress = new URL(route.request().url());
+    const response = await page.request.get(new URL(requestAddress.pathname + requestAddress.search, baseAddress).href);
     await route.fulfill({ response });
   });
 }
@@ -23,10 +23,10 @@ async function installBeaconProbe(page) {
     headers: { "access-control-allow-origin": "*" },
     body: `
       const script = document.querySelector('script[data-cf-beacon]');
-      const config = JSON.parse(script.dataset.cfBeacon);
+      const beaconConfiguration = JSON.parse(script.dataset.cfBeacon);
       fetch('${beaconEndpoint}', {
         method: 'POST',
-        body: JSON.stringify({ siteToken: config.token, location: location.href })
+        body: JSON.stringify({ siteToken: beaconConfiguration.token, location: location.href })
       });
     `,
   }));
@@ -37,18 +37,18 @@ async function installBeaconProbe(page) {
 }
 
 for (const [path, status] of [["/", 200], ["/missing-analytics-check/", 404]]) {
-  test(`${path} loads one Cloudflare beacon and sends its site identifier`, async ({ page, baseURL }) => {
-    await serveAtOrigin(page, baseURL, production);
+  test(`${path} loads one Cloudflare beacon and sends its site identifier`, async ({ page, baseURL: baseAddress }) => {
+    await serveAtOrigin(page, baseAddress, production);
     await installBeaconProbe(page);
     const errors = [];
-    const goatRequests = [];
+    const goatCounterRequests = [];
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("console", (message) => {
       const missingPage = status === 404 && message.location().url === `${production}${path}` && message.text().includes("404");
       if (message.type() === "error" && !missingPage) errors.push(message.text());
     });
     page.on("request", (request) => {
-      if (/goatcounter|count\.v5|gc\.zgo\.at/.test(request.url())) goatRequests.push(request.url());
+      if (/goatcounter|count\.v5|gc\.zgo\.at/.test(request.url())) goatCounterRequests.push(request.url());
     });
     const sent = page.waitForRequest((request) => request.url() === beaconEndpoint && request.method() === "POST");
     const response = await page.goto(`${production}${path}`);
@@ -63,14 +63,14 @@ for (const [path, status] of [["/", 200], ["/missing-analytics-check/", 404]]) {
     await expect(beacon).toHaveAttribute("type", "module");
     await expect(beacon).toHaveAttribute("src", beaconScript);
     await page.waitForLoadState("networkidle");
-    expect(goatRequests).toEqual([]);
+    expect(goatCounterRequests).toEqual([]);
     expect(errors).toEqual([]);
   });
 }
 
 for (const origin of ["http://localhost:4323", "https://cristianvega-ai.preview.workers.dev"]) {
-  test(`${origin} does not load the analytics beacon`, async ({ page, baseURL }) => {
-    if (origin.startsWith("https:")) await serveAtOrigin(page, baseURL, origin);
+  test(`${origin} does not load the analytics beacon`, async ({ page, baseURL: baseAddress }) => {
+    if (origin.startsWith("https:")) await serveAtOrigin(page, baseAddress, origin);
     await installBeaconProbe(page);
     const requests = [];
     page.on("request", (request) => {
@@ -86,8 +86,8 @@ for (const origin of ["http://localhost:4323", "https://cristianvega-ai.preview.
   });
 }
 
-test("the page works when the analytics script is blocked", async ({ page, baseURL }) => {
-  await serveAtOrigin(page, baseURL, production);
+test("the page works when the analytics script is blocked", async ({ page, baseURL: baseAddress }) => {
+  await serveAtOrigin(page, baseAddress, production);
   await page.route(beaconScript, (route) => route.abort());
   await useReducedMotion(page);
   const blocked = page.waitForEvent("requestfailed", (request) => request.url() === beaconScript);

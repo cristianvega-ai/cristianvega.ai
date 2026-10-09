@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 
-import { currentContent, DRAFT_ORIGIN as dev, pageProblems, pendingFrames, playFrames, useManualFrames, drawnLabels, edgePaint, GRAPHIC_VIEWPORTS as SIZES, openGraphic as open, settle, textBoxes, useLabelSpy, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { currentContent, DRAFT_ORIGIN, pageProblems, pendingFrames, playFrames, useManualFrames, drawnLabels, edgePaint, GRAPHIC_VIEWPORTS, openGraphic, settle, textBoxes, useLabelSpy, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 // Check product flows and product graphic expectations.
 
 const PAGES = {
-  products: { name: "products index", url: `${dev}/products/`, graphic: "[data-graphic='products']", restMs: 31_000 },
-  product: { name: "product page", url: `${dev}/products/product-layout-fixture/`, graphic: "[data-graphic='products']", restMs: 31_000 },
+  products: { name: "products index", address: `${DRAFT_ORIGIN}/products/`, graphic: "[data-graphic='products']", restMilliseconds: 31_000 },
+  product: { name: "product page", address: `${DRAFT_ORIGIN}/products/product-layout-fixture/`, graphic: "[data-graphic='products']", restMilliseconds: 31_000 },
 };
 
 const WIDTHS = { ...VIEWPORTS, wide: { width: 1920, height: 1080 }, narrow: { width: 360, height: 740 } };
@@ -14,18 +14,18 @@ const WIDTHS = { ...VIEWPORTS, wide: { width: 1920, height: 1080 }, narrow: { wi
 /** Read the product marks from the latest canvas frame. Keep the canvas drawing active. */
 async function useProductMarks(page) {
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype;
+    const canvasPrototype = CanvasRenderingContext2D.prototype;
     let path = null;
     for (const method of ["clearRect", "beginPath", "arc", "ellipse", "moveTo", "lineTo", "fill", "stroke", "drawImage"]) {
-      const original = proto[method];
-      proto[method] = function (...args) {
+      const original = canvasPrototype[method];
+      canvasPrototype[method] = function (...drawingArguments) {
         if (this.canvas.parentElement?.dataset.graphic === "products") {
           if (method === "clearRect") window.__productMarks = { cores: [], rings: [], links: [], marks: [], orbits: [] };
           if (method === "beginPath") path = null;
-          if (method === "arc") path = { kind: "arc", x: args[0], y: args[1], radius: args[2] };
-          if (method === "ellipse") path = { kind: "ellipse", x: args[0], y: args[1], rx: args[2], ry: args[3] };
-          if (method === "moveTo") path = { kind: "line", ax: args[0], ay: args[1] };
-          if (method === "lineTo" && path?.kind === "line") Object.assign(path, { bx: args[0], by: args[1] });
+          if (method === "arc") path = { kind: "arc", x: drawingArguments[0], y: drawingArguments[1], radius: drawingArguments[2] };
+          if (method === "ellipse") path = { kind: "ellipse", x: drawingArguments[0], y: drawingArguments[1], rx: drawingArguments[2], ry: drawingArguments[3] };
+          if (method === "moveTo") path = { kind: "line", ax: drawingArguments[0], ay: drawingArguments[1] };
+          if (method === "lineTo" && path?.kind === "line") Object.assign(path, { bx: drawingArguments[0], by: drawingArguments[1] });
           if (method === "fill" && path?.kind === "arc") {
             window.__productMarks.cores.push({ ...path, alpha: this.globalAlpha });
             window.__productMarks.marks.push({ x: path.x, y: path.y, reach: path.radius });
@@ -37,14 +37,14 @@ async function useProductMarks(page) {
           if (method === "stroke" && path?.kind === "ellipse") {
             window.__productMarks.orbits.push({ x: path.x, y: path.y, rx: path.rx + this.lineWidth / 2, ry: path.ry + this.lineWidth / 2 });
           }
-          if (method === "drawImage" && args.length === 5) {
-            window.__productMarks.marks.push({ x: args[1] + args[3] / 2, y: args[2] + args[4] / 2, reach: args[3] / 2 });
+          if (method === "drawImage" && drawingArguments.length === 5) {
+            window.__productMarks.marks.push({ x: drawingArguments[1] + drawingArguments[3] / 2, y: drawingArguments[2] + drawingArguments[4] / 2, reach: drawingArguments[3] / 2 });
           }
           if (method === "stroke" && path?.kind === "line" && Math.abs(this.lineWidth - 0.8) < 1e-6) {
             window.__productMarks.links.push({ ...path, alpha: this.globalAlpha });
           }
         }
-        return original.apply(this, args);
+        return original.apply(this, drawingArguments);
       };
     }
   });
@@ -66,7 +66,7 @@ async function openOrbit(page, { count, current, reduced = false }) {
     });
     observer.observe(document, { childList: true, subtree: true });
   }, { count, current });
-  await open(page, PAGES.product);
+  await openGraphic(page, PAGES.product);
   await settle(page);
   await expect(page.locator(PAGES.product.graphic)).toHaveAttribute("data-products", String(count));
   return errors;
@@ -105,7 +105,7 @@ test.describe("products on the dev server", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 
   test("the index and the detail page read like the article pages", async ({ page }) => {
-    await page.goto(dev + "/products/");
+    await page.goto(DRAFT_ORIGIN + "/products/");
     await expect(page.locator("main h1")).toHaveText("Products");
     await expect(page.locator(".navigation__link[href='/products/']")).toHaveAttribute("aria-current", "page");
     if (currentContent.products.some((entry) => entry.data.draft)) {
@@ -114,7 +114,7 @@ test.describe("products on the dev server", () => {
     await expect(page.locator("meta[name='color-scheme']")).toHaveAttribute("content", "dark");
     await page.getByRole("link", { name: "Lorem ipsum dolor" }).click();
 
-    await expect(page).toHaveURL(dev + "/products/product-layout-fixture/");
+    await expect(page).toHaveURL(DRAFT_ORIGIN + "/products/product-layout-fixture/");
     await expect(page.locator("main h1")).toHaveText("Lorem ipsum dolor");
     await expect(page.locator(".navigation__link[href='/products/']")).toHaveAttribute("aria-current", "location");
     const product = currentContent.products.find((entry) => entry.id === "product-layout-fixture");
@@ -131,19 +131,19 @@ test.describe("products on the dev server", () => {
   });
 
   test("an unknown product is a 404", async ({ request }) => {
-    expect((await request.get(dev + "/products/no-such-product/")).status()).toBe(404);
+    expect((await request.get(DRAFT_ORIGIN + "/products/no-such-product/")).status()).toBe(404);
   });
 
   test("the reading edge matches the about page at every width", async ({ page }) => {
     for (const viewport of Object.values(WIDTHS)) {
       await page.setViewportSize(viewport);
       const edges = [];
-      for (const url of [dev + "/products/", "/about/"]) {
-        await page.goto(url);
+      for (const pageAddress of [DRAFT_ORIGIN + "/products/", "/about/"]) {
+        await page.goto(pageAddress);
         await settle(page);
-        edges.push(await page.locator("main .wrap--read").first().evaluate((el) => {
-          const rect = el.getBoundingClientRect();
-          return Math.round(rect.left + parseFloat(getComputedStyle(el).paddingLeft));
+        edges.push(await page.locator("main .wrap--read").first().evaluate((element) => {
+          const rectangle = element.getBoundingClientRect();
+          return Math.round(rectangle.left + parseFloat(getComputedStyle(element).paddingLeft));
         }));
       }
       expect(edges[0], `at ${viewport.width}px`).toBe(edges[1]);
@@ -156,7 +156,7 @@ for (const target of Object.values(PAGES)) {
     test.use({ viewport: VIEWPORTS.desktop });
 
     test("hides from assistive technology and takes no pointer input", async ({ page }) => {
-      await open(page, target);
+      await openGraphic(page, target);
       const state = await page.evaluate((selector) => {
         const root = document.querySelector(selector);
         return {
@@ -180,10 +180,10 @@ for (const target of Object.values(PAGES)) {
   });
 
   test.describe(`the ${target.name} graphic never overlaps text`, () => {
-    for (const size of SIZES) {
+    for (const size of GRAPHIC_VIEWPORTS) {
       test(`keeps clear of every text box at ${size.width}px`, async ({ page }) => {
         await page.setViewportSize(size);
-        await open(page, target);
+        await openGraphic(page, target);
         await settle(page);
         // The fixed box stays in view. The band scrolls, so it is checked at the top and at the bottom of the page.
         for (const place of ["top", "bottom"]) {
@@ -194,17 +194,17 @@ for (const target of Object.values(PAGES)) {
             return { top, now: scrollY };
           }, place);
           expect(Math.abs(scroll.now - scroll.top), `${place}: the page is at the ${place}`).toBeLessThanOrEqual(1);
-          const shape = await page.locator(target.graphic).evaluate((el) => {
-            const rect = el.getBoundingClientRect();
-            return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
+          const shape = await page.locator(target.graphic).evaluate((element) => {
+            const rectangle = element.getBoundingClientRect();
+            return { x: rectangle.left, y: rectangle.top, width: rectangle.width, height: rectangle.height };
           });
-          expect(shape.w, `${place}: the box has a width`).toBeGreaterThan(100);
-          expect(shape.h, `${place}: the box has a height`).toBeGreaterThan(100);
+          expect(shape.width, `${place}: the box has a width`).toBeGreaterThan(100);
+          expect(shape.height, `${place}: the box has a height`).toBeGreaterThan(100);
           const texts = await textBoxes(page);
           expect(texts.length).toBeGreaterThan(0);
           for (const text of texts) {
             const apart =
-              text.x + text.w <= shape.x || shape.x + shape.w <= text.x || text.y + text.h <= shape.y || shape.y + shape.h <= text.y;
+              text.x + text.width <= shape.x || shape.x + shape.width <= text.x || text.y + text.height <= shape.y || shape.y + shape.height <= text.y;
             expect(apart, `${place}: the graphic overlaps a text box at ${JSON.stringify(text)}`).toBe(true);
           }
         }
@@ -213,11 +213,11 @@ for (const target of Object.values(PAGES)) {
   });
 
   test.describe(`the ${target.name} graphic bounds`, () => {
-    for (const size of SIZES) {
+    for (const size of GRAPHIC_VIEWPORTS) {
       test(`keeps every strong mark 28px inside the canvas edge at ${size.width}px`, async ({ page }) => {
         await page.setViewportSize(size);
         await useReducedMotion(page);
-        await open(page, target);
+        await openGraphic(page, target);
         const painted = await edgePaint(page, target.graphic);
         // A band is short, so only the sides count there. The mesh, the star field, and the grid may enter the edge fade.
         const sides = size.width >= 1100 ? ["left", "right", "top", "bottom"] : ["left", "right"];
@@ -227,12 +227,12 @@ for (const target of Object.values(PAGES)) {
   });
 
   test.describe(`the ${target.name} graphic labels`, () => {
-    for (const size of SIZES) {
+    for (const size of GRAPHIC_VIEWPORTS) {
       test(`keep 32px from the viewport edge, clear of the fade, and inside the canvas at ${size.width}px`, async ({ page }) => {
         await page.setViewportSize(size);
         await useLabelSpy(page);
         await useReducedMotion(page);
-        await open(page, target);
+        await openGraphic(page, target);
         const { labels, viewport } = await drawnLabels(page);
         expect(labels.length, "the graphic names Vega").toBeGreaterThan(0);
         expect(labels.map((label) => label.text)).toContain("VEGA · α LYR");
@@ -249,7 +249,7 @@ for (const target of Object.values(PAGES)) {
       await page.setViewportSize(VIEWPORTS.desktop);
       await useLabelSpy(page);
       await useReducedMotion(page);
-      await open(page, target);
+      await openGraphic(page, target);
       const { labels, ink } = await drawnLabels(page);
       expect(labels.length).toBeGreaterThan(0);
       for (const label of labels) {
@@ -263,7 +263,7 @@ for (const target of Object.values(PAGES)) {
 
     test("fades the canvas edges with a mask", async ({ page }) => {
       await page.setViewportSize(VIEWPORTS.desktop);
-      await open(page, target);
+      await openGraphic(page, target);
       const mask = await page.locator(`${target.graphic} canvas`).evaluate((canvas) => {
         const style = getComputedStyle(canvas);
         return { image: style.maskImage || style.webkitMaskImage, composite: style.maskComposite || style.webkitMaskComposite };
@@ -278,16 +278,16 @@ test.describe("the products graphic shows the products", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 
   test("exposes the lit-product count, and it matches the list", async ({ page }) => {
-    await open(page, PAGES.products);
+    await openGraphic(page, PAGES.products);
     const listed = await page.locator(".entries--products .entries__item").count();
     expect(listed).toBeGreaterThan(0);
     await expect(page.locator(PAGES.products.graphic)).toHaveAttribute("data-products", String(listed));
   });
 
   test("a product page shows the same count and marks its own star", async ({ page }) => {
-    await open(page, PAGES.products);
+    await openGraphic(page, PAGES.products);
     const listed = await page.locator(".entries--products .entries__item").count();
-    await open(page, PAGES.product);
+    await openGraphic(page, PAGES.product);
     const root = page.locator(PAGES.product.graphic);
     await expect(root).toHaveAttribute("data-products", String(listed));
     // The dev server lists drafts too, in the same order as the content inventory.
@@ -298,12 +298,12 @@ test.describe("the products graphic shows the products", () => {
 
   for (const target of [PAGES.products, PAGES.product]) {
     test(`the ${target.name} uses its count when list classes change or unrelated products appear`, async ({ page }) => {
-      await open(page, PAGES.products);
+      await openGraphic(page, PAGES.products);
       const listed = await page.locator("[data-product-identifier]").count();
       expect(listed).toBeGreaterThan(0);
       await useProductMarks(page);
       await useReducedMotion(page);
-      await page.route(target.url, async (route) => {
+      await page.route(target.address, async (route) => {
         const response = await route.fetch();
         const body = (await response.text())
           .replace('class="entries entries--products"', 'class="entries binding-products"')
@@ -311,7 +311,7 @@ test.describe("the products graphic shows the products", () => {
           .replace("</main>", '</main><ol class="entries--products" hidden><li class="entries__item"></li><li class="entries__item"></li></ol>');
         await route.fulfill({ response, body });
       });
-      await open(page, target);
+      await openGraphic(page, target);
       await settle(page);
       await expect(page.locator(target.graphic)).toHaveAttribute("data-products", String(listed));
       const marks = await page.evaluate(() => window.__productMarks);
@@ -331,7 +331,7 @@ test.describe("the products graphic fills every active slot", () => {
       await expectFullOrbit(page);
       await expect(page.locator(PAGES.product.graphic)).toHaveAttribute("data-motion-state", "playing");
       expect(await pendingFrames(page)).toBe(1);
-      await playFrames(page, PAGES.product.restMs);
+      await playFrames(page, PAGES.product.restMilliseconds);
       await expectFullOrbit(page);
       await expect(page.locator(PAGES.product.graphic)).toHaveAttribute("data-motion-state", "still");
       expect(await pendingFrames(page)).toBe(0);
@@ -353,7 +353,7 @@ test.describe("the products graphic keeps every mark inside the figure inset", (
   // Slot 1 sits on the outer orbit at the right edge of a column and at the top of a band.
   // Slot 3 sits on the outer orbit at the left edge of a column and at the bottom of a band.
   for (const { count, current } of [{ count: 1, current: 0 }, { count: 2, current: 1 }, { count: 8, current: 3 }]) {
-    for (const size of SIZES) {
+    for (const size of GRAPHIC_VIEWPORTS) {
       test(`keeps ${count} product marks and the current ring inside the inset at ${size.width}px`, async ({ page }) => {
         await page.setViewportSize(size);
         const errors = await openOrbit(page, { count, current, reduced: true });
