@@ -64,7 +64,8 @@ npm run generate:touch-icon
 
 - Use `tests/AGENTS.md` before you add, move, or change a test.
 - Use the pull request checklist below before you open a pull request.
-- Use [the maintenance guide](docs/maintenance.md) before you change deployment, Cloudflare domain routes, or image derivatives.
+- Use [the deploy skill](.claude/skills/deploy/SKILL.md) for deployment, live verification, rollback, or approved account and domain setup.
+- Use the [Linear website reference](https://linear.app/martinez-vega-inc/document/cristianvegaai-website-reference-90867b83f0f9) for authoring and image derivatives.
 - `src/styles/global.css` holds the site-wide design system and the responsive behavior.
 - `src/shared/` holds content helpers, article interactions, and canvas modules.
 - `src/shared/lyra-globe/` holds the Lyra globe. `src/shared/lyra/` holds its star data.
@@ -168,7 +169,7 @@ Never weaken an assertion merely to make a check pass.
 - Keep commits atomic, reviewable, and limited to one coherent purpose.
 - Prefer a fast-forward or a squash merge. When a merge commit is unavoidable, do not give it the same subject as the commit it brings in, because the two then read as a duplicate in the log.
 - Do not commit `.superpowers/`, `docs/superpowers/`, local agent/editor directories, build output, caches, reports, or environment files.
-- One carve-out: `.claude/skills/` holds shared project skills and is tracked. Everything else under `.claude/` stays local. Keep hostnames, accounts, paths, and any other deployment detail out of a tracked skill, because this repository is public. Those values belong in `.claude/deploy-target.local`, which stays untracked.
+- One carve-out: `.claude/skills/` holds shared project skills and is tracked. Everything else under `.claude/` stays local. Keep private hostnames, account identifiers, machine paths, credentials, and old host details out of tracked skills. Private deployment values belong in `.claude/deploy-target.local`, which stays untracked. Read public deployment names and routes from `wrangler.jsonc`.
 - Do not force-push, rewrite shared history, or bypass required checks without explicit approval.
 
 ### Branches
@@ -214,7 +215,7 @@ GitHub builds the merged commit, so the live site always matches a commit on `ma
 Report the merged commit hash and the workflow run.
 A manual GitHub workflow run must also build and verify the current `main` commit.
 Cloudflare domain routes live in `wrangler.jsonc`.
-Follow [the maintenance guide](docs/maintenance.md#domain-switch) before changing those routes.
+Follow [the deploy skill's domain procedures](.claude/skills/deploy/references/domain-setup.md) before changing those routes.
 Enable `CLOUDFLARE_PRODUCTION_READY` only after that switch passes the live checks.
 
 #### Before you open a pull request

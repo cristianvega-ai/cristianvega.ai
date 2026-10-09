@@ -1,6 +1,6 @@
 # Verify each change. Deploy the verified main build to Cloudflare.
 # Production secrets are available only in the deploy job.
-# The first deploy uses workers.dev. docs/maintenance.md describes the domain switch.
+# The shared deploy skill describes account setup and domain changes in .claude/skills/deploy/SKILL.md.
 
 name: Verify and deploy
 
