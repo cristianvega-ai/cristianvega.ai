@@ -22,107 +22,87 @@ const PAGES = {
   shortArticle: { address: "/writing/short-article-typography-fixture/", heading: ".article__title", lede: ".article__description", eyebrow: ".article__header .eyebrow" },
 };
 
-async function measure(page, pageAddress, selector) {
-  await page.goto(DRAFT_ORIGIN + pageAddress);
-  await settle(page);
-  return page.locator(selector).first().evaluate((element) => {
-    const style = getComputedStyle(element);
-    const size = parseFloat(style.fontSize);
-    return {
-      size,
-      line: parseFloat(style.lineHeight) / size,
-      tracking: style.letterSpacing === "normal" ? 0 : parseFloat(style.letterSpacing) / size,
-    };
-  });
-}
-
-/** Read one role on every page that has it, at one width. */
-async function readRole(page, viewport, role) {
+/** Read every type role during one visit to each page. */
+async function readTypography(page, viewport) {
   await page.setViewportSize(viewport);
   await useReducedMotion(page);
   const result = {};
-  for (const [name, pageSpecification] of Object.entries(PAGES)) {
-    if (pageSpecification[role]) result[name] = await measure(page, pageSpecification.address, pageSpecification[role]);
+  const pages = {
+    ...PAGES,
+    home: { address: "/", heading: ".hero__name", lede: ".hero__lede", body: ".hero__thesis", eyebrow: ".hero .eyebrow" },
+  };
+  for (const [name, { address, ...roles }] of Object.entries(pages)) {
+    await page.goto(DRAFT_ORIGIN + address);
+    await settle(page);
+    result[name] = {};
+    for (const [role, selector] of Object.entries(roles)) {
+      result[name][role] = await page.locator(selector).first().evaluate((element) => {
+        const style = getComputedStyle(element);
+        const size = parseFloat(style.fontSize);
+        return {
+          size,
+          line: parseFloat(style.lineHeight) / size,
+          tracking: style.letterSpacing === "normal" ? 0 : parseFloat(style.letterSpacing) / size,
+        };
+      });
+    }
   }
   return result;
 }
 
 for (const viewport of WIDTHS) {
-  test(`every page title has one size at ${viewport.width}px`, async ({ page }) => {
-    const titles = await readRole(page, viewport, "heading");
-    const sizes = Object.values(titles).map((title) => title.size);
+  test(`the site keeps one readable type scale at ${viewport.width}px`, async ({ page }) => {
+    const measured = await readTypography(page, viewport);
+    const readRole = (role) => Object.fromEntries(Object.entries(PAGES)
+      .filter(([, definition]) => definition[role])
+      .map(([name]) => [name, measured[name][role]]));
+    const titles = readRole("heading");
+    const titleSizes = Object.values(titles).map((title) => title.size);
     expect(Object.keys(titles)).toHaveLength(7);
-    expect(new Set(sizes).size, JSON.stringify(titles)).toBe(1);
-    // A calm title: 36px above a phone, 28px on a phone.
-    expect(sizes[0]).toBe(viewport.width <= 760 ? 28 : 36);
-    if (viewport.width === 1920) expect(sizes[0]).toBeLessThanOrEqual(36);
-    // Large type is tight.
-    for (const title of Object.values(titles)) {
-      expect(title.tracking).toBeLessThan(-0.02);
-      expect(title.tracking).toBeGreaterThan(-0.03);
-      expect(title.line).toBeLessThanOrEqual(1.15);
+    expect(new Set(titleSizes).size, JSON.stringify(titles)).toBe(1);
+    expect(titleSizes[0], "shared page heading size").toBe(viewport.width <= 760 ? 28 : 36);
+    for (const [name, title] of Object.entries(titles)) {
+      expect(title.tracking, `${name} heading tracking`).toBeLessThan(-0.02);
+      expect(title.tracking, `${name} heading tracking`).toBeGreaterThan(-0.03);
+      expect(title.line, `${name} heading line height`).toBeLessThanOrEqual(1.15);
     }
-  });
 
-  test(`the home name has the type of a page title at ${viewport.width}px`, async ({ page }) => {
-    await page.setViewportSize(viewport);
-    await useReducedMotion(page);
-    const name = await measure(page, "/", ".hero__name");
-    const title = await measure(page, "/about/", ".about__title");
-    // The home name is an h1, so it must match a page title in every measure.
-    expect(name.size).toBe(title.size);
-    expect(name.size).toBe(viewport.width <= 760 ? 28 : 36);
-    expect(name.line).toBeCloseTo(title.line, 3);
-    expect(name.tracking).toBeCloseTo(title.tracking, 3);
+    const home = measured.home;
+    const about = measured.about;
+    expect(home.heading.size, "home heading size matches about").toBe(about.heading.size);
+    expect(home.heading.line, "home heading line matches about").toBeCloseTo(about.heading.line, 3);
+    expect(home.heading.tracking, "home heading tracking matches about").toBeCloseTo(about.heading.tracking, 3);
+    expect(home.lede.size, "home lede size matches about").toBe(about.lede.size);
+    expect(home.body.size, "home body size matches about").toBe(about.body.size);
+    expect(home.eyebrow.size, "home eyebrow size matches about").toBe(about.eyebrow.size);
+    expect(home.eyebrow.tracking, "home eyebrow tracking matches about").toBeCloseTo(about.eyebrow.tracking, 3);
 
-    // The rest of the intro reads on the same scale as the inner pages.
-    const lede = await measure(page, "/", ".hero__lede");
-    const thesis = await measure(page, "/", ".hero__thesis");
-    const eyebrow = await measure(page, "/", ".hero .eyebrow");
-    const aboutLede = await measure(page, "/about/", ".about__lede");
-    const aboutBody = await measure(page, "/about/", ".about__profile p");
-    const aboutEyebrow = await measure(page, "/about/", ".about .eyebrow");
-    expect(lede.size).toBe(aboutLede.size);
-    expect(thesis.size).toBe(aboutBody.size);
-    expect(eyebrow.size).toBe(aboutEyebrow.size);
-    expect(eyebrow.tracking).toBeCloseTo(aboutEyebrow.tracking, 3);
-  });
-
-  test(`body text, line height, and the eyebrow agree on every page at ${viewport.width}px`, async ({ page }) => {
-    const body = await readRole(page, viewport, "body");
+    const body = readRole("body");
     expect(Object.keys(body).sort()).toEqual(["about", "article", "product"]);
-    const [first, ...others] = Object.values(body);
-    for (const other of others) {
-      expect(other.size).toBe(first.size);
-      expect(other.line).toBeCloseTo(first.line, 2);
+    const firstBody = body.about;
+    for (const name of ["article", "product"]) {
+      expect(body[name].size, `${name} body size matches about`).toBe(firstBody.size);
+      expect(body[name].line, `${name} body line height matches about`).toBeCloseTo(firstBody.line, 2);
     }
-    // Readable prose: 16px on a phone and 17px above it, at a line height from 1.6 to 1.8.
-    expect(first.size).toBe(viewport.width <= 760 ? 16 : 17);
-    expect(first.line).toBeGreaterThanOrEqual(1.6);
-    expect(first.line).toBeLessThanOrEqual(1.8);
-    expect(first.tracking).toBe(0);
+    expect(firstBody.size, "about body size").toBe(viewport.width <= 760 ? 16 : 17);
+    expect(firstBody.line, "about body line height").toBeGreaterThanOrEqual(1.6);
+    expect(firstBody.line, "about body line height").toBeLessThanOrEqual(1.8);
+    expect(firstBody.tracking, "about body tracking").toBe(0);
 
-    const eyebrow = await readRole(page, viewport, "eyebrow");
-    const [firstEyebrow, ...otherEyebrows] = Object.values(eyebrow);
-    for (const other of otherEyebrows) {
-      expect(other.size).toBe(firstEyebrow.size);
-      expect(other.tracking).toBeCloseTo(firstEyebrow.tracking, 3);
+    const eyebrows = readRole("eyebrow");
+    const firstEyebrow = eyebrows.about;
+    for (const [name, other] of Object.entries(eyebrows).filter(([name]) => name !== "about")) {
+      expect(other.size, `${name} eyebrow size matches about`).toBe(firstEyebrow.size);
+      expect(other.tracking, `${name} eyebrow tracking matches about`).toBeCloseTo(firstEyebrow.tracking, 3);
     }
-    expect(firstEyebrow.size).toBeGreaterThanOrEqual(11);
-  });
+    expect(firstEyebrow.size, "about eyebrow size").toBeGreaterThanOrEqual(11);
 
-  test(`the sizes fall in order: title, lede, body, eyebrow at ${viewport.width}px`, async ({ page }) => {
-    const titles = await readRole(page, viewport, "heading");
-    const ledes = await readRole(page, viewport, "lede");
-    const body = await readRole(page, viewport, "body");
-    const eyebrows = await readRole(page, viewport, "eyebrow");
+    const ledes = readRole("lede");
     for (const name of ["about", "product", "article"]) {
-      expect(titles[name].size).toBeGreaterThan(ledes[name].size);
-      expect(ledes[name].size).toBeGreaterThan(body[name].size);
-      expect(body[name].size).toBeGreaterThan(eyebrows[name].size);
+      expect(titles[name].size, `${name} heading exceeds lede`).toBeGreaterThan(ledes[name].size);
+      expect(ledes[name].size, `${name} lede exceeds body`).toBeGreaterThan(body[name].size);
+      expect(body[name].size, `${name} body exceeds eyebrow`).toBeGreaterThan(eyebrows[name].size);
     }
-    // A lede reads the same on every page that has one.
-    const sizes = Object.values(ledes).map((lede) => lede.size);
-    expect(new Set(sizes).size, JSON.stringify(ledes)).toBe(1);
+    expect(new Set(Object.values(ledes).map((lede) => lede.size)).size, JSON.stringify(ledes)).toBe(1);
   });
 }

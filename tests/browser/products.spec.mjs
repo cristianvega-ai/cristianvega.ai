@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { currentContent, DRAFT_ORIGIN, pageProblems, pendingFrames, playFrames, useManualFrames, drawnLabels, edgePaint, GRAPHIC_VIEWPORTS, openGraphic, settle, textBoxes, useLabelSpy, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
+import { decorativeState, currentContent, DRAFT_ORIGIN, pageProblems, pendingFrames, playFrames, useManualFrames, drawnLabels, edgePaint, GRAPHIC_VIEWPORTS, openGraphic, settle, textBoxes, useLabelSpy, useReducedMotion, VIEWPORTS } from "./fixtures.mjs";
 
 // Check product flows and product graphic expectations.
 
@@ -157,18 +157,7 @@ for (const target of Object.values(PAGES)) {
 
     test("hides from assistive technology and takes no pointer input", async ({ page }) => {
       await openGraphic(page, target);
-      const state = await page.evaluate((selector) => {
-        const root = document.querySelector(selector);
-        return {
-          hidden: root.getAttribute("aria-hidden"),
-          pointerEvents: [root, root.querySelector("canvas")].map((part) => getComputedStyle(part).pointerEvents),
-          canvases: root.querySelectorAll("canvas").length,
-          focusable: root.querySelectorAll("a, button, input, select, textarea, [tabindex]").length,
-          text: root.textContent.trim(),
-          styled: root.querySelectorAll("[style]").length + (root.hasAttribute("style") ? 1 : 0),
-          headings: root.querySelectorAll("h1, h2, h3, a").length,
-        };
-      }, target.graphic);
+      const state = await decorativeState(page, target.graphic);
       expect(state.hidden).toBe("true");
       expect(state.pointerEvents).toEqual(["none", "none"]);
       expect(state.canvases).toBe(1);
@@ -212,20 +201,6 @@ for (const target of Object.values(PAGES)) {
     }
   });
 
-  test.describe(`the ${target.name} graphic bounds`, () => {
-    for (const size of GRAPHIC_VIEWPORTS) {
-      test(`keeps every strong mark 28px inside the canvas edge at ${size.width}px`, async ({ page }) => {
-        await page.setViewportSize(size);
-        await useReducedMotion(page);
-        await openGraphic(page, target);
-        const painted = await edgePaint(page, target.graphic);
-        // A band is short, so only the sides count there. The mesh, the star field, and the grid may enter the edge fade.
-        const sides = size.width >= 1100 ? ["left", "right", "top", "bottom"] : ["left", "right"];
-        for (const side of sides) expect(painted[side], `strong paint at the ${side} edge`).toBe(0);
-      });
-    }
-  });
-
   test.describe(`the ${target.name} graphic labels`, () => {
     for (const size of GRAPHIC_VIEWPORTS) {
       test(`keep 32px from the viewport edge, clear of the fade, and inside the canvas at ${size.width}px`, async ({ page }) => {
@@ -242,6 +217,10 @@ for (const target of Object.values(PAGES)) {
           expect(label.localTop, `"${label.text}" top of the canvas`).toBeGreaterThanOrEqual(16);
           expect(label.localBottom, `"${label.text}" bottom of the canvas`).toBeLessThanOrEqual(label.canvasHeight - 16);
         }
+        const painted = await edgePaint(page, target.graphic);
+        // A band is short, so only the sides count there. The mesh, the star field, and the grid may enter the edge fade.
+        const sides = size.width >= 1100 ? ["left", "right", "top", "bottom"] : ["left", "right"];
+        for (const side of sides) expect(painted[side], `strong paint at the ${side} edge`).toBe(0);
       });
     }
 
@@ -259,11 +238,6 @@ for (const target of Object.values(PAGES)) {
         expect(label.halo.lineWidth).toBeGreaterThanOrEqual(3);
         expect(label.halo.lineWidth).toBeLessThanOrEqual(4);
       }
-    });
-
-    test("fades the canvas edges with a mask", async ({ page }) => {
-      await page.setViewportSize(VIEWPORTS.desktop);
-      await openGraphic(page, target);
       const mask = await page.locator(`${target.graphic} canvas`).evaluate((canvas) => {
         const style = getComputedStyle(canvas);
         return { image: style.maskImage || style.webkitMaskImage, composite: style.maskComposite || style.webkitMaskComposite };

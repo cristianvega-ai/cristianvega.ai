@@ -116,8 +116,11 @@ test("restarts label progress after each restored entrance", async ({ page }) =>
     await finishLabels(page);
     await transition(page, "pagehide");
     await expect(page.locator(globe)).not.toHaveAttribute("data-ready", /.*/);
+    await expect(page.locator(globe)).not.toHaveAttribute("data-motion-state", /.*/);
+    await expect(page.locator(`${globe} .lyra-globe__fallback`)).toHaveCount(0);
     expect(await pendingFrames(page)).toBe(0);
     await transition(page, "pageshow");
+    await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
   }
 });
 

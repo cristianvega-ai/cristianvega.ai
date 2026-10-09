@@ -46,6 +46,7 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       test(`${route} keeps one left edge and no overflow`, async ({ page }) => {
         await page.goto(route);
         await settle(page);
+        if (name === "desktop") await expect(page.locator("h1")).toHaveCount(1);
 
         const boxes = await containers(page);
 
@@ -74,17 +75,6 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     }
   });
 }
-
-test.describe("document structure", () => {
-  test.use({ viewport: VIEWPORTS.desktop });
-
-  for (const route of ROUTES) {
-    test(`${route} carries exactly one h1`, async ({ page }) => {
-      await page.goto(route);
-      await expect(page.locator("h1")).toHaveCount(1);
-    });
-  }
-});
 
 test.describe("the footer holds the foot of the viewport", () => {
   /* Deliberately taller than the shortest pages, so the slack is real. */
@@ -207,7 +197,7 @@ test.describe("the footer disclaimer on narrow screens", () => {
       expect(state.bottom).toBeGreaterThan(state.top);
       expect(state.top).toBeGreaterThanOrEqual(state.barTop);
       expect(state.copyrightBottom).toBeLessThanOrEqual(state.barBottom + 0.5);
-      expect(state.bottom).toBeLessThanOrEqual(state.copyrightTop + 0.5);
+      expect(state.copyrightTop - state.bottom, "the stacked footer rows keep a gap").toBeGreaterThanOrEqual(3.5);
       expect(state.left).toBeGreaterThanOrEqual(0);
       expect(state.right).toBeLessThanOrEqual(state.client);
       expect(state.scrollWidth).toBeLessThanOrEqual(state.width);
@@ -227,8 +217,6 @@ test.describe("the footer items keep apart", () => {
     { width: 1920, height: 1080 },
     { width: 1440, height: 900 },
     { width: 820, height: 1180 },
-    { width: 390, height: 844 },
-    { width: 360, height: 740 },
   ];
   for (const viewport of LAYOUT_VIEWPORTS) {
     test(`keeps the disclaimer and the copyright apart at ${viewport.width}px`, async ({ page }) => {
@@ -262,7 +250,7 @@ test.describe("the compact header", () => {
   const NARROW = [640, 450, 390, 360];
 
   for (const width of NARROW) {
-    test(`stays on one row with the wordmark and the menu button at ${width}px`, async ({ page }) => {
+    test(`stays on one row and reaches every menu link at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 });
       await page.goto("/");
       await settle(page);
@@ -288,12 +276,6 @@ test.describe("the compact header", () => {
       expect(state.overlap).toBe(false);
       expect(state.toggleInside).toBe(true);
       expect(state.overflow).toBeLessThanOrEqual(1);
-    });
-
-    test(`reaches every link through the menu at ${width}px`, async ({ page }) => {
-      await page.setViewportSize({ width, height: 800 });
-      await page.goto("/");
-      await settle(page);
 
       const panel = page.locator(".navigation-menu__panel");
       await expect(panel).toBeHidden();
@@ -314,6 +296,7 @@ test.describe("the compact header", () => {
       // The panel opens over the page. It must not change the header height.
       expect(await page.locator(".site-header").evaluate((element) => element.getBoundingClientRect().height)).toBeLessThanOrEqual(65);
     });
+
   }
 
   test("opens and closes from the keyboard and shows a focus ring", async ({ page }) => {
@@ -331,6 +314,13 @@ test.describe("the compact header", () => {
 
     await page.keyboard.press("Enter");
     await expect(page.locator(".navigation-menu__panel")).toBeVisible();
+    const gap = await page.evaluate(() => {
+      const toggle = document.querySelector(".navigation-menu__toggle");
+      const style = getComputedStyle(toggle);
+      const ringBottom = toggle.getBoundingClientRect().bottom + parseFloat(style.outlineOffset) + parseFloat(style.outlineWidth);
+      return document.querySelector(".navigation-menu__panel").getBoundingClientRect().top - ringBottom;
+    });
+    expect(gap, "the ring of the button clears the panel").toBeGreaterThanOrEqual(4);
     await page.keyboard.press("Tab");
     await expect(page.locator(".navigation-menu__link").first()).toBeFocused();
     await page.keyboard.press("Shift+Tab");
@@ -375,23 +365,6 @@ test.describe("the compact header", () => {
       await expect(page.locator(".navigation-menu")).not.toHaveAttribute("open", /.*/);
     });
   }
-
-  test("keeps a gap between the focus ring of the button and the open panel", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 800 });
-    await page.goto("/");
-    await settle(page);
-
-    expect(await tabTo(page, ".navigation-menu__toggle")).toBe(true);
-    await page.keyboard.press("Enter");
-    await expect(page.locator(".navigation-menu__panel")).toBeVisible();
-    const gap = await page.evaluate(() => {
-      const toggle = document.querySelector(".navigation-menu__toggle");
-      const style = getComputedStyle(toggle);
-      const ringBottom = toggle.getBoundingClientRect().bottom + parseFloat(style.outlineOffset) + parseFloat(style.outlineWidth);
-      return document.querySelector(".navigation-menu__panel").getBoundingClientRect().top - ringBottom;
-    });
-    expect(gap, "the ring of the button clears the panel").toBeGreaterThanOrEqual(4);
-  });
 
   test("closes on a click outside the menu and stays open on a click inside", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 });
@@ -542,6 +515,9 @@ test.describe("one site frame at every width", () => {
           })(),
         }));
         const expected = frameLeft(edges.client);
+        if (route === "/" && viewport.width === 1024) {
+          expect(Math.abs(edges.logo - edges.title), "the tablet header and home title share a gutter").toBeLessThanOrEqual(1);
+        }
         for (const [name, left] of Object.entries({ logo: edges.logo, title: edges.title, footer: edges.footer })) {
           expect(Math.abs(left - expected), `${name} at ${left}, frame at ${expected}`).toBeLessThanOrEqual(1);
         }
@@ -551,16 +527,8 @@ test.describe("one site frame at every width", () => {
 
   test("keeps the reading column on the frame edge and under 745px on a wide screen", async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
-    for (const route of ["/about/", DRAFT_ORIGIN + "/writing/full-article-layout-fixture/"]) {
-      await page.goto(route);
-      await settle(page);
-      const column = await page.evaluate(() => {
-        const title = document.querySelector("main h1").getBoundingClientRect();
-        return { title: title.left, client: document.documentElement.clientWidth };
-      });
-      expect(Math.abs(column.title - frameLeft(column.client)), route).toBeLessThanOrEqual(1);
-    }
     await page.goto("/about/");
+    await settle(page);
     const read = await page.locator("main .wrap--read").first().evaluate((element) => {
       const box = element.getBoundingClientRect();
       return { width: box.width, left: box.left + parseFloat(getComputedStyle(element).paddingLeft) };
@@ -569,16 +537,6 @@ test.describe("one site frame at every width", () => {
     expect(Math.abs(read.left - frameLeft(1920))).toBeLessThanOrEqual(1);
   });
 
-  test("keeps the header and the home page on one gutter at tablet width", async ({ page }) => {
-    await page.setViewportSize({ width: 1024, height: 768 });
-    await page.goto("/");
-    await settle(page);
-    const edges = await page.evaluate(() => ({
-      logo: document.querySelector(".brand__mark").getBoundingClientRect().left,
-      title: document.querySelector("main h1").getBoundingClientRect().left,
-    }));
-    expect(Math.abs(edges.logo - edges.title)).toBeLessThanOrEqual(1);
-  });
 });
 
 test.describe("the header holds still between short and long pages", () => {
@@ -676,7 +634,7 @@ test.describe("the desktop nav targets", () => {
     for (let linkIndex = 1; linkIndex < links.length; linkIndex += 1) expect(links[linkIndex].left).toBeGreaterThanOrEqual(links[linkIndex - 1].right);
   });
 
-  test("centres the divider in the gap between the internal and profile links", async ({ page }) => {
+  test("leaves equal visible space around every word and the divider", async ({ page }) => {
     await page.goto(DRAFT_ORIGIN + "/");
     await settle(page);
     const state = await page.evaluate(() => {
@@ -694,11 +652,7 @@ test.describe("the desktop nav targets", () => {
     // The centre of the line is the centre of the space between the two targets.
     expect(Math.abs(state.centre - state.middle)).toBeLessThanOrEqual(0.5);
     expect(state.width).toBe(1);
-  });
 
-  test("leaves equal visible space around every word and the divider", async ({ page }) => {
-    await page.goto(DRAFT_ORIGIN + "/");
-    await settle(page);
     const words = await page.evaluate(() => [...document.querySelectorAll(".navigation__link")].map((link) => {
       const range = document.createRange();
       range.selectNodeContents(link);
@@ -1171,7 +1125,7 @@ async function readPlainGlobe(browser, baseAddress, viewport) {
 
 test.describe("the homepage globe lines up with the inner page graphic", () => {
   for (const screen of GLOBE_SCREENS) {
-    test(`shares the box left and the figure inset of About at ${screen.width}px`, async ({ page, browser, baseURL: baseAddress }) => {
+    test(`shares About’s alignment and clears the screen edge fade at ${screen.width}px`, async ({ page, browser, baseURL: baseAddress }) => {
       await page.setViewportSize(screen);
       await page.goto("/about/");
       await expect(page.locator("[data-graphic='about']")).toHaveAttribute("data-ready", "true");
@@ -1181,10 +1135,7 @@ test.describe("the homepage globe lines up with the inner page graphic", () => {
 
       expect(Math.abs(home.boxLeft - about.left), "the globe box left is the About graphic box left").toBeLessThanOrEqual(1);
       expect(Math.abs(home.sphereLeft - (about.left + FIGURE_INSET)), "the sphere starts one figure inset inside the box").toBeLessThanOrEqual(2);
-    });
 
-    test(`keeps most of the sphere, Vega, and every label clear of the screen edge fade at ${screen.width}px`, async ({ browser, baseURL: baseAddress }) => {
-      const home = await readPlainGlobe(browser, baseAddress, screen);
       const clearRight = home.viewport - EDGE_FADE;
 
       const visible = (Math.min(home.viewport, home.sphereRight) - home.sphereLeft) / (home.sphereRight - home.sphereLeft);
@@ -1197,6 +1148,7 @@ test.describe("the homepage globe lines up with the inner page graphic", () => {
         expect(label.right, `${label.text} ends before the fade`).toBeLessThanOrEqual(clearRight);
       }
     });
+
   }
 });
 

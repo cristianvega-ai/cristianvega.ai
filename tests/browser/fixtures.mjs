@@ -119,6 +119,7 @@ export const decorativeState = (page, selector) =>
       canvases: root.querySelectorAll("canvas").length,
       focusable: root.querySelectorAll("a, button, input, select, textarea, [tabindex]").length,
       text: root.textContent.trim(),
+      headings: root.querySelectorAll("h1, h2, h3, a").length,
       styled: root.querySelectorAll("[style]").length + (root.hasAttribute("style") ? 1 : 0),
     };
   }, selector);
@@ -170,11 +171,8 @@ export async function settle(page) {
 /**
  * Set the reduced-motion preference for this page.
  *
- * Always use this. `test.use({ reducedMotion: "reduce" })` is a silent no-op in
- * this project — under Playwright 1.62.1 the option never reaches the context,
- * `matchMedia("(prefers-reduced-motion: reduce)").matches` stays false, and the
- * test runs with motion fully enabled while appearing to assert the opposite.
- * It fails open, so nothing warns you. `page.emulateMedia` works correctly.
+ * Use this helper to change the preference before navigation or during a running scene.
+ * Playwright also supports a fixed preference through `test.use({ reducedMotion: "reduce" })`.
  */
 export async function useReducedMotion(page, reducedMotion = "reduce") {
   await page.emulateMedia({ reducedMotion });

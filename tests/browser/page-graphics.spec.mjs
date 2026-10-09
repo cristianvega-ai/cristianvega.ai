@@ -4,8 +4,6 @@ import { DRAFT_ORIGIN, openGraphic, paintedPixels, pendingFrames, playFrames, us
 
 // Check shared entrance, pause, and restore contracts through page graphics.
 
-
-
 const PAGES = {
   products: { name: "products index", address: `${DRAFT_ORIGIN}/products/`, graphic: "[data-graphic='products']", restMilliseconds: 31_000 },
   product: { name: "product page", address: `${DRAFT_ORIGIN}/products/product-layout-fixture/`, graphic: "[data-graphic='products']", restMilliseconds: 31_000 },
@@ -58,7 +56,7 @@ for (const target of Object.values(PAGES)) {
   });
 
   test.describe(`the ${target.name} graphic pauses and tears down`, () => {
-    test("stops its frames when the band scrolls off-screen, and resumes on return", async ({ page }) => {
+    test("pauses offscreen and in hidden tabs, then restores its lifetime", async ({ page }) => {
       await page.setViewportSize(VIEWPORTS.mobile);
       await useManualFrames(page);
       await openGraphic(page, target);
@@ -73,12 +71,7 @@ for (const target of Object.values(PAGES)) {
       await expect.poll(() => pendingFrames(page), "no frame is queued off-screen").toBe(0);
       await page.evaluate(() => scrollTo(0, 0));
       await expect.poll(() => pendingFrames(page), "frames resume on return").toBe(1);
-    });
-
-    test("stops its frames while the tab is hidden, and resumes when it shows", async ({ page }) => {
       await page.setViewportSize(VIEWPORTS.desktop);
-      await useManualFrames(page);
-      await openGraphic(page, target);
       await expect.poll(() => pendingFrames(page)).toBe(1);
       const setHidden = (hidden) =>
         page.evaluate((value) => {
@@ -89,12 +82,8 @@ for (const target of Object.values(PAGES)) {
       expect(await pendingFrames(page), "no frame is queued in a hidden tab").toBe(0);
       await setHidden(false);
       expect(await pendingFrames(page), "frames resume when the tab shows").toBe(1);
-    });
 
-    test("cancels its frames on pagehide and sets up again on a restored page", async ({ page }) => {
       await page.setViewportSize(VIEWPORTS.desktop);
-      await useManualFrames(page);
-      await openGraphic(page, target);
       await expect.poll(() => pendingFrames(page)).toBe(1);
 
       await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true })));
@@ -113,12 +102,6 @@ test.describe("the about graphic entrance", () => {
   const graphic = "[data-graphic='about']";
 
   test.use({ viewport: VIEWPORTS.desktop });
-
-  test("plays, then rests in the still state", async ({ page }) => {
-    await page.goto("/about/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
-    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-  });
 
   test("starts playing, paints more as it goes, and ends at rest", async ({ page }) => {
     await useManualFrames(page);
@@ -151,7 +134,7 @@ test.describe("the about graphic entrance", () => {
 test.describe("the about graphic pauses and tears down", () => {
   const graphic = "[data-graphic='about']";
 
-  test("stops its frames when the band scrolls off-screen, and resumes on return", async ({ page }) => {
+  test("pauses offscreen and in hidden tabs, then restores its lifetime", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await useManualFrames(page);
     await page.goto("/about/");
@@ -161,12 +144,7 @@ test.describe("the about graphic pauses and tears down", () => {
     await expect.poll(() => pendingFrames(page), "no frame is queued off-screen").toBe(0);
     await page.evaluate(() => scrollTo(0, 0));
     await expect.poll(() => pendingFrames(page), "frames resume on return").toBe(1);
-  });
-
-  test("stops its frames while the tab is hidden, and resumes when it shows", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
-    await useManualFrames(page);
-    await page.goto("/about/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     await expect.poll(() => pendingFrames(page)).toBe(1);
     const setHidden = (hidden) =>
@@ -178,12 +156,8 @@ test.describe("the about graphic pauses and tears down", () => {
     expect(await pendingFrames(page), "no frame is queued in a hidden tab").toBe(0);
     await setHidden(false);
     expect(await pendingFrames(page), "frames resume when the tab shows").toBe(1);
-  });
 
-  test("cancels its frames on pagehide and sets up again on a restored page", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
-    await useManualFrames(page);
-    await page.goto("/about/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     await expect.poll(() => pendingFrames(page)).toBe(1);
 
@@ -196,17 +170,13 @@ test.describe("the about graphic pauses and tears down", () => {
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     await expect.poll(() => pendingFrames(page), "frames resume after a restored page").toBe(1);
   });
+
 });
 
 test.describe("the writing graphic entrance", () => {
   const graphic = "[data-graphic='writing']";
 
   test.use({ viewport: VIEWPORTS.desktop });
-
-  test("plays, then rests in the still state", async ({ page }) => {
-    await page.goto(DRAFT_ORIGIN + "/writing/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
-    });
 
   test("paints more as it goes, and ends at rest with no queued frame", async ({ page }) => {
     await useManualFrames(page);
@@ -248,7 +218,7 @@ test.describe("the writing graphic entrance", () => {
 test.describe("the writing graphic pauses and tears down", () => {
   const graphic = "[data-graphic='writing']";
 
-  test("stops its frames when it scrolls off-screen, and resumes on return", async ({ page }) => {
+  test("pauses offscreen and in hidden tabs without losing motion", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await useManualFrames(page);
     await page.goto(DRAFT_ORIGIN + "/writing/");
@@ -258,12 +228,7 @@ test.describe("the writing graphic pauses and tears down", () => {
     await expect.poll(() => pendingFrames(page), "no frame is queued off-screen").toBe(0);
     await page.evaluate(() => scrollTo(0, 0));
     await expect.poll(() => pendingFrames(page), "frames resume on return").toBe(1);
-  });
-
-  test("stops its frames while the tab is hidden, and resumes when it shows", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
-    await useManualFrames(page);
-    await page.goto(DRAFT_ORIGIN + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     expect(await pendingFrames(page)).toBe(1);
     const setHidden = (hidden) =>
@@ -276,4 +241,5 @@ test.describe("the writing graphic pauses and tears down", () => {
     await setHidden(false);
     expect(await pendingFrames(page), "frames resume when the tab shows").toBe(1);
   });
+
 });

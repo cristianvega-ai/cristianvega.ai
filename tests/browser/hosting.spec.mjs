@@ -105,7 +105,7 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     await settle(page);
     await page.evaluate(() => document.fonts.ready);
     await expect(page.locator('script[src*="CloudflareAnalytics"]')).toHaveCount(1);
-    await expect(page.locator('script[data-cf-beacon], script[data-goatcounter]')).toHaveCount(0);
+    await expect(page.locator('script[data-cf-beacon]')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 }

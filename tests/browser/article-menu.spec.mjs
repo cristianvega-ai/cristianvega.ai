@@ -76,11 +76,11 @@ for (const width of [360, 390, 640]) {
   });
 }
 
-for (const [name, viewport] of Object.entries(VIEWPORTS)) {
-  test(`${name} article prose keeps its light text color`, async ({ page }) => {
+test("article prose keeps its light text across layouts", async ({ page }) => {
+  for (const viewport of Object.values(VIEWPORTS)) {
     await page.setViewportSize(viewport);
     await settle(page);
     await expect(page.locator(".prose > p").first()).toHaveCSS("color", "rgb(197, 205, 217)");
     await expect(page.locator(".principles li").first()).toHaveCSS("color", "rgb(197, 205, 217)");
-  });
-}
+  }
+});

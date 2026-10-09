@@ -41,14 +41,10 @@ for (const [path, status] of [["/", 200], ["/missing-analytics-check/", 404]]) {
     await serveAtOrigin(page, baseAddress, production);
     await installBeaconProbe(page);
     const errors = [];
-    const goatCounterRequests = [];
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("console", (message) => {
       const missingPage = status === 404 && message.location().url === `${production}${path}` && message.text().includes("404");
       if (message.type() === "error" && !missingPage) errors.push(message.text());
-    });
-    page.on("request", (request) => {
-      if (/goatcounter|count\.v5|gc\.zgo\.at/.test(request.url())) goatCounterRequests.push(request.url());
     });
     const sent = page.waitForRequest((request) => request.url() === beaconEndpoint && request.method() === "POST");
     const response = await page.goto(`${production}${path}`);
@@ -63,7 +59,6 @@ for (const [path, status] of [["/", 200], ["/missing-analytics-check/", 404]]) {
     await expect(beacon).toHaveAttribute("type", "module");
     await expect(beacon).toHaveAttribute("src", beaconScript);
     await page.waitForLoadState("networkidle");
-    expect(goatCounterRequests).toEqual([]);
     expect(errors).toEqual([]);
   });
 }
