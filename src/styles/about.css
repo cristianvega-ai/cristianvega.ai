@@ -4,31 +4,6 @@ body:is([data-page="about"], [data-page="error"]) {
   background: var(--ink);
 }
 
-body[data-page="about"] .site-header {
-  background: var(--ink);
-  box-shadow: 0 1px 0 var(--masthead-line);
-}
-
-body[data-page="about"] .brand {
-  color: var(--masthead-text);
-}
-
-body[data-page="about"] .brand__word i,
-body[data-page="about"] .navigation {
-  color: var(--masthead-metadata);
-}
-
-body[data-page="about"] .brand__mark i:last-child {
-  border-color: var(--brand-second-ring-ink);
-}
-
-body[data-page="about"] .navigation__link:hover,
-body[data-page="about"] .navigation__link[aria-current] {
-  color: var(--masthead-text);
-}
-
-body[data-page="about"] .site-header :focus-visible,
-body[data-page="about"] .skip-link:focus,
 .about :focus-visible {
   outline-color: var(--sky);
 }

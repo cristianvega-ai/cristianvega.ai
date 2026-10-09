@@ -81,7 +81,6 @@
   --foreground: #14181F;
   --muted: #586173;
   --line: #DEE2E9;
-  --brand-second-ring-surface: rgba(20, 24, 31, 0.4);
   /* text and lines on ink */
   --masthead-text: #EAEDF2;
   --masthead-metadata: #98A1B0;
@@ -282,16 +281,11 @@ h1 {
   transition: transform 0.15s ease;
 }
 
-/* The ring is offset onto the page behind the chip, so it follows that ground:
-   azure on the well (5.34), sky on the dark home masthead (8.31) */
+/* Every page sits on ink. Sky keeps the skip-link ring visible on that ground. */
 .skip-link:focus {
   transform: translateY(0);
-  outline: 2px solid var(--azure);
+  outline: 2px solid var(--sky);
   outline-offset: 2px;
-}
-
-body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .skip-link:focus {
-  outline-color: var(--sky);
 }
 
 .wrap {
@@ -371,13 +365,13 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
    home.css supplies the homepage exception.
    The opaque background keeps underlying content hidden.
    The shadow adds a hairline without changing header height.
-   Dark pages set their background and hairline below and in writing.css. */
+   The shared header uses the dark page ground. */
 .site-header {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: var(--surface-well);
-  box-shadow: 0 1px 0 var(--line);
+  background: var(--ink);
+  box-shadow: 0 1px 0 var(--masthead-line);
 }
 
 .site-header__inner {
@@ -395,7 +389,7 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
   display: flex;
   align-items: center;
   gap: 10px;
-  color: var(--foreground);
+  color: var(--masthead-text);
   white-space: nowrap;
 }
 
@@ -424,7 +418,7 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
   left: auto;
   right: 0;
   bottom: 0;
-  border-color: var(--brand-second-ring-surface);
+  border-color: var(--brand-second-ring-ink);
 }
 
 /* The two names join with no space, and tone marks the join: the given name
@@ -439,7 +433,7 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
 
 .brand__word i {
   font-style: normal;
-  color: var(--muted);
+  color: var(--masthead-metadata);
 }
 
 .navigation {
@@ -452,7 +446,7 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
   font-family: var(--font-monospace);
   font-size: var(--font-size-interface);
   font-weight: 500;
-  color: var(--muted);
+  color: var(--masthead-metadata);
 }
 
 /* Padding sets the target: 40px tall and at least 24px wide. "x" is 8px of
@@ -470,8 +464,9 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
   transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.navigation__link:hover {
-  color: var(--foreground);
+.navigation__link:hover,
+.navigation__link[aria-current] {
+  color: var(--masthead-text);
 }
 
 .navigation__link[aria-current] {
@@ -499,8 +494,12 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
   pointer-events: none;
 }
 
-/* The home and products pages sit on ink. The header takes that ground. The
-   about and writing pages carry the same rules in their own stylesheets. */
+.site-header :focus-visible {
+  outline-color: var(--sky);
+}
+
+/* The home and products pages sit on ink.
+   The about and writing pages set their body colors in their own stylesheets. */
 body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) {
   color: var(--masthead-text);
   background: var(--ink);
@@ -611,36 +610,6 @@ body:is([data-page="about"], [data-page="products"], [data-page="product"], [dat
     height: auto;
     margin: 0;
   }
-}
-
-body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .site-header {
-  background: var(--ink);
-  box-shadow: 0 1px 0 var(--masthead-line);
-}
-
-body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .brand {
-  color: var(--masthead-text);
-}
-
-body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .brand__mark i:last-child {
-  border-color: var(--brand-second-ring-ink);
-}
-
-body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .brand__word i {
-  color: var(--masthead-metadata);
-}
-
-body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .navigation {
-  color: var(--masthead-metadata);
-}
-
-body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .navigation__link:hover,
-body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .navigation__link[aria-current] {
-  color: var(--masthead-text);
-}
-
-body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) .site-header :focus-visible {
-  outline-color: var(--sky);
 }
 
 .button {
@@ -780,7 +749,7 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
   align-items: center;
   min-height: 44px;
   padding-inline: 8px;
-  color: var(--muted);
+  color: var(--masthead-metadata);
   cursor: pointer;
   list-style: none;
 }
@@ -811,8 +780,8 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
   z-index: 60;
   min-width: 200px;
   padding: 6px;
-  background: var(--surface-well);
-  border: 1px solid var(--line);
+  background: var(--ink-raised);
+  border: 1px solid var(--masthead-line);
   border-radius: var(--radius-medium);
 }
 
@@ -821,13 +790,13 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
   align-items: center;
   min-height: 44px;
   padding-inline: 12px;
-  color: var(--muted);
+  color: var(--masthead-metadata);
   border-radius: 4px;
 }
 
 .navigation-menu__link:hover,
 .navigation-menu__link[aria-current] {
-  color: var(--foreground);
+  color: var(--masthead-text);
 }
 
 .navigation-menu__link[aria-current] {
@@ -837,26 +806,6 @@ body:is([data-page="home"], [data-page="products"], [data-page="product"], [data
 .navigation-menu__rule {
   height: 1px;
   margin: 6px 12px;
-  background: var(--line);
-}
-
-/* Every page sits on ink. */
-.navigation-menu__toggle,
-.navigation-menu__link {
-  color: var(--masthead-metadata);
-}
-
-.navigation-menu__link:hover,
-.navigation-menu__link[aria-current] {
-  color: var(--masthead-text);
-}
-
-.navigation-menu__panel {
-  background: var(--ink-raised);
-  border-color: var(--masthead-line);
-}
-
-.navigation-menu__rule {
   background: var(--masthead-line);
 }
 
