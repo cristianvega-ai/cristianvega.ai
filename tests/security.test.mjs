@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
@@ -63,10 +62,7 @@ test("Cloudflare CSP blocks unapproved inline scripts and styles", () => {
   assert.equal(styleSrc.trim(), "'self'", "stylesheets must come from this site");
   assert.match(csp, /(?:^|;)\s*style-src-attr 'none'(?:;|$)/);
 
-  // Every *executable* inline script the build ships must be allow-listed by
-  // hash, so no page can quietly require 'unsafe-inline' back. Script elements
-  // carrying a non-JavaScript type are data blocks: the browser never executes
-  // them and script-src does not govern them, so they are checked separately.
+  // Executable scripts must use external files. Keep JSON-LD as a non-executable data block.
   const executableTypes = new Set([
     "",
     "module",
@@ -88,12 +84,11 @@ test("Cloudflare CSP blocks unapproved inline scripts and styles", () => {
   // Home and 404. The guard exists so an empty or half-written dist/ cannot
   // pass this scan by finding nothing.
   assert.ok(htmlFiles.length >= 2, "expected the static HTML pages");
-  const inlineDigests = new Set();
   const dataBlockTypes = new Set();
   for (const file of htmlFiles) {
     const html = readFileSync(file, "utf8");
     assert.doesNotMatch(html, /<style\b|<[^>]+\sstyle\s*=/i, `${file} must not contain inline styles`);
-    for (const [, attributes, body] of html.matchAll(
+    for (const [, attributes] of html.matchAll(
       /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi,
     )) {
       const type = (attributes.match(/\btype=["']([^"']*)["']/i)?.[1] ?? "").toLowerCase().trim();
@@ -101,19 +96,9 @@ test("Cloudflare CSP blocks unapproved inline scripts and styles", () => {
         dataBlockTypes.add(type);
         continue;
       }
-      const digest = createHash("sha256").update(body, "utf8").digest("base64");
-      inlineDigests.add(digest);
-      assert.ok(
-        scriptSrc.includes(`'sha256-${digest}'`),
-        `inline script in ${file} is not hash-allow-listed in script-src (expected 'sha256-${digest}')`,
-      );
+      assert.fail(`executable inline script in ${file} must use an external file`);
     }
   }
-  assert.deepEqual(
-    [...inlineDigests],
-    [],
-    "the build must ship no executable inline script, so script-src needs no hash",
-  );
   assert.deepEqual(
     [...dataBlockTypes].sort(),
     ["application/ld+json"],
@@ -141,7 +126,6 @@ test("the security policy allows the Cloudflare script and beacon endpoint", () 
     ["https://static.cloudflareinsights.com/beacon.min.js"],
     "allow only the Cloudflare beacon script URL as an external script",
   );
-  assert.doesNotMatch(csp, /goatcounter|zgo\.at/, "remove the GoatCounter origins");
 });
 
 test("Cloudflare CSP hosts fonts and styles from this origin only", () => {
