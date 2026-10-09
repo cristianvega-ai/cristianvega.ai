@@ -48,23 +48,23 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
   const bindings = readWritingBindings(container);
   if (!bindings) return null;
   const { list, articles } = bindings;
-  const count = articles.length;
-  if (!count) return null;
+  const articleCount = articles.length;
+  if (!articleCount) return null;
 
   let field: FieldLayout | undefined;
   let grid: HTMLCanvasElement | null = null;
   let routes: Route[] = [];
-  let entrance: number[] = [];
+  let entranceArticleIndices: number[] = [];
   // The box, in canvas pixels, that no article text covers.
   let originX = 0;
   let boxWidth = 0;
   let boxHeight = 0;
 
   // The state of the lit article. `weights` ease toward 1 for the lit article and 0 for the rest.
-  const weights = new Float32Array(count);
-  let active = -1;
-  let since = 0;
-  let previousTime = 0;
+  const weights = new Float32Array(articleCount);
+  let activeArticleIndex = -1;
+  let selectionStartTime = 0;
+  let previousActiveTime = 0;
   const scratch: Point = { x: 0, y: 0 };
   const start: Point = { x: 0, y: 0 };
   const control: Point = { x: 0, y: 0 };
@@ -93,191 +93,301 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     const { stars, points } = field;
 
     // A route: the article, a bent path to the nearest Lyra star, then along the figure to Vega.
-    routes = articles.map((_, i) => {
-      const p = points[i];
-      let nearest = 1;
+    routes = articles.map((_, articleIndex) => {
+      const articlePoint = points[articleIndex];
+      let nearestStarIndex = 1;
       let nearestDistance = Infinity;
-      for (let k = 1; k < stars.length; k++) {
-        const d = Math.hypot(stars[k].x - p.x, stars[k].y - p.y);
-        if (d < nearestDistance) {
-          nearestDistance = d;
-          nearest = k;
+      for (let starIndex = 1; starIndex < stars.length; starIndex++) {
+        const distance = Math.hypot(stars[starIndex].x - articlePoint.x, stars[starIndex].y - articlePoint.y);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestStarIndex = starIndex;
         }
       }
-      const target = stars[nearest];
-      const bend = (i % 2 ? 1 : -1) * 0.16;
-      start.x = p.x;
-      start.y = p.y;
+      const target = stars[nearestStarIndex];
+      const bend = (articleIndex % 2 ? 1 : -1) * 0.16;
+      start.x = articlePoint.x;
+      start.y = articlePoint.y;
       end.x = target.x;
       end.y = target.y;
-      control.x = (p.x + target.x) / 2 - (target.y - p.y) * bend;
-      control.y = (p.y + target.y) / 2 + (target.x - p.x) * bend;
+      control.x = (articlePoint.x + target.x) / 2 - (target.y - articlePoint.y) * bend;
+      control.y = (articlePoint.y + target.y) / 2 + (target.x - articlePoint.x) * bend;
       const route: Point[] = [];
-      for (let k = 0; k < CURVE_STEPS; k++) {
-        cubicPoint(scratch, k / CURVE_STEPS, start, control, control, end);
+      for (let sampleIndex = 0; sampleIndex < CURVE_STEPS; sampleIndex++) {
+        cubicPoint(scratch, sampleIndex / CURVE_STEPS, start, control, control, end);
         route.push({ x: scratch.x, y: scratch.y });
       }
-      for (const node of pathToVega(nearest, LYRA_EDGES, stars.length)) route.push(stars[node]);
+      for (const starIndex of pathToVega(nearestStarIndex, LYRA_EDGES, stars.length)) route.push(stars[starIndex]);
       return makeRoute(route);
     });
-    entrance = [0, 3, 5, count - 1].filter((v, i, all) => v < count && all.indexOf(v) === i);
+    entranceArticleIndices = [0, 3, 5, articleCount - 1].filter(
+      (articleIndex, index, indices) => articleIndex < articleCount && indices.indexOf(articleIndex) === index,
+    );
   }
 
   // Ease the weights toward the lit article. `snap` jumps to the end, for reduced motion.
-  function ease(elapsedMilliseconds: number, snap: boolean): number {
-    const k = snap ? 1 : 1 - Math.exp(-elapsedMilliseconds / 120);
-    let any = 0;
-    for (let i = 0; i < count; i++) {
-      weights[i] += ((i === active ? 1 : 0) - weights[i]) * k;
-      any = Math.max(any, weights[i]);
+  function easeWeights(elapsedMilliseconds: number, snap: boolean): number {
+    const easingShare = snap ? 1 : 1 - Math.exp(-elapsedMilliseconds / 120);
+    let maximumWeight = 0;
+    for (let articleIndex = 0; articleIndex < articleCount; articleIndex++) {
+      weights[articleIndex] += ((articleIndex === activeArticleIndex ? 1 : 0) - weights[articleIndex]) * easingShare;
+      maximumWeight = Math.max(maximumWeight, weights[articleIndex]);
     }
-    return any;
+    return maximumWeight;
   }
 
-  function draw(drawingContext: CanvasRenderingContext2D, state: FrameState) {
-    if (!field) return;
-    const { stars, points, links, articleLabels, starLabels } = field;
-    const p = state.progress;
-    const palette = state.palette;
-    const glow = state.glow;
-    const t = state.activeTime;
-    const any = ease(Math.max(0, Math.min(64, t - previousTime)), state.reduced);
-    previousTime = t;
-    const dim = 1 - 0.6 * any;
-    drawingContext.save();
-    drawingContext.translate(originX, 0);
-
-    // The site grid, with the same fade as on the other pages.
+  function drawBackground(
+    drawingContext: CanvasRenderingContext2D,
+    state: FrameState,
+    layout: FieldLayout,
+    backgroundStrength: number,
+  ) {
     if (grid) {
-      drawingContext.globalAlpha = smooth(p / 0.3);
+      drawingContext.globalAlpha = smooth(state.progress / 0.3);
       drawingContext.drawImage(grid, 0, 0, boxWidth, boxHeight);
       drawingContext.globalAlpha = 1;
     }
 
-    // Field stars fade in with the entrance, then hold still.
-    const fieldIn = smooth(p / 0.45);
-    drawingContext.fillStyle = palette.metadata;
-    for (let i = count; i < points.length; i++) {
-      const q = points[i];
-      drawingContext.globalAlpha = fieldIn * q.alpha * Math.sqrt(dim);
+    const fieldProgress = smooth(state.progress / 0.45);
+    drawingContext.fillStyle = state.palette.metadata;
+    for (let pointIndex = articleCount; pointIndex < layout.points.length; pointIndex++) {
+      const point = layout.points[pointIndex];
+      drawingContext.globalAlpha = fieldProgress * point.alpha * Math.sqrt(backgroundStrength);
       drawingContext.beginPath();
-      drawingContext.arc(q.x, q.y, q.radius, 0, FULL_TURN_RADIANS);
+      drawingContext.arc(point.x, point.y, point.radius, 0, FULL_TURN_RADIANS);
       drawingContext.fill();
     }
     drawingContext.globalAlpha = 1;
+  }
 
-    // Synapses draw in, then rest faint. The figure's own links come after them.
-    for (let i = 0; i < links.length; i++) {
-      const link = links[i];
-      const a = points[link.from];
-      const b = points[link.to];
-      drawEdge(drawingContext, palette, a.x, a.y, b.x, b.y, stagger(p, 0.06 + (i % 9) * 0.03, 0.26), false, (link.weight ? LINK_ARTICLE_ALPHA : LINK_FIELD_ALPHA) * dim);
+  function drawLinks(
+    drawingContext: CanvasRenderingContext2D,
+    state: FrameState,
+    layout: FieldLayout,
+    backgroundStrength: number,
+  ) {
+    for (let linkIndex = 0; linkIndex < layout.links.length; linkIndex++) {
+      const link = layout.links[linkIndex];
+      const from = layout.points[link.from];
+      const to = layout.points[link.to];
+      drawEdge(
+        drawingContext,
+        state.palette,
+        from.x,
+        from.y,
+        to.x,
+        to.y,
+        stagger(state.progress, 0.06 + (linkIndex % 9) * 0.03, 0.26),
+        false,
+        (link.weight ? LINK_ARTICLE_ALPHA : LINK_FIELD_ALPHA) * backgroundStrength,
+      );
     }
-    for (let i = 0; i < LYRA_EDGES.length; i++) {
-      const a = stars[LYRA_EDGES[i][0]];
-      const b = stars[LYRA_EDGES[i][1]];
-      drawEdge(drawingContext, palette, a.x, a.y, b.x, b.y, stagger(p, 0.3 + i * 0.05, 0.2), true, 0.5);
+    for (let edgeIndex = 0; edgeIndex < LYRA_EDGES.length; edgeIndex++) {
+      const from = layout.stars[LYRA_EDGES[edgeIndex][0]];
+      const to = layout.stars[LYRA_EDGES[edgeIndex][1]];
+      drawEdge(
+        drawingContext,
+        state.palette,
+        from.x,
+        from.y,
+        to.x,
+        to.y,
+        stagger(state.progress, 0.3 + edgeIndex * 0.05, 0.2),
+        true,
+        0.5,
+      );
     }
+  }
 
-    // The lit article: its path to Vega, with a halo on every star it crosses.
-    for (let i = 0; i < count; i++) {
-      const v = weights[i];
-      if (v < 0.01) continue;
-      const route = routes[i];
+  function drawSelectionPaths(drawingContext: CanvasRenderingContext2D, state: FrameState) {
+    for (let articleIndex = 0; articleIndex < articleCount; articleIndex++) {
+      const weight = weights[articleIndex];
+      if (weight < 0.01) continue;
+      const route = routes[articleIndex];
       drawingContext.lineCap = "round";
       drawingContext.lineJoin = "round";
-      drawingContext.strokeStyle = palette.sky;
-      drawingContext.globalAlpha = 0.9 * v;
+      drawingContext.strokeStyle = state.palette.sky;
+      drawingContext.globalAlpha = 0.9 * weight;
       drawingContext.lineWidth = 1.2;
       drawingContext.beginPath();
       drawingContext.moveTo(route.xs[0], route.ys[0]);
-      for (let k = 1; k < route.xs.length; k++) drawingContext.lineTo(route.xs[k], route.ys[k]);
+      for (let pointIndex = 1; pointIndex < route.xs.length; pointIndex++) {
+        drawingContext.lineTo(route.xs[pointIndex], route.ys[pointIndex]);
+      }
       drawingContext.stroke();
-      drawingContext.globalAlpha = v;
-      for (let k = CURVE_STEPS; k < route.xs.length; k++) {
-        const reach = k === route.xs.length - 1 ? 22 : 9;
-        drawingContext.drawImage(glow, route.xs[k] - reach, route.ys[k] - reach, reach * 2, reach * 2);
+      drawingContext.globalAlpha = weight;
+      for (let pointIndex = CURVE_STEPS; pointIndex < route.xs.length; pointIndex++) {
+        const reach = pointIndex === route.xs.length - 1 ? 22 : 9;
+        drawingContext.drawImage(
+          state.glow,
+          route.xs[pointIndex] - reach,
+          route.ys[pointIndex] - reach,
+          reach * 2,
+          reach * 2,
+        );
       }
       drawingContext.globalAlpha = 1;
     }
+  }
 
-    // Article stars: a core and a thin ring, so they read as articles and not as filler.
-    for (let i = 0; i < count; i++) {
-      const q = points[i];
-      const v = weights[i];
-      const g = stagger(p, 0.1 + i * 0.03, 0.2);
-      drawNode(drawingContext, palette, glow, q.x, q.y, 2.6, g, v > 0.3, 1, false);
-      if (g > 0) {
-        drawingContext.strokeStyle = v > 0.05 ? palette.sky : palette.metadata;
+  function drawStars(drawingContext: CanvasRenderingContext2D, state: FrameState, layout: FieldLayout) {
+    for (let articleIndex = 0; articleIndex < articleCount; articleIndex++) {
+      const point = layout.points[articleIndex];
+      const weight = weights[articleIndex];
+      const growth = stagger(state.progress, 0.1 + articleIndex * 0.03, 0.2);
+      drawNode(
+        drawingContext,
+        state.palette,
+        state.glow,
+        point.x,
+        point.y,
+        2.6,
+        growth,
+        weight > 0.3,
+        1,
+        false,
+      );
+      if (growth > 0) {
+        drawingContext.strokeStyle = weight > 0.05 ? state.palette.sky : state.palette.metadata;
         drawingContext.lineWidth = 0.7;
-        drawingContext.globalAlpha = (0.32 + 0.5 * v) * g;
+        drawingContext.globalAlpha = (0.32 + 0.5 * weight) * growth;
         drawingContext.beginPath();
-        drawingContext.arc(q.x, q.y, 6 + 3 * v, 0, FULL_TURN_RADIANS);
+        drawingContext.arc(point.x, point.y, 6 + 3 * weight, 0, FULL_TURN_RADIANS);
         drawingContext.stroke();
         drawingContext.globalAlpha = 1;
       }
     }
-    for (let i = 0; i < stars.length; i++) {
-      const star = stars[i];
-      drawNode(drawingContext, palette, glow, star.x, star.y, star.vega ? 3 : 2.5, stagger(p, 0.32 + i * 0.05, 0.16), true, 0.95, star.vega);
+    for (let starIndex = 0; starIndex < layout.stars.length; starIndex++) {
+      const star = layout.stars[starIndex];
+      drawNode(
+        drawingContext,
+        state.palette,
+        state.glow,
+        star.x,
+        star.y,
+        star.vega ? 3 : 2.5,
+        stagger(state.progress, 0.32 + starIndex * 0.05, 0.16),
+        true,
+        0.95,
+        star.vega,
+      );
     }
+  }
 
-    // Comets and the Vega bloom. Reduced motion shows the resting bloom and no comet.
+  function drawSignals(drawingContext: CanvasRenderingContext2D, state: FrameState, layout: FieldLayout) {
+    const progress = state.progress;
+    const vega = layout.stars[0];
     let bloom = REST_BLOOM;
-    let ping = 0;
+    let arrivalProgress = 0;
     if (!state.reduced) {
       let pulse = 0;
-      if (p < 1) {
-        for (let k = 0; k < entrance.length; k++) {
-          const travel = stagger(p, 0.36 + k * 0.1, 0.36);
-          drawComet(drawingContext, palette, glow, routes[entrance[k]], travel, 70);
-          if (travel > 0.86 && travel < 1) ping = Math.max(ping, (travel - 0.86) / 0.14);
+      if (progress < 1) {
+        for (let cometIndex = 0; cometIndex < entranceArticleIndices.length; cometIndex++) {
+          const travel = stagger(progress, 0.36 + cometIndex * 0.1, 0.36);
+          drawComet(
+            drawingContext,
+            state.palette,
+            state.glow,
+            routes[entranceArticleIndices[cometIndex]],
+            travel,
+            70,
+          );
+          if (travel > 0.86 && travel < 1) {
+            arrivalProgress = Math.max(arrivalProgress, (travel - 0.86) / 0.14);
+          }
         }
-        pulse = smooth((p - 0.6) / 0.25) * (1 - smooth((p - 0.88) / 0.12)) * 0.9;
-      } else if (active >= 0) {
-        const phase = (t - since) % CYCLE;
+        pulse = smooth((progress - 0.6) / 0.25) * (1 - smooth((progress - 0.88) / 0.12)) * 0.9;
+      } else if (activeArticleIndex >= 0) {
+        const phase = (state.activeTime - selectionStartTime) % CYCLE;
         const travel = phase < RUN ? phase / RUN : 0;
-        drawComet(drawingContext, palette, glow, routes[active], travel, 70);
+        drawComet(
+          drawingContext,
+          state.palette,
+          state.glow,
+          routes[activeArticleIndex],
+          travel,
+          70,
+        );
         if (travel > 0.8) {
-          ping = (travel - 0.8) / 0.2;
+          arrivalProgress = (travel - 0.8) / 0.2;
           pulse = smooth((travel - 0.8) / 0.12) * (1 - smooth((travel - 0.95) / 0.05));
         }
       }
-      bloom = Math.max(pulse, REST_BLOOM * smooth((p - 0.85) / 0.15));
+      bloom = Math.max(pulse, REST_BLOOM * smooth((progress - 0.85) / 0.15));
     }
-    drawVegaBloom(drawingContext, glow, stars[0].x, stars[0].y, bloom);
-    if (ping > 0) {
-      drawingContext.strokeStyle = palette.sky;
+    drawVegaBloom(drawingContext, state.glow, vega.x, vega.y, bloom);
+    if (arrivalProgress > 0) {
+      drawingContext.strokeStyle = state.palette.sky;
       drawingContext.lineWidth = 0.7;
-      drawingContext.globalAlpha = 0.5 * (1 - ping);
+      drawingContext.globalAlpha = 0.5 * (1 - arrivalProgress);
       drawingContext.beginPath();
-      drawingContext.arc(stars[0].x, stars[0].y, 10 + 22 * ping, 0, FULL_TURN_RADIANS);
+      drawingContext.arc(vega.x, vega.y, 10 + 22 * arrivalProgress, 0, FULL_TURN_RADIANS);
       drawingContext.stroke();
       drawingContext.globalAlpha = 1;
     }
+  }
 
-    // Labels. A lit article repeats its label in the text colour.
-    const labelIn = smooth((p - 0.2) / 0.2);
-    const starIn = smooth((p - 0.72) / 0.2);
-    for (let i = 0; i < count; i++) {
-      const label = articleLabels[i];
-      drawLabel(drawingContext, palette, state.labelFont.canvasFont, label.text, label.x, label.y, label.align, labelIn);
-      const v = weights[i];
-      if (v > 0.02) {
-        drawingContext.globalAlpha = v * labelIn;
-        drawingContext.fillStyle = palette.text;
+  function drawLabels(drawingContext: CanvasRenderingContext2D, state: FrameState, layout: FieldLayout) {
+    const articleLabelProgress = smooth((state.progress - 0.2) / 0.2);
+    const starLabelProgress = smooth((state.progress - 0.72) / 0.2);
+    for (let articleIndex = 0; articleIndex < articleCount; articleIndex++) {
+      const label = layout.articleLabels[articleIndex];
+      drawLabel(
+        drawingContext,
+        state.palette,
+        state.labelFont.canvasFont,
+        label.text,
+        label.x,
+        label.y,
+        label.align,
+        articleLabelProgress,
+      );
+      const weight = weights[articleIndex];
+      if (weight > 0.02) {
+        drawingContext.globalAlpha = weight * articleLabelProgress;
+        drawingContext.fillStyle = state.palette.text;
         drawingContext.fillText(label.text, label.x, label.y);
         drawingContext.globalAlpha = 1;
       }
     }
-    for (let i = 0; i < starLabels.length; i++) {
-      const label = starLabels[i];
-      if (label) drawLabel(drawingContext, palette, state.labelFont.canvasFont, label.text, label.x, label.y, label.align, starIn);
+    for (let starIndex = 0; starIndex < layout.starLabels.length; starIndex++) {
+      const label = layout.starLabels[starIndex];
+      if (label) {
+        drawLabel(
+          drawingContext,
+          state.palette,
+          state.labelFont.canvasFont,
+          label.text,
+          label.x,
+          label.y,
+          label.align,
+          starLabelProgress,
+        );
+      }
     }
+  }
+
+  function draw(drawingContext: CanvasRenderingContext2D, state: FrameState) {
+    if (!field) return;
+    const maximumWeight = easeWeights(
+      Math.max(0, Math.min(64, state.activeTime - previousActiveTime)),
+      state.reduced,
+    );
+    previousActiveTime = state.activeTime;
+    const backgroundStrength = 1 - 0.6 * maximumWeight;
+    drawingContext.save();
+    drawingContext.translate(originX, 0);
+
+    drawBackground(drawingContext, state, field, backgroundStrength);
+    drawLinks(drawingContext, state, field, backgroundStrength);
+    drawSelectionPaths(drawingContext, state);
+    drawStars(drawingContext, state, field);
+    drawSignals(drawingContext, state, field);
+    drawLabels(drawingContext, state, field);
     drawingContext.restore();
 
     // Ask for frames only while an article is lit or its glow still fades.
-    return !state.reduced && (active >= 0 || any >= 0.01);
+    return !state.reduced && (activeArticleIndex >= 0 || maximumWeight >= 0.01);
   }
 
   // Pointer and focus on an article light it. The container attribute changes once for each change of article.
@@ -286,9 +396,9 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     const options = { signal: events.signal };
 
     function select(index: number) {
-      if (index === active) return;
-      active = index;
-      since = canvasHandle.state.activeTime;
+      if (index === activeArticleIndex) return;
+      activeArticleIndex = index;
+      selectionStartTime = canvasHandle.state.activeTime;
       if (index >= 0) container.dataset.activeArticle = articles[index].identifier;
       else delete container.dataset.activeArticle;
       // Reduced motion runs no frames, so the change draws at once.
@@ -312,7 +422,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     return () => {
       events.abort();
       // A restored page starts with no lit article.
-      active = -1;
+      activeArticleIndex = -1;
       weights.fill(0);
       delete container.dataset.activeArticle;
     };

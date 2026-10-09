@@ -1,10 +1,28 @@
 import { LYRA, LYRA_LINKS } from "../../lyra/constellation.ts";
 import { entranceProgress, stagger } from "../../motion/clock.ts";
-import { around, labelBounds, placeLabel, type PlacedLabel, type Rectangle, type Segment } from "../labels.ts";
+import {
+  around,
+  labelBounds,
+  placeLabel,
+  type PlacedLabel,
+  type Rectangle,
+  type Segment,
+} from "../labels.ts";
 import { FIGURE_INSET, reportFigureLeft } from "../inset.ts";
 import { layoutLyra, type LyraPoint } from "../lyra.ts";
 import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
-import { drawComet, drawEdge, drawLabel, drawNode, drawStarField, drawVegaBloom, makeRoute, makeStarField, type FieldStar, type Route } from "../marks.ts";
+import {
+  drawComet,
+  drawEdge,
+  drawLabel,
+  drawNode,
+  drawStarField,
+  drawVegaBloom,
+  makeRoute,
+  makeStarField,
+  type FieldStar,
+  type Route,
+} from "../marks.ts";
 import { easeOutCubic, smooth, FULL_TURN_RADIANS } from "../math.ts";
 import { mountCanvas, type CanvasHandle, type FrameState } from "../mount.ts";
 
@@ -50,13 +68,28 @@ export function missingLayout(width: number, height: number): MissingLayout {
  * Place the star names. Each takes the side of its star that no link crosses, clear of the other stars,
  * the empty ring, and the box edge. Vega always has its name, and the others only when the box is tall.
  */
-export function placeLabels(bounds: Rectangle, stars: readonly LyraPoint[], showNames: boolean, widthsInPixels: readonly number[], lineHeightInPixels?: number): PlacedLabel[] {
+export function placeLabels(
+  bounds: Rectangle,
+  stars: readonly LyraPoint[],
+  showNames: boolean,
+  widthsInPixels: readonly number[],
+  lineHeightInPixels?: number,
+): PlacedLabel[] {
   const segments: Segment[] = LYRA_LINKS.map(([a, b]) => ({ ax: stars[a].x, ay: stars[a].y, bx: stars[b].x, by: stars[b].y }));
   const avoid: Rectangle[] = stars.map((star, i) => around(star.x, star.y, i === MISSING ? RING_RADIUS + 5 : 9));
   const placed: PlacedLabel[] = [];
   for (let i = 0; i < stars.length; i++) {
     const name = stars[i].name;
-    if (name && (i === 0 || showNames)) placed.push(placeLabel(name, stars[i].x, stars[i].y, { widthInPixels: widthsInPixels[i], lineHeightInPixels, bounds, segments, avoid, gap: stars[i].vega ? 14 : 12 }));
+    if (name && (i === 0 || showNames)) {
+      placed.push(placeLabel(name, stars[i].x, stars[i].y, {
+        widthInPixels: widthsInPixels[i],
+        lineHeightInPixels,
+        bounds,
+        segments,
+        avoid,
+        gap: stars[i].vega ? 14 : 12,
+      }));
+    }
   }
   return placed;
 }
@@ -65,7 +98,15 @@ export function placeLabels(bounds: Rectangle, stars: readonly LyraPoint[], show
  * Fit the figure and place its names. When Vega finds no clear side, as in a narrow column, the figure
  * moves left by the room that its name needs, and the names are placed again.
  */
-export function layoutMissing(width: number, height: number, layout: MissingLayout, bounds: Rectangle, widthsInPixels: readonly number[], lineHeightInPixels?: number, outputStars: LyraPoint[] = []) {
+export function layoutMissing(
+  width: number,
+  height: number,
+  layout: MissingLayout,
+  bounds: Rectangle,
+  widthsInPixels: readonly number[],
+  lineHeightInPixels?: number,
+  outputStars: LyraPoint[] = [],
+) {
   let stars = layoutLyra(width, height, { padding: layout.padding, rotate: layout.rotate, outputPoints: outputStars });
   let labels = placeLabels(bounds, stars, layout.showNames, widthsInPixels, lineHeightInPixels);
   if (labels[0] && !labels[0].clear) {
@@ -112,19 +153,50 @@ export function mountNotFound(container: HTMLElement): CanvasHandle | null {
 
     for (let i = 0; i < LYRA_LINKS.length; i++) {
       const [a, b] = LYRA_LINKS[i];
-      const t = stagger(progress, 0.1 + i * 0.07, 0.22);
+      const edgeProgress = stagger(progress, 0.1 + i * 0.07, 0.22);
       if (a === MISSING || b === MISSING) {
         // The figure runs on into the gap: dashed and dim.
         drawingContext.setLineDash(DASH);
-        drawEdge(drawingContext, palette, stars[a].x, stars[a].y, stars[b].x, stars[b].y, t, false, 0.3);
+        drawEdge(
+          drawingContext,
+          palette,
+          stars[a].x,
+          stars[a].y,
+          stars[b].x,
+          stars[b].y,
+          edgeProgress,
+          false,
+          0.3,
+        );
         drawingContext.setLineDash(NO_DASH);
       } else {
-        drawEdge(drawingContext, palette, stars[a].x, stars[a].y, stars[b].x, stars[b].y, t, i < 2, 0.4);
+        drawEdge(
+          drawingContext,
+          palette,
+          stars[a].x,
+          stars[a].y,
+          stars[b].x,
+          stars[b].y,
+          edgeProgress,
+          i < 2,
+          0.4,
+        );
       }
     }
     for (let i = 0; i < stars.length; i++) {
       if (i === MISSING) continue;
-      drawNode(drawingContext, palette, state.glow, stars[i].x, stars[i].y, i ? 2 : 2.6, stagger(progress, 0.05 + i * 0.06, 0.14), i === 0 || i === 4 || i === 5, 0.95, i === 0);
+      drawNode(
+        drawingContext,
+        palette,
+        state.glow,
+        stars[i].x,
+        stars[i].y,
+        i ? 2 : 2.6,
+        stagger(progress, 0.05 + i * 0.06, 0.14),
+        i === 0 || i === 4 || i === 5,
+        0.95,
+        i === 0,
+      );
     }
 
     // The empty ring.
@@ -139,33 +211,58 @@ export function mountNotFound(container: HTMLElement): CanvasHandle | null {
     drawingContext.globalAlpha = 1;
 
     if (progress < 1 && comet) {
-      drawComet(drawingContext, palette, state.glow, comet, stagger(progress, 0.36, 0.5), 70);
-      drawVegaBloom(drawingContext, state.glow, stars[0].x, stars[0].y, smooth((progress - 0.62) / 0.22) * (1 - smooth((progress - 0.84) / 0.16)));
+      drawComet(
+        drawingContext,
+        palette,
+        state.glow,
+        comet,
+        stagger(progress, 0.36, 0.5),
+        70,
+      );
+      drawVegaBloom(
+        drawingContext,
+        state.glow,
+        stars[0].x,
+        stars[0].y,
+        smooth((progress - 0.62) / 0.22) * (1 - smooth((progress - 0.84) / 0.16)),
+      );
     }
 
     // A slow search of the gap. Reduced motion shows none.
     if (!state.reduced) {
-      for (let k = 0; k < PULSE_STARTS.length; k++) {
-        const u = (state.elapsed - PULSE_STARTS[k]) / PULSE_DURATION_MILLISECONDS;
-        if (u <= 0 || u >= 1) continue;
-        const fade = 1 - u;
+      for (let pulseIndex = 0; pulseIndex < PULSE_STARTS.length; pulseIndex++) {
+        const pulseProgress = (state.elapsed - PULSE_STARTS[pulseIndex]) / PULSE_DURATION_MILLISECONDS;
+        if (pulseProgress <= 0 || pulseProgress >= 1) continue;
+        const fade = 1 - pulseProgress;
         drawingContext.strokeStyle = palette.sky;
         drawingContext.lineWidth = 1;
         drawingContext.globalAlpha = 0.5 * fade;
         drawingContext.beginPath();
-        drawingContext.arc(gap.x, gap.y, RING_RADIUS + easeOutCubic(u) * reach, 0, FULL_TURN_RADIANS);
+        drawingContext.arc(
+          gap.x,
+          gap.y,
+          RING_RADIUS + easeOutCubic(pulseProgress) * reach,
+          0,
+          FULL_TURN_RADIANS,
+        );
         drawingContext.stroke();
         drawingContext.globalAlpha = 0.25 * fade;
         drawingContext.beginPath();
-        drawingContext.arc(gap.x, gap.y, RING_RADIUS + easeOutCubic(Math.max(0, u - 0.18)) * reach, 0, FULL_TURN_RADIANS);
+        drawingContext.arc(
+          gap.x,
+          gap.y,
+          RING_RADIUS + easeOutCubic(Math.max(0, pulseProgress - 0.18)) * reach,
+          0,
+          FULL_TURN_RADIANS,
+        );
         drawingContext.stroke();
-        const start = u * FULL_TURN_RADIANS * 1.25;
-        drawingContext.globalAlpha = 0.9 * Math.sin(Math.PI * u);
+        const start = pulseProgress * FULL_TURN_RADIANS * 1.25;
+        drawingContext.globalAlpha = 0.9 * Math.sin(Math.PI * pulseProgress);
         drawingContext.lineWidth = 1.4;
         drawingContext.beginPath();
         drawingContext.arc(gap.x, gap.y, 13, start, start + 1);
         drawingContext.stroke();
-        drawingContext.globalAlpha = 0.5 * Math.sin(Math.PI * u);
+        drawingContext.globalAlpha = 0.5 * Math.sin(Math.PI * pulseProgress);
         drawingContext.beginPath();
         drawingContext.arc(gap.x, gap.y, RING_RADIUS, 0, FULL_TURN_RADIANS);
         drawingContext.stroke();
@@ -173,8 +270,19 @@ export function mountNotFound(container: HTMLElement): CanvasHandle | null {
       }
     }
 
-    const label = smooth((progress - 0.7) / 0.2);
-    for (let i = 0; i < labels.length; i++) drawLabel(drawingContext, palette, state.labelFont.canvasFont, labels[i].text, labels[i].x, labels[i].y, labels[i].align, label);
+    const labelProgress = smooth((progress - 0.7) / 0.2);
+    for (let i = 0; i < labels.length; i++) {
+      drawLabel(
+        drawingContext,
+        palette,
+        state.labelFont.canvasFont,
+        labels[i].text,
+        labels[i].x,
+        labels[i].y,
+        labels[i].align,
+        labelProgress,
+      );
+    }
   }
 
   return mountCanvas(container, { draw, onResize: build, duration: REST_TIME_MILLISECONDS });

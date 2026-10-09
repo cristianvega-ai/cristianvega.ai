@@ -2,7 +2,15 @@ import { clamp, easeOutCubic, FULL_TURN_RADIANS, type Point } from "../motion/ea
 import { GLOBE_POLICY, mountCanvasController, type FrameState } from "../motion/canvas-controller.ts";
 import type { Palette } from "../motion/palette.ts";
 import { entranceProgress } from "../motion/clock.ts";
-import { buildGlobe, EDGE_SPAN, GLOBE_HEIGHT, GLOBE_WIDTH, NODE_SPAN, type Globe, type GlobeRoute } from "./model.ts";
+import {
+  buildGlobe,
+  EDGE_SPAN,
+  GLOBE_HEIGHT,
+  GLOBE_WIDTH,
+  NODE_SPAN,
+  type Globe,
+  type GlobeRoute,
+} from "./model.ts";
 
 /** How far behind its head a comet leaves light, in grid units, and in how many soft slices. */
 const TAIL_LENGTH = 120;
@@ -24,12 +32,12 @@ function smooth(value: number): number {
 /** The point at a distance along a route, written into `outputPoint`. */
 function pointAt(route: GlobeRoute, distance: number, outputPoint: Point): Point {
   const { points, lengths } = route;
-  let i = 1;
-  while (i < points.length - 1 && lengths[i] < distance) i++;
-  const span = lengths[i] - lengths[i - 1];
-  const share = span > 0 ? clamp((distance - lengths[i - 1]) / span) : 1;
-  outputPoint.x = points[i - 1].x + (points[i].x - points[i - 1].x) * share;
-  outputPoint.y = points[i - 1].y + (points[i].y - points[i - 1].y) * share;
+  let segmentIndex = 1;
+  while (segmentIndex < points.length - 1 && lengths[segmentIndex] < distance) segmentIndex++;
+  const span = lengths[segmentIndex] - lengths[segmentIndex - 1];
+  const share = span > 0 ? clamp((distance - lengths[segmentIndex - 1]) / span) : 1;
+  outputPoint.x = points[segmentIndex - 1].x + (points[segmentIndex].x - points[segmentIndex - 1].x) * share;
+  outputPoint.y = points[segmentIndex - 1].y + (points[segmentIndex].y - points[segmentIndex - 1].y) * share;
   return outputPoint;
 }
 
@@ -39,7 +47,13 @@ function pointAt(route: GlobeRoute, distance: number, outputPoint: Point): Point
 // mark is whole, so the last frame is the finished picture. Before that the
 // mesh draws from the far side to the near side, the neurons appear in turn,
 // and the figure draws toward Vega. Each mark eases in, so nothing flashes.
-function paintGlobe(drawingContext: CanvasRenderingContext2D, globe: Globe, palette: Palette, glow: HTMLCanvasElement, progress: number) {
+function paintGlobe(
+  drawingContext: CanvasRenderingContext2D,
+  globe: Globe,
+  palette: Palette,
+  glow: HTMLCanvasElement,
+  progress: number,
+) {
   drawingContext.lineCap = "round";
   drawingContext.fillStyle = palette.metadata;
   const starsIn = smooth(progress / 0.5);
@@ -63,13 +77,13 @@ function paintGlobe(drawingContext: CanvasRenderingContext2D, globe: Globe, pale
   }
   for (let i = 0; i < globe.edges.length; i++) {
     const edge = globe.edges[i];
-    const t = clamp((progress - edge.start) / EDGE_SPAN);
-    if (t <= 0) continue;
+    const edgeProgress = clamp((progress - edge.start) / EDGE_SPAN);
+    if (edgeProgress <= 0) continue;
     const from = edge.from;
     const to = edge.from === edge.a ? edge.b : edge.a;
-    const grow = easeOutCubic(t);
+    const grow = easeOutCubic(edgeProgress);
     drawingContext.strokeStyle = edge.hot ? palette.sky : palette.metadata;
-    drawingContext.globalAlpha = (edge.hot ? 0.7 : edge.alpha) * smooth(t * 2);
+    drawingContext.globalAlpha = (edge.hot ? 0.7 : edge.alpha) * smooth(edgeProgress * 2);
     drawingContext.lineWidth = edge.hot ? 1.1 : 0.65;
     drawingContext.beginPath();
     drawingContext.moveTo(from.x, from.y);
@@ -78,15 +92,15 @@ function paintGlobe(drawingContext: CanvasRenderingContext2D, globe: Globe, pale
   }
   for (let i = 0; i < globe.nodes.length; i++) {
     const node = globe.nodes[i];
-    const t = clamp((progress - node.start) / NODE_SPAN);
-    if (t <= 0) continue;
-    const grow = easeOutCubic(t);
+    const nodeProgress = clamp((progress - node.start) / NODE_SPAN);
+    if (nodeProgress <= 0) continue;
+    const grow = easeOutCubic(nodeProgress);
     if (node.hot) {
       const reach = (node.vega ? 18 : 8) * grow;
       drawingContext.globalAlpha = grow;
       drawingContext.drawImage(glow, node.x - reach, node.y - reach, reach * 2, reach * 2);
     }
-    drawingContext.globalAlpha = node.alpha * smooth(t * 1.5);
+    drawingContext.globalAlpha = node.alpha * smooth(nodeProgress * 1.5);
     drawingContext.fillStyle = palette.text;
     drawingContext.beginPath();
     drawingContext.arc(node.x, node.y, node.radius * (0.4 + 0.6 * grow), 0, FULL_TURN_RADIANS);
@@ -185,13 +199,13 @@ function drawGlobe(root: HTMLElement): (() => void) | undefined {
       const binding = labelAnimations[i];
       binding.animation.currentTime = clamp((state.progress - binding.start) / binding.span);
     }
-    const ease = easeOutCubic(state.progress);
+    const entranceGrowth = easeOutCubic(state.progress);
     drawingContext.setTransform(scale, 0, 0, scale, 0, 0);
     drawingContext.save();
     // Settle the globe on its finished pose.
     drawingContext.translate(GLOBE_WIDTH / 2, GLOBE_HEIGHT / 2);
-    drawingContext.rotate(globe.rotation * (1 - ease));
-    drawingContext.scale(0.985 + 0.015 * ease, 0.985 + 0.015 * ease);
+    drawingContext.rotate(globe.rotation * (1 - entranceGrowth));
+    drawingContext.scale(0.985 + 0.015 * entranceGrowth, 0.985 + 0.015 * entranceGrowth);
     drawingContext.translate(-GLOBE_WIDTH / 2, -GLOBE_HEIGHT / 2);
     paintGlobe(drawingContext, globe, state.palette, state.glow, state.progress);
     if (!state.entranceComplete) drawSignals(drawingContext, state.progress, state.palette, state.glow);
@@ -199,11 +213,18 @@ function drawGlobe(root: HTMLElement): (() => void) | undefined {
   }
 
   /** Draw comets and the temporary Vega bloom. */
-  function drawSignals(drawingContext: CanvasRenderingContext2D, progress: number, palette: Palette, glow: HTMLCanvasElement) {
+  function drawSignals(
+    drawingContext: CanvasRenderingContext2D,
+    progress: number,
+    palette: Palette,
+    glow: HTMLCanvasElement,
+  ) {
     drawingContext.globalCompositeOperation = "lighter";
     drawingContext.lineCap = "round";
     drawingContext.strokeStyle = palette.sky;
-    for (let i = 0; i < globe!.routes.length; i++) drawComet(drawingContext, globe!.routes[i], progress, palette, glow);
+    for (let i = 0; i < globe!.routes.length; i++) {
+      drawComet(drawingContext, globe!.routes[i], progress, palette, glow);
+    }
     const bloom = smooth((progress - 0.62) / 0.22) * (1 - smooth((progress - 0.84) / 0.16));
     if (vega && bloom > 0) {
       drawingContext.globalAlpha = 0.5 * bloom;
@@ -213,7 +234,13 @@ function drawGlobe(root: HTMLElement): (() => void) | undefined {
     drawingContext.globalCompositeOperation = "source-over";
   }
 
-  function drawComet(drawingContext: CanvasRenderingContext2D, route: GlobeRoute, progress: number, palette: Palette, glow: HTMLCanvasElement) {
+  function drawComet(
+    drawingContext: CanvasRenderingContext2D,
+    route: GlobeRoute,
+    progress: number,
+    palette: Palette,
+    glow: HTMLCanvasElement,
+  ) {
     const travel = (progress - route.start) / route.span;
     if (travel <= 0 || travel >= 1) return;
     // Slow each comet as it reaches the star.

@@ -16,7 +16,17 @@ const globe = buildGlobe();
   <canvas class="lyra-globe__canvas"></canvas>
   {/* The labels sit on the globe grid but keep a fixed size in CSS pixels. Their own svg has no viewBox, so the grid scale never shrinks the type. */}
   <svg class="lyra-globe__labels" focusable="false">
-    {globe.labels.map((label) => <text class:list={["lyra-globe__label", { "lyra-globe__label--caption": label.align === "center" }]} x={`${((label.x / GLOBE_WIDTH) * 100).toFixed(3)}%`} y={`${((label.y / GLOBE_HEIGHT) * 100).toFixed(3)}%`} dx={label.dx} dy={label.dy} text-anchor={label.align === "center" ? "middle" : "start"} opacity={label.alpha}>{label.text}</text>)}
+    {globe.labels.map((label) => (
+      <text
+        class:list={["lyra-globe__label", { "lyra-globe__label--caption": label.align === "center" }]}
+        x={`${((label.x / GLOBE_WIDTH) * 100).toFixed(3)}%`}
+        y={`${((label.y / GLOBE_HEIGHT) * 100).toFixed(3)}%`}
+        dx={label.dx}
+        dy={label.dy}
+        text-anchor={label.align === "center" ? "middle" : "start"}
+        opacity={label.alpha}
+      >{label.text}</text>
+    ))}
   </svg>
 </div>
 

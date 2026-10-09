@@ -164,7 +164,7 @@ function buildRoutes(globe: Globe, sphere: GlobeNode[], vega: GlobeNode, cx: num
     for (let i = 1; i < points.length; i++) lengths.push(lengths[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y));
     return { points, lengths, length: lengths[lengths.length - 1] };
   });
-  chains.sort((p, q) => q.length - p.length);
+  chains.sort((first, second) => second.length - first.length);
   return chains.map((chain, i) => {
     const span = chain.length / ROUTE_SPEED;
     const arrival = ARRIVAL_FIRST + (ARRIVAL_LAST - ARRIVAL_FIRST) * (chains.length > 1 ? i / (chains.length - 1) : 1);
@@ -258,12 +258,14 @@ export function buildGlobe(width = GLOBE_WIDTH, height = GLOBE_HEIGHT): Globe {
   for (const [from, to] of LYRA_LINKS) connect(lyra[from], lyra[to], true, 2, 0.3);
 
   // The hot route: three neurons on the near face, then up into the figure.
-  const front = sphere.filter((p) => p.z > 0.2 && p.x < 0).sort((p, q) => p.y - q.y);
-  const [a, b, d] = [front[3].node, front[7].node, front[11].node];
-  connect(a, b, true, 0, 0.17);
-  connect(b, d, true, 1, 0.17);
-  connect(d, lyra[5], true, 1, 0.17);
-  connect(b, lyra[3], true, 1, 0.17);
+  const front = sphere
+    .filter((point) => point.z > 0.2 && point.x < 0)
+    .sort((first, second) => first.y - second.y);
+  const [firstRouteNode, secondRouteNode, thirdRouteNode] = [front[3].node, front[7].node, front[11].node];
+  connect(firstRouteNode, secondRouteNode, true, 0, 0.17);
+  connect(secondRouteNode, thirdRouteNode, true, 1, 0.17);
+  connect(thirdRouteNode, lyra[5], true, 1, 0.17);
+  connect(secondRouteNode, lyra[3], true, 1, 0.17);
 
   globe.rings.push({ x: cx, y: cy, rx: radius * 1.1, ry: radius * 0.35, rotate: -0.42, alpha: 0.16 });
   globe.rings.push({ x: cx, y: cy, rx: radius * 1.13, ry: radius * 1.13, rotate: 0, alpha: 0.07 });
@@ -274,7 +276,7 @@ export function buildGlobe(width = GLOBE_WIDTH, height = GLOBE_HEIGHT): Globe {
     globe.stars.push({ x: unit(i * 17 + 3) * width, y: unit(i * 17 + 7) * height, alpha: 0.1 + unit(i) * 0.2, radius: 0.35 + unit(i + 9) * 0.45 });
   }
 
-  globe.routes = buildRoutes(globe, sphere.map((p) => p.node), lyra[0], cx, cy);
+  globe.routes = buildRoutes(globe, sphere.map((point) => point.node), lyra[0], cx, cy);
 
   globe.hotNodes = globe.nodes.filter((node) => node.hot);
   globe.hotEdges = globe.edges.filter((edge) => edge.hot);

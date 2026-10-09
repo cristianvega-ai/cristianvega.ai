@@ -1,6 +1,14 @@
 import { cubicPoint, type Point } from "../../motion/easing.ts";
 import { stagger } from "../../motion/clock.ts";
-import { around, labelBounds, placeLabel, polylineSegments, type PlacedLabel, type Rectangle, type Segment } from "../labels.ts";
+import {
+  around,
+  labelBounds,
+  placeLabel,
+  polylineSegments,
+  type PlacedLabel,
+  type Rectangle,
+  type Segment,
+} from "../labels.ts";
 import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
 import { drawCurve, drawLabel, drawNode, drawVegaBloom } from "../marks.ts";
 import { FIGURE_INSET, reportFigureLeft } from "../inset.ts";
@@ -100,67 +108,67 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
     end.x = vx;
     end.y = vy;
     let length = 0;
-    for (let i = 0; i <= SAMPLES; i++) {
-      cubicPoint(scratch, i / SAMPLES, start, control1, control2, end);
-      pathX[i] = scratch.x;
-      pathY[i] = scratch.y;
+    for (let sampleIndex = 0; sampleIndex <= SAMPLES; sampleIndex++) {
+      cubicPoint(scratch, sampleIndex / SAMPLES, start, control1, control2, end);
+      pathX[sampleIndex] = scratch.x;
+      pathY[sampleIndex] = scratch.y;
     }
-    for (let i = 1; i <= SAMPLES; i++) {
-      length += Math.hypot(pathX[i] - pathX[i - 1], pathY[i] - pathY[i - 1]);
-      cumulative[i] = length;
+    for (let sampleIndex = 1; sampleIndex <= SAMPLES; sampleIndex++) {
+      length += Math.hypot(pathX[sampleIndex] - pathX[sampleIndex - 1], pathY[sampleIndex] - pathY[sampleIndex - 1]);
+      cumulative[sampleIndex] = length;
     }
 
     // Nodes at even arc length.
-    const m = clamp(Math.round(length / (horizontal ? 46 : 52)), 8, 18);
-    nodeCount = m + 1;
+    const segmentCount = clamp(Math.round(length / (horizontal ? 46 : 52)), 8, 18);
+    nodeCount = segmentCount + 1;
     nodeX = new Float32Array(nodeCount);
     nodeY = new Float32Array(nodeCount);
     nodeFractions = new Float32Array(nodeCount);
     const at = new Int16Array(nodeCount);
-    let j = 0;
-    for (let k = 0; k <= m; k++) {
-      const distance = (k / m) * length;
-      while (j < SAMPLES && cumulative[j] < distance) j++;
-      at[k] = j;
-      nodeFractions[k] = j / SAMPLES;
-      nodeX[k] = pathX[j];
-      nodeY[k] = pathY[j];
+    let nearestSampleIndex = 0;
+    for (let nodeIndex = 0; nodeIndex <= segmentCount; nodeIndex++) {
+      const distance = (nodeIndex / segmentCount) * length;
+      while (nearestSampleIndex < SAMPLES && cumulative[nearestSampleIndex] < distance) nearestSampleIndex++;
+      at[nodeIndex] = nearestSampleIndex;
+      nodeFractions[nodeIndex] = nearestSampleIndex / SAMPLES;
+      nodeX[nodeIndex] = pathX[nearestSampleIndex];
+      nodeY[nodeIndex] = pathY[nearestSampleIndex];
     }
 
     // Branches: the paths not taken. They alternate sides and each ends in a hollow neuron.
-    const cap = m * 2;
-    branchCoordinates = new Float32Array(cap * BRANCH_STRIDE);
-    branchNodeIndices = new Float32Array(cap);
+    const branchCapacity = segmentCount * 2;
+    branchCoordinates = new Float32Array(branchCapacity * BRANCH_STRIDE);
+    branchNodeIndices = new Float32Array(branchCapacity);
     branchCount = 0;
     const padding = FIGURE_INSET;
-    for (let k = 1; k < m - 1; k++) {
-      for (let r = 0; r < 2; r++) {
-        if (r === 1 && unit(k * 9 + 2) < 0.55) continue;
-        const i = at[k];
-        const a = Math.max(0, i - 3);
-        const b = Math.min(SAMPLES, i + 3);
-        const tx = pathX[b] - pathX[a];
-        const ty = pathY[b] - pathY[a];
-        const tl = Math.hypot(tx, ty) || 1;
-        const side = (k + r) % 2 ? 1 : -1;
-        const angle = side * (0.6 + unit(k * 5 + r) * 0.6) * (r ? -1 : 1);
+    for (let nodeIndex = 1; nodeIndex < segmentCount - 1; nodeIndex++) {
+      for (let branchPass = 0; branchPass < 2; branchPass++) {
+        if (branchPass === 1 && unit(nodeIndex * 9 + 2) < 0.55) continue;
+        const sampleIndex = at[nodeIndex];
+        const sampleBefore = Math.max(0, sampleIndex - 3);
+        const sampleAfter = Math.min(SAMPLES, sampleIndex + 3);
+        const tx = pathX[sampleAfter] - pathX[sampleBefore];
+        const ty = pathY[sampleAfter] - pathY[sampleBefore];
+        const tangentLength = Math.hypot(tx, ty) || 1;
+        const side = (nodeIndex + branchPass) % 2 ? 1 : -1;
+        const angle = side * (0.6 + unit(nodeIndex * 5 + branchPass) * 0.6) * (branchPass ? -1 : 1);
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
-        const dx = (tx * cos - ty * sin) / tl;
-        const dy = (tx * sin + ty * cos) / tl;
-        const reach = (horizontal ? 34 : 52) + unit(k * 3 + r * 7) * (horizontal ? 30 : 60) * (r ? 0.7 : 1);
-        const ex = clamp(nodeX[k] + dx * reach, padding, width - padding);
-        const ey = clamp(nodeY[k] + dy * reach, padding, height - padding);
-        const o = branchCount * BRANCH_STRIDE;
-        branchCoordinates[o] = nodeX[k];
-        branchCoordinates[o + 1] = nodeY[k];
-        branchCoordinates[o + 2] = clamp(nodeX[k] + (tx / tl) * reach * 0.45, padding, width - padding);
-        branchCoordinates[o + 3] = clamp(nodeY[k] + (ty / tl) * reach * 0.45, padding, height - padding);
-        branchCoordinates[o + 4] = clamp(ex - dx * reach * 0.3, padding, width - padding);
-        branchCoordinates[o + 5] = clamp(ey - dy * reach * 0.3, padding, height - padding);
-        branchCoordinates[o + 6] = ex;
-        branchCoordinates[o + 7] = ey;
-        branchNodeIndices[branchCount] = k;
+        const dx = (tx * cos - ty * sin) / tangentLength;
+        const dy = (tx * sin + ty * cos) / tangentLength;
+        const reach = (horizontal ? 34 : 52) + unit(nodeIndex * 3 + branchPass * 7) * (horizontal ? 30 : 60) * (branchPass ? 0.7 : 1);
+        const ex = clamp(nodeX[nodeIndex] + dx * reach, padding, width - padding);
+        const ey = clamp(nodeY[nodeIndex] + dy * reach, padding, height - padding);
+        const branchOffset = branchCount * BRANCH_STRIDE;
+        branchCoordinates[branchOffset] = nodeX[nodeIndex];
+        branchCoordinates[branchOffset + 1] = nodeY[nodeIndex];
+        branchCoordinates[branchOffset + 2] = clamp(nodeX[nodeIndex] + (tx / tangentLength) * reach * 0.45, padding, width - padding);
+        branchCoordinates[branchOffset + 3] = clamp(nodeY[nodeIndex] + (ty / tangentLength) * reach * 0.45, padding, height - padding);
+        branchCoordinates[branchOffset + 4] = clamp(ex - dx * reach * 0.3, padding, width - padding);
+        branchCoordinates[branchOffset + 5] = clamp(ey - dy * reach * 0.3, padding, height - padding);
+        branchCoordinates[branchOffset + 6] = ex;
+        branchCoordinates[branchOffset + 7] = ey;
+        branchNodeIndices[branchCount] = nodeIndex;
         branchCount++;
       }
     }
@@ -169,21 +177,33 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
     mesh = makeMesh(width, height, 5);
     const segments: Segment[] = [];
     polylineSegments(pathX, pathY, segments);
-    for (let b = 0; b < branchCount; b++) {
-      const o = b * BRANCH_STRIDE;
-      segments.push({ ax: branchCoordinates[o], ay: branchCoordinates[o + 1], bx: branchCoordinates[o + 6], by: branchCoordinates[o + 7] });
+    for (let branchIndex = 0; branchIndex < branchCount; branchIndex++) {
+      const branchOffset = branchIndex * BRANCH_STRIDE;
+      segments.push({ ax: branchCoordinates[branchOffset], ay: branchCoordinates[branchOffset + 1], bx: branchCoordinates[branchOffset + 6], by: branchCoordinates[branchOffset + 7] });
     }
     const avoid: Rectangle[] = [around(vx, vy, 10)];
-    for (let k = 0; k < nodeCount - 1; k++) avoid.push(around(nodeX[k], nodeY[k], 6));
-    vegaLabel = placeLabel("VEGA · α LYR", vx, vy, { widthInPixels: state.labelFont.widthInPixels("VEGA · α LYR"), lineHeightInPixels: state.labelFont.lineHeightInPixels, bounds: labelBounds(container, width, height), segments, avoid, gap: 16 });
+    for (let nodeIndex = 0; nodeIndex < nodeCount - 1; nodeIndex++) avoid.push(around(nodeX[nodeIndex], nodeY[nodeIndex], 6));
+    vegaLabel = placeLabel(
+      "VEGA · α LYR",
+      vx,
+      vy,
+      {
+        widthInPixels: state.labelFont.widthInPixels("VEGA · α LYR"),
+        lineHeightInPixels: state.labelFont.lineHeightInPixels,
+        bounds: labelBounds(container, width, height),
+        segments,
+        avoid,
+        gap: 16,
+      },
+    );
   }
 
   function pointAt(share: number, outputPoint: Point): Point {
-    const x = clamp(share) * SAMPLES;
-    const i = Math.min(SAMPLES - 1, Math.floor(x));
-    const u = x - i;
-    outputPoint.x = interpolate(pathX[i], pathX[i + 1], u);
-    outputPoint.y = interpolate(pathY[i], pathY[i + 1], u);
+    const samplePosition = clamp(share) * SAMPLES;
+    const sampleIndex = Math.min(SAMPLES - 1, Math.floor(samplePosition));
+    const sampleShare = samplePosition - sampleIndex;
+    outputPoint.x = interpolate(pathX[sampleIndex], pathX[sampleIndex + 1], sampleShare);
+    outputPoint.y = interpolate(pathY[sampleIndex], pathY[sampleIndex + 1], sampleShare);
     return outputPoint;
   }
 
@@ -202,34 +222,68 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
     // Orbit rings round Vega, in the grid's line colour.
     drawingContext.strokeStyle = palette.grid;
     drawingContext.lineWidth = 1;
-    for (let r = 0; r < 3; r++) {
-      drawingContext.globalAlpha = smooth((progress - 0.1 - r * 0.08) / 0.3) * 2.4;
+    for (let ringIndex = 0; ringIndex < 3; ringIndex++) {
+      drawingContext.globalAlpha = smooth((progress - 0.1 - ringIndex * 0.08) / 0.3) * 2.4;
       drawingContext.beginPath();
-      drawingContext.arc(vx, vy, ringRadius * RING_SHARES[r], 0, FULL_TURN_RADIANS);
+      drawingContext.arc(vx, vy, ringRadius * RING_SHARES[ringIndex], 0, FULL_TURN_RADIANS);
       drawingContext.stroke();
     }
     drawingContext.globalAlpha = 1;
 
     // Branches: drawn in faintly, then they fade to a ghost.
     const ghost = 1 - 0.7 * smooth((progress - 0.5) / 0.4);
-    for (let b = 0; b < branchCount; b++) {
-      const o = b * BRANCH_STRIDE;
-      const t = stagger(progress, 0.12 + branchNodeIndices[b] * 0.022, 0.26);
-      if (t <= 0) continue;
-      drawCurve(drawingContext, palette, branchCoordinates[o], branchCoordinates[o + 1], branchCoordinates[o + 2], branchCoordinates[o + 3], branchCoordinates[o + 4], branchCoordinates[o + 5], branchCoordinates[o + 6], branchCoordinates[o + 7], t, false, 0.5 * ghost);
-      if (t >= 1) {
+    for (let branchIndex = 0; branchIndex < branchCount; branchIndex++) {
+      const branchOffset = branchIndex * BRANCH_STRIDE;
+      const branchProgress = stagger(progress, 0.12 + branchNodeIndices[branchIndex] * 0.022, 0.26);
+      if (branchProgress <= 0) continue;
+      drawCurve(
+        drawingContext,
+        palette,
+        branchCoordinates[branchOffset],
+        branchCoordinates[branchOffset + 1],
+        branchCoordinates[branchOffset + 2],
+        branchCoordinates[branchOffset + 3],
+        branchCoordinates[branchOffset + 4],
+        branchCoordinates[branchOffset + 5],
+        branchCoordinates[branchOffset + 6],
+        branchCoordinates[branchOffset + 7],
+        branchProgress,
+        false,
+        0.5 * ghost,
+      );
+      if (branchProgress >= 1) {
         drawingContext.globalAlpha = 0.5 * ghost;
         drawingContext.strokeStyle = palette.metadata;
         drawingContext.lineWidth = 0.7;
         drawingContext.beginPath();
-        drawingContext.arc(branchCoordinates[o + 6], branchCoordinates[o + 7], 2, 0, FULL_TURN_RADIANS);
+        drawingContext.arc(
+          branchCoordinates[branchOffset + 6],
+          branchCoordinates[branchOffset + 7],
+          2,
+          0,
+          FULL_TURN_RADIANS,
+        );
         drawingContext.stroke();
         drawingContext.globalAlpha = 1;
       }
     }
 
     // The path: dim in full, and sky up to the reach.
-    drawCurve(drawingContext, palette, curve[0], curve[1], curve[2], curve[3], curve[4], curve[5], curve[6], curve[7], stagger(progress, 0.04, 0.36), false, 0.3);
+    drawCurve(
+      drawingContext,
+      palette,
+      curve[0],
+      curve[1],
+      curve[2],
+      curve[3],
+      curve[4],
+      curve[5],
+      curve[6],
+      curve[7],
+      stagger(progress, 0.04, 0.36),
+      false,
+      0.3,
+    );
     const litTo = Math.floor(reach * SAMPLES);
     if (litTo > 1) {
       drawingContext.lineCap = "round";
@@ -241,7 +295,7 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
         drawingContext.lineWidth = pass ? 1.5 : 1.1;
         drawingContext.beginPath();
         drawingContext.moveTo(pathX[from], pathY[from]);
-        for (let i = from + 1; i <= litTo; i++) drawingContext.lineTo(pathX[i], pathY[i]);
+        for (let sampleIndex = from + 1; sampleIndex <= litTo; sampleIndex++) drawingContext.lineTo(pathX[sampleIndex], pathY[sampleIndex]);
         drawingContext.stroke();
       }
       drawingContext.globalAlpha = 1;
@@ -249,12 +303,35 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
 
     // Neurons on the path, with Vega last.
     // Brightness and halo change with the reach in small steps, so a node never pops as the light moves.
-    for (let k = 0; k < nodeCount - 1; k++) {
-      const lit = smooth((reach - nodeFractions[k]) / 0.05 + 0.5);
-      const halo = lit * smooth((1 - Math.abs(reach - nodeFractions[k]) * 9) * 3);
-      drawNode(drawingContext, palette, state.glow, nodeX[k], nodeY[k], 1.5 + 1.1 * nodeFractions[k], stagger(progress, 0.06 + k * 0.02, 0.16), halo > 0.02, 0.4 + 0.55 * lit, false, halo);
+    for (let nodeIndex = 0; nodeIndex < nodeCount - 1; nodeIndex++) {
+      const lit = smooth((reach - nodeFractions[nodeIndex]) / 0.05 + 0.5);
+      const halo = lit * smooth((1 - Math.abs(reach - nodeFractions[nodeIndex]) * 9) * 3);
+      drawNode(
+        drawingContext,
+        palette,
+        state.glow,
+        nodeX[nodeIndex],
+        nodeY[nodeIndex],
+        1.5 + 1.1 * nodeFractions[nodeIndex],
+        stagger(progress, 0.06 + nodeIndex * 0.02, 0.16),
+        halo > 0.02,
+        0.4 + 0.55 * lit,
+        false,
+        halo,
+      );
     }
-    drawNode(drawingContext, palette, state.glow, vx, vy, 2.7, stagger(progress, 0.25, 0.25), true, 1, true);
+    drawNode(
+      drawingContext,
+      palette,
+      state.glow,
+      vx,
+      vy,
+      2.7,
+      stagger(progress, 0.25, 0.25),
+      true,
+      1,
+      true,
+    );
 
     // The reach marker: a glow and a ring at the head of the light. It shows in the settled state too,
     // because it is where the reader is. It fades out as it reaches Vega, which is the arrival mark itself.
@@ -274,10 +351,27 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
 
     // The arrival bloom on Vega, only when the light reaches it during the entrance.
     if (!state.reduced) {
-      drawVegaBloom(drawingContext, state.glow, vx, vy, smooth((progress - 0.62) / 0.22) * (1 - smooth((progress - 0.84) / 0.16)) * smooth((reach - 0.9) / 0.1));
+      drawVegaBloom(
+        drawingContext,
+        state.glow,
+        vx,
+        vy,
+        smooth((progress - 0.62) / 0.22) * (1 - smooth((progress - 0.84) / 0.16)) * smooth((reach - 0.9) / 0.1),
+      );
     }
     const labelIn = smooth((progress - 0.7) / 0.2);
-    if (vegaLabel) drawLabel(drawingContext, palette, state.labelFont.canvasFont, vegaLabel.text, vegaLabel.x, vegaLabel.y, vegaLabel.align, labelIn);
+    if (vegaLabel) {
+      drawLabel(
+        drawingContext,
+        palette,
+        state.labelFont.canvasFont,
+        vegaLabel.text,
+        vegaLabel.x,
+        vegaLabel.y,
+        vegaLabel.align,
+        labelIn,
+      );
+    }
 
     // The marker place for the tests, written when the value changes, and at most once per frame.
     if (scroll.linked) {
