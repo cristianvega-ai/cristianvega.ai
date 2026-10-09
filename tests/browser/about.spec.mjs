@@ -317,6 +317,7 @@ test.describe("the about graphic in production", () => {
 
 test.describe("the about graphic labels and edges", () => {
   for (const size of [
+    { width: 1920, height: 1080 },
     { width: 1440, height: 900 },
     { width: 1024, height: 768 },
     { width: 820, height: 1180 },
@@ -334,6 +335,10 @@ test.describe("the about graphic labels and edges", () => {
       expect(vega.left).toBeGreaterThanOrEqual(32);
       expect(vega.right).toBeLessThanOrEqual(viewport - 32);
       expect(vega.localTop).toBeGreaterThanOrEqual(16);
+      const painted = await edgePaint(page, graphic);
+      // A band is short, so only the sides count there. The mesh and the grid may enter the edge fade.
+      const sides = size.width >= 1100 ? ["left", "right", "top", "bottom"] : ["left", "right"];
+      for (const side of sides) expect(painted[side], `strong paint at the ${side} edge`).toBe(0);
     });
   }
 
@@ -351,12 +356,6 @@ test.describe("the about graphic labels and edges", () => {
       expect(label.halo?.lineWidth).toBeGreaterThanOrEqual(3);
       expect(label.halo?.lineWidth).toBeLessThanOrEqual(4);
     }
-  });
-
-  test("fades the canvas edges with a mask, so nothing clips at the viewport edge or the header line", async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.desktop);
-    await page.goto("/about/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
     const mask = await page.locator(`${graphic} canvas`).evaluate((canvas) => {
       const style = getComputedStyle(canvas);
       return { image: style.maskImage || style.webkitMaskImage, composite: style.maskComposite || style.webkitMaskComposite };
@@ -364,24 +363,5 @@ test.describe("the about graphic labels and edges", () => {
     expect(mask.image).toContain("linear-gradient");
     expect(mask.composite).toMatch(/intersect|source-in/);
   });
-});
 
-test.describe("the about graphic keeps its figure inside the box", () => {
-  for (const size of [
-    { width: 1920, height: 1080 },
-    { width: 1440, height: 900 },
-    { width: 1024, height: 768 },
-    { width: 390, height: 844 },
-  ]) {
-    test(`keeps every strong mark 28px inside the canvas edge at ${size.width}px`, async ({ page }) => {
-      await page.setViewportSize(size);
-      await useReducedMotion(page);
-      await page.goto("/about/");
-      await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-      const painted = await edgePaint(page, graphic);
-      // A band is short, so only the sides count there. The mesh and the grid may enter the edge fade.
-      const sides = size.width >= 1100 ? ["left", "right", "top", "bottom"] : ["left", "right"];
-      for (const side of sides) expect(painted[side], `strong paint at the ${side} edge`).toBe(0);
-    });
-  }
 });

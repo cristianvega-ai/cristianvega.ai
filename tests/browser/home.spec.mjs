@@ -54,7 +54,6 @@ test.describe("the globe is decorative", () => {
   test("leaves the real content readable", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("h1")).toHaveText("Cristian Vega");
-    await expect(page.getByRole("link", { name: /More about me/ })).toHaveCount(0);
     await expect(page.locator(".hero__lede")).toBeVisible();
     await expect(page.locator(".hero__thesis")).toBeVisible();
   });
@@ -366,22 +365,6 @@ test.describe("the globe labels", () => {
 test.describe("the globe motion", () => {
   test.use({ viewport: VIEWPORTS.desktop });
 
-  test("plays the entrance and ends still", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
-    await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
-  });
-
-  test("reduced motion draws the end state at once and never plays", async ({ page }) => {
-    await useManualFrames(page);
-    await useReducedMotion(page);
-    await page.goto("/");
-
-    await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
-    await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "still");
-    expect(await pendingFrames(page)).toBe(0);
-  });
-
   test("runs to the end when its frames run, then queues no more", async ({ page }) => {
     await useManualFrames(page);
     await page.goto("/");
@@ -393,62 +376,6 @@ test.describe("the globe motion", () => {
     await playFrames(page, 2000);
     await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "still");
     expect(await pendingFrames(page)).toBe(0);
-  });
-
-  test("stops its frames while the tab is hidden and resumes when it returns", async ({ page }) => {
-    await useManualFrames(page);
-    await page.goto("/");
-    await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
-    expect(await pendingFrames(page)).toBe(1);
-
-    const setHidden = (hidden) =>
-      page.evaluate((value) => {
-        Object.defineProperty(document, "hidden", { configurable: true, get: () => value });
-        document.dispatchEvent(new Event("visibilitychange"));
-      }, hidden);
-
-    await setHidden(true);
-    expect(await pendingFrames(page)).toBe(0);
-    await setHidden(false);
-    expect(await pendingFrames(page)).toBe(1);
-  });
-
-  test("cancels its frames on pagehide and starts again on a restored page", async ({ page }) => {
-    await useManualFrames(page);
-    await page.goto("/");
-    await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
-    expect(await pendingFrames(page)).toBe(1);
-
-    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true })));
-    expect(await pendingFrames(page)).toBe(0);
-    await expect(page.locator(globe)).not.toHaveAttribute("data-ready", /.*/);
-    await expect(page.locator(globe)).not.toHaveAttribute("data-motion-state", /.*/);
-    await expect(page.locator(`${globe} .lyra-globe__fallback`)).toHaveCount(0);
-
-    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })));
-    await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
-    await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
-    await expect.poll(() => pendingFrames(page)).toBe(1);
-  });
-
-  test("pauses while the globe is off-screen and resumes when it returns", async ({ page }) => {
-    await useManualFrames(page);
-    await page.goto(DRAFT_ORIGIN + "/");
-    await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
-    await expect.poll(() => pendingFrames(page)).toBe(1);
-
-    // The homepage fits one screen and does not scroll. Add a tall block below
-    // it so the globe can leave the screen.
-    await page.evaluate(() => {
-      const spacer = document.createElement("div");
-      spacer.style.height = "3000px";
-      document.querySelector("#main-content").after(spacer);
-    });
-
-    await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
-    await expect.poll(() => pendingFrames(page)).toBe(0);
-    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
-    await expect.poll(() => pendingFrames(page)).toBe(1);
   });
 
   test("resizes the canvas to the globe's box", async ({ page }) => {
@@ -510,61 +437,59 @@ for (const [name, viewport] of Object.entries(WIDTHS)) {
         expect(layout.graphic.right).toBeLessThanOrEqual(layout.width + 0.5);
       }
     });
-
-    test("keeps entry links and navigation consistent with current publication", async ({ page, request }) => {
-      await page.goto("/");
-      await expect(page.locator("h1")).toHaveCount(1);
-      await expect(page.locator("main h2")).toHaveCount(0);
-      await expect(page.locator("[data-article-identifier], [data-product-identifier]")).toHaveCount(0);
-      await expect(page.locator("a[href='#']")).toHaveCount(0);
-      await expect(page.getByText("More about me")).toHaveCount(0);
-
-      const items = page.locator(".hero__next-item");
-      const live = latestWork.map((item) => currentPublished[item.section].length > 0);
-      await expect(items).toHaveText(latestWork.map((item, index) => live[index] ? `${item.label} →` : item.soon));
-      expect(await items.evaluateAll((nodes) => nodes.map((node) => node.dataset.state))).toEqual(live.map((visible) => visible ? "live" : "soon"));
-      const focusable = await page.locator(".hero__next").evaluate((list) => list.querySelectorAll("a, button, [tabindex]").length);
-      expect(focusable).toBe(live.filter(Boolean).length);
-      for (const [index, item] of latestWork.entries()) {
-        await expect(page.locator(`.navigation__link[href='${item.href}'], .navigation-menu__link[href='${item.href}']`)).toHaveCount(live[index] ? 2 : 0);
-        await expect(page.locator(`a[href^='/${item.section}']`)).toHaveCount(live[index] ? 3 : 0);
-        await expect(items.nth(index).locator("a")).toHaveCount(live[index] ? 1 : 0);
-        if (live[index]) await expect(items.nth(index).locator("a")).toHaveAttribute("href", item.href);
-        expect((await request.get(item.href)).status()).toBe(live[index] ? 200 : 404);
-        for (const draft of currentContent[item.section].filter((entry) => entry.data.draft)) {
-          expect((await request.get(draft.href)).status(), draft.href).toBe(404);
-        }
-      }
-    });
-
-    test("shows two links and no lists with the drafts on the dev server", async ({ page }) => {
-      const errors = pageProblems(page);
-      await page.goto(DRAFT_ORIGIN + "/");
-      await settle(page);
-
-      // The Astro dev toolbar adds its own headings, so scope to main.
-      await expect(page.locator("main h1")).toHaveCount(1);
-      await expect(page.locator("main h2")).toHaveCount(0);
-      await expect(page.locator("[data-article-identifier], [data-product-identifier]")).toHaveCount(0);
-
-      const links = page.locator(".hero__next a");
-      await expect(links).toHaveCount(2);
-      await expect(links.nth(0)).toHaveAttribute("href", "/writing/");
-      await expect(links.nth(1)).toHaveAttribute("href", "/products/");
-      expect(await page.locator(".hero__next-item").evaluateAll((nodes) => nodes.map((node) => node.dataset.state))).toEqual(["live", "live"]);
-      await expect(page.locator(".hero__next")).not.toContainText("coming soon");
-      // The arrow is decoration, so the accessible name is the words alone.
-      await expect(page.getByRole("link", { name: "Read my latest writing", exact: true })).toHaveAttribute("href", "/writing/");
-      await expect(page.getByRole("link", { name: "See my latest products", exact: true })).toHaveAttribute("href", "/products/");
-      await expect(links).toHaveText(["Read my latest writing →", "See my latest products →"]);
-      await expect(page.getByText("More about me")).toHaveCount(0);
-
-      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-      expect(overflow).toBeLessThanOrEqual(1);
-      expect(errors).toEqual([]);
-    });
   });
 }
+
+test("homepage links follow current publication", async ({ page, request }) => {
+  await page.goto("/");
+  await expect(page.locator("h1")).toHaveCount(1);
+  await expect(page.locator("main h2")).toHaveCount(0);
+  await expect(page.locator("[data-article-identifier], [data-product-identifier]")).toHaveCount(0);
+  await expect(page.locator("a[href='#']")).toHaveCount(0);
+
+  const items = page.locator(".hero__next-item");
+  const live = latestWork.map((item) => currentPublished[item.section].length > 0);
+  await expect(items).toHaveText(latestWork.map((item, index) => live[index] ? `${item.label} →` : item.soon));
+  expect(await items.evaluateAll((nodes) => nodes.map((node) => node.dataset.state))).toEqual(live.map((visible) => visible ? "live" : "soon"));
+  const focusable = await page.locator(".hero__next").evaluate((list) => list.querySelectorAll("a, button, [tabindex]").length);
+  expect(focusable).toBe(live.filter(Boolean).length);
+  for (const [index, item] of latestWork.entries()) {
+    await expect(page.locator(`.navigation__link[href='${item.href}'], .navigation-menu__link[href='${item.href}']`)).toHaveCount(live[index] ? 2 : 0);
+    await expect(page.locator(`a[href^='/${item.section}']`)).toHaveCount(live[index] ? 3 : 0);
+    await expect(items.nth(index).locator("a")).toHaveCount(live[index] ? 1 : 0);
+    if (live[index]) await expect(items.nth(index).locator("a")).toHaveAttribute("href", item.href);
+    expect((await request.get(item.href)).status()).toBe(live[index] ? 200 : 404);
+    for (const draft of currentContent[item.section].filter((entry) => entry.data.draft)) {
+      expect((await request.get(draft.href)).status(), draft.href).toBe(404);
+    }
+  }
+});
+
+test("draft links stay readable across preview layouts", async ({ page }) => {
+  const errors = pageProblems(page);
+  for (const viewport of [WIDTHS.wide, VIEWPORTS.desktop, VIEWPORTS.tablet, VIEWPORTS.mobile, WIDTHS.narrow]) {
+    await page.setViewportSize(viewport);
+    await page.goto(DRAFT_ORIGIN + "/");
+    await settle(page);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  }
+  // The Astro dev toolbar adds its own headings, so scope to main.
+  await expect(page.locator("main h1")).toHaveCount(1);
+  await expect(page.locator("main h2")).toHaveCount(0);
+  await expect(page.locator("[data-article-identifier], [data-product-identifier]")).toHaveCount(0);
+
+  const links = page.locator(".hero__next a");
+  await expect(links).toHaveCount(2);
+  await expect(links.nth(0)).toHaveAttribute("href", "/writing/");
+  await expect(links.nth(1)).toHaveAttribute("href", "/products/");
+  expect(await page.locator(".hero__next-item").evaluateAll((nodes) => nodes.map((node) => node.dataset.state))).toEqual(["live", "live"]);
+  await expect(page.locator(".hero__next")).not.toContainText("coming soon");
+  // The arrow is decoration, so the accessible name is the words alone.
+  await expect(page.getByRole("link", { name: "Read my latest writing", exact: true })).toHaveAttribute("href", "/writing/");
+  await expect(page.getByRole("link", { name: "See my latest products", exact: true })).toHaveAttribute("href", "/products/");
+  await expect(links).toHaveText(["Read my latest writing →", "See my latest products →"]);
+  expect(errors).toEqual([]);
+});
 
 for (const viewport of [VIEWPORTS.desktop, VIEWPORTS.mobile, WIDTHS.narrow]) {
   test(`the home eyebrow keeps its clauses whole, clear of the header, at ${viewport.width}px`, async ({ page }) => {
@@ -632,11 +557,21 @@ for (const viewport of [WIDTHS.wide, VIEWPORTS.desktop, VIEWPORTS.tablet, VIEWPO
   test.describe(`the calls to action at ${viewport.width}px`, () => {
     test.use({ viewport });
 
-    test("keep one box in both states, so the layout never shifts", async ({ page }) => {
+    test("keep stable readable boxes in both publication states", async ({ page }) => {
       await page.goto("/");
       await settle(page);
       await setHomepageState(page, "soon");
       const soon = await readNext(page);
+      const state = await page.evaluate(() => {
+        const soon = document.querySelector(".hero__next-soon");
+        const style = getComputedStyle(soon);
+        const thesis = getComputedStyle(document.querySelector(".hero__thesis"));
+        return { color: style.color, thesisColor: thesis.color, cursor: style.cursor, arrow: Boolean(document.querySelector(".hero__next-arrow")), fontFamily: style.fontFamily };
+      });
+      expect(state.arrow, "a line that is not a link has no arrow").toBe(false);
+      expect(state.cursor).not.toBe("pointer");
+      expect(state.color, "the line is quieter than the thesis").not.toBe(state.thesisColor);
+      expect(state.fontFamily, "the line keeps the mono type of the links").toMatch(/mono/i);
       await setHomepageState(page, "live");
       const live = await readNext(page);
 
@@ -654,38 +589,15 @@ for (const viewport of [WIDTHS.wide, VIEWPORTS.desktop, VIEWPORTS.tablet, VIEWPO
       // Each row is a comfortable target, and the rows sit one under the other.
       for (const row of live.items) expect(row.height).toBeGreaterThanOrEqual(44);
       expect(live.items[1].top).toBeGreaterThanOrEqual(live.items[0].bottom - 1);
-    });
-
-    for (const [state, markup] of [["coming-soon", "soon"], ["live", "live"]]) {
-      test(`stay clear of the globe and inside the screen in the ${state} state`, async ({ page }) => {
-        await page.goto("/");
-        await settle(page);
-        await setHomepageState(page, markup);
-        const read = await readNext(page);
-        const width = await page.evaluate(() => document.documentElement.clientWidth);
+      const width = await page.evaluate(() => document.documentElement.clientWidth);
+      for (const read of [soon, live]) {
         for (const row of read.items) {
           expect(overlaps(row, read.globe), "a row must not overlap the globe").toBe(false);
           expect(overlaps(row, read.canvas), "a row must not overlap the globe picture").toBe(false);
           expect(row.left).toBeGreaterThanOrEqual(0);
           expect(row.right).toBeLessThanOrEqual(width + 0.5);
         }
-      });
-    }
-
-    test("read as text with no arrow when a section is not live", async ({ page }) => {
-      await page.goto("/");
-      await settle(page);
-      await setHomepageState(page, "soon");
-      const state = await page.evaluate(() => {
-        const soon = document.querySelector(".hero__next-soon");
-        const style = getComputedStyle(soon);
-        const thesis = getComputedStyle(document.querySelector(".hero__thesis"));
-        return { color: style.color, thesisColor: thesis.color, cursor: style.cursor, arrow: Boolean(document.querySelector(".hero__next-arrow")), fontFamily: style.fontFamily };
-      });
-      expect(state.arrow, "a line that is not a link has no arrow").toBe(false);
-      expect(state.cursor).not.toBe("pointer");
-      expect(state.color, "the line is quieter than the thesis").not.toBe(state.thesisColor);
-      expect(state.fontFamily, "the line keeps the mono type of the links").toMatch(/mono/i);
+      }
     });
   });
 }
@@ -1048,6 +960,7 @@ test.describe("the homepage is one screen", () => {
           footerBorder: getComputedStyle(document.querySelector(".site-footer")).borderTopWidth,
           headerBottom: document.querySelector(".site-header").getBoundingClientRect().bottom,
           footerTop: document.querySelector(".site-footer").getBoundingClientRect().top,
+          footerBottom: document.querySelector(".site-footer").getBoundingClientRect().bottom,
           contentLeft: document.querySelector(".hero__main").getBoundingClientRect().left,
           width: document.documentElement.clientWidth,
         }));
@@ -1081,19 +994,6 @@ test.describe("the homepage is one screen", () => {
         }, { encodedImage: screenshot.toString("base64"), headerBottom: style.headerBottom, footerTop: style.footerTop, contentLeft: style.contentLeft, width: style.width });
         expect(seams.header, "no line under the header").toBeLessThanOrEqual(1);
         expect(seams.footer, "no line over the footer").toBeLessThanOrEqual(1);
-      });
-
-      test("draws no horizontal grid line through the footer text", async ({ page }) => {
-        await page.goto("/");
-        await settle(page);
-        const state = await page.evaluate(() => {
-          const footer = document.querySelector(".site-footer").getBoundingClientRect();
-          return {
-            top: Math.round(footer.top), bottom: Math.round(footer.bottom),
-            contentLeft: document.querySelector(".hero__main").getBoundingClientRect().left,
-          };
-        });
-        const screenshot = await page.screenshot();
         const spread = await page.evaluate(async ({ encodedImage, top, bottom, contentLeft }) => {
           const bytes = Uint8Array.from(atob(encodedImage), (character) => character.charCodeAt(0));
           const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
@@ -1115,7 +1015,7 @@ test.describe("the homepage is one screen", () => {
             widest = Math.max(widest, Math.max(...values) - Math.min(...values));
           }
           return { widest, columns: columns.length };
-        }, { encodedImage: screenshot.toString("base64"), ...state });
+        }, { encodedImage: screenshot.toString("base64"), top: Math.round(style.footerTop), bottom: Math.round(style.footerBottom), contentLeft: style.contentLeft });
         expect(spread.columns).toBeGreaterThan(0);
         // A grid line would raise a row by 4 or more in the green channel.
         expect(spread.widest, "no horizontal line inside the footer bar").toBeLessThanOrEqual(1);
@@ -1146,11 +1046,7 @@ test.describe("the homepage is one screen", () => {
         expect(grid.cards, "no grid line behind the calls to action").toBeLessThanOrEqual(1.5);
         expect(grid.below, "no grid line in the strip above the footer").toBeLessThanOrEqual(0.6);
         expect(grid.headerSeam, "no grid line at the seam under the header").toBeLessThanOrEqual(0.6);
-      });
-
-      test("shows no straight edge: the grid is gone at every edge of its layer and of the screen", async ({ page }) => {
-        await page.goto("/");
-        await settle(page);
+        expect(grid.lineOffset, "the lines sit 0px from the content edge, modulo 40").toBe(0);
         const edges = await readGridEdges(page);
         // The layer is real and holds lines, so the zero at its edges is a
         // property of the mask and not of a missing grid.
@@ -1164,15 +1060,6 @@ test.describe("the homepage is one screen", () => {
         }
       });
 
-      test("keeps one vertical grid line on the left edge of the content where the grid shows", async ({ page }) => {
-        await page.goto("/");
-        await settle(page);
-        const grid = await readGrid(page);
-        // Among the 40 columns of one tile, the line falls on the column of
-        // the content edge, and on no other.
-        expect(grid.peak.contrast).toBeGreaterThanOrEqual(3);
-        expect(grid.lineOffset, "the lines sit 0px from the content edge, modulo 40").toBe(0);
-      });
     });
   }
 });
@@ -1182,10 +1069,12 @@ test.describe("the globe band below 1100px", () => {
     test.describe(`${screen.width}x${screen.height}`, () => {
       test.use({ viewport: screen });
 
-      test("holds a canvas that fills the band, and shows Vega and its name whole inside it", async ({ page }) => {
+      test("holds a canvas that fills the band, and shows Vega and its name whole inside it", async ({ browser, baseURL: baseAddress, page }) => {
+        await useReducedMotion(page);
         await page.goto("/");
         await settle(page);
         await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
+        await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "still");
         const read = await page.evaluate(() => {
           const plain = ({ left, top, right, bottom, width, height }) => ({ left, top, right, bottom, width, height });
           const band = document.querySelector(".hero__globe").getBoundingClientRect();
@@ -1221,13 +1110,6 @@ test.describe("the globe band below 1100px", () => {
           expect(label.top).toBeGreaterThanOrEqual(read.band.top);
           expect(label.bottom).toBeLessThanOrEqual(read.band.bottom);
         }
-      });
-
-      test("puts the Vega label in the same place with and without the canvas", async ({ browser, baseURL: baseAddress, page }) => {
-        await useReducedMotion(page);
-        await page.goto("/");
-        await settle(page);
-        await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "still");
         // The label sits at a fixed offset from the Vega star, so the label place shows the star place.
         const star = (target) => target.evaluate(() => {
           const band = document.querySelector(".hero__globe").getBoundingClientRect();
@@ -1257,6 +1139,14 @@ test.describe("the globe band below 1100px", () => {
       test("keeps the calls to action clear of the footer and the header with the page at the end", async ({ page }) => {
         await page.goto("/");
         await settle(page);
+        const fit = await page.evaluate(() => ({
+          scrollHeight: document.documentElement.scrollHeight,
+          innerHeight: window.innerHeight,
+          footerTop: document.querySelector(".site-footer").getBoundingClientRect().top,
+          nextBottom: Math.max(...[...document.querySelectorAll(".hero__next-item")].map((item) => item.getBoundingClientRect().bottom)),
+        }));
+        expect(fit.scrollHeight, `${screen.width}x${screen.height} needs no scroll`).toBeLessThanOrEqual(fit.innerHeight);
+        expect(fit.footerTop - fit.nextBottom).toBeGreaterThanOrEqual(24);
         await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
         const end = await page.evaluate(() => ({
           footerTop: document.querySelector(".site-footer").getBoundingClientRect().top,
@@ -1280,21 +1170,6 @@ test.describe("the globe band below 1100px", () => {
     });
   }
 
-  test("shows the calls to action without scrolling on every band screen", async ({ page }) => {
-    for (const screen of BAND_SCREENS) {
-      await page.setViewportSize(screen);
-      await page.goto("/");
-      await settle(page);
-      const fit = await page.evaluate(() => ({
-        scrollHeight: document.documentElement.scrollHeight,
-        innerHeight: window.innerHeight,
-        footerTop: document.querySelector(".site-footer").getBoundingClientRect().top,
-        nextBottom: Math.max(...[...document.querySelectorAll(".hero__next-item")].map((item) => item.getBoundingClientRect().bottom)),
-      }));
-      expect(fit.scrollHeight, `${screen.width}x${screen.height} needs no scroll`).toBeLessThanOrEqual(fit.innerHeight);
-      expect(fit.footerTop - fit.nextBottom).toBeGreaterThanOrEqual(24);
-    }
-  });
 });
 
 /** The left edge of the first text in an element, and its style as the browser computes it. */

@@ -51,58 +51,64 @@ const SKY_TOKENS = [
   { name: "a named color", token: "orange", colorChannels: [255, 165, 0] },
   { name: "a hex color with alpha", token: "#FF8000AA", colorChannels: [255, 128, 0], alpha: 170 / 255 },
   { name: "a transparent color", token: "transparent", colorChannels: [0, 0, 0], alpha: 0 },
-  { name: "an empty token fallback", token: " ", colorChannels: [56, 189, 248], fallback: true },
-  { name: "an invalid hex fallback", token: "#38BDGG", colorChannels: [56, 189, 248], fallback: true, warns: true },
-  { name: "an unknown word fallback", token: "not-a-color", colorChannels: [56, 189, 248], fallback: true, warns: true },
+  { name: "an empty token fallback", token: " ", colorChannels: [56, 189, 248] },
+  { name: "an invalid hex fallback", token: "#38BDGG", colorChannels: [56, 189, 248], warns: true },
+  { name: "an unknown word fallback", token: "not-a-color", colorChannels: [56, 189, 248], warns: true },
 ];
 
 test.describe("graphic sky colors", () => {
-  for (const viewport of Object.values(VIEWPORTS)) {
-    for (const { name, token, colorChannels, alpha = 1, warns = false } of SKY_TOKENS) {
-      test(`paints ${name} at ${viewport.width}px`, async ({ page }) => {
-        const { problems, warnings } = watchProblems(page);
-        await page.setViewportSize(viewport);
-        await useReducedMotion(page);
-        await useSkyToken(page, token);
-        await page.goto("/about/");
-        await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-        await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
-        await settle(page);
-        await expect(page.locator("h1")).toBeVisible();
-        await expect(page.locator(".about__lede")).toBeVisible();
-        expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--sky").trim())).toBe(token.trim());
+  // Color parsing has no viewport branch. Check every format once.
+  const colorCases = [
+    ...SKY_TOKENS.map((color) => ({ viewport: VIEWPORTS.desktop, color })),
+    // Keep painting checks for the tablet and mobile layout branches.
+    ...[VIEWPORTS.tablet, VIEWPORTS.mobile].map((viewport) => ({ viewport, color: SKY_TOKENS[0] })),
+  ];
+  for (const { viewport, color: { name, token, colorChannels, alpha = 1, warns = false } } of colorCases) {
+    test(`paints ${name} at ${viewport.width}px`, async ({ page }) => {
+      const { problems, warnings } = watchProblems(page);
+      await page.setViewportSize(viewport);
+      await useReducedMotion(page);
+      await useSkyToken(page, token);
+      await page.goto("/about/");
+      await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+      await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
+      await settle(page);
+      await expect(page.locator("h1")).toBeVisible();
+      await expect(page.locator(".about__lede")).toBeVisible();
+      expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--sky").trim())).toBe(token.trim());
 
-        // Without a fixed expectation, the browser resolves the color through a canvas of its own.
-        const expected = colorChannels ?? await page.evaluate((value) => {
-          const context = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
-          context.fillStyle = value;
-          context.fillRect(0, 0, 1, 1);
-          return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)];
-        }, token);
-        const stops = (await page.evaluate(() => window.__glowStops)).map(parseStop);
-        expect(stops, "one glow sprite with two stops").toHaveLength(2);
-        for (const [index, stop] of stops.entries()) {
-          for (const channel of [0, 1, 2]) expect(Math.abs(stop[channel] - expected[channel]), `stop ${index} channel ${channel}`).toBeLessThanOrEqual(1);
+      // Without a fixed expectation, the browser resolves the color through a canvas of its own.
+      const expected = colorChannels ?? await page.evaluate((value) => {
+        const context = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+        context.fillStyle = value;
+        context.fillRect(0, 0, 1, 1);
+        return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+      }, token);
+      const stops = (await page.evaluate(() => window.__glowStops)).map(parseStop);
+      expect(stops, "one glow sprite with two stops").toHaveLength(2);
+      for (const [index, stop] of stops.entries()) {
+        for (const channel of [0, 1, 2]) expect(Math.abs(stop[channel] - expected[channel]), `stop ${index} channel ${channel}`).toBeLessThanOrEqual(1);
+      }
+      expect(Math.abs(stops[0][3] - 0.45 * alpha), "the glow keeps the color alpha").toBeLessThanOrEqual(0.002);
+      expect(stops[1][3]).toBe(0);
+      if (!colorChannels) expect(stops[0].slice(0, 3).join(), "the color does not fall back").not.toBe("56,189,248");
+      const skyWarnings = warnings.filter((warning) => warning.includes("--sky"));
+      expect(skyWarnings, warns ? "an invalid token warns once" : "a valid or missing token does not warn").toHaveLength(warns ? 1 : 0);
+
+      const accentPixels = await page.locator(`${graphic} canvas`).evaluate((canvas, color) => {
+        const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+        let count = 0;
+        for (let pixelOffset = 0; pixelOffset < data.length; pixelOffset += 4) {
+          if (data[pixelOffset + 3] > 24 && color.every((channel, index) => Math.abs(data[pixelOffset + index] - channel) <= 3)) count += 1;
         }
-        expect(Math.abs(stops[0][3] - 0.45 * alpha), "the glow keeps the color alpha").toBeLessThanOrEqual(0.002);
-        expect(stops[1][3]).toBe(0);
-        if (!colorChannels) expect(stops[0].slice(0, 3).join(), "the color does not fall back").not.toBe("56,189,248");
-        const skyWarnings = warnings.filter((warning) => warning.includes("--sky"));
-        expect(skyWarnings, warns ? "an invalid token warns once" : "a valid or missing token does not warn").toHaveLength(warns ? 1 : 0);
+        return count;
+      }, expected);
+      if (alpha > 0) expect(accentPixels, "the graphic must paint the selected sky color").toBeGreaterThan(25);
+      expect(problems).toEqual([]);
+    });
+  }
 
-        const accentPixels = await page.locator(`${graphic} canvas`).evaluate((canvas, color) => {
-          const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
-          let count = 0;
-          for (let pixelOffset = 0; pixelOffset < data.length; pixelOffset += 4) {
-            if (data[pixelOffset + 3] > 24 && color.every((channel, index) => Math.abs(data[pixelOffset + index] - channel) <= 3)) count += 1;
-          }
-          return count;
-        }, expected);
-        if (alpha > 0) expect(accentPixels, "the graphic must paint the selected sky color").toBeGreaterThan(25);
-        expect(problems).toEqual([]);
-      });
-    }
-
+  for (const viewport of Object.values(VIEWPORTS)) {
     test(`keeps content visible without canvas at ${viewport.width}px`, async ({ page }) => {
       const { problems } = watchProblems(page);
       await page.setViewportSize(viewport);

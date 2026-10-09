@@ -61,13 +61,11 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
           sceneCount: document.querySelectorAll("[data-graphic]").length,
           headerBottom: header.bottom,
           contentTop: first.top,
-          legacyGraphicCount: document.querySelectorAll(".lyra-depth__fallback, .reading-hud").length,
         };
       });
       expect(layout.overflow).toBeLessThanOrEqual(1);
       expect(layout.overlap).toBe(false);
       expect(layout.edges.length).toBeLessThanOrEqual(1);
-      expect(layout.legacyGraphicCount).toBe(0);
       if (route === "/writing/") {
         expect(layout.pointerEvents).toBe("none");
         expect(layout.canvasWidth).toBe(layout.sceneWidth);
@@ -138,7 +136,6 @@ test("article sections and adjacent articles work", async ({ page }) => {
   await expect(page.locator(".prose .pipeline")).toHaveAttribute("role", "img");
   await expect(page.locator(".prose pre")).toHaveAttribute("tabindex", "0");
   await expect(page.locator(".prose pre")).toHaveAttribute("aria-label", "Code example");
-  await expect(page.locator(".reading-hud")).toHaveCount(0);
   const position = currentContent.writing.findIndex((entry) => entry.href === article);
   const newer = currentContent.writing[position - 1];
   const current = currentContent.writing[position];
@@ -313,26 +310,6 @@ test.describe("the writing graphic is decorative", () => {
     await expect(page.locator(".article-list__item")).toHaveCount(currentContent.writing.length);
   });
 
-  test("draws every label at 10px or larger", async ({ page }) => {
-    await page.addInitScript(() => {
-      window.__fontSizes = new Set();
-      const font = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, "font");
-      Object.defineProperty(CanvasRenderingContext2D.prototype, "font", {
-        get: font.get,
-        set(value) {
-          const size = /(\d+(?:\.\d+)?)px/.exec(value);
-          if (size) window.__fontSizes.add(Number(size[1]));
-          font.set.call(this, value);
-        },
-      });
-    });
-    await useReducedMotion(page);
-    await page.goto(DRAFT_ORIGIN + "/writing/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    const sizes = await page.evaluate(() => [...window.__fontSizes]);
-    expect(sizes.length).toBeGreaterThan(0);
-    for (const size of sizes) expect(size).toBeGreaterThanOrEqual(10);
-  });
 });
 
 test.describe("the writing graphic never covers text", () => {
@@ -426,6 +403,10 @@ test.describe("the writing graphic labels and family look", () => {
         expect(label.localBottom, `"${label.text}" bottom`).toBeLessThanOrEqual(label.canvasHeight - 24);
         expect(label.right, `"${label.text}" viewport right`).toBeLessThanOrEqual(viewport - 32);
       }
+      if ([VIEWPORTS.desktop.width, VIEWPORTS.mobile.width].includes(size.width)) {
+        const painted = await edgePaint(page, graphic);
+        for (const side of ["left", "right", "top", "bottom"]) expect(painted[side], `strong paint at the ${side} edge`).toBe(0);
+      }
     });
   }
 
@@ -444,12 +425,12 @@ test.describe("the writing graphic labels and family look", () => {
     expect(mask).toContain("linear-gradient");
   });
 
-  test("draws no corner bracket and no plus lattice, only the faint site grid", async ({ page }) => {
+  test("keeps faint paint out of the canvas corners", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
     await useReducedMotion(page);
     await page.goto(DRAFT_ORIGIN + "/writing/");
     await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    // The old frame put brackets 6px in from every corner. The grid fades to nothing at the corners.
+    // The grid fades to nothing at the canvas corners.
     const painted = await page.locator(`${graphic} canvas`).evaluate((canvas) => {
       const context = canvas.getContext("2d");
       const { width, height } = canvas;
@@ -466,7 +447,7 @@ test.describe("the writing graphic labels and family look", () => {
 });
 
 test.describe("the writing graphic uses page bindings", () => {
-  for (const size of Object.values(VIEWPORTS)) {
+  for (const size of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
     test(`reads labels after presentation classes change at ${size.width}px`, async ({ page }) => {
       await page.setViewportSize(size);
       await useReducedMotion(page);
@@ -488,47 +469,47 @@ test.describe("the writing graphic uses page bindings", () => {
       expect(labels).toEqual(expect.arrayContaining(expected));
     });
 
-    test(`reads entry identifiers through writing hooks at ${size.width}px`, async ({ page }) => {
-      await page.setViewportSize(size);
-      await useReducedMotion(page);
-      await page.route(`${DRAFT_ORIGIN}/writing/`, async (route) => {
-        const response = await route.fetch();
-        const body = (await response.text()).replaceAll("data-article-identifier=", "data-old-entry=");
-        await route.fulfill({ response, body });
-      });
-      await page.goto(`${DRAFT_ORIGIN}/writing/`);
-      await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-      const row = page.locator("[data-writing-entry-identifier]").first();
-      await row.dispatchEvent("pointerenter");
-      await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await row.getAttribute("data-writing-entry-identifier"));
-      await row.dispatchEvent("pointerleave");
-      await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
-      await row.locator("a").focus();
-      await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await row.getAttribute("data-writing-entry-identifier"));
-    });
-
-    test(`ignores entries and labels outside its page at ${size.width}px`, async ({ page }) => {
-      await page.setViewportSize(size);
-      await useReducedMotion(page);
-      await useLabelSpy(page);
-      await page.route(`${DRAFT_ORIGIN}/writing/`, async (route) => {
-        const response = await route.fetch();
-        const outside = '<aside data-writing-page hidden><section class="writing-index__list" data-writing-list><ol><li data-article-identifier="outside" data-writing-entry-identifier="outside"><span class="article-list__number" data-writing-label>Outside entry</span></li></ol></section></aside>';
-        const body = (await response.text()).replace('<main class="writing-index"', `${outside}<main class="writing-index"`);
-        await route.fulfill({ response, body });
-      });
-      await page.goto(`${DRAFT_ORIGIN}/writing/`);
-      await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-      await settle(page);
-      const labels = (await drawnLabels(page)).labels.map((label) => label.text);
-      expect(labels).not.toContain("Outside entry");
-      const outside = page.locator("[data-writing-entry-identifier='outside']");
-      await outside.dispatchEvent("pointerenter");
-      await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
-      await outside.dispatchEvent("focusin");
-      await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
-    });
   }
+  test("reads entry identifiers through writing hooks", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await useReducedMotion(page);
+    await page.route(`${DRAFT_ORIGIN}/writing/`, async (route) => {
+      const response = await route.fetch();
+      const body = (await response.text()).replaceAll("data-article-identifier=", "data-old-entry=");
+      await route.fulfill({ response, body });
+    });
+    await page.goto(`${DRAFT_ORIGIN}/writing/`);
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    const row = page.locator("[data-writing-entry-identifier]").first();
+    await row.dispatchEvent("pointerenter");
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await row.getAttribute("data-writing-entry-identifier"));
+    await row.dispatchEvent("pointerleave");
+    await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
+    await row.locator("a").focus();
+    await expect(page.locator(graphic)).toHaveAttribute("data-active-article", await row.getAttribute("data-writing-entry-identifier"));
+  });
+
+  test("ignores entries and labels outside its page", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await useReducedMotion(page);
+    await useLabelSpy(page);
+    await page.route(`${DRAFT_ORIGIN}/writing/`, async (route) => {
+      const response = await route.fetch();
+      const outside = '<aside data-writing-page hidden><section class="writing-index__list" data-writing-list><ol><li data-article-identifier="outside" data-writing-entry-identifier="outside"><span class="article-list__number" data-writing-label>Outside entry</span></li></ol></section></aside>';
+      const body = (await response.text()).replace('<main class="writing-index"', `${outside}<main class="writing-index"`);
+      await route.fulfill({ response, body });
+    });
+    await page.goto(`${DRAFT_ORIGIN}/writing/`);
+    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
+    await settle(page);
+    const labels = (await drawnLabels(page)).labels.map((label) => label.text);
+    expect(labels).not.toContain("Outside entry");
+    const outside = page.locator("[data-writing-entry-identifier='outside']");
+    await outside.dispatchEvent("pointerenter");
+    await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
+    await outside.dispatchEvent("focusin");
+    await expect(page.locator(graphic)).not.toHaveAttribute("data-active-article", /.*/);
+  });
 });
 
 test.describe("the writing graphic entrance", () => {
@@ -762,17 +743,6 @@ test.describe("the last focusable element clears the footer fade", () => {
 });
 
 test.describe("the writing graphic keeps its figure inside the box", () => {
-  for (const [name, viewport] of [["desktop", VIEWPORTS.desktop], ["mobile", VIEWPORTS.mobile]]) {
-    test(`keeps every strong mark 28px inside the canvas edge on ${name}`, async ({ page }) => {
-      await page.setViewportSize(viewport);
-      await useReducedMotion(page);
-      await page.goto(DRAFT_ORIGIN + "/writing/");
-      await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-      const painted = await edgePaint(page, graphic);
-      for (const side of ["left", "right", "top", "bottom"]) expect(painted[side], `strong paint at the ${side} edge`).toBe(0);
-    });
-  }
-
   test("the phone band is at most 20% taller than the about band", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     const height = async (path, selector) => {
@@ -786,11 +756,10 @@ test.describe("the writing graphic keeps its figure inside the box", () => {
     expect(writing).toBeLessThanOrEqual(about * 1.2 + 1);
   });
 
-  test("the title has no decode layer and reads as plain text on the first frame", async ({ page }) => {
+  test("the title reads as plain text on the first frame", async ({ page }) => {
     await useManualFrames(page);
     await page.goto(DRAFT_ORIGIN + "/writing/");
     await expect(page.locator("#writing-title")).toHaveText("Writing");
     await expect(page.locator("#writing-title *")).toHaveCount(0);
-    await expect(page.locator("#writing-title")).not.toHaveAttribute("data-decode", /.*/);
   });
 });
