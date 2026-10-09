@@ -1,10 +1,11 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 
-import { assertPageBasics, contentRoutes, dist, listBuiltRoutes, publishedContent, readContentInventory, readDistFile, root, sitemapPaths, withContentBuild } from "./helpers.mjs";
+import { assertPageBasics, contentRoutes, createIsolatedBuild, dist, listBuiltRoutes, publishedContent, readContentInventory, readDistFile, root, sitemapPaths, withContentBuild } from "./helpers.mjs";
 
 // Build output contract: the files the static deploy uploads must exist and be
 // complete. Page copy lives in tests/pages.test.mjs; this suite only asks
@@ -130,6 +131,53 @@ for (const kind of ["all-draft", "mixed"]) {
     await withContentBuild(kind, (fixture) => assertContentBuild(fixture.dist, fixture.inventory));
   });
 }
+
+function buildProductCapacityFixture(publishedCount) {
+  return createIsolatedBuild({
+    prefix: "cristianai-product-capacity-",
+    async prepare(projectRoot) {
+      const directory = join(projectRoot, "src", "content", "products");
+      await rm(directory, { recursive: true });
+      await mkdir(directory, { recursive: true });
+      for (let index = 0; index < 9; index += 1) {
+        const number = index + 1;
+        const frontmatter = [
+          "---",
+          `title: Capacity product ${number}`,
+          "description: Product capacity fixture.",
+          `draft: ${index >= publishedCount}`,
+          `order: ${number}`,
+          "---",
+          "",
+          "Product capacity fixture.",
+        ];
+        await writeFile(join(directory, `capacity-product-${number}.md`), frontmatter.join("\n"));
+      }
+    },
+  });
+}
+
+test("product routes build for eight published products and omit the ninth draft", { timeout: 90_000 }, async () => {
+  const fixture = await buildProductCapacityFixture(8);
+  try {
+    assertContentBuild(fixture.dist, readContentInventory(fixture.root));
+    const productRoutes = listBuiltRoutes(fixture.dist).filter((route) => route.startsWith("/products/"));
+    assert.equal(productRoutes.length, 9, "the product index and eight detail pages must build");
+    assert.ok(!productRoutes.includes("/products/capacity-product-9/"), "the ninth draft must stay hidden");
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("product routes reject nine published products during the build", { timeout: 90_000 }, async () => {
+  await assert.rejects(buildProductCapacityFixture(9), (error) => {
+    const output = `${error.stdout ?? ""}\n${error.stderr ?? ""}`;
+    assert.match(output, /9 products/);
+    assert.match(output, /8 slots/);
+    assert.match(output, /draft: true/);
+    return true;
+  });
+});
 
 test("static ops assets ship with the build", () => {
   assert.equal(existsSync(join(dist, "robots.txt")), true);

@@ -4,6 +4,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageGraphic from "../../components/PageGraphic.astro";
 import ProductList from "../../components/ProductList.astro";
 import { getProducts, type Product } from "../../shared/products";
+import { assertProductCapacity } from "../../shared/page-graphics/scenes/product-slots";
 import "../../styles/entries.css";
 import "../../styles/products.css";
 
@@ -11,6 +12,7 @@ import "../../styles/products.css";
 // visible, getStaticPaths returns nothing and the build emits no /products/.
 export async function getStaticPaths() {
   const products = await getProducts();
+  assertProductCapacity(products.filter(({ data }) => !data.draft).length);
   if (products.length === 0) return [];
   return [
     { params: { slug: undefined }, props: { products } },

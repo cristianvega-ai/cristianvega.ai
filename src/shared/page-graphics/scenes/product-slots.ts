@@ -9,8 +9,9 @@ export const SLOT_RING = [1, 2, 0, 2, 0, 2, 1, 2] as const;
 export const MAXIMUM_SLOTS = SLOT_OFFSET.length;
 
 /**
- * Reject a published product count that the picture cannot show. getProducts() calls it, so a build
- * with more published products than slots fails with this message instead of a picture with a missing star.
+ * Reject a published product count that the picture cannot show.
+ * Product routes call this guard before they return build paths.
+ * A build with too many published products fails before it can show an incomplete graphic.
  */
 export function assertProductCapacity(count: number): void {
   if (count > MAXIMUM_SLOTS) {
