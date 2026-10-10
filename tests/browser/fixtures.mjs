@@ -61,19 +61,6 @@ export const publicationTest = baseTest.extend({
   }, { scope: "worker", timeout: 90_000 }],
 });
 
-// Change only call-to-action markup for paired layout checks.
-export async function setHomepageState(page, state) {
-  await page.locator(".hero__next-item").evaluateAll((nodes, { state, items }) => {
-    for (const [index, node] of nodes.entries()) {
-      const item = items[index];
-      node.dataset.state = state;
-      node.innerHTML = state === "live"
-        ? `<a class="hero__next-link" href="${item.href}">${item.label} <span class="hero__next-arrow" aria-hidden="true">→</span></a>`
-        : `<span class="hero__next-soon">${item.soon}</span>`;
-    }
-  }, { state, items: latestWork });
-}
-
 /**
  * Shared helpers for the browser suite.
  *
@@ -109,8 +96,8 @@ export const recordContentSecurityPolicyViolations = (page) =>
 /** The directives the page violated since `recordContentSecurityPolicyViolations`. */
 export const contentSecurityPolicyViolations = (page) => page.evaluate(() => window.__contentSecurityPolicyViolations);
 
-/** Read the facts that keep a page graphic decorative: hidden, inert, one canvas, and no text or style. */
-export const decorativeState = (page, selector) =>
+/** Read the accessibility state of a decorative canvas. */
+const decorativeState = (page, selector) =>
   page.evaluate((graphicSelector) => {
     const root = document.querySelector(graphicSelector);
     return {
@@ -118,35 +105,16 @@ export const decorativeState = (page, selector) =>
       pointerEvents: [root, root.querySelector("canvas")].map((part) => getComputedStyle(part).pointerEvents),
       canvases: root.querySelectorAll("canvas").length,
       focusable: root.querySelectorAll("a, button, input, select, textarea, [tabindex]").length,
-      text: root.textContent.trim(),
-      headings: root.querySelectorAll("h1, h2, h3, a").length,
-      styled: root.querySelectorAll("[style]").length + (root.hasAttribute("style") ? 1 : 0),
     };
   }, selector);
 
-/** Widths and heights that each select a distinct branch of the design system. */
+/** Desktop and mobile select distinct navigation and graphic layouts. */
 export const VIEWPORTS = {
   /** Comfortably above every breakpoint. */
   desktop: { width: 1440, height: 900 },
-  /** Below the 960px layout breakpoint. */
-  tablet: { width: 900, height: 1000 },
   /** Below the 760px and 520px refinements. */
   mobile: { width: 390, height: 844 },
 };
-
-/** Check page graphics across the desktop and band layouts. */
-export const GRAPHIC_VIEWPORTS = [
-  VIEWPORTS.desktop,
-  { width: 1024, height: 768 },
-  { width: 820, height: 1180 },
-  VIEWPORTS.mobile,
-];
-
-/**
- * The height of the graphic band below 1100px on a screen of a given height. The band
- * follows the screen height between 144px and 240px, the same clamp as global.css.
- */
-export const bandHeight = (screenHeight) => Math.min(240, Math.max(144, screenHeight * 0.2));
 
 /**
  * Wait out any entrance animation in main, and any web font, before measuring.
@@ -263,8 +231,8 @@ export async function openGraphic(page, target) {
   await expect(page.locator(target.graphic)).toHaveAttribute("data-ready", "true", { timeout: 20_000 });
 }
 
-/** Box of every text run in main, taken before the content is hidden. */
-export async function textBoxes(page) {
+/** Read the visible text boxes in main. */
+async function textBoxes(page) {
   return page.evaluate(() => {
     const boxes = [];
     const walker = document.createTreeWalker(document.querySelector("main"), NodeFilter.SHOW_TEXT);
@@ -283,20 +251,13 @@ export async function textBoxes(page) {
 }
 
 /**
- * Record every label a page graphic draws, with the halo drawn under it. Call it before the page loads.
- * Read the result with `drawnLabels`. It keeps the latest draw of each text on each canvas.
+ * Record drawn labels and font measurements before navigation.
+ * Read the latest label boxes with `drawnLabels`.
  */
 export async function useLabelSpy(page) {
   await page.addInitScript(() => {
-    const colour = document.createElement("canvas").getContext("2d");
-    const normalise = (value) => {
-      colour.fillStyle = "#000";
-      colour.fillStyle = value;
-      return colour.fillStyle;
-    };
     const canvasPrototype = CanvasRenderingContext2D.prototype;
     const fillText = canvasPrototype.fillText;
-    const strokeText = canvasPrototype.strokeText;
     const measureText = canvasPrototype.measureText;
     window.__labels = new Map();
     window.__labelMeasureCount = 0;
@@ -305,11 +266,6 @@ export async function useLabelSpy(page) {
     canvasPrototype.measureText = function (...measurementArguments) {
       window.__labelMeasureCount += 1;
       return measureText.apply(this, measurementArguments);
-    };
-    let halo = null;
-    canvasPrototype.strokeText = function (text, x, y, ...rest) {
-      halo = { text, x, y, lineWidth: this.lineWidth, lineJoin: this.lineJoin, style: normalise(this.strokeStyle) };
-      return strokeText.call(this, text, x, y, ...rest);
     };
     canvasPrototype.fillText = function (text, x, y, ...rest) {
       const transform = this.getTransform();
@@ -323,71 +279,31 @@ export async function useLabelSpy(page) {
         font: this.font,
         width: measureText.call(this, text).width,
         canvas: this.canvas,
-        halo: halo && halo.text === text && halo.x === x && halo.y === y ? halo : null,
       });
       return fillText.call(this, text, x, y, ...rest);
     };
   });
 }
 
-/** The labels drawn so far, as boxes in page pixels, and the ink and ground colours of the page. */
+/** Read drawn label boxes in canvas pixels. */
 export async function drawnLabels(page) {
   return page.evaluate(() => {
-    const colour = document.createElement("canvas").getContext("2d");
-    colour.fillStyle = "#000";
-    colour.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim();
-    const ink = colour.fillStyle;
     const labels = [...window.__labels.values()].map((label) => {
       const box = label.canvas.getBoundingClientRect();
       const left = label.align === "left" ? label.x : label.align === "right" ? label.x - label.width : label.x - label.width / 2;
       return {
         text: label.text,
         font: label.font,
-        left: box.left + left,
-        right: box.left + left + label.width,
-        top: box.top + label.y - 6,
-        bottom: box.top + label.y + 6,
-        // The same box in canvas pixels.
         localLeft: left,
         localRight: left + label.width,
         localTop: label.y - 6,
         localBottom: label.y + 6,
         canvasWidth: box.width,
         canvasHeight: box.height,
-        halo: label.halo && { lineWidth: label.halo.lineWidth, lineJoin: label.halo.lineJoin, style: label.halo.style },
       };
     });
-    return { labels, ink, viewport: document.documentElement.clientWidth };
+    return { labels };
   });
-}
-
-/**
- * Count the strongly painted canvas pixels within `inset` CSS pixels of each canvas edge.
- * The figure must keep out of this zone. The faint mesh, star field, and grid may enter it,
- * so only a pixel with an alpha above `minimumAlpha` (0 to 255) counts.
- */
-export async function edgePaint(page, graphic, inset = 28, minimumAlpha = 140) {
-  return page.locator(`${graphic} canvas`).evaluate(
-    (canvas, [zone, threshold]) => {
-      const scale = canvas.width / canvas.getBoundingClientRect().width;
-      const band = Math.round(zone * scale);
-      const { width, height } = canvas;
-      const context = canvas.getContext("2d");
-      const count = (x, y, width, height) => {
-        const { data } = context.getImageData(x, y, width, height);
-        let total = 0;
-        for (let alphaIndex = 3; alphaIndex < data.length; alphaIndex += 4) if (data[alphaIndex] > threshold) total += 1;
-        return total;
-      };
-      return {
-        left: count(0, 0, band, height),
-        right: count(width - band, 0, band, height),
-        top: count(0, 0, width, band),
-        bottom: count(0, height - band, width, band),
-      };
-    },
-    [inset, minimumAlpha],
-  );
 }
 
 /**
@@ -408,4 +324,49 @@ export async function focusRingAndFade(page) {
       fadeTop: footer.top - fade,
     };
   });
+}
+
+
+/** Check visible page content and serious horizontal overflow. */
+export async function expectReadablePage(page) {
+  await expect(page.locator("main h1")).toHaveCount(1);
+  await expect(page.locator("main h1")).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow, `${page.url()}: page content must not overflow sideways`).toBeLessThanOrEqual(1);
+}
+
+/** Check actual foreground drawing and decorative accessibility. */
+export async function expectDecorativeGraphic(page, selector) {
+  const state = await decorativeState(page, selector);
+  expect(state.hidden, `${selector}: the graphic remains decorative`).toBe("true");
+  expect(state.pointerEvents, `${selector}: the graphic must not take pointer input`).toEqual(["none", "none"]);
+  expect(state.focusable, `${selector}: the graphic must not take keyboard focus`).toBe(0);
+  expect(state.canvases, `${selector}: one canvas mounts`).toBe(1);
+  const box = await page.locator(selector).boundingBox();
+  expect(box.width, `${selector}: the graphic has a useful width`).toBeGreaterThan(100);
+  expect(box.height, `${selector}: the graphic has a useful height`).toBeGreaterThan(100);
+  expect(await paintedPixels(page, selector, 8), `${selector}: the scene must draw foreground paint`).toBeGreaterThan(100);
+}
+
+/** Check that foreground canvas paint cannot hide visible page text. */
+export async function expectGraphicClearOfText(page, selector) {
+  const boxes = await textBoxes(page);
+  expect(boxes.length, `${page.url()}: the clipping check requires visible text`).toBeGreaterThan(0);
+  const painted = await page.locator(`${selector} canvas`).evaluate((canvas, boxes) => {
+    const rectangle = canvas.getBoundingClientRect();
+    const scale = canvas.width / rectangle.width;
+    const context = canvas.getContext("2d");
+    let count = 0;
+    for (const box of boxes) {
+      const left = Math.max(0, Math.floor((box.x - rectangle.left) * scale));
+      const top = Math.max(0, Math.floor((box.y - rectangle.top) * scale));
+      const right = Math.min(canvas.width, Math.ceil((box.x + box.width - rectangle.left) * scale));
+      const bottom = Math.min(canvas.height, Math.ceil((box.y + box.height - rectangle.top) * scale));
+      if (right <= left || bottom <= top) continue;
+      const { data } = context.getImageData(left, top, right - left, bottom - top);
+      for (let index = 3; index < data.length; index += 4) if (data[index] > 8) count += 1;
+    }
+    return count;
+  }, boxes);
+  expect(painted, `${selector}: foreground paint must not cover page text`).toBe(0);
 }

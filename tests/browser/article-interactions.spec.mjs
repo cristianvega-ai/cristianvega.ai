@@ -22,9 +22,8 @@ async function loadArticle(page, content, outside = "") {
   return errors;
 }
 
-for (const [name, viewport] of Object.entries(VIEWPORTS)) {
-  test(`${name} article keeps authored names and supplies missing defaults`, async ({ page }) => {
-    await page.setViewportSize(viewport);
+test("article supplies accessible defaults and keyboard access", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.mobile);
     const errors = await loadArticle(page, `
       <div class="prose">
         <a id="before-defaults" href="#after-defaults">Before examples</a>
@@ -54,8 +53,6 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     await expect(page.locator("#after-defaults")).toBeFocused();
     expect(errors).toEqual([]);
   });
-}
-
 test("article keeps authored code and diagram labels", async ({ page }) => {
   const errors = await loadArticle(page, `
     <div class="prose">

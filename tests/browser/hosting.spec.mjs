@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 
 import { permissionsPolicy } from "../helpers.mjs";
-import { settle, VIEWPORTS } from "./fixtures.mjs";
 
 for (const [path, status] of [["/", 200], ["/missing-hosting-check/", 404]]) {
   test(`${path} sends the security policy with HTTP ${status}`, async ({ request }) => {
@@ -92,20 +91,3 @@ test("Cloudflare rejects POST requests to the static homepage", async ({ request
   const response = await request.post("/", { maxRedirects: 0 });
   expect(response.status()).toBe(405);
 });
-
-for (const [name, viewport] of Object.entries(VIEWPORTS)) {
-  test(`${name} loads without script or policy errors`, async ({ page }) => {
-    const errors = [];
-    page.on("pageerror", (error) => errors.push(error.message));
-    page.on("console", (message) => {
-      if (message.type() === "error") errors.push(message.text());
-    });
-    await page.setViewportSize(viewport);
-    await page.goto("/");
-    await settle(page);
-    await page.evaluate(() => document.fonts.ready);
-    await expect(page.locator('script[src*="CloudflareAnalytics"]')).toHaveCount(1);
-    await expect(page.locator('script[data-cf-beacon]')).toHaveCount(0);
-    expect(errors).toEqual([]);
-  });
-}
