@@ -8,23 +8,13 @@ import { promisify } from "node:util";
 import assert from "node:assert/strict";
 import yaml from "js-yaml";
 
-// Fixtures more than one Node test file needs: the repository and build paths,
-// the two file readers, and the page contract every rendered document must meet.
-// A helper that only one suite uses stays in that suite.
+// Share repository paths, publication fixtures, and rendered-page checks.
+// Keep helpers used by one suite in that suite.
 
 // fileURLToPath, not URL.pathname: the latter stays percent-encoded, so a
 // checkout under a path with spaces or non-ASCII characters would ENOENT.
 export const root = fileURLToPath(new URL("..", import.meta.url));
 export const dist = join(root, "dist");
-
-// Read the size and aspect ratio of a figure.
-export const figureBox = (points) => {
-  const xs = points.map((point) => point.x);
-  const ys = points.map((point) => point.y);
-  const width = Math.max(...xs) - Math.min(...xs);
-  const height = Math.max(...ys) - Math.min(...ys);
-  return { width, height, aspect: width / height };
-};
 
 // Keep the reference star widths in CSS pixels.
 export const starWidthsInPixels = [66, 0, 0, 0, 42, 42];
@@ -212,10 +202,6 @@ export const permissionsPolicy = blockedBrowserFeatures.map((name) => `${name}=(
 
 export function readDistFile(...segments) {
   return readFileSync(join(dist, ...segments), "utf8");
-}
-
-export function readSourceFile(...segments) {
-  return readFileSync(join(root, "src", ...segments), "utf8");
 }
 
 /** Count <h1>…</h1> occurrences (case-insensitive tag). */
