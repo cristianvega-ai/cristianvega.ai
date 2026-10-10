@@ -4,35 +4,31 @@ These rules add to the root `AGENTS.md`. Read them before you add, move, or chan
 
 ## Testing strategy
 
-The suite has two runners and one file per concern. Put each new test in the layer that can observe the behavior. Do not add tests to whichever file is largest.
+The suite has two runners. Each suite owns one concern. Put checks in the layer that observes the failure.
 
 | Layer | File | Owns |
 | --- | --- | --- |
 | Easing | `tests/easing.test.mjs` | Clamping, cubic easing, and cubic points. |
-| Globe model | `tests/globe-model.test.mjs` | Globe geometry, routes, entrance order, label anchors, projection bounds, and rounded stylesheet values. |
+| Globe model | `tests/globe-model.test.mjs` | Node bounds, route connections, Vega endpoints, and cumulative route lengths. |
 | Graphic clock | `tests/graphics-clock.test.mjs` | Page graphic entrance progress. |
 | Graphic math | `tests/graphics-math.test.mjs` | Staggering, smoothing, interpolation, and stable numeric samples. |
-| Graphic geometry | `tests/graphics-geometry.test.mjs` | Lyra layout, constellation links, route lengths, meshes, and figure insets. |
+| Graphic geometry | `tests/graphics-geometry.test.mjs` | Star indices, padded Lyra layout, cumulative route lengths, and mesh bounds. |
 | Labels | `tests/labels.test.mjs` | Label placement, rectangle overlap, and segment intersections. |
-| Graphic fonts | `tests/graphic-font.test.mjs` | Font measurement, width caching, and measured placement inputs. |
-| About model | `tests/about-model.test.mjs` | About path geometry, orientation, and ring margins. |
-| Products model | `tests/products-model.test.mjs` | Product capacity, entrance timing, slots, orbits, mark reach, and Lyra fitting. |
-| 404 model | `tests/404-model.test.mjs` | Missing star layout, search timing, names, and insets. |
-| Writing model | `tests/writing-model.test.mjs` | Writing field placement, links, labels, and insets. |
+| Graphic fonts | `tests/graphic-font.test.mjs` | Measured width caching, refreshed metrics, supplied font families, and size fallback. |
+| About model | `tests/about-model.test.mjs` | Path shape and ring bounds in columns and bands. |
+| Products model | `tests/products-model.test.mjs` | Capacity, empty content, progress endpoints, distinct slots, and basic Lyra bounds. |
+| 404 model | `tests/404-model.test.mjs` | Missing star geometry in columns and bands. |
+| Writing model | `tests/writing-model.test.mjs` | Article point counts, physical bounds, connected paths, and unique valid links. |
 | Palette | `tests/palette.test.mjs` | Glow stops from a resolved color, with the color alpha. |
-| Build | `tests/build.test.mjs` | Static files, compiled assets, sitemap completeness, fonts, and private image exclusions. |
-| Pages | `tests/pages.test.mjs` | Core-page content, headings, metadata consistency, navigation state, fallbacks, and font delivery. |
+| Build | `tests/build.test.mjs` | Static file safety, sitemap completeness, local font references, and private image exclusions. |
+| Pages | `tests/pages.test.mjs` | Owner content, landmarks, metadata consistency, navigation state, safe outbound links, and local fonts. |
 | Publication | `tests/publication.test.mjs` | Production routes, draft privacy, rendered publication, content order, escaped metadata, and product build capacity. |
-| Diagnostics | `tests/diagnostics.test.mjs` | The real `astro check` reports source files and skips generated and tool folders. |
-| Public input | `tests/public-input.test.mjs` | The prebuild guard keeps operating-system metadata out of `public/`. |
+| Public input | `tests/public-input.test.mjs` | The prebuild guard keeps operating system metadata out of public assets. |
 | Security | `tests/security.test.mjs` | Cloudflare header and cache rules, the CSP, and `security.txt`. |
-| Deployment | `tests/deploy-gate.test.mjs` | The live gate accepts the verified build and rejects broken responses. The gate also runs against the local Cloudflare build. |
+| Deployment | `tests/deploy-gate.test.mjs` | Verified build acceptance, representative broken responses, unsafe script URLs, approved headers, and the local Cloudflare build. |
 | Workflow | `tests/deploy-workflow.test.mjs` | Parsed workflow triggers, action pins, token scope, secrets, freshness conditions, and artifact integrity. |
-| Node version | `tests/node-version.test.mjs` | The tests and Cursor setup use the exact version in `.nvmrc`. |
-| Design tokens | `tests/design-tokens.test.mjs` | Design-token hygiene in `global.css`, and the allowlist of global tokens that a page stylesheet can redefine. |
-| Selector hygiene | `tests/stylesheet-selector-hygiene.test.mjs` | A class that is the subject of `:focus` or `:focus-visible` must be able to receive focus. |
-| CSS | `tests/motion-styles.test.mjs` | Rules that must survive compilation, such as the reduced-motion contract, and the ban on CSS `round()`. |
-| Behavior | `tests/browser/*.spec.mjs` | Computed layout, sticky and responsive rules, focus, and runtime JavaScript. |
+| Node version | `tests/node-version.test.mjs` | Exact .nvmrc format and the actual test runtime. |
+| CSS | `tests/motion-styles.test.mjs` | Reduced motion reset and compiled CSS entrance preferences. |
 
 Unit suites read pure helpers. They do not read the DOM or build output.
 
@@ -42,22 +38,20 @@ The deployment suite starts Wrangler on `dist/`. `npm run test:run` therefore ne
 
 | File | Owns |
 | --- | --- |
-| `tests/browser/home.spec.mjs` | Homepage layout, content links, publication state, and the globe. |
-| `tests/browser/globe-presentation.spec.mjs` | Globe presentation, label clocks, stylesheet delivery, fallbacks, backdrop alignment, label size, and restored entrances. |
-| `tests/browser/products.spec.mjs` | Product index and detail flows, metadata, graphic bindings, marks, capacity, labels, and bounds. |
-| `tests/browser/404.spec.mjs` | 404 graphic search, labels, bounds, fallback, content visibility, and console behavior. |
-| `tests/browser/about.spec.mjs` | About graphic layout, reader interaction, and page expectations. |
-| `tests/browser/writing.spec.mjs` | Writing navigation, article flows, and writing graphic expectations. |
+| `tests/browser/home.spec.mjs` | Readable content, visible globe, navigation, publication links, keyboard access, reduced motion, and frame completion. |
+| `tests/browser/globe-presentation.spec.mjs` | Globe label clocks, hidden tabs, restored entrances, motion preferences, and stylesheet failure. |
+| `tests/browser/products.spec.mjs` | Basic product list and detail navigation, responsive reading, and production draft privacy. |
+| `tests/browser/404.spec.mjs` | Real 404 status, return navigation, and readable content without JavaScript. |
+| `tests/browser/about.spec.mjs` | Reader tracking, pages without scrolling, reduced motion, reading without JavaScript, and scroll listener cleanup. |
+| `tests/browser/writing.spec.mjs` | Basic article navigation, draft privacy, keyboard and pointer interactions, readable controls, fallbacks, reduced motion, and cleanup. |
 | `tests/browser/article-interactions.spec.mjs` | Article code and diagram names, roles, focus order, and the scope of the article setup. |
-| `tests/browser/article-menu.spec.mjs` | The article menu at narrow widths: text contrast, focus rings, and the current link. |
+| `tests/browser/article-menu.spec.mjs` | The article menu at minimum width: text contrast, focus rings, and the current link. |
 | `tests/browser/publication.spec.mjs` | Published content in an isolated production build: routes, sitemap, robots, navigation, scripts, and the copy link. |
-| `tests/browser/canvas-controller.spec.mjs` | Controller policies, clocks, observers, listeners, restoration, and resource cleanup. |
-| `tests/browser/page-graphics.spec.mjs` | Shared graphic entrance, reduced motion, pause, rest, and restoration contracts. |
-| `tests/browser/graphic-font.spec.mjs` | CSS font tokens, delayed fonts, measured labels, resizing, and font callback lifetimes. |
-| `tests/browser/layout.spec.mjs` | Shared shell geometry, reading edges, graphic bands, and alignment across pages. |
-| `tests/browser/typography.spec.mjs` | Shared typography sizes, line heights, tracking, and role order. |
-| `tests/browser/palette.spec.mjs` | Graphic sky channels, alpha, color formats, resized scenes, and the fallback color. |
-| `tests/browser/hosting.spec.mjs` | Local Cloudflare responses: headers, redirects, robots, compression, caching, and refused requests. |
+| `tests/browser/canvas-controller.spec.mjs` | Controller clocks, observers, motion preferences, restoration, resource cleanup, bitmap cropping, and failure fallbacks. |
+| `tests/browser/page-graphics.spec.mjs` | Decorative scenes, readable content, reduced motion, and product clock completion. |
+| `tests/browser/graphic-font.spec.mjs` | Missing and delayed fonts, measured labels, resizing, pending motion preferences, and font callback lifetimes. |
+| `tests/browser/layout.spec.mjs` | Shell readability, responsive navigation, keyboard focus, skip links, article anchors, and reading without JavaScript. |
+| `tests/browser/hosting.spec.mjs` | Local Cloudflare headers, redirects, preview indexing, compression, caching, security contact, and refused requests. |
 | `tests/browser/security.spec.mjs` | The browser enforces the CSP and the permissions policy. |
 | `tests/browser/analytics.spec.mjs` | The Cloudflare beacon loads on the production origin only, and pages work when it is blocked. |
 
@@ -73,26 +67,35 @@ To choose a layer, ask what the test must look at:
 
 ## Test value
 
-Keep a test only when it detects a distinct failure in behavior or a required contract.
+Keep cases that protect important behavior or credible faults.
+A distinct cosmetic difference alone does not justify a case.
 Do not use case counts as coverage targets.
 
-- Name the failure each case detects.
+- Name the important failure each case detects.
 - Check existing coverage before adding a case.
 - Do not add import-only or export-existence cases.
+- Keep each suite proportional to current website behavior.
+- Prefer cheap unit checks for stable shared boundaries.
 - Merge cases that repeat setup and detect the same failure.
-- Keep every transferred assertion and its useful failure message.
+- Keep essential assertions and useful failure messages when moving coverage.
+- Record deliberate removals and their maintenance value.
 - Keep checks across layers when they detect different failures.
-- Choose viewport, route, data, and failure matrices from distinct responsive or behavioral boundaries.
+- Select representative security, route, data, and responsive inputs from different failure mechanisms.
+- Cover each critical boundary before adding syntax or position permutations.
+- Use the smallest matrix that exposes those boundaries.
 - Record the reason for each matrix dimension near its definition.
-- Avoid full Cartesian products unless their combinations exercise different behavior.
-- Share each isolated build when its assertions use the same fixture and production inputs.
+- Avoid full Cartesian products unless their combinations expose important faults.
+- Use coarse device pixel ratio checks when bitmap scaling can clip a scene.
+- Keep basic draft navigation, implemented interactions, and production privacy.
+- Require an explicit owner requirement before adding exhaustive checks for draft visuals.
+- Share each isolated build when its fixture and production inputs match.
 - Keep route and rendered publication assertions together in `tests/publication.test.mjs`.
-- Use physical bounds and relationships unless an approved visual contract requires fixed geometry values.
+- Use physical bounds for graphics. Use exact decorative values only for an explicit owner requirement.
 - Keep owner branding fixed.
 - Compare changing profile text with rendered metadata.
 - Require nonempty inputs before looping over expected elements.
 - Include the subject, input, and expected result in failure messages.
-- Preserve security, draft privacy, keyboard access, motion, fallbacks, and cleanup coverage during consolidation.
+- Preserve security, draft privacy, keyboard access, motion preferences, fallbacks, and resource cleanup.
 
 ## Rules
 
