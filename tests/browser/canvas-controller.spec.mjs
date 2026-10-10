@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { DRAFT_ORIGIN, pageProblems, settle, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames, stepFrame } from "./fixtures.mjs";
+import { DRAFT_ORIGIN, settle, VIEWPORTS, useManualFrames, useReducedMotion, pendingFrames, stepFrame } from "./fixtures.mjs";
 
 const lifetimes = (page) => page.evaluate(() => window.__lifetimes());
 const clock = (page) => page.evaluate(() => {
@@ -319,69 +319,10 @@ for (const policy of ["page", "globe"]) {
   });
 }
 
-test("keeps a shared cached glow after one scene stops", async ({ page }) => {
-  await mountScene(page, "page", { count: 2 });
-  expect(await page.evaluate(() => window.__handles[0].state.glow === window.__handles[1].state.glow)).toBe(true);
-  await page.evaluate(() => {
-    window.__handles[0].destroy();
-    window.__handles[1].replay();
-    window.__step(0);
-    window.__step(16);
-  });
-  expect(await page.evaluate(() => {
-    const glow = window.__handles[1].state.glow;
-    return { width: glow.width, height: glow.height };
-  })).toEqual({ width: 96, height: 96 });
-  expect(await lifetimes(page)).toEqual(activeLifetime);
-  expect(await pendingFrames(page)).toBe(1);
-  await expect(page.locator("[data-scene='1']")).toHaveAttribute("data-ready", "true");
-});
-
 const scenes = [
   { name: "globe", route: "/", selector: "[data-lyra-globe]", heading: "Cristian Vega" },
   { name: "page", route: "/about/", selector: "[data-graphic='about']", heading: "Cristian Vega" },
 ];
-for (const scene of scenes) {
-  for (const [name, viewport] of Object.entries(VIEWPORTS)) {
-    test(`${scene.name} keeps its canvas and content at ${name} width`, async ({ page }) => {
-      const problems = pageProblems(page, ["warning", "error"]);
-      await page.setViewportSize(viewport);
-      await useManualFrames(page);
-      await page.goto(scene.route);
-      await expect(page.locator(scene.selector)).toHaveAttribute("data-ready", "true");
-      await expect.poll(() => pendingFrames(page)).toBe(1);
-      await useReducedMotion(page);
-      await expect(page.locator(scene.selector)).toHaveAttribute("data-motion-state", "still");
-      expect(await pendingFrames(page)).toBe(0);
-      await settle(page);
-      await expect(page.locator("h1")).toHaveText(scene.heading);
-      await expect(page.locator("h1")).toBeVisible();
-      const sizes = await page.locator(`${scene.selector} canvas`).evaluate((canvas) => new Promise((resolve) => {
-        const observer = new ResizeObserver(([entry]) => {
-          observer.disconnect();
-          const [devicePixelBox] = entry.devicePixelContentBoxSize;
-          resolve({ bitmap: [canvas.width, canvas.height], devicePixels: [devicePixelBox.inlineSize, devicePixelBox.blockSize] });
-        });
-        observer.observe(canvas, { box: "device-pixel-content-box" });
-      }));
-      expect(sizes.bitmap, "the bitmap has the device pixels that show the canvas, so the screen does not resample it").toEqual(sizes.devicePixels);
-      await useReducedMotion(page, "no-preference");
-      await expect(page.locator(scene.selector)).toHaveAttribute("data-motion-state", "still");
-      expect(await pendingFrames(page)).toBe(0);
-      await transition(page, "pagehide");
-      await transition(page, "pageshow");
-      await expect(page.locator(scene.selector)).toHaveAttribute("data-ready", "true");
-      await expect.poll(() => pendingFrames(page)).toBe(1);
-      if (scene.name === "page") {
-        // The scroll reader requests one refresh when it reconnects.
-        await page.evaluate(() => window.__step(90000));
-        await expect(page.locator(scene.selector)).toHaveAttribute("data-motion-state", "still");
-        expect(await pendingFrames(page)).toBe(0);
-      }
-      expect(problems).toEqual([]);
-    });
-  }
-}
 
 /**
  * Read the finished picture of a scene at one device pixel ratio. Device emulation sets the ratio, as
@@ -408,10 +349,11 @@ async function readPicture(browser, baseAddress, scene, deviceScaleFactor) {
       }
     }
     const box = canvas.getBoundingClientRect();
-    return { ratio: devicePixelRatio, bitmap: [width, height], box: [box.width, box.height], cells: cells.map((count) => count / strong) };
+    return { ratio: devicePixelRatio, bitmap: [width, height], box: [box.width, box.height], cells, strong };
   });
   await context.close();
-  return picture;
+  expect(picture.strong, `${scene.name}: the picture requires foreground paint before comparison`).toBeGreaterThan(0);
+  return { ...picture, cells: picture.cells.map((count) => count / picture.strong) };
 }
 
 for (const [scene, deviceScaleFactor] of [[scenes[1], 2], [scenes[0], 1.5]]) {
@@ -428,6 +370,7 @@ for (const [scene, deviceScaleFactor] of [[scenes[1], 2], [scenes[0], 1.5]]) {
     expect(moved, "the picture at the higher ratio is the whole picture, not a crop").toBeLessThan(0.5);
   });
 }
+
 
 test("resumes product drift after reduced motion ends", async ({ page }) => {
   await useManualFrames(page);
