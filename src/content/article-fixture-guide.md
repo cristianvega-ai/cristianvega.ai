@@ -33,7 +33,7 @@ Production excludes drafts from article routes, navigation, and the sitemap.
 Production creates the Writing index only when at least one published article exists.
 Keep this fixture excluded when real articles become public.
 
-Use `createContentBuild` in [tests/helpers.mjs](../../tests/helpers.mjs) for publication test fixtures.
+Use `createContentBuild` in [tests/support/helpers.mjs](../../tests/support/helpers.mjs) for publication test fixtures.
 The helper replaces content only in temporary project copies.
 All-draft and mixed test fixtures cover publication without changing source content.
 Do not publish this visual fixture to test published behavior.
@@ -75,9 +75,9 @@ Keep the fixture readable without JavaScript.
 
 ## Maintenance and shared components
 
-Use [writing.spec.mjs](../../tests/browser/writing.spec.mjs) for article layout, keyboard scrolling, draft exclusion, and JavaScript failure checks.
-Use [article-interactions.spec.mjs](../../tests/browser/article-interactions.spec.mjs) for authored semantics and missing defaults.
-Use [article-menu.spec.mjs](../../tests/browser/article-menu.spec.mjs) for article text and menu contrast.
+Use [writing.spec.mjs](../../tests/end-to-end/writing.spec.mjs) for article layout, keyboard scrolling, draft exclusion, and JavaScript failure checks.
+Use [article-interactions.spec.mjs](../../tests/end-to-end/article-interactions.spec.mjs) for authored semantics and missing defaults.
+Use [article-menu.spec.mjs](../../tests/end-to-end/article-menu.spec.mjs) for article text and menu contrast.
 Review desktop, tablet, and mobile widths after presentation changes.
 Check the browser console.
 Update the related assertions when an approved presentation contract changes.
