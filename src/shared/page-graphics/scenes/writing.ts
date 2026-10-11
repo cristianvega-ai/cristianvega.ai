@@ -1,13 +1,15 @@
 import { cubicPoint, type Point } from "../../motion/easing.ts";
-import { LYRA } from "../../lyra/constellation.ts";
+import { LYRA_LINKS } from "../../lyra/constellation.ts";
 import { stagger } from "../../motion/clock.ts";
 import { reportFigureLeft } from "../inset.ts";
 import { labelBounds } from "../labels.ts";
+import { starNameWidths } from "../lyra.ts";
 import { makeGridLayer } from "../mesh.ts";
 import { drawComet, drawEdge, drawLabel, drawNode, drawVegaBloom, makeRoute, type Route } from "../marks.ts";
-import { smooth, FULL_TURN_RADIANS } from "../math.ts";
-import { mountCanvas, type CanvasHandle, type FrameState } from "../mount.ts";
-import { buildField, LYRA_EDGES, pathToVega, type FieldLayout } from "./writing-layout.ts";
+import { clamp, riseAndFall, smooth, FULL_TURN_RADIANS } from "../math.ts";
+import { MAXIMUM_FRAME_INTERVAL_MILLISECONDS } from "../../motion/canvas-controller.ts";
+import { mountCanvas, showChange, type CanvasHandle, type FrameState } from "../mount.ts";
+import { buildField, pathToVega, type FieldLayout } from "./writing-layout.ts";
 
 // Reading field: each article is a ringed star in a star-field round Lyra, placed from its identifier.
 // Faint synapses link near stars. The entrance runs field, synapses, comets, then the Vega bloom.
@@ -83,7 +85,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
       articleIdentifiers: articles.map((article) => article.identifier),
       labels: articles.map((article) => article.label),
       labelWidthsInPixels: articles.map((article) => state.labelFont.widthInPixels(article.label)),
-      starWidthsInPixels: LYRA.map((star) => star.name ? state.labelFont.widthInPixels(star.name) : 0),
+      starWidthsInPixels: starNameWidths(state.labelFont),
       lineHeightInPixels: state.labelFont.lineHeightInPixels,
       width: boxWidth,
       height: boxHeight,
@@ -117,7 +119,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
         cubicPoint(scratch, sampleIndex / CURVE_STEPS, start, control, control, end);
         route.push({ x: scratch.x, y: scratch.y });
       }
-      for (const starIndex of pathToVega(nearestStarIndex, LYRA_EDGES, stars.length)) route.push(stars[starIndex]);
+      for (const starIndex of pathToVega(nearestStarIndex, LYRA_LINKS, stars.length)) route.push(stars[starIndex]);
       return makeRoute(route);
     });
     entranceArticleIndices = [0, 3, 5, articleCount - 1].filter(
@@ -182,9 +184,9 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
         (link.weight ? LINK_ARTICLE_ALPHA : LINK_FIELD_ALPHA) * backgroundStrength,
       );
     }
-    for (let edgeIndex = 0; edgeIndex < LYRA_EDGES.length; edgeIndex++) {
-      const from = layout.stars[LYRA_EDGES[edgeIndex][0]];
-      const to = layout.stars[LYRA_EDGES[edgeIndex][1]];
+    for (let edgeIndex = 0; edgeIndex < LYRA_LINKS.length; edgeIndex++) {
+      const from = layout.stars[LYRA_LINKS[edgeIndex][0]];
+      const to = layout.stars[LYRA_LINKS[edgeIndex][1]];
       drawEdge(
         drawingContext,
         state.palette,
@@ -210,18 +212,18 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
       drawingContext.globalAlpha = 0.9 * weight;
       drawingContext.lineWidth = 1.2;
       drawingContext.beginPath();
-      drawingContext.moveTo(route.xs[0], route.ys[0]);
-      for (let pointIndex = 1; pointIndex < route.xs.length; pointIndex++) {
-        drawingContext.lineTo(route.xs[pointIndex], route.ys[pointIndex]);
+      drawingContext.moveTo(route.points[0].x, route.points[0].y);
+      for (let pointIndex = 1; pointIndex < route.points.length; pointIndex++) {
+        drawingContext.lineTo(route.points[pointIndex].x, route.points[pointIndex].y);
       }
       drawingContext.stroke();
       drawingContext.globalAlpha = weight;
-      for (let pointIndex = CURVE_STEPS; pointIndex < route.xs.length; pointIndex++) {
-        const reach = pointIndex === route.xs.length - 1 ? 22 : 9;
+      for (let pointIndex = CURVE_STEPS; pointIndex < route.points.length; pointIndex++) {
+        const reach = pointIndex === route.points.length - 1 ? 22 : 9;
         drawingContext.drawImage(
           state.glow,
-          route.xs[pointIndex] - reach,
-          route.ys[pointIndex] - reach,
+          route.points[pointIndex].x - reach,
+          route.points[pointIndex].y - reach,
           reach * 2,
           reach * 2,
         );
@@ -296,7 +298,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
             arrivalProgress = Math.max(arrivalProgress, (travel - 0.86) / 0.14);
           }
         }
-        pulse = smooth((progress - 0.6) / 0.25) * (1 - smooth((progress - 0.88) / 0.12)) * 0.9;
+        pulse = riseAndFall(progress, 0.6, 0.25, 0.88, 0.12) * 0.9;
       } else if (activeArticleIndex >= 0) {
         const phase = (state.activeTime - selectionStartTime) % CYCLE;
         const travel = phase < RUN ? phase / RUN : 0;
@@ -310,7 +312,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
         );
         if (travel > 0.8) {
           arrivalProgress = (travel - 0.8) / 0.2;
-          pulse = smooth((travel - 0.8) / 0.12) * (1 - smooth((travel - 0.95) / 0.05));
+          pulse = riseAndFall(travel, 0.8, 0.12, 0.95, 0.05);
         }
       }
       bloom = Math.max(pulse, REST_BLOOM * smooth((progress - 0.85) / 0.15));
@@ -370,7 +372,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
   function draw(drawingContext: CanvasRenderingContext2D, state: FrameState) {
     if (!field) return;
     const maximumWeight = easeWeights(
-      Math.max(0, Math.min(64, state.activeTime - previousActiveTime)),
+      clamp(state.activeTime - previousActiveTime, 0, MAXIMUM_FRAME_INTERVAL_MILLISECONDS),
       state.reduced,
     );
     previousActiveTime = state.activeTime;
@@ -401,9 +403,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
       selectionStartTime = canvasHandle.state.activeTime;
       if (index >= 0) container.dataset.activeArticle = articles[index].identifier;
       else delete container.dataset.activeArticle;
-      // Reduced motion runs no frames, so the change draws at once.
-      if (canvasHandle.state.reduced) canvasHandle.redraw();
-      else canvasHandle.wake();
+      showChange(canvasHandle);
     }
 
     articles.forEach((article, index) => {

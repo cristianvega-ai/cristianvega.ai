@@ -76,13 +76,10 @@
   /* grounds */
   --ink: #14181F;
   --ink-raised: #1A2029;
-  --surface-well: #F1F3F6;
-  /* text and lines on surface */
-  --foreground: #14181F;
-  --muted: #586173;
-  --line: #DEE2E9;
   /* text and lines on ink */
   --masthead-text: #EAEDF2;
+  /* Prose is a step softer than the title, for long reading. */
+  --masthead-prose: #C5CDD9;
   --masthead-metadata: #98A1B0;
   --masthead-line: rgba(255, 255, 255, 0.1);
   --brand-second-ring-ink: rgba(255, 255, 255, 0.42);
@@ -154,6 +151,11 @@
      so a tall tablet has no dead space under the band. Every page uses it. */
   --band-height: clamp(144px, 20svh, 240px);
   --graphic-left: calc(max(0px, 50% - var(--frame) / 2) + var(--reading-column) + var(--graphic-gap));
+  /* The vertical rhythm of every page head: the room above the eyebrow, the gap
+     from the eyebrow to the title, and the gap from the title to the lede. */
+  --page-top-gap: 72px;
+  --title-gap: 20px;
+  --lede-gap: 24px;
   --radius-medium: 8px;
 }
 
@@ -190,15 +192,15 @@ html {
   scroll-padding-bottom: calc(var(--footer-height) + var(--footer-fade) + 12px);
 }
 
-/* Column layout so the footer is seated at the foot of the viewport rather
-   than wherever short pages happen to end. Without it, /contact/ left 82px of
-   paper under the ink footer and the 404 left 402px. */
+/* Every page sits on ink. Column layout so the footer is seated at the foot
+   of the viewport rather than wherever short pages happen to end. Without it,
+   /contact/ left 82px of paper under the ink footer and the 404 left 402px. */
 body {
   font-family: var(--font-body);
   font-size: var(--font-size-body);
   line-height: var(--line-height-body);
-  color: var(--foreground);
-  background: var(--surface-well);
+  color: var(--masthead-text);
+  background: var(--ink);
   -webkit-font-smoothing: antialiased;
   /* Linux Chromium rounds each glyph advance to a whole pixel at 1x unless it
      is told to place glyphs by their exact metrics. The rounding made the
@@ -308,7 +310,7 @@ h1 {
   line-height: var(--line-height-monospace);
   letter-spacing: var(--letter-spacing-uppercase);
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--masthead-metadata);
 }
 
 /* The gradient dash that opens every eyebrow in the system. It rides in the
@@ -318,8 +320,8 @@ h1 {
   content: "";
   display: inline-block;
   vertical-align: middle;
-  width: 24px;
-  height: 3px;
+  width: 18px;
+  height: 2px;
   margin-right: 8px;
   border-radius: 2px;
   background: var(--brand-gradient);
@@ -355,6 +357,11 @@ h1 {
   display: inline-block;
   width: var(--eyebrow-separator-width);
   text-align: center;
+}
+
+/* The draft mark in an eyebrow or a list row. Only a local preview shows drafts. */
+.draft-label {
+  color: var(--sky);
 }
 
 /* The header stays sticky on inner pages. The homepage header scrolls with the page.
@@ -492,13 +499,6 @@ h1 {
 
 .site-header :focus-visible {
   outline-color: var(--sky);
-}
-
-/* The home and products pages sit on ink.
-   The about and writing pages set their body colors in their own stylesheets. */
-body:is([data-page="home"], [data-page="products"], [data-page="product"], [data-page="error"]) {
-  color: var(--masthead-text);
-  background: var(--ink);
 }
 
 /* A faint blueprint grid in the empty area right of the reading column. It
@@ -720,6 +720,9 @@ body:is([data-page="about"], [data-page="products"], [data-page="product"], [dat
 
 @media (max-width: 760px) {
   :root {
+    --page-top-gap: 48px;
+    --title-gap: 16px;
+    --lede-gap: 22px;
     --frame-padding: 20px;
     --font-size-page-title: 28px;
     --font-size-section-heading: 21px;
@@ -803,10 +806,6 @@ body:is([data-page="about"], [data-page="products"], [data-page="product"], [dat
   height: 1px;
   margin: 6px 12px;
   background: var(--masthead-line);
-}
-
-.navigation-menu :focus-visible {
-  outline-color: var(--sky);
 }
 
 @media (max-width: 640px) {

@@ -1,5 +1,7 @@
 import type { Point } from "../motion/easing.ts";
 import { LYRA, LYRA_LINKS } from "../lyra/constellation.ts";
+import { makeRoute, type FieldStar, type Route } from "../page-graphics/marks.ts";
+import { unit } from "../page-graphics/math.ts";
 
 interface GlobeNode extends Point {
   radius: number;
@@ -23,14 +25,10 @@ interface GlobeEdge {
 
 /**
  * One signal of the entrance. A comet follows a chain of edges from a neuron
- * on the near face and ends on Vega. The chain is a real path in the graph.
+ * on the near face and ends on Vega. The chain is a real path in the graph,
+ * and its points run from the start to Vega.
  */
-export interface GlobeRoute {
-  /** The chain of nodes, from the start to Vega. */
-  points: Point[];
-  /** Running length at each point, so a frame finds its place without a search. */
-  lengths: number[];
-  length: number;
+interface GlobeRoute extends Route {
   /** Share of the entrance that passes before the comet starts. */
   start: number;
   /** Share of the entrance that the comet takes to reach Vega. */
@@ -66,7 +64,7 @@ export interface Globe {
   routes: GlobeRoute[];
   labels: GlobeLabel[];
   rings: GlobeRing[];
-  stars: (Point & { radius: number; alpha: number })[];
+  stars: FieldStar[];
   /** Radians. The entrance settles the whole figure from this turn to zero. */
   rotation: number;
 }
@@ -101,12 +99,6 @@ const VEGA_START = 0.7;
 // Vega sits this far right of the sphere centre, in sphere radii. From 1100px the box runs past the
 // screen edge, so Vega stays near the centre and the crop never reaches the star or its name.
 const VEGA_OFFSET_X = 0.12;
-
-// A fixed pseudo-random sequence, so every draw sows the same field.
-function unit(i: number): number {
-  const value = Math.sin(i * 127.1 + 311.7) * 43758.5453;
-  return value - Math.floor(value);
-}
 
 /**
  * The shortest chain of edges from every node to Vega, by Dijkstra on the
@@ -157,21 +149,13 @@ function buildRoutes(globe: Globe, sphere: GlobeNode[], vega: GlobeNode, cx: num
   const chains = starts.map((start) => {
     const points: GlobeNode[] = [start];
     while (points[points.length - 1] !== vega) points.push(next.get(points[points.length - 1])!);
-    const lengths = [0];
-    for (let i = 1; i < points.length; i++) lengths.push(lengths[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y));
-    return { points, lengths, length: lengths[lengths.length - 1] };
+    return makeRoute(points);
   });
   chains.sort((first, second) => second.length - first.length);
   return chains.map((chain, i) => {
     const span = chain.length / ROUTE_SPEED;
     const arrival = ARRIVAL_FIRST + (ARRIVAL_LAST - ARRIVAL_FIRST) * (chains.length > 1 ? i / (chains.length - 1) : 1);
-    return {
-      points: chain.points.map(({ x, y }) => ({ x, y })),
-      lengths: chain.lengths,
-      length: chain.length,
-      start: Math.max(0, arrival - span),
-      span: Math.min(span, arrival),
-    };
+    return { ...chain, start: Math.max(0, arrival - span), span: Math.min(span, arrival) };
   });
 }
 

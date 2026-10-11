@@ -18,8 +18,13 @@ export interface Palette {
 }
 
 const GLOW_SIZE = 96;
-/** The value of each palette token when the canvas cannot parse it. */
-const FALLBACKS = {
+/** The alpha of the glow at its centre, as a share of the sky alpha. The globe SVG uses the same share. */
+export const GLOW_CENTER_ALPHA = 0.45;
+/**
+ * The value of each palette token when the canvas cannot parse it. global.css owns the values,
+ * and these copies must match it. The page head reads --ink for its theme color.
+ */
+export const TOKEN_FALLBACKS = {
   "--sky": "#38BDF8",
   "--masthead-metadata": "#98A1B0",
   "--masthead-text": "#EAEDF2",
@@ -45,10 +50,10 @@ function resolveColor(probe: CanvasRenderingContext2D, value: string): ColorChan
   return { red, green, blue, alpha: alpha / 255 };
 }
 
-/** The two stops of the glow gradient: 45% of the color alpha at the centre, and clear at the edge. */
+/** The two stops of the glow gradient: GLOW_CENTER_ALPHA of the color alpha at the centre, and clear at the edge. */
 export function glowStops(color: ColorChannels): [string, string] {
   const channels = `${color.red}, ${color.green}, ${color.blue}`;
-  return [`rgba(${channels}, ${Math.round(0.45 * color.alpha * 1000) / 1000})`, `rgba(${channels}, 0)`];
+  return [`rgba(${channels}, ${Math.round(GLOW_CENTER_ALPHA * color.alpha * 1000) / 1000})`, `rgba(${channels}, 0)`];
 }
 
 /**
@@ -62,12 +67,12 @@ export function readPalette(element: HTMLElement = document.documentElement): Pa
   const probe = canvas.getContext("2d", { willReadFrequently: true });
   if (!probe) return null;
   const style = getComputedStyle(element);
-  const read = (name: keyof typeof FALLBACKS) => {
+  const read = (name: keyof typeof TOKEN_FALLBACKS) => {
     const value = style.getPropertyValue(name).trim();
     const color = value ? resolveColor(probe, value) : null;
     if (color) return { value, color };
-    if (value) console.warn(`Canvas graphics: ${name} "${value}" is not a CSS color. The canvas draws ${FALLBACKS[name]} instead.`);
-    return { value: FALLBACKS[name], color: resolveColor(probe, FALLBACKS[name])! };
+    if (value) console.warn(`Canvas graphics: ${name} "${value}" is not a CSS color. The canvas draws ${TOKEN_FALLBACKS[name]} instead.`);
+    return { value: TOKEN_FALLBACKS[name], color: resolveColor(probe, TOKEN_FALLBACKS[name])! };
   };
   const sky = read("--sky");
   return {
@@ -83,7 +88,7 @@ export function readPalette(element: HTMLElement = document.documentElement): Pa
 // One glow sprite for each sky color.
 const glows = new Map<string, HTMLCanvasElement>();
 
-/** Cache a glow sprite with 45% sky at the center and a clear edge. Return null without canvas. */
+/** Cache a glow sprite with GLOW_CENTER_ALPHA sky at the center and a clear edge. Return null without canvas. */
 export function getGlow(palette: Palette): HTMLCanvasElement | null {
   const [center, edge] = glowStops(palette.skyColor);
   const cached = glows.get(center);

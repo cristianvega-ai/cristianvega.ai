@@ -84,8 +84,10 @@ Globe labels use canvas entrance progress and pause with the drawing.
 
 - `../motion/clock.ts`: `DURATION`, `entranceProgress()`, and `stagger()`. The globe uses the same clock.
 - `../motion/palette.ts`: validated site colors and a cached glow sprite. The globe uses the same palette.
-- `math.ts`: easing, interpolation, and stable numeric samples.
+- `math.ts`: easing, interpolation, `riseAndFall()`, and stable numeric samples.
 - `lyra.ts`: `layoutLyra(width, height)` preserves proportions and caps the figure at `LYRA_MAXIMUM_SIZE`.
+  `fitLyraAtVega()` puts Vega at a given centre with the same cap.
+  `placeStarNames()` places the star names, and `lyraLinkSegments()` gives the figure links that a label must not cross.
 - `label-font.ts`: measured label widths and the canvas font.
 - `labels.ts`: `placeLabel()` uses measured widths, the label line, and `labelBounds()`.
 - `inset.ts`: `FIGURE_INSET` keeps the figure inside the edge fade. `reportFigureLeft()` publishes its left bound.
@@ -93,7 +95,9 @@ Globe labels use canvas entrance progress and pause with the drawing.
   The products scene keeps `SLOT_REACH`, the largest ring or halo round a slot.
 - `mesh.ts`: sparse neural meshes and cached site grids.
 - `marks.ts`: nodes, edges, curves, routes, comets, labels, blooms, and star fields.
+  The globe draws with the same marks. `entranceBloom()` times the Vega bloom of an entrance.
 - `mount.ts`: page policies, scene mounting, and font refreshes through `handle.rebuild()`.
+  `showChange(handle)` shows an interaction change: it redraws under reduced motion and wakes the scene otherwise.
 - `scroll.ts`: measured page geometry and a smoothed reader position.
 - `scenes/`: page drawings and the lazy registry in `scenes/index.ts`.
 
@@ -118,6 +122,7 @@ Globe labels use canvas entrance progress and pause with the drawing.
    Return `false` or nothing at rest.
    Call `handle.wake()` when an idle scene needs animated interaction updates.
    Call `handle.redraw()` for immediate reduced-motion updates.
+   `showChange(handle)` chooses between the two.
    Call `handle.rebuild()` when layout inputs change outside a resize.
    It applies a pending motion preference before it draws.
 4. Add a lazy import to `scenes/index.ts`:

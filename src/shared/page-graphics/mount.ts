@@ -62,3 +62,9 @@ export function mountCanvas(container: HTMLElement, options: MountOptions): Canv
   });
   return handle as CanvasHandle | null;
 }
+
+/** Draw a change. Reduced motion runs no frames, so the change draws at once. Otherwise a frame settles it. */
+export function showChange(handle: CanvasHandle): void {
+  if (handle.state.reduced) handle.redraw();
+  else handle.wake();
+}

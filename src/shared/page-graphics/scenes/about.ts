@@ -1,4 +1,5 @@
 import { cubicPoint, type Point } from "../../motion/easing.ts";
+import { VEGA_NAME } from "../../lyra/constellation.ts";
 import { stagger } from "../../motion/clock.ts";
 import {
   around,
@@ -10,7 +11,7 @@ import {
   type Segment,
 } from "../labels.ts";
 import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
-import { drawCurve, drawLabel, drawNode, drawVegaBloom } from "../marks.ts";
+import { drawCurve, drawLabel, drawNode, drawVegaBloom, entranceBloom } from "../marks.ts";
 import { FIGURE_INSET, reportFigureLeft } from "../inset.ts";
 import { clamp, interpolate, smooth, FULL_TURN_RADIANS, unit } from "../math.ts";
 import { mountCanvas, type CanvasHandle, type FrameState } from "../mount.ts";
@@ -184,11 +185,11 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
     const avoid: Rectangle[] = [around(vx, vy, 10)];
     for (let nodeIndex = 0; nodeIndex < nodeCount - 1; nodeIndex++) avoid.push(around(nodeX[nodeIndex], nodeY[nodeIndex], 6));
     vegaLabel = placeLabel(
-      "VEGA · α LYR",
+      VEGA_NAME,
       vx,
       vy,
       {
-        widthInPixels: state.labelFont.widthInPixels("VEGA · α LYR"),
+        widthInPixels: state.labelFont.widthInPixels(VEGA_NAME),
         lineHeightInPixels: state.labelFont.lineHeightInPixels,
         bounds: labelBounds(container, width, height),
         segments,
@@ -356,7 +357,7 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
         state.glow,
         vx,
         vy,
-        smooth((progress - 0.62) / 0.22) * (1 - smooth((progress - 0.84) / 0.16)) * smooth((reach - 0.9) / 0.1),
+        entranceBloom(progress) * smooth((reach - 0.9) / 0.1),
       );
     }
     const labelIn = smooth((progress - 0.7) / 0.2);

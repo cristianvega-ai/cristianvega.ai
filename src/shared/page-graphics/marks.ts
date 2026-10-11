@@ -1,14 +1,20 @@
 import type { Point } from "../motion/easing.ts";
-import { clamp, easeOutCubic, smooth, FULL_TURN_RADIANS, unit } from "./math.ts";
+import { clamp, easeOutCubic, riseAndFall, smooth, FULL_TURN_RADIANS, unit } from "./math.ts";
 import type { Palette } from "../motion/palette.ts";
 
-// Drawing marks for the page graphics, in the language of the homepage globe.
-// Sizes are CSS pixels. Every mark draws with no allocation, so a frame is cheap.
+// Drawing marks for the homepage globe and the page graphics. The build-time SVG of the globe
+// reads the same sizes. Sizes are in the units of the drawing: CSS pixels on a page graphic,
+// grid units on the globe. Every mark draws with no allocation, so a frame is cheap.
 // Each mark leaves globalAlpha at 1, and the comet restores the blend mode.
 
-/** The halo reach of a hot neuron and of Vega, in CSS pixels. */
+/** The halo reach of a hot neuron and of Vega. */
 export const NODE_HALO = 8;
 export const VEGA_HALO = 18;
+/** The extra ring round Vega: its radius and its alpha. */
+export const VEGA_RING_RADIUS = 10;
+export const VEGA_RING_ALPHA = 0.6;
+/** The alpha of a hot edge. A cold edge draws with its own alpha. */
+export const HOT_EDGE_ALPHA = 0.7;
 
 /** A neuron: a soft halo when hot (`halo` 0..1 sets its strength), a bright core, and an extra ring on Vega. `grow` 0..1 is the appear share. */
 export function drawNode(
@@ -37,11 +43,11 @@ export function drawNode(
   drawingContext.arc(x, y, radius * (0.4 + 0.6 * growth), 0, FULL_TURN_RADIANS);
   drawingContext.fill();
   if (vega) {
-    drawingContext.globalAlpha = 0.6 * growth;
+    drawingContext.globalAlpha = VEGA_RING_ALPHA * growth;
     drawingContext.strokeStyle = palette.sky;
     drawingContext.lineWidth = 0.7;
     drawingContext.beginPath();
-    drawingContext.arc(x, y, 10 * (0.6 + 0.4 * growth), 0, FULL_TURN_RADIANS);
+    drawingContext.arc(x, y, VEGA_RING_RADIUS * (0.6 + 0.4 * growth), 0, FULL_TURN_RADIANS);
     drawingContext.stroke();
   }
   drawingContext.globalAlpha = 1;
@@ -56,7 +62,7 @@ function edgeStyle(
 ): void {
   drawingContext.lineCap = "round";
   drawingContext.strokeStyle = hot ? palette.sky : palette.metadata;
-  drawingContext.globalAlpha = (hot ? 0.7 : alpha) * smooth(progress * 2);
+  drawingContext.globalAlpha = (hot ? HOT_EDGE_ALPHA : alpha) * smooth(progress * 2);
   drawingContext.lineWidth = hot ? 1.1 : 0.65;
 }
 
@@ -120,24 +126,19 @@ export function drawCurve(
 
 /** A comet route: a polyline with running lengths. Build it on resize. */
 export interface Route {
-  xs: Float32Array;
-  ys: Float32Array;
-  lengths: Float32Array;
+  points: Point[];
+  /** The length of the route up to each point. */
+  lengths: number[];
   length: number;
 }
 
 /** Build a route through `points`. To follow a curve, pass many samples of it. */
 export function makeRoute(points: readonly Point[]): Route {
-  const pointCount = points.length;
-  const xs = new Float32Array(pointCount);
-  const ys = new Float32Array(pointCount);
-  const lengths = new Float32Array(pointCount);
-  for (let i = 0; i < pointCount; i++) {
-    xs[i] = points[i].x;
-    ys[i] = points[i].y;
-    if (i) lengths[i] = lengths[i - 1] + Math.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]);
+  const lengths = [0];
+  for (let pointIndex = 1; pointIndex < points.length; pointIndex++) {
+    lengths.push(lengths[pointIndex - 1] + Math.hypot(points[pointIndex].x - points[pointIndex - 1].x, points[pointIndex].y - points[pointIndex - 1].y));
   }
-  return { xs, ys, lengths, length: lengths[pointCount - 1] };
+  return { points: points.map(({ x, y }) => ({ x, y })), lengths, length: lengths[lengths.length - 1] };
 }
 
 // Scratch points, so a frame allocates nothing.
@@ -146,18 +147,18 @@ const tailStart: Point = { x: 0, y: 0 };
 const tailEnd: Point = { x: 0, y: 0 };
 
 function routePoint(route: Route, distance: number, outputPoint: Point): Point {
-  const { xs, ys, lengths } = route;
+  const { points, lengths } = route;
   let segmentIndex = 1;
   while (segmentIndex < lengths.length - 1 && lengths[segmentIndex] < distance) segmentIndex++;
   const span = lengths[segmentIndex] - lengths[segmentIndex - 1];
   const share = span > 0 ? clamp((distance - lengths[segmentIndex - 1]) / span) : 1;
-  outputPoint.x = xs[segmentIndex - 1] + (xs[segmentIndex] - xs[segmentIndex - 1]) * share;
-  outputPoint.y = ys[segmentIndex - 1] + (ys[segmentIndex] - ys[segmentIndex - 1]) * share;
+  outputPoint.x = points[segmentIndex - 1].x + (points[segmentIndex].x - points[segmentIndex - 1].x) * share;
+  outputPoint.y = points[segmentIndex - 1].y + (points[segmentIndex].y - points[segmentIndex - 1].y) * share;
   return outputPoint;
 }
 
 const TAIL_SLICES = 16;
-/** The size of the glow on a comet head, in CSS pixels. */
+/** The size of the glow on a comet head. */
 const COMET_GLOW = 26;
 
 /**
@@ -174,7 +175,7 @@ export function drawComet(
 ): void {
   if (travel <= 0 || travel >= 1 || route.length <= 0) return;
   const distance = route.length * (1 - (1 - travel) ** 1.6);
-  const strength = smooth(travel / 0.16) * (1 - smooth((travel - 0.86) / 0.14));
+  const strength = riseAndFall(travel, 0, 0.16, 0.86, 0.14);
   const previousCompositeOperation = drawingContext.globalCompositeOperation;
   drawingContext.globalCompositeOperation = "lighter";
   drawingContext.lineCap = "round";
@@ -236,8 +237,13 @@ export function drawLabel(
   drawingContext.globalAlpha = 1;
 }
 
-/** The size of the Vega bloom, in CSS pixels. */
+/** The size of the Vega bloom. */
 const BLOOM_SIZE = 60;
+
+/** The strength of the Vega bloom during an entrance: it swells as the comets arrive and clears by the end. */
+export function entranceBloom(progress: number): number {
+  return riseAndFall(progress, 0.62, 0.22, 0.84, 0.16);
+}
 
 /** The Vega bloom: added light, strength 0..1. It swells as comets arrive and clears by the end. */
 export function drawVegaBloom(
