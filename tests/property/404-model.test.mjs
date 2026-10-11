@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { LYRA as lyraStars } from "../../src/shared/lyra/constellation.ts";
 import { layoutLyra } from "../../src/shared/page-graphics/lyra.ts";
-import { MISSING as missingStarIndex, missingLayout } from "../../src/shared/page-graphics/scenes/404.ts";
+import { MISSING as missingStarIndex, missingLayout } from "../../src/shared/page-graphics/scenes/404-layout.ts";
 
 test("the missing-star ring remains inside column and band layout bounds", () => {
   // Exercise the column and band layout branches.

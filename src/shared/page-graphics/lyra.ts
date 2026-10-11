@@ -1,5 +1,5 @@
 import { LYRA, LYRA_LINKS } from "../lyra/constellation.ts";
-import type { Point } from "../motion/easing.ts";
+import type { Point } from "../motion/geometry.ts";
 import type { LabelFont } from "./label-font.ts";
 import { placeLabel, type PlacedLabel, type Rectangle, type Segment } from "./labels.ts";
 

@@ -1,0 +1,107 @@
+/* The Lyra globe. LyraGlobe.astro renders it. The host box sets --figure-inset,
+   --globe-room, and --fade, and the projection stylesheet sets the --globe-*
+   measurements on the host (.hero__globe in home.css). The host also crops
+   the globe into the band below 1100px. */
+
+/* The svg is the picture. The canvas takes over once it is ready. The box is
+   a container, so the labels can drop the caption on a small globe. */
+.lyra-globe {
+  position: relative;
+  container-type: inline-size;
+  aspect-ratio: 1 / var(--globe-box-aspect, .9013);
+  overflow: clip;
+  pointer-events: none;
+  /* The soft edge of the inner page graphics. The box runs past the screen, so the fade
+     ends at the screen edge. The caption sits inside it. The top and the bottom keep no fade. */
+  --edge: min(var(--globe-room), 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(var(--edge) - var(--fade)), transparent var(--edge), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(var(--edge) - var(--fade)), transparent var(--edge), transparent);
+}
+
+/* The picture has an empty margin on every side of the sphere. The box crops
+   it, so the sphere fills the box. The model sets the crop: the box shows the picture
+   from just above the outer ring to just below the caption (CROP_ABOVE_RING and
+   CROP_BELOW_CAPTION in src/shared/lyra-globe/projection.ts).
+   The picture and the labels keep their full size. Horizontally, the picture sits so
+   the sphere ring starts --figure-inset from the box edge. */
+.lyra-globe__fallback,
+.lyra-globe__canvas,
+.lyra-globe__labels {
+  position: absolute;
+  left: calc(var(--figure-inset) - var(--globe-ring-inset, .2468) * 100cqw);
+  top: calc(var(--globe-picture-top, -.1106) * 100%);
+  /* The base reset caps a picture at the width of its box. */
+  max-width: none;
+  width: calc(var(--globe-picture-scale, 1.3) * 100%);
+  height: calc(var(--globe-picture-height, 1.2019) * 100%);
+  pointer-events: none;
+}
+
+/* The canvas draws the entrance and ends on the finished picture. The box has
+   its size from the first paint, so nothing moves while the script loads. The
+   canvas stays hidden until it holds its first frame. Without JavaScript the
+   SVG in the noscript is the picture. The script copies the same SVG in when
+   canvas is missing. */
+.lyra-globe:not([data-ready]) .lyra-globe__canvas {
+  visibility: hidden;
+}
+
+/* The labels wait for the canvas, so they do not show over an empty box. The
+   fallback copy shows them at once. The canvas clock controls each label fade. */
+@media (scripting: enabled) {
+  .lyra-globe:not([data-ready], [data-fallback]) .lyra-globe__labels {
+    opacity: 0;
+  }
+}
+
+.lyra-globe__star {
+  fill: var(--masthead-metadata);
+  stroke: none;
+}
+
+.lyra-globe__edge {
+  fill: none;
+  stroke: var(--masthead-metadata);
+  stroke-width: .65;
+  stroke-linecap: round;
+}
+
+.lyra-globe__edge.is-hot {
+  stroke: var(--sky);
+  stroke-width: 1.1;
+}
+
+.lyra-globe__ring {
+  fill: none;
+  stroke: var(--sky);
+  stroke-width: .7;
+}
+
+.lyra-globe__node {
+  fill: var(--masthead-text);
+}
+
+/* The labels are text over the picture, in their own svg with no viewBox. A
+   unit there is one CSS pixel, so the type keeps its size when the globe
+   shrinks. The svg and the canvas both sit under the same text. */
+.lyra-globe__labels {
+  overflow: visible;
+}
+
+.lyra-globe__label {
+  font: 400 var(--font-size-graphic-label) var(--font-monospace);
+  fill: var(--masthead-text);
+}
+
+@container (min-width: 460px) {
+  .lyra-globe__label {
+    font-size: var(--font-size-label);
+  }
+}
+
+/* Under 240px the caption would crowd the sphere. Vega keeps its name. */
+@container (max-width: 239px) {
+  .lyra-globe__label--caption {
+    display: none;
+  }
+}

@@ -1,9 +1,9 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import ArticleList from "../../components/ArticleList.astro";
 import PageGraphic from "../../components/PageGraphic.astro";
-import { getArticles, articleDate, articleAddress, readingMinutes } from "../../shared/writing";
-import "../../styles/entries.css";
-import "../../styles/writing.css";
+import { getArticles } from "../../shared/writing";
+import "../../styles/writing-index.css";
 
 // Build /writing/ only when an article is visible. Production has no published
 // article yet, so the route must not exist. Dev shows drafts and builds the route.
@@ -24,16 +24,7 @@ const hasDrafts = articles.some((article) => article.data.draft);
       <p class="writing-index__count">{String(articles.length).padStart(2, "0")} {articles.length === 1 ? "article" : "articles"}{hasDrafts && " · local preview"}</p>
     </div>
     <section class="writing-index__list" data-writing-list aria-labelledby="writing-title">
-      <ol class="article-list">
-        {articles.map((article, index) => (
-          <li class="article-list__item" data-article-identifier={article.id} data-writing-entry-identifier={article.id}>
-            <span class="article-list__number" data-writing-label aria-hidden="true">N° {String(articles.length - index).padStart(2, "0")}</span>
-            <h2 class="article-list__title"><a class="article-list__link" href={articleAddress(article)}>{article.data.title}</a></h2>
-            <p class="article-list__metadata"><time datetime={article.data.date.toISOString().slice(0, 10)}>{articleDate(article)}</time> · {article.data.topic} · {readingMinutes(article)} min{article.data.draft && <span class="draft-label"> · Draft</span>}</p>
-            <p class="article-list__excerpt">{article.data.description}</p>
-          </li>
-        ))}
-      </ol>
+      <ArticleList {articles} />
     </section>
   </main>
 </BaseLayout>

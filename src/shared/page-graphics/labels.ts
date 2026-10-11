@@ -1,9 +1,9 @@
-import { FIGURE_INSET } from "./inset.ts";
+import type { Palette } from "../motion/palette.ts";
 import { FALLBACK_LINE_HEIGHT_IN_PIXELS } from "./label-font.ts";
 
-// Label placement for the page graphics. It has no DOM read in `placeLabel`, so a test can run it.
-// A label takes the first side of its node (right, left, above, or below) that no edge crosses,
-// that no other mark covers, and that stays inside the allowed area. Call it on resize, not per frame.
+// Labels for the page graphics: where each one goes, and how it draws. It has no DOM read, so a test
+// can run it. A label takes the first side of its node (right, left, above, or below) that no edge crosses,
+// that no other mark covers, and that stays inside the allowed area. Place labels on resize, not per frame.
 
 export interface Rectangle {
   x0: number;
@@ -36,10 +36,6 @@ export interface PlacedLabel {
 }
 
 const HALO_PADDING = 3;
-/** The space that a label keeps from the canvas edge. It is the figure inset, so a label follows the one bounding rule. */
-const EDGE_INSET = FIGURE_INSET;
-/** The space that a label keeps from the viewport edge. */
-const VIEWPORT_INSET = 32;
 /** The weight of a crossing. A hard crossing must lose to no free place, and a soft one only breaks a tie. */
 const HARD = 100;
 const SOFT = 1;
@@ -224,20 +220,62 @@ export function placeLabel(text: string, x: number, y: number, options: PlaceOpt
   return chosen;
 }
 
-/**
- * The area for labels, in canvas pixels: inside the edge fade, and at least `VIEWPORT_INSET` from the
- * viewport edge. `originX` is the shift of the drawing origin in the canvas. It reads the DOM, so call it on resize.
- */
-export function labelBounds(container: HTMLElement, width: number, height: number, originX = 0): Rectangle {
-  const box = container.getBoundingClientRect();
-  const left = box.left + originX;
-  const viewport = document.documentElement.clientWidth;
-  // A short band gets a smaller top and bottom inset, so the label of a star near its edge still has a place.
-  const inset = Math.min(EDGE_INSET, Math.max(20, height * 0.14));
-  return {
-    x0: Math.max(EDGE_INSET, VIEWPORT_INSET - left),
-    y0: inset,
-    x1: Math.min(width - originX - EDGE_INSET, viewport - VIEWPORT_INSET - left),
-    y1: height - inset,
-  };
+/** The width of the ink halo round a label. */
+const HALO_WIDTH = 3.5;
+
+/** Draw a placed label at a fixed CSS pixel size. An ink halo in the page ground colour knocks out the lines under it. */
+export function drawLabel(
+  drawingContext: CanvasRenderingContext2D,
+  palette: Palette,
+  canvasFont: string,
+  label: PlacedLabel,
+  alpha: number,
+): void {
+  if (alpha <= 0) return;
+  setLabelText(drawingContext, canvasFont, label);
+  drawingContext.lineJoin = "round";
+  drawingContext.lineWidth = HALO_WIDTH;
+  drawingContext.strokeStyle = palette.ink;
+  drawingContext.globalAlpha = alpha;
+  drawingContext.strokeText(label.text, label.x, label.y);
+  drawingContext.fillStyle = palette.metadata;
+  drawingContext.globalAlpha = alpha;
+  drawingContext.fillText(label.text, label.x, label.y);
+  drawingContext.globalAlpha = 1;
+}
+
+/** Draw each placed label. A null entry is a label with no clear place, and it does not draw. */
+export function drawLabels(
+  drawingContext: CanvasRenderingContext2D,
+  palette: Palette,
+  canvasFont: string,
+  labels: readonly (PlacedLabel | null)[],
+  alpha: number,
+): void {
+  for (let labelIndex = 0; labelIndex < labels.length; labelIndex++) {
+    const label = labels[labelIndex];
+    if (label) drawLabel(drawingContext, palette, canvasFont, label, alpha);
+  }
+}
+
+/** Draw a placed label again in the text colour, over its plain draw, to light it. */
+export function drawLabelHighlight(
+  drawingContext: CanvasRenderingContext2D,
+  palette: Palette,
+  canvasFont: string,
+  label: PlacedLabel,
+  alpha: number,
+): void {
+  if (alpha <= 0) return;
+  setLabelText(drawingContext, canvasFont, label);
+  drawingContext.fillStyle = palette.text;
+  drawingContext.globalAlpha = alpha;
+  drawingContext.fillText(label.text, label.x, label.y);
+  drawingContext.globalAlpha = 1;
+}
+
+function setLabelText(drawingContext: CanvasRenderingContext2D, canvasFont: string, label: PlacedLabel): void {
+  drawingContext.font = canvasFont;
+  drawingContext.textAlign = label.align;
+  drawingContext.textBaseline = "middle";
 }

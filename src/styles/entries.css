@@ -1,12 +1,9 @@
-/* Ruled lists of articles and products, and the small pieces both share. */
+/* The ruled rows that the article list and the product list share.
+   article-list.css and product-list.css hold the parts of each list. */
 .entries,
 .article-list {
   padding: 0;
   list-style: none;
-}
-
-.entries {
-  border-top: 1px solid var(--masthead-line);
 }
 
 .entries__item,
@@ -16,22 +13,10 @@
   border-bottom: 1px solid var(--masthead-line);
 }
 
-.entries__item {
-  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
-  gap: 6px 40px;
-  padding: 24px 0 26px;
-}
-
 .entries__metadata,
 .article-list__metadata {
   font: 500 var(--font-size-metadata) / var(--line-height-monospace) var(--font-monospace);
   color: var(--masthead-metadata);
-}
-
-.entries__metadata {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 .entries__title,
@@ -71,22 +56,4 @@
   font-size: var(--font-size-small);
   line-height: var(--line-height-small);
   color: var(--masthead-metadata);
-}
-
-.entries__excerpt {
-  max-width: 62ch;
-  margin-top: 8px;
-  text-wrap: pretty;
-}
-
-@media (max-width: 640px) {
-  .entries__item {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .entries__metadata {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 0 12px;
-  }
 }

@@ -1,7 +1,8 @@
-import type { Point } from "../motion/easing.ts";
 import { LYRA, LYRA_LINKS } from "../lyra/constellation.ts";
-import { makeRoute, type FieldStar, type Route } from "../page-graphics/marks.ts";
-import { unit } from "../page-graphics/math.ts";
+import { makeRoute, type Route } from "../motion/comets.ts";
+import type { Point } from "../motion/geometry.ts";
+import { unit } from "../motion/random.ts";
+import type { FieldStar } from "../motion/star-field.ts";
 
 interface GlobeNode extends Point {
   radius: number;

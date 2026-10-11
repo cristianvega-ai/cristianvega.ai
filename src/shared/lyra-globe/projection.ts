@@ -13,7 +13,7 @@ const CROP_BELOW_CAPTION = 0.05;
 /** Round to the precision of the projection: four decimal places. */
 const round = (value: number) => Math.round(value * 10_000) / 10_000;
 
-/** Model measurements that home.css reads. Each share has its unit in the comment. */
+/** Model measurements that home.css and lyra-globe.css read. Each share has its unit in the comment. */
 interface GlobeProjection {
   /** Picture width per box width. */
   pictureScale: number;

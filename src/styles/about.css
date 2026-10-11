@@ -1,12 +1,4 @@
-/* The about page and the 404. reading-column.css holds the head and the prose. */
-.about :focus-visible {
-  outline-color: var(--sky);
-}
-
-.about__actions {
-  margin-top: 32px;
-}
-
+/* The about page. reading-column.css holds the head and the prose. */
 .about__principles li {
   gap: 16px;
   padding: 10px 0;

@@ -1,17 +1,16 @@
 ---
+// The frame of every page: the head, the header, the main content, and the footer.
 import "../styles/global.css";
 import CloudflareAnalytics from "../components/CloudflareAnalytics.astro";
-import { getArticles } from "../shared/writing";
-import { getProducts } from "../shared/products";
-import { TOKEN_FALLBACKS } from "../shared/motion/palette";
-import { JOB_TITLE, SITE_NAME } from "../shared/site";
-import plexSans400 from "../assets/fonts/ibm-plex-sans-latin-400.woff2?url";
-import geist from "../assets/fonts/geist-latin-600.woff2?url";
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHead from "../components/SiteHead.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import { JOB_TITLE, SITE_NAME, type PageKind } from "../shared/site";
 
 interface Props {
   title?: string;
   description?: string;
-  active?: "home" | "about" | "writing" | "article" | "products" | "product" | "error";
+  active?: PageKind;
   noindex?: boolean;
   published?: string;
 }
@@ -23,168 +22,24 @@ const {
   noindex = false,
   published,
 } = Astro.props;
-
-const buildYear = new Date().getFullYear();
-const pageTitle = title.includes(SITE_NAME) ? title : `${title} · ${SITE_NAME}`;
-const siteOrigin = Astro.site ?? new URL("https://cristianvega.ai");
-const canonicalAddress = new URL(Astro.url.pathname, siteOrigin).toString();
-// Writing shows when an article is visible. The writing pages keep their own link.
-const showWriting = active === "writing" || active === "article" || (await getArticles()).length > 0;
-// Products show the same way: the link appears when a product is visible.
-const showProducts = active === "products" || active === "product" || (await getProducts()).length > 0;
-const internalLinks: { label: string; href: string; current?: "page" | "location" }[] = [
-  { label: "about", href: "/about/", current: active === "about" ? ("page" as const) : undefined },
-  ...(showWriting
-    ? [{ label: "writing", href: "/writing/", current: active === "writing" ? ("page" as const) : active === "article" ? ("location" as const) : undefined }]
-    : []),
-  ...(showProducts
-    ? [{ label: "products", href: "/products/", current: active === "products" ? ("page" as const) : active === "product" ? ("location" as const) : undefined }]
-    : []),
-];
-const profileLinks = [
-  { label: "linkedin", href: "https://www.linkedin.com/in/cristianvega-ai" },
-  { label: "x", href: "https://x.com/cristianvega" },
-  { label: "github", href: "https://github.com/cristianvega-ai" },
-];
-const themeColor = TOKEN_FALLBACKS["--ink"];
-// Dedicated 1200×630 share card (see scripts/generate-social-preview.mjs); not the square master.
-const socialPreviewWidth = 1200;
-const socialPreviewHeight = 630;
-const socialPreviewAddress = new URL("/images/cristian-vega-social-preview.jpg", siteOrigin).toString();
-const socialPreviewDescription = `Portrait of ${SITE_NAME}`;
-const structuredData = {
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "WebSite",
-      "@id": `${siteOrigin.origin}/#website`,
-      url: `${siteOrigin.origin}/`,
-      name: SITE_NAME,
-      inLanguage: "en",
-      publisher: { "@id": `${siteOrigin.origin}/#person` }
-    },
-    {
-      "@type": "Person",
-      "@id": `${siteOrigin.origin}/#person`,
-      name: SITE_NAME,
-      url: `${siteOrigin.origin}/`,
-      jobTitle: JOB_TITLE,
-      worksFor: { "@type": "Organization", name: "Vertafore" },
-      sameAs: profileLinks.map((link) => link.href)
-    }
-  ]
-};
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content={themeColor} />
-    <title>{pageTitle}</title>
-    <meta name="description" content={description} />{noindex && <meta name="robots" content="noindex, follow" />}
-    <link rel="canonical" href={canonicalAddress} />
-    <meta property="og:title" content={pageTitle} />
-    <meta property="og:description" content={description} />
-    <meta property="og:type" content={active === "article" ? "article" : "website"} />
-    {published && <meta property="article:published_time" content={published} />}
-    {active === "article" && <meta name="author" content={SITE_NAME} />}
-    {!noindex && <meta property="og:url" content={canonicalAddress} />}
-    <meta property="og:site_name" content={SITE_NAME} />
-    <meta property="og:image" content={socialPreviewAddress} />
-    <meta property="og:image:type" content="image/jpeg" />
-    <meta property="og:image:width" content={String(socialPreviewWidth)} />
-    <meta property="og:image:height" content={String(socialPreviewHeight)} />
-    <meta property="og:image:alt" content={socialPreviewDescription} />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content={socialPreviewAddress} />
-    <meta name="twitter:image:alt" content={socialPreviewDescription} />
-    {/* Preload only the faces measurement showed on the critical path: IBM
-        Plex Sans 400 roman is the homepage LCP (intro copy), Geist 600 is
-        the display heading. Mono 400/500/600 and Plex Sans 400 italic paint
-        later and are left to CSS discovery. crossorigin is required for font
-        preloads. */}
-    <link rel="preload" href={plexSans400} as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href={geist} as="font" type="font/woff2" crossorigin />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
+    <SiteHead {title} {description} {active} {noindex} {published} />
     {/* A page adds its own head elements here, such as the generated globe stylesheet. */}
     <slot name="head" />
-    <script type="application/ld+json" is:inline set:html={JSON.stringify(structuredData)} />
   </head>
   <body data-page={active}>
     <a class="skip-link" href="#main-content">Skip to content</a>
-    <header class="site-header">
-      <div class="site-header__inner">
-        <a class="brand" href="/" aria-label={`${SITE_NAME} home`}>
-          <span class="brand__mark" aria-hidden="true"><i></i><i></i></span>
-          <span class="brand__word"><i>Cristian</i>Vega</span>
-        </a>
-
-        <nav class="navigation" aria-label="Primary">
-          {internalLinks.map((link, index) => (
-            <a class={index === internalLinks.length - 1 ? "navigation__link navigation__link--divided" : "navigation__link"} href={link.href} aria-current={link.current}>{link.label}</a>
-          ))}
-          {profileLinks.map((link) => (
-            <a class="navigation__link" href={link.href} rel="me noopener noreferrer" target="_blank">{link.label}</a>
-          ))}
-        </nav>
-
-        <details class="navigation-menu">
-          <summary class="navigation-menu__toggle">menu</summary>
-          <nav class="navigation-menu__panel" aria-label="Menu">
-            {internalLinks.map((link) => (
-              <a class="navigation-menu__link" href={link.href} aria-current={link.current}>{link.label}</a>
-            ))}
-            <div class="navigation-menu__rule" role="presentation"></div>
-            {profileLinks.map((link) => (
-              <a class="navigation-menu__link" href={link.href} rel="me noopener noreferrer" target="_blank">{link.label}</a>
-            ))}
-          </nav>
-        </details>
-      </div>
-    </header>
+    <SiteHeader {active} />
 
     <div id="main-content" tabindex="-1">
       <slot />
     </div>
 
-    <footer class="site-footer">
-      <div class="wrap site-footer__inner">
-        <p class="site-footer__disclaimer">
-          Disclaimer: The views and opinions expressed on this site are my own.
-        </p>
-        <p class="site-footer__copyright">© Copyright {buildYear} {SITE_NAME}</p>
-      </div>
-    </footer>
+    <SiteFooter />
     <CloudflareAnalytics />
-    <script>
-      // The menu closes on Escape, when focus leaves it, and on a click
-      // outside it. It still opens and closes without this script.
-      const menu = document.querySelector<HTMLDetailsElement>(".navigation-menu");
-      menu?.addEventListener("keydown", (event) => {
-        if (event.key !== "Escape" || !menu.open) return;
-        menu.open = false;
-        menu.querySelector("summary")?.focus();
-      });
-      // A press on the panel padding moves focus to nothing, so it is not a focus exit.
-      // A Tab past the last link on a page with nothing after the menu also moves focus
-      // to nothing, and it must close the menu.
-      let pressing = false;
-      menu?.addEventListener("pointerdown", () => { pressing = true; });
-      document.addEventListener("pointerup", () => { pressing = false; });
-      document.addEventListener("pointercancel", () => { pressing = false; });
-      menu?.addEventListener("focusout", (event) => {
-        const next = event.relatedTarget;
-        if (!menu.open || (next instanceof Node && menu.contains(next))) return;
-        if (next === null && pressing) return;
-        menu.open = false;
-      });
-      document.addEventListener("pointerdown", (event) => {
-        if (menu?.open && event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
-      });
-    </script>
   </body>
 </html>

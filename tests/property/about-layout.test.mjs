@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { aboutLayout } from "../../src/shared/page-graphics/scenes/about.ts";
+import { aboutLayout } from "../../src/shared/page-graphics/scenes/about-layout.ts";
 
 // Exercise the two layout branches: a tall column and a short band.
 const aboutBounds = [[456, 762], [680, 136]];

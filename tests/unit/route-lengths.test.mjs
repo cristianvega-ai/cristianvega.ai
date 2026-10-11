@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { makeRoute } from "../../src/shared/page-graphics/marks.ts";
+import { makeRoute } from "../../src/shared/motion/comets.ts";
 
 test("makeRoute calculates cumulative lengths for a route with fixed points", () => {
   const route = makeRoute([{ x: 0, y: 0 }, { x: 3, y: 4 }, { x: 3, y: 10 }]);

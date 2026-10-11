@@ -1,0 +1,23 @@
+---
+// The numbered list of articles on the writing index. The writing graphic reads its hooks.
+import { articleAddress, articleDate, readingMinutes, type Article } from "../shared/writing";
+import "../styles/entries.css";
+import "../styles/article-list.css";
+
+interface Props {
+  articles: Article[];
+}
+
+const { articles } = Astro.props;
+---
+
+<ol class="article-list">
+  {articles.map((article, index) => (
+    <li class="article-list__item" data-article-identifier={article.id} data-writing-entry-identifier={article.id}>
+      <span class="article-list__number" data-writing-label aria-hidden="true">N° {String(articles.length - index).padStart(2, "0")}</span>
+      <h2 class="article-list__title"><a class="article-list__link" href={articleAddress(article)}>{article.data.title}</a></h2>
+      <p class="article-list__metadata"><time datetime={article.data.date.toISOString().slice(0, 10)}>{articleDate(article)}</time> · {article.data.topic} · {readingMinutes(article)} min{article.data.draft && <span class="draft-label"> · Draft</span>}</p>
+      <p class="article-list__excerpt">{article.data.description}</p>
+    </li>
+  ))}
+</ol>

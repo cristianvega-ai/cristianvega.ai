@@ -1,4 +1,6 @@
-/* This file is the source of truth for the design tokens of the site. */
+/* This file is the source of truth for the design tokens of the site. It
+   also holds the base elements and the small parts that many pages share.
+   Each component and page imports its own stylesheet. */
 
 /* Self-hosted latin subsets. Geist carries the display face at weight 600.
    IBM Plex Sans ships 400 roman and 400 italic; IBM Plex Mono ships 400, 500
@@ -260,12 +262,6 @@ h1 {
   border-radius: 4px;
 }
 
-/* A sky outline on the hero, where azure lacks contrast */
-.hero :focus-visible {
-  outline: 3px solid var(--sky);
-  outline-offset: 2px;
-}
-
 .skip-link {
   position: absolute;
   left: 16px;
@@ -363,250 +359,6 @@ h1 {
   color: var(--sky);
 }
 
-/* The header stays sticky on inner pages. The homepage header scrolls with the page.
-   home.css supplies the homepage exception.
-   The opaque background keeps underlying content hidden.
-   The shadow adds a hairline without changing header height.
-   The shared header uses the dark page ground. */
-.site-header {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: var(--ink);
-  box-shadow: 0 1px 0 var(--masthead-line);
-}
-
-.site-header__inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: var(--header-height);
-  gap: 20px;
-  max-width: var(--frame);
-  margin-inline: auto;
-  padding-inline: var(--frame-padding);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--masthead-text);
-  white-space: nowrap;
-}
-
-/* Two 16px rings on a diagonal. The first pins to the top left of the box and
-   the second to the bottom right, so the 25x24 box supplies the offset. The
-   first ring is sky on every ground; the second takes the ground's own tone. */
-.brand__mark {
-  position: relative;
-  width: 25px;
-  height: 24px;
-  flex: 0 0 auto;
-}
-
-.brand__mark i {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 16px;
-  height: 16px;
-  border: 1.8px solid var(--sky);
-  border-radius: 50%;
-}
-
-.brand__mark i:last-child {
-  top: auto;
-  left: auto;
-  right: 0;
-  bottom: 0;
-  border-color: var(--brand-second-ring-ink);
-}
-
-/* The two names join with no space, and tone marks the join: the given name
-   takes the meta grey, the family name takes the ground's foreground. */
-.brand__word {
-  font-family: var(--font-monospace);
-  font-size: var(--font-size-metadata);
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.brand__word i {
-  font-style: normal;
-  color: var(--masthead-metadata);
-}
-
-.navigation {
-  --navigation-gap: 6px;
-  --navigation-padding: 8px;
-  display: flex;
-  align-items: center;
-  gap: var(--navigation-gap);
-  margin-right: calc(var(--navigation-padding) * -1);
-  font-family: var(--font-monospace);
-  font-size: var(--font-size-interface);
-  font-weight: 500;
-  color: var(--masthead-metadata);
-}
-
-/* Padding sets the target: 40px tall and at least 24px wide. "x" is 8px of
-   text, so 8px of padding on each side makes exactly 24px. Every link has the
-   same inline padding, so the visible space between two words is the same
-   22px: two paddings plus the gap. */
-.navigation__link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  min-width: 24px;
-  padding-inline: var(--navigation-padding);
-  border-bottom: 2px solid transparent;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.navigation__link:hover,
-.navigation__link[aria-current] {
-  color: var(--masthead-text);
-}
-
-.navigation__link[aria-current] {
-  border-bottom-color: var(--sky);
-}
-
-/* The divider sits after the last internal link, before the profile links.
-   It has 22px of clear space on each side, the same as two words have between
-   them. The margin makes room for those two spaces and the divider's 1px. */
-.navigation__link--divided {
-  position: relative;
-  margin-right: 23px;
-}
-
-.navigation__link--divided::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: -15px;
-  width: 1px;
-  height: 14px;
-  background: currentColor;
-  opacity: .5;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.site-header :focus-visible {
-  outline-color: var(--sky);
-}
-
-/* A faint blueprint grid in the empty area right of the reading column. It
-   echoes the homepage grid: the same 40px pitch, the same elliptical fade, and
-   lines on the same x positions as the homepage. The box starts at the right
-   edge of the column plus the graphic gap, and the mask reaches 0 well inside the box. So nothing
-   sits behind text, the header, the footer fade, or the viewport edges. It is
-   fixed, so it stays still while the page scrolls. Articles and the writing
-   list do not get it. */
-body:is([data-page="about"], [data-page="products"], [data-page="product"], [data-page="error"])::before {
-  content: "";
-  position: fixed;
-  z-index: -1;
-  top: var(--header-height);
-  bottom: calc(var(--footer-height) + var(--footer-fade));
-  right: 0;
-  left: var(--graphic-left);
-  background-image:
-    repeating-linear-gradient(180deg, transparent 0 39px, var(--grid-line) 39px 40px),
-    repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line) 39px 40px);
-  background-size: 40px 40px;
-  /* One vertical line lands on the content left edge, as on the homepage. The
-     frame left edge cancels out, so the offset needs no frame width. */
-  background-position: calc(var(--frame-padding) - var(--reading-column) - var(--graphic-gap) - 39px) 0;
-  -webkit-mask-image: radial-gradient(
-    ellipse closest-side at 50% 50%,
-    #000 0 30%,
-    rgb(0 0 0 / .7) 48%,
-    rgb(0 0 0 / .42) 60%,
-    rgb(0 0 0 / .22) 72%,
-    rgb(0 0 0 / .08) 84%,
-    transparent 94%
-  );
-  mask-image: radial-gradient(
-    ellipse closest-side at 50% 50%,
-    #000 0 30%,
-    rgb(0 0 0 / .7) 48%,
-    rgb(0 0 0 / .42) 60%,
-    rgb(0 0 0 / .22) 72%,
-    rgb(0 0 0 / .08) 84%,
-    transparent 94%
-  );
-  pointer-events: none;
-}
-
-/* Below this width the column takes most of the page and no empty area
-   remains. The grid goes away, so it never crosses text. */
-@media (max-width: 1099px) {
-  body:is([data-page="about"], [data-page="products"], [data-page="product"], [data-page="error"])::before {
-    display: none;
-  }
-}
-
-/* The page graphic: a canvas picture that shares the grid's place. It is
-   decorative. It takes no input and never sits behind text. Without
-   JavaScript it takes no space, so the page keeps only the grid. */
-.page-graphic {
-  display: none;
-  position: relative;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.page-graphic__canvas {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  /* Every edge fades out over 24px, so no ring, line, or label clips hard
-     against the viewport edge, the header line, or the column. */
-  -webkit-mask-image:
-    linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent),
-    linear-gradient(180deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
-  mask-image:
-    linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent),
-    linear-gradient(180deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
-  -webkit-mask-composite: source-in;
-  mask-composite: intersect;
-}
-
-/* Below 1100px: a short band above the page title, inside the reading column. */
-@media (scripting: enabled) {
-  .page-graphic:not([hidden]) {
-    display: block;
-    height: var(--band-height);
-    margin-top: 20px;
-    width: calc(min(100%, var(--reading-column)) - 2 * var(--frame-padding));
-    margin-left: calc(max(0px, 50% - var(--frame) / 2) + var(--frame-padding));
-  }
-}
-
-/* From 1100px: the box of the grid above, in the empty area right of the
-   column. It sits above the grid layer and stays fixed while the page scrolls. */
-@media (min-width: 1100px) and (scripting: enabled) {
-  .page-graphic:not([hidden]) {
-    position: fixed;
-    z-index: 0;
-    top: var(--header-height);
-    bottom: calc(var(--footer-height) + var(--footer-fade));
-    right: 0;
-    left: var(--graphic-left);
-    width: auto;
-    height: auto;
-    margin: 0;
-  }
-}
-
 .button {
   display: inline-flex;
   align-items: center;
@@ -644,76 +396,23 @@ body:is([data-page="about"], [data-page="products"], [data-page="product"], [dat
   padding-bottom: 0.2em;
 }
 
-/* Fixed, so it reads as a status bar under the page rather than an end to it.
-   Body padding keeps the strip clear, so nothing is ever hidden behind it. */
-.site-footer {
-  position: fixed;
-  inset: auto 0 0 0;
-  z-index: 40;
-  height: var(--footer-height);
-  background: var(--ink);
-  border-top: 1px solid var(--masthead-line);
-}
-
-/* Text scrolls under the bar. A short fade above it lets a line dim out
-   before the edge, so no line is cut through its middle. The strip takes no
-   input. The page keeps its own room for it: see the body padding. */
-.site-footer::before {
-  content: "";
-  position: absolute;
-  inset: auto 0 100% 0;
-  height: var(--footer-fade);
-  background: linear-gradient(transparent, var(--ink));
-  pointer-events: none;
-}
-
-.site-footer__inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  height: 100%;
-  padding-block: 0;
-}
-
-.site-footer__disclaimer,
-.site-footer__copyright {
-  font-family: var(--font-monospace);
-  font-size: var(--font-size-label);
-  line-height: 1.5;
-  color: var(--masthead-metadata);
-  margin: 0;
-}
-
 @media (max-width: 760px) {
   /* The disclaimer stacks over the copyright in the same small type. Two
      lines need 33px. The bar gets room for both and the page reserve grows
-     with it. */
+     with it. site-footer.css stacks the lines. */
   :root {
     --footer-height: 54px;
     --footer-reserve: 62px;
-  }
-  .site-footer__inner {
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 4px;
   }
 }
 
 @media (max-width: 540px) {
   /* The disclaimer wraps to two lines here, so three lines share the bar.
-     The type and the line height shrink so the bar stays light. Three lines
-     of 10px type at 1.35 need 41px, and the row gap adds 4px. */
+     Three lines of 10px type at 1.35 need 41px, and the row gap adds 4px.
+     site-footer.css shrinks the type. */
   :root {
     --footer-height: 56px;
     --footer-reserve: 62px;
-  }
-  .site-footer__disclaimer,
-  .site-footer__copyright {
-    /* Below the label step on purpose: three lines must fit the 56px bar. */
-    font-size: 10px;
-    line-height: 1.35;
   }
 }
 
@@ -728,96 +427,6 @@ body:is([data-page="about"], [data-page="products"], [data-page="product"], [dat
     --font-size-subsection-heading: 18px;
     --font-size-lede: 17px;
     --font-size-body: 16px;
-  }
-}
-
-/* Above 640px the nav shows every link inline. At 640px and below the same
-   links sit in a menu, so the header stays on one row however many links a
-   page has. The menu is a details element and works without JavaScript. */
-.navigation-menu {
-  display: none;
-  position: relative;
-  font-family: var(--font-monospace);
-  font-size: var(--font-size-interface);
-  font-weight: 500;
-}
-
-.navigation-menu__toggle {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  padding-inline: 8px;
-  color: var(--masthead-metadata);
-  cursor: pointer;
-  list-style: none;
-}
-
-.navigation-menu__toggle::-webkit-details-marker {
-  display: none;
-}
-
-.navigation-menu__toggle::after {
-  content: "";
-  width: 6px;
-  height: 6px;
-  margin-left: 8px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: translateY(-2px) rotate(45deg);
-}
-
-.navigation-menu[open] > .navigation-menu__toggle::after {
-  transform: translateY(1px) rotate(-135deg);
-}
-
-.navigation-menu__panel {
-  position: absolute;
-  /* The gap clears the 5px focus ring of the toggle. */
-  top: calc(100% + 10px);
-  right: 0;
-  z-index: 60;
-  min-width: 200px;
-  padding: 6px;
-  background: var(--ink-raised);
-  border: 1px solid var(--masthead-line);
-  border-radius: var(--radius-medium);
-}
-
-.navigation-menu__link {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  padding-inline: 12px;
-  color: var(--masthead-metadata);
-  border-radius: 4px;
-}
-
-.navigation-menu__link:hover,
-.navigation-menu__link[aria-current] {
-  color: var(--masthead-text);
-}
-
-.navigation-menu__link[aria-current] {
-  box-shadow: inset 2px 0 0 var(--sky);
-}
-
-.navigation-menu__rule {
-  height: 1px;
-  margin: 6px 12px;
-  background: var(--masthead-line);
-}
-
-@media (max-width: 640px) {
-  .site-header__inner {
-    gap: 12px;
-  }
-
-  .navigation {
-    display: none;
-  }
-
-  .navigation-menu {
-    display: block;
   }
 }
 

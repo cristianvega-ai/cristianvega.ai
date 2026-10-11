@@ -1,0 +1,19 @@
+---
+import { render } from "astro:content";
+import ProductLayout from "../../layouts/ProductLayout.astro";
+import { getProducts } from "../../shared/products";
+import { assertProductCapacity } from "../../shared/page-graphics/scenes/product-slots";
+
+export async function getStaticPaths() {
+  const products = await getProducts();
+  assertProductCapacity(products.filter(({ data }) => !data.draft).length);
+  return products.map((product) => ({ params: { slug: product.id }, props: { product, products } }));
+}
+
+const { product, products } = Astro.props;
+const { Content } = await render(product);
+---
+
+<ProductLayout {product} {products}>
+  <Content />
+</ProductLayout>

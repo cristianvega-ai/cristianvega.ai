@@ -1,0 +1,35 @@
+/* The product rows of the products index. ProductList.astro renders them.
+   entries.css holds the parts that the article rows share. */
+.entries {
+  border-top: 1px solid var(--masthead-line);
+}
+
+.entries__item {
+  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
+  gap: 6px 40px;
+  padding: 24px 0 26px;
+}
+
+.entries__metadata {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.entries__excerpt {
+  max-width: 62ch;
+  margin-top: 8px;
+  text-wrap: pretty;
+}
+
+@media (max-width: 640px) {
+  .entries__item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .entries__metadata {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0 12px;
+  }
+}

@@ -1,5 +1,5 @@
 import { MAXIMUM_FRAME_INTERVAL_MILLISECONDS } from "../motion/canvas-controller.ts";
-import { clamp } from "./math.ts";
+import { clamp } from "../motion/easing.ts";
 import { showChange, type CanvasHandle, type FrameState } from "./mount.ts";
 
 /**
