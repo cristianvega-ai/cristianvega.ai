@@ -33,7 +33,7 @@ Production excludes drafts from article routes, navigation, and the sitemap.
 Production creates the Writing index only when at least one published article exists.
 Keep this fixture excluded when real articles become public.
 
-Use `createContentBuild` in [tests/support/helpers.mjs](../../tests/support/helpers.mjs) for publication test fixtures.
+Use `createContentBuild` in [tests/shared/helpers.mjs](../../tests/shared/helpers.mjs) for publication test fixtures.
 The helper replaces content only in temporary project copies.
 All-draft and mixed test fixtures cover publication without changing source content.
 Do not publish this visual fixture to test published behavior.

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { headerLinks } from "../support/helpers.mjs";
-import { currentContent, currentPublished, DRAFT_ORIGIN, expectReadablePage, settle, tabTo, VIEWPORTS } from "../support/browser-fixtures.mjs";
+import { headerLinks } from "../shared/helpers.mjs";
+import { currentContent, currentPublished, DRAFT_ORIGIN, expectReadablePage, settle, tabTo, VIEWPORTS } from "../shared/browser-fixtures.mjs";
 
 // Check the shared shell on one long page and one short page in both layouts.
 for (const viewport of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {

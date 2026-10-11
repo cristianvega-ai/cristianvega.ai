@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import yaml from "js-yaml";
 
-import { root } from "../support/helpers.mjs";
+import { root } from "../shared/helpers.mjs";
 
 // Parse workflow structure. Inspect shell commands only when their ordering or arguments define the deployment boundary.
 const workflow = yaml.load(readFileSync(join(root, ".github", "workflows", "deploy.yml"), "utf8"));

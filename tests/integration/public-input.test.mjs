@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 
-import { root } from "../support/helpers.mjs";
+import { root } from "../shared/helpers.mjs";
 
 async function publicFixture(t) {
   const directory = await mkdtemp(join(tmpdir(), "public-input-"));

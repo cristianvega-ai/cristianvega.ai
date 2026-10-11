@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { pendingFrames, useManualFrames, useReducedMotion, VIEWPORTS } from "../support/browser-fixtures.mjs";
+import { pendingFrames, useManualFrames, useReducedMotion, VIEWPORTS } from "../shared/browser-fixtures.mjs";
 
 const graphic = "[data-graphic='about']";
 

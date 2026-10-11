@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { assertPageBasics, escapeHtml, publishedContent, readContentInventory, readDistFile } from "../support/helpers.mjs";
+import { assertPageBasics, escapeHtml, publishedContent, readContentInventory, readDistFile } from "../shared/helpers.mjs";
 
 // Check rendered landmarks, metadata, navigation, and asset delivery.
 // Publication fixtures live in publication.test.mjs. Browsers check runtime behavior.

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { DRAFT_ORIGIN, pageProblems, settle, tabTo, useReducedMotion } from "../support/browser-fixtures.mjs";
+import { DRAFT_ORIGIN, pageProblems, settle, tabTo, useReducedMotion } from "../shared/browser-fixtures.mjs";
 
 const article = "/writing/full-article-layout-fixture/";
 

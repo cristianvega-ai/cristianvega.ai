@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { settle, useReducedMotion } from "../support/browser-fixtures.mjs";
+import { settle, useReducedMotion } from "../shared/browser-fixtures.mjs";
 
 const production = "https://cristianvega.ai";
 const beaconScript = "https://static.cloudflareinsights.com/beacon.min.js";

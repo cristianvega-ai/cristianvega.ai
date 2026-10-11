@@ -14,7 +14,7 @@ Put checks in the type that observes the failure.
 | Property | `tests/property/` | Deterministic invariants over samples, ranges, generated structures, and data collections. |
 | Integration | `tests/integration/` | Builds, fixtures, scripts, and repository contracts. |
 | End-to-end | `tests/end-to-end/` | Layout and behavior that Playwright observes in a browser or local runtime. |
-| Support | `tests/support/` | Shared Node helpers, browser fixtures, and development-server configuration. |
+| Shared | `tests/shared/` | Shared Node helpers, browser fixtures, and development-server configuration. |
 
 Unit and property suites read pure helpers.
 They do not read the DOM or build output.
@@ -91,7 +91,7 @@ The deployment integration suite starts Wrangler on `dist/`.
 | `tests/end-to-end/analytics.spec.mjs` | The Cloudflare beacon loads on the production origin only, and pages work when it is blocked. |
 
 Keep page selectors and expectations in their owning suite.
-Share identical navigation, settlement, frame, and pixel mechanisms through `tests/support/browser-fixtures.mjs`.
+Share identical navigation, settlement, frame, and pixel mechanisms through `tests/shared/browser-fixtures.mjs`.
 Pass page selectors and alpha thresholds to the pixel helpers.
 
 To choose a layer, ask what the test must look at:
@@ -141,16 +141,16 @@ Do not use case counts as coverage targets.
 - End-to-end specs end in `.spec.mjs` and belong in `tests/end-to-end/`.
 - Use explicit Node globs for those three folders.
 - Configure Playwright to discover only `tests/end-to-end/*.spec.mjs`.
-- Keep support files outside both runners' discovery patterns.
-- Share browser helpers through `tests/support/browser-fixtures.mjs` and Node helpers through `tests/support/helpers.mjs`.
+- Keep shared files outside both runners' discovery patterns.
+- Share browser helpers through `tests/shared/browser-fixtures.mjs` and Node helpers through `tests/shared/helpers.mjs`.
 - Do not copy a helper into a second file.
-- Build changed source or content with `createIsolatedBuild` or `createContentBuild` from `tests/support/helpers.mjs`.
+- Build changed source or content with `createIsolatedBuild` or `createContentBuild` from `tests/shared/helpers.mjs`.
 - Do not change the source of the repository in a test.
 - Browser specs must be deterministic. Use Playwright's auto-waiting or `expect.poll`. Never use a fixed sleep.
 - Wait for the page entrance animation before you measure geometry. Use `settle(page)` from the fixtures. Geometry read during the animation is the animation's, not the layout's.
 - The site scrolls smoothly. Scroll with `behavior: "instant"` before you measure, or poll for the scroll result.
-- A test must pass with drafts and with published entries. Derive expected content from `tests/support/helpers.mjs`, including `publishedContent` and `headerLinks`.
-- The draft server runs with `tests/support/development-server.config.mjs`.
+- A test must pass with drafts and with published entries. Derive expected content from `tests/shared/helpers.mjs`, including `publishedContent` and `headerLinks`.
+- The draft server runs with `tests/shared/development-server.config.mjs`.
 - That configuration disables HMR, so the server never reloads a page under test.
 - Use `DRAFT_ORIGIN` from the browser fixtures for its address.
 - Prove a new assertion can fail. Break the behavior, watch the test fail, then restore it. An assertion that never fails is not coverage.

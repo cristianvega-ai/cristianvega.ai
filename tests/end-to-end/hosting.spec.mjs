@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { permissionsPolicy } from "../support/helpers.mjs";
+import { permissionsPolicy } from "../shared/helpers.mjs";
 
 for (const [path, status] of [["/", 200], ["/missing-hosting-check/", 404]]) {
   test(`${path} sends the security policy with HTTP ${status}`, async ({ request }) => {

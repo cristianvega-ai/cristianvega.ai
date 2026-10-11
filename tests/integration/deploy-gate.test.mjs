@@ -9,7 +9,7 @@ import { test } from "node:test";
 import { promisify } from "node:util";
 import { gzipSync } from "node:zlib";
 
-import { permissionsPolicy, root } from "../support/helpers.mjs";
+import { permissionsPolicy, root } from "../shared/helpers.mjs";
 
 const run = promisify(execFile);
 const scriptPaths = [

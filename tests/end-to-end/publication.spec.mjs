@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
-import { permissionsPolicy, publishedContent } from "../support/helpers.mjs";
-import { contentSecurityPolicyViolations, latestWork, navigationLink, pageProblems, publicationTest as test, recordContentSecurityPolicyViolations, settle, tabTo, useReducedMotion, VIEWPORTS } from "../support/browser-fixtures.mjs";
+import { permissionsPolicy, publishedContent } from "../shared/helpers.mjs";
+import { contentSecurityPolicyViolations, latestWork, navigationLink, pageProblems, publicationTest as test, recordContentSecurityPolicyViolations, settle, tabTo, useReducedMotion, VIEWPORTS } from "../shared/browser-fixtures.mjs";
 
 function expectProductionHeaders(headers) {
   expect(headers["x-content-type-options"]).toBe("nosniff");

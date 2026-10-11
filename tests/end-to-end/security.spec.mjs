@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-import { blockedBrowserFeatures } from "../support/helpers.mjs";
-import { useReducedMotion } from "../support/browser-fixtures.mjs";
+import { blockedBrowserFeatures } from "../shared/helpers.mjs";
+import { useReducedMotion } from "../shared/browser-fixtures.mjs";
 
 for (const path of ["/", "/missing-security-check/"]) {
   test(`${path} blocks injected style elements and attributes`, async ({ page }) => {

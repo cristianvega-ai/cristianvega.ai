@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { DRAFT_ORIGIN, pageProblems, settle, useReducedMotion, VIEWPORTS } from "../support/browser-fixtures.mjs";
+import { DRAFT_ORIGIN, pageProblems, settle, useReducedMotion, VIEWPORTS } from "../shared/browser-fixtures.mjs";
 
 test.use({ baseURL: DRAFT_ORIGIN });
 

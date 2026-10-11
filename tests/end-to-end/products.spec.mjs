@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { currentContent, currentPublished, DRAFT_ORIGIN, expectReadablePage, pageProblems, settle, VIEWPORTS } from "../support/browser-fixtures.mjs";
+import { currentContent, currentPublished, DRAFT_ORIGIN, expectReadablePage, pageProblems, settle, VIEWPORTS } from "../shared/browser-fixtures.mjs";
 
 // The index and detail use separate page adapters in both layout branches.
 for (const viewport of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {

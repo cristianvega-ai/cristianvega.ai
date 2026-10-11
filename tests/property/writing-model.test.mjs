@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { LYRA } from "../../src/shared/lyra/constellation.ts";
 import { buildField, pathToVega, LYRA_EDGES } from "../../src/shared/page-graphics/scenes/writing-layout.ts";
-import { starWidthsInPixels } from "../support/helpers.mjs";
+import { starWidthsInPixels } from "../shared/helpers.mjs";
 
 // Exercise a column and a narrow band with sparse and crowded content.
 const fieldSizes = [[480, 600], [320, 340]];
