@@ -12,7 +12,7 @@ export interface FrameState {
   elapsed: number;
   /** Eased entrance progress, from 0 to 1. */
   progress: number;
-  /** Active time since mount or replay, in milliseconds. */
+  /** Active time since mount, or since a restored page restarted the entrance, in milliseconds. */
   activeTime: number;
   /** True when the entrance finishes. */
   entranceComplete: boolean;
@@ -31,14 +31,10 @@ export interface MountOptions {
   attach?: (handle: CanvasHandle) => (() => void) | void;
   /** Entrance duration, in milliseconds. */
   duration?: number;
-  /** Maximum device pixels per CSS pixel. */
-  maximumDevicePixelRatio?: number;
 }
 
 export interface CanvasHandle {
   state: FrameState;
-  /** Restart the entrance. */
-  replay: () => void;
   /** Draw the current state. */
   redraw: () => void;
   /**
@@ -82,7 +78,7 @@ export function mountCanvasController(
   policy: CanvasPolicy,
   onFailure?: () => void,
 ): CanvasHandle | null {
-  const { draw, onResize, attach, duration = DURATION, maximumDevicePixelRatio = policy.maximumDevicePixelRatio } = options;
+  const { draw, onResize, attach, duration = DURATION } = options;
   const canvas = container.querySelector("canvas");
   const drawingContext = canvas?.getContext("2d");
   if (!canvas || !drawingContext || !("ResizeObserver" in window) || !("IntersectionObserver" in window)) return null;
@@ -182,7 +178,7 @@ export function mountCanvasController(
 
   function resize(width: number, height: number, device?: ResizeObserverSize) {
     if (!active || !width || !height) return;
-    state.ratio = Math.min(devicePixelRatio || 1, maximumDevicePixelRatio);
+    state.ratio = Math.min(devicePixelRatio || 1, policy.maximumDevicePixelRatio);
     state.width = width;
     state.height = height;
     // The screen shows a box at a fractional position on whole device pixels, for example 567 rows on 566.
@@ -315,14 +311,6 @@ export function mountCanvasController(
     wake,
     redraw: paint,
     rebuild,
-    replay() {
-      if (!active) return;
-      pause();
-      state.elapsed = 0;
-      state.activeTime = 0;
-      paint();
-      resume();
-    },
   };
   if (!setup()) {
     destroy();

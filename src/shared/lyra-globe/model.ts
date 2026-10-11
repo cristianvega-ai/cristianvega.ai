@@ -1,21 +1,19 @@
 import type { Point } from "../motion/easing.ts";
 import { LYRA, LYRA_LINKS } from "../lyra/constellation.ts";
 
-export interface GlobeNode extends Point {
+interface GlobeNode extends Point {
   radius: number;
   alpha: number;
-  layer: number;
   hot: boolean;
   vega: boolean;
   /** Share of the entrance that passes before the neuron appears. */
   start: number;
 }
 
-export interface GlobeEdge {
+interface GlobeEdge {
   a: GlobeNode;
   b: GlobeNode;
   hot: boolean;
-  layer: number;
   alpha: number;
   /** Share of the entrance that passes before the edge starts to draw. */
   start: number;
@@ -43,7 +41,7 @@ export interface GlobeRoute {
  * A label sits at an anchor on the globe grid. The offset is in CSS pixels,
  * so the text keeps its size and its distance from the anchor at any scale.
  */
-export interface GlobeLabel extends Point {
+interface GlobeLabel extends Point {
   text: string;
   alpha: number;
   align: "left" | "center";
@@ -51,7 +49,7 @@ export interface GlobeLabel extends Point {
   dy: number;
 }
 
-export interface GlobeRing extends Point {
+interface GlobeRing extends Point {
   rx: number;
   ry: number;
   rotate: number;
@@ -64,7 +62,6 @@ export interface Globe {
   nodes: GlobeNode[];
   edges: GlobeEdge[];
   hotNodes: GlobeNode[];
-  hotEdges: GlobeEdge[];
   /** The entrance comets, in the order they start. */
   routes: GlobeRoute[];
   labels: GlobeLabel[];
@@ -213,7 +210,7 @@ function schedule(globe: Globe, depths: Map<GlobeNode, number>, vega: GlobeNode)
  */
 export function buildGlobe(width = GLOBE_WIDTH, height = GLOBE_HEIGHT): Globe {
   const globe: Globe = {
-    width, height, nodes: [], edges: [], hotNodes: [], hotEdges: [], routes: [], labels: [], rings: [], stars: [], rotation: 0.035,
+    width, height, nodes: [], edges: [], hotNodes: [], routes: [], labels: [], rings: [], stars: [], rotation: 0.035,
   };
   const cx = width * 0.51;
   const cy = height * 0.49;
@@ -221,14 +218,14 @@ export function buildGlobe(width = GLOBE_WIDTH, height = GLOBE_HEIGHT): Globe {
 
   // Depth runs from 0 on the far side of the sphere to 1 on the near side.
   const depths = new Map<GlobeNode, number>();
-  const add = (x: number, y: number, size: number, alpha: number, layer: number, depth: number): GlobeNode => {
-    const node = { x, y, radius: size, alpha, layer, hot: false, vega: false, start: 0 };
+  const add = (x: number, y: number, size: number, alpha: number, depth: number): GlobeNode => {
+    const node = { x, y, radius: size, alpha, hot: false, vega: false, start: 0 };
     depths.set(node, depth);
     globe.nodes.push(node);
     return node;
   };
-  const connect = (a: GlobeNode, b: GlobeNode, hot: boolean, layer: number, alpha: number) => {
-    globe.edges.push({ a, b, hot, layer, alpha, start: 0, from: a });
+  const connect = (a: GlobeNode, b: GlobeNode, hot: boolean, alpha: number) => {
+    globe.edges.push({ a, b, hot, alpha, start: 0, from: a });
     if (hot) a.hot = b.hot = true;
   };
 
@@ -239,7 +236,7 @@ export function buildGlobe(width = GLOBE_WIDTH, height = GLOBE_HEIGHT): Globe {
     const x = ring * Math.cos(angle);
     const z = ring * Math.sin(angle);
     const perspective = 1 + z * 0.13;
-    const node = add(cx + x * radius * perspective, cy + y * radius * perspective, z > 0.2 ? 2 : 1.2, 0.16 + (z + 1) * 0.3, 0, (z + 1) / 2);
+    const node = add(cx + x * radius * perspective, cy + y * radius * perspective, z > 0.2 ? 2 : 1.2, 0.16 + (z + 1) * 0.3, (z + 1) / 2);
     return { node, x, y, z };
   });
   for (let i = 0; i < sphere.length; i++) {
@@ -247,25 +244,25 @@ export function buildGlobe(width = GLOBE_WIDTH, height = GLOBE_HEIGHT): Globe {
       const a = sphere[i];
       const b = sphere[j];
       if (Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < EDGE_REACH) {
-        connect(a.node, b.node, false, 0, 0.035 + (a.z + b.z + 2) * 0.045);
+        connect(a.node, b.node, false, 0.035 + (a.z + b.z + 2) * 0.045);
       }
     }
   }
 
   const scale = radius * 0.175;
-  const lyra = LYRA.map(({ x, y }, i) => add(cx + radius * VEGA_OFFSET_X + x * scale, cy - radius * 0.55 + y * scale, i === 0 ? 4.1 : 2.3, 0.95, i === 0 ? 3 : 2, 1));
+  const lyra = LYRA.map(({ x, y }, i) => add(cx + radius * VEGA_OFFSET_X + x * scale, cy - radius * 0.55 + y * scale, i === 0 ? 4.1 : 2.3, 0.95, 1));
   lyra[0].vega = true;
-  for (const [from, to] of LYRA_LINKS) connect(lyra[from], lyra[to], true, 2, 0.3);
+  for (const [from, to] of LYRA_LINKS) connect(lyra[from], lyra[to], true, 0.3);
 
   // The hot route: three neurons on the near face, then up into the figure.
   const front = sphere
     .filter((point) => point.z > 0.2 && point.x < 0)
     .sort((first, second) => first.y - second.y);
   const [firstRouteNode, secondRouteNode, thirdRouteNode] = [front[3].node, front[7].node, front[11].node];
-  connect(firstRouteNode, secondRouteNode, true, 0, 0.17);
-  connect(secondRouteNode, thirdRouteNode, true, 1, 0.17);
-  connect(thirdRouteNode, lyra[5], true, 1, 0.17);
-  connect(secondRouteNode, lyra[3], true, 1, 0.17);
+  connect(firstRouteNode, secondRouteNode, true, 0.17);
+  connect(secondRouteNode, thirdRouteNode, true, 0.17);
+  connect(thirdRouteNode, lyra[5], true, 0.17);
+  connect(secondRouteNode, lyra[3], true, 0.17);
 
   globe.rings.push({ x: cx, y: cy, rx: radius * 1.1, ry: radius * 0.35, rotate: -0.42, alpha: 0.16 });
   globe.rings.push({ x: cx, y: cy, rx: radius * 1.13, ry: radius * 1.13, rotate: 0, alpha: 0.07 });
@@ -279,7 +276,6 @@ export function buildGlobe(width = GLOBE_WIDTH, height = GLOBE_HEIGHT): Globe {
   globe.routes = buildRoutes(globe, sphere.map((point) => point.node), lyra[0], cx, cy);
 
   globe.hotNodes = globe.nodes.filter((node) => node.hot);
-  globe.hotEdges = globe.edges.filter((edge) => edge.hot);
   schedule(globe, depths, lyra[0]);
   return globe;
 }

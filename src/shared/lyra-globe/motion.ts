@@ -117,40 +117,35 @@ function paintGlobe(
   drawingContext.globalAlpha = 1;
 }
 
-/** Put the build-time SVG in the box. It is the picture when the canvas cannot draw. Returns its removal. */
-function showFallback(root: HTMLElement): () => void {
-  const template = root.querySelector("template");
-  const fallbackDrawing = template?.content.firstElementChild?.cloneNode(true) as Element | undefined;
-  if (!template || !fallbackDrawing) return () => {};
+/** Put the build-time SVG in the box. It is the picture when the canvas cannot draw. */
+function showFallback(root: HTMLElement): void {
+  const fallbackDrawing = root.querySelector("template")?.content.firstElementChild?.cloneNode(true) as Element | undefined;
+  if (!fallbackDrawing) return;
   root.prepend(fallbackDrawing);
   root.dataset.fallback = "true";
-  return () => {
-    fallbackDrawing.remove();
-    root.removeAttribute("data-fallback");
-  };
 }
 
 /**
  * Draw the Lyra globe on its canvas, with a short entrance. The build-time SVG
  * is not on the page while the canvas works. It sits in a noscript for visitors
  * without JavaScript, and this function puts a copy in the box when canvas is
- * missing or setup fails. Returns the cleanup function.
+ * missing or setup fails.
  */
-export function setupLyraGlobe(root = document.querySelector<HTMLElement>("[data-lyra-globe]")): () => void {
-  if (!root) return () => {};
+export function setupLyraGlobe(): void {
+  const root = document.querySelector<HTMLElement>("[data-lyra-globe]");
+  if (!root) return;
   try {
-    return drawGlobe(root) ?? showFallback(root);
+    if (!drawGlobe(root)) showFallback(root);
   } catch {
-    return showFallback(root);
+    showFallback(root);
   }
 }
 
-/** Draw the globe scene. Restart its entrance after a restored page. */
-function drawGlobe(root: HTMLElement): (() => void) | undefined {
+/** Draw the globe scene. Restart its entrance after a restored page. Return false when the canvas cannot draw. */
+function drawGlobe(root: HTMLElement): boolean {
   let globe: Globe | undefined;
   let vega: Globe["hotNodes"][number] | undefined;
   let scale = 1;
-  let removeFallback: (() => void) | undefined;
   const labels = root.querySelectorAll<SVGTextElement>(".lyra-globe__label");
   const labelAnimations: { animation: Animation; start: number; span: number }[] = [];
 
@@ -272,12 +267,6 @@ function drawGlobe(root: HTMLElement): (() => void) | undefined {
     drawingContext.fill();
   }
 
-  const handle = mountCanvasController(root, { draw, onResize: resize, attach: attachLabels }, GLOBE_POLICY, () => {
-    removeFallback = showFallback(root);
-  });
-  if (!handle) return undefined;
-  return () => {
-    handle.destroy();
-    removeFallback?.();
-  };
+  const handle = mountCanvasController(root, { draw, onResize: resize, attach: attachLabels }, GLOBE_POLICY, () => showFallback(root));
+  return handle !== null;
 }
