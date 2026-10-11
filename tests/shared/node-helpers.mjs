@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import assert from "node:assert/strict";
-import yaml from "js-yaml";
+import { load, dump } from "js-yaml";
 
 // Share repository paths, publication fixtures, and rendered-page checks.
 // Keep helpers used by one suite in that suite.
@@ -27,7 +27,7 @@ export function readContentInventory(projectRoot = root) {
       const markdownSource = readFileSync(join(contentDirectory, contentFilename), "utf8");
       const frontmatterMatch = markdownSource.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
       assert.ok(frontmatterMatch, `${contentFilename} must have YAML frontmatter`);
-      const frontmatterData = yaml.load(frontmatterMatch[1]);
+      const frontmatterData = load(frontmatterMatch[1]);
       frontmatterData.draft ??= true;
       if (section === "writing") frontmatterData.date = new Date(frontmatterData.date);
       else {
@@ -171,7 +171,7 @@ export async function createContentBuild(fixtureKind) {
           const fixtureBody = `## Fixture content\n\nBody for ${entryIdentifier}.\n\n` + (collection === "writing"
             ? "```js\nconst signal = 1;\n```\n\n<div class=\"figure__panel\" role=\"img\" aria-label=\"Fixture signal path\">Signal path</div>\n"
             : "");
-          await writeFile(join(contentDirectory, `${entryIdentifier}.md`), `---\n${yaml.dump(frontmatterData)}---\n\n${fixtureBody}`);
+          await writeFile(join(contentDirectory, `${entryIdentifier}.md`), `---\n${dump(frontmatterData)}---\n\n${fixtureBody}`);
         }
       }
       inventory = readContentInventory(projectRoot);
