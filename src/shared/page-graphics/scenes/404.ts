@@ -32,17 +32,17 @@ import { mountCanvas, type CanvasHandle, type FrameState } from "../mount.ts";
 /** The star that is missing: delta. */
 export const MISSING = 3;
 /** When each pulse starts, in milliseconds: the first at 2.9 s, then every 8 s. */
-export const PULSE_STARTS = [2900, 10900, 18900, 26900] as const;
-export const PULSE_DURATION_MILLISECONDS = 2600;
+const PULSE_STARTS = [2900, 10900, 18900, 26900] as const;
+const PULSE_DURATION_MILLISECONDS = 2600;
 /** The picture rests at this time. The last pulse ends before it. */
-export const REST_TIME_MILLISECONDS = 30_500;
+const REST_TIME_MILLISECONDS = 30_500;
 const RING_RADIUS = 7;
 /** The resting alpha of the empty ring. It must read at once, over the mesh and the lattice. */
 const RING_ALPHA = 0.95;
 const DASH = [2.5, 4];
 const NO_DASH: number[] = [];
 
-export interface MissingLayout {
+interface MissingLayout {
   /** True for a band, where the figure turns a quarter turn. */
   wide: boolean;
   padding: number;
@@ -68,7 +68,7 @@ export function missingLayout(width: number, height: number): MissingLayout {
  * Place the star names. Each takes the side of its star that no link crosses, clear of the other stars,
  * the empty ring, and the box edge. Vega always has its name, and the others only when the box is tall.
  */
-export function placeLabels(
+function placeLabels(
   bounds: Rectangle,
   stars: readonly LyraPoint[],
   showNames: boolean,
@@ -98,7 +98,7 @@ export function placeLabels(
  * Fit the figure and place its names. When Vega finds no clear side, as in a narrow column, the figure
  * moves left by the room that its name needs, and the names are placed again.
  */
-export function layoutMissing(
+function layoutMissing(
   width: number,
   height: number,
   layout: MissingLayout,
@@ -129,7 +129,7 @@ export function mountNotFound(container: HTMLElement): CanvasHandle | null {
   function build(state: FrameState) {
     const layout = missingLayout(state.width, state.height);
     reach = layout.reach;
-    reportFigureLeft(container, state.width, state.height);
+    reportFigureLeft(container);
     const bounds = labelBounds(container, state.width, state.height);
     const widthsInPixels = LYRA.map((star) => star.name ? state.labelFont.widthInPixels(star.name) : 0);
     const placed = layoutMissing(state.width, state.height, layout, bounds, widthsInPixels, state.labelFont.lineHeightInPixels, stars);

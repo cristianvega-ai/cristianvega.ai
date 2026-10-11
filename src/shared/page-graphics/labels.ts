@@ -37,9 +37,9 @@ export interface PlacedLabel {
 
 const HALO_PADDING = 3;
 /** The space that a label keeps from the canvas edge. It is the figure inset, so a label follows the one bounding rule. */
-export const EDGE_INSET = FIGURE_INSET;
+const EDGE_INSET = FIGURE_INSET;
 /** The space that a label keeps from the viewport edge. */
-export const VIEWPORT_INSET = 32;
+const VIEWPORT_INSET = 32;
 /** The weight of a crossing. A hard crossing must lose to no free place, and a soft one only breaks a tie. */
 const HARD = 100;
 const SOFT = 1;
@@ -88,13 +88,13 @@ export function segmentIntersectsRectangle(segment: Segment, rectangle: Rectangl
 }
 
 /** Turn a run of points into the segments between them. Flat arrays: x0, y0, x1, y1, and so on. */
-export function polylineSegments(xs: ArrayLike<number>, ys: ArrayLike<number>, outputSegments: Segment[] = []): Segment[] {
+export function polylineSegments(xs: ArrayLike<number>, ys: ArrayLike<number>, outputSegments: Segment[]): Segment[] {
   for (let i = 1; i < xs.length; i++) outputSegments.push({ ax: xs[i - 1], ay: ys[i - 1], bx: xs[i], by: ys[i] });
   return outputSegments;
 }
 
 /** Sample an ellipse into segments, so a label can avoid a ring. */
-export function ellipseSegments(cx: number, cy: number, rx: number, ry: number, steps = 40, outputSegments: Segment[] = []): Segment[] {
+export function ellipseSegments(cx: number, cy: number, rx: number, ry: number, steps: number, outputSegments: Segment[]): Segment[] {
   let px = cx + rx;
   let py = cy;
   for (let i = 1; i <= steps; i++) {

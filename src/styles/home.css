@@ -351,8 +351,7 @@ body[data-page="home"] main {
   }
 }
 
-.lyra-globe__star,
-.lyra-globe__edge {
+.lyra-globe__star {
   fill: var(--masthead-metadata);
   stroke: none;
 }

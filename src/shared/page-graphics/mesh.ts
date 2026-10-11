@@ -40,9 +40,9 @@ export interface Mesh {
 }
 
 /** Build a mesh for the supplied width and height. The same box and seed give the same mesh. */
-export function makeMesh(width: number, height: number, seed = 0, cell = CELL): Mesh {
-  const columns = Math.max(1, Math.ceil(width / cell));
-  const rows = Math.max(1, Math.ceil(height / cell));
+export function makeMesh(width: number, height: number, seed: number): Mesh {
+  const columns = Math.max(1, Math.ceil(width / CELL));
+  const rows = Math.max(1, Math.ceil(height / CELL));
   const slot = new Int16Array(columns * rows).fill(-1);
   const xs = new Float32Array(columns * rows);
   const ys = new Float32Array(columns * rows);
@@ -54,8 +54,8 @@ export function makeMesh(width: number, height: number, seed = 0, cell = CELL): 
       const key = (row * columns + column) * 6 + seed * 1000;
       if (unit(key) < EMPTY) continue;
       slot[row * columns + column] = count;
-      xs[count] = clamp((column + 0.15 + unit(key + 1) * 0.7) * cell, 0, width);
-      ys[count] = clamp((row + 0.15 + unit(key + 2) * 0.7) * cell, 0, height);
+      xs[count] = clamp((column + 0.15 + unit(key + 1) * 0.7) * CELL, 0, width);
+      ys[count] = clamp((row + 0.15 + unit(key + 2) * 0.7) * CELL, 0, height);
       radius[count] = 0.7 + unit(key + 3) * 0.7;
       hot[count] = unit(key + 4) > 0.9 ? 1 : 0;
       count++;
@@ -88,8 +88,8 @@ export function makeMesh(width: number, height: number, seed = 0, cell = CELL): 
 }
 
 /** Draw the mesh. `progress` 0..1 is the entrance: synapses draw in one after another, then the nodes settle. */
-export function drawMesh(drawingContext: CanvasRenderingContext2D, palette: Palette, mesh: Mesh, progress: number, strength = 1): void {
-  const fade = smooth(progress / 0.35) * strength;
+export function drawMesh(drawingContext: CanvasRenderingContext2D, palette: Palette, mesh: Mesh, progress: number): void {
+  const fade = smooth(progress / 0.35);
   if (fade <= 0) return;
   drawingContext.lineCap = "round";
   drawingContext.lineWidth = 0.6;

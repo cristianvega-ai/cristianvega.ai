@@ -42,7 +42,7 @@ export const MINIMUM_SLOTS = 6;
 /** A tall box gives the orbits at most this ratio of height to width, so a column does not stretch them. */
 const MAXIMUM_ORBIT_HEIGHT_RATIO = 1.3;
 /** The drift stops after this time. Then the picture rests and the loop ends. */
-export const DRIFT_DURATION_MILLISECONDS = 30_000;
+const DRIFT_DURATION_MILLISECONDS = 30_000;
 /** For each satellite: an orbit, a start angle in radians, and a speed in radians for each millisecond. */
 const SATELLITE_RING = [0, 1, 2] as const;
 const SATELLITE_PHASE = [0.4, 3.2, 5.1] as const;
@@ -60,9 +60,9 @@ const MARK_LINE = 0.8;
  * The largest reach of any mark from its slot centre: the ring of the current product with half its
  * line, or the halo of a lit product. The orbits keep this room inside the figure inset.
  */
-export const SLOT_REACH = Math.max(CURRENT_RING + MARK_LINE / 2, NODE_HALO);
+const SLOT_REACH = Math.max(CURRENT_RING + MARK_LINE / 2, NODE_HALO);
 
-export interface OrbitPlan {
+interface OrbitPlan {
   /** The lit products: one for each published product, at most `MAXIMUM_SLOTS`. */
   lit: number;
   /** All slots drawn: the lit ones and the empty rings. */
@@ -147,7 +147,7 @@ export function fitLyraAtVega(
   return output;
 }
 
-export interface OrbitBox {
+interface OrbitBox {
   /** The half size that the orbits scale from. */
   halfWidth: number;
   halfHeight: number;
@@ -159,7 +159,7 @@ export interface OrbitBox {
  * Size the orbits from the measured box. Slots sit on the outer orbit, so the outer orbit keeps
  * SLOT_REACH inside the figure inset. Then every mark of every slot stays inside the inset.
  */
-export function orbitBox(width: number, height: number): OrbitBox {
+function orbitBox(width: number, height: number): OrbitBox {
   const outer = RINGS[RINGS.length - 1];
   const room = FIGURE_INSET + SLOT_REACH;
   const halfWidth = Math.max(0, width / 2 - room) / outer;
@@ -214,7 +214,7 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
 
   // Rebuild the layout from the measured box. Nothing here depends on a CSS breakpoint.
   function build(state: FrameState) {
-    reportFigureLeft(container, state.width, state.height);
+    reportFigureLeft(container);
     cx = state.width / 2;
     cy = state.height / 2;
     ({ halfWidth, halfHeight, wide } = orbitBox(state.width, state.height));

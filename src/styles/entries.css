@@ -62,15 +62,6 @@
   color: var(--sky);
 }
 
-.text-link {
-  font: 500 var(--font-size-interface) var(--font-monospace);
-  color: var(--sky);
-}
-
-.text-link:hover {
-  color: var(--masthead-text);
-}
-
 @media (max-width: 640px) {
   .entries__item {
     grid-template-columns: minmax(0, 1fr);

@@ -78,7 +78,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     originX = beside ? Math.min(Math.max(0, listBox.right - box.left), state.width * 0.6) : 0;
     boxWidth = state.width - originX;
     boxHeight = state.height;
-    reportFigureLeft(container, boxWidth, boxHeight, originX);
+    reportFigureLeft(container, originX);
     field = buildField({
       articleIdentifiers: articles.map((article) => article.identifier),
       labels: articles.map((article) => article.label),

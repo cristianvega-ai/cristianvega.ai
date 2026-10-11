@@ -88,7 +88,7 @@ Globe labels use canvas entrance progress and pause with the drawing.
 - `lyra.ts`: `layoutLyra(width, height)` preserves proportions and caps the figure at `LYRA_MAXIMUM_SIZE`.
 - `label-font.ts`: measured label widths and the canvas font.
 - `labels.ts`: `placeLabel()` uses measured widths, the label line, and `labelBounds()`.
-- `inset.ts`: `FIGURE_INSET` and `figureRectangle()` keep the figure inside the edge fade.
+- `inset.ts`: `FIGURE_INSET` keeps the figure inside the edge fade. `reportFigureLeft()` publishes its left bound.
   A scene must keep the reach of its marks inside the inset, not only the mark centres.
   The products scene keeps `SLOT_REACH`, the largest ring or halo round a slot.
 - `mesh.ts`: sparse neural meshes and cached site grids.

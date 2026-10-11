@@ -1,5 +1,5 @@
 /** A color as the canvas paints it: sRGB channels from 0 to 255, and an alpha from 0 to 1. */
-export interface ColorChannels {
+interface ColorChannels {
   red: number;
   green: number;
   blue: number;
@@ -31,7 +31,7 @@ const FALLBACKS = {
  * Resolve a CSS color through a 1x1 canvas. Return null when the canvas cannot parse it.
  * Any color that the browser can parse works, for example hex, rgb(), hsl(), oklch(), or a name.
  */
-export function resolveColor(probe: CanvasRenderingContext2D, value: string): ColorChannels | null {
+function resolveColor(probe: CanvasRenderingContext2D, value: string): ColorChannels | null {
   // The canvas ignores a color that it cannot parse. Two different starting colors show whether the value took.
   probe.fillStyle = "#000000";
   probe.fillStyle = value;
@@ -80,24 +80,24 @@ export function readPalette(element: HTMLElement = document.documentElement): Pa
   };
 }
 
+// One glow sprite for each sky color.
 const glows = new Map<string, HTMLCanvasElement>();
 
 /** Cache a glow sprite with 45% sky at the center and a clear edge. Return null without canvas. */
-export function getGlow(palette: Palette, size = GLOW_SIZE): HTMLCanvasElement | null {
+export function getGlow(palette: Palette): HTMLCanvasElement | null {
   const [center, edge] = glowStops(palette.skyColor);
-  const key = `${center}/${size}`;
-  const cached = glows.get(key);
+  const cached = glows.get(center);
   if (cached) return cached;
   const glow = document.createElement("canvas");
-  glow.width = glow.height = size;
+  glow.width = glow.height = GLOW_SIZE;
   const drawingContext = glow.getContext("2d");
   if (!drawingContext) return null;
-  const half = size / 2;
+  const half = GLOW_SIZE / 2;
   const gradient = drawingContext.createRadialGradient(half, half, 0, half, half, half);
   gradient.addColorStop(0, center);
   gradient.addColorStop(1, edge);
   drawingContext.fillStyle = gradient;
-  drawingContext.fillRect(0, 0, size, size);
-  glows.set(key, glow);
+  drawingContext.fillRect(0, 0, GLOW_SIZE, GLOW_SIZE);
+  glows.set(center, glow);
   return glow;
 }

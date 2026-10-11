@@ -69,8 +69,8 @@ export function drawEdge(
   bx: number,
   by: number,
   progress: number,
-  hot = false,
-  alpha = 0.35,
+  hot: boolean,
+  alpha: number,
 ): void {
   if (progress <= 0) return;
   const growth = easeOutCubic(clamp(progress));
@@ -95,8 +95,8 @@ export function drawCurve(
   bx: number,
   by: number,
   progress: number,
-  hot = false,
-  alpha = 0.35,
+  hot: boolean,
+  alpha: number,
 ): void {
   if (progress <= 0) return;
   const growth = easeOutCubic(clamp(progress));
@@ -157,6 +157,8 @@ function routePoint(route: Route, distance: number, outputPoint: Point): Point {
 }
 
 const TAIL_SLICES = 16;
+/** The size of the glow on a comet head, in CSS pixels. */
+const COMET_GLOW = 26;
 
 /**
  * A comet with a fading tail, drawn with added light. `travel` 0..1 runs along the route.
@@ -168,8 +170,7 @@ export function drawComet(
   glow: HTMLCanvasElement,
   route: Route,
   travel: number,
-  tail = 90,
-  glowSize = 26,
+  tail: number,
 ): void {
   if (travel <= 0 || travel >= 1 || route.length <= 0) return;
   const distance = route.length * (1 - (1 - travel) ** 1.6);
@@ -196,7 +197,7 @@ export function drawComet(
     tailStart.y = tailEnd.y;
   }
   drawingContext.globalAlpha = 0.85 * strength;
-  drawingContext.drawImage(glow, head.x - glowSize / 2, head.y - glowSize / 2, glowSize, glowSize);
+  drawingContext.drawImage(glow, head.x - COMET_GLOW / 2, head.y - COMET_GLOW / 2, COMET_GLOW, COMET_GLOW);
   drawingContext.globalAlpha = strength;
   drawingContext.fillStyle = palette.text;
   drawingContext.beginPath();
@@ -217,8 +218,8 @@ export function drawLabel(
   text: string,
   x: number,
   y: number,
-  align: CanvasTextAlign = "left",
-  alpha = 1,
+  align: CanvasTextAlign,
+  alpha: number,
 ): void {
   if (alpha <= 0) return;
   drawingContext.font = canvasFont;
@@ -235,6 +236,9 @@ export function drawLabel(
   drawingContext.globalAlpha = 1;
 }
 
+/** The size of the Vega bloom, in CSS pixels. */
+const BLOOM_SIZE = 60;
+
 /** The Vega bloom: added light, strength 0..1. It swells as comets arrive and clears by the end. */
 export function drawVegaBloom(
   drawingContext: CanvasRenderingContext2D,
@@ -242,13 +246,12 @@ export function drawVegaBloom(
   x: number,
   y: number,
   strength: number,
-  size = 60,
 ): void {
   if (strength <= 0) return;
   const previousCompositeOperation = drawingContext.globalCompositeOperation;
   drawingContext.globalCompositeOperation = "lighter";
   drawingContext.globalAlpha = 0.5 * strength;
-  drawingContext.drawImage(glow, x - size / 2, y - size / 2, size, size);
+  drawingContext.drawImage(glow, x - BLOOM_SIZE / 2, y - BLOOM_SIZE / 2, BLOOM_SIZE, BLOOM_SIZE);
   drawingContext.globalAlpha = 1;
   drawingContext.globalCompositeOperation = previousCompositeOperation;
 }
@@ -261,7 +264,7 @@ export interface FieldStar {
 }
 
 /** Field stars fixed by a seed. Build them on resize. */
-export function makeStarField(width: number, height: number, count: number, seed = 0): FieldStar[] {
+export function makeStarField(width: number, height: number, count: number, seed: number): FieldStar[] {
   const field: FieldStar[] = [];
   for (let i = 0; i < count; i++) {
     field.push({

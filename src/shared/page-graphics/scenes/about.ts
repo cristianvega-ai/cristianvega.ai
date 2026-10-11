@@ -24,14 +24,14 @@ import { createScrollReader } from "../scroll.ts";
 
 const SAMPLES = 160;
 /** The space between the outer Vega ring and the box edge, in CSS pixels. */
-export const RING_MARGIN = 24;
+const RING_MARGIN = 24;
 /** The outer Vega ring has at most this radius. The three rings are these shares of it. */
 const MAXIMUM_RING_RADIUS = 180;
 const RING_SHARES = [0.36, 0.68, 1] as const;
 /** Numbers per branch: a start, two controls, and an end, as x and y. */
 const BRANCH_STRIDE = 8;
 
-export interface AboutLayout {
+interface AboutLayout {
   /** True for a band, where the path runs sideways. */
   horizontal: boolean;
   /** The place of Vega, and the radius of its outer ring. The ring fits inside the box with RING_MARGIN to spare. */
@@ -92,7 +92,7 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
   function build(state: FrameState) {
     scroll.measure();
     const layout = aboutLayout(state.width, state.height);
-    reportFigureLeft(container, state.width, state.height);
+    reportFigureLeft(container);
     const { width, height } = state;
     horizontal = layout.horizontal;
     curve = layout.curve;

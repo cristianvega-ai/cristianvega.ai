@@ -71,7 +71,7 @@
 }
 
 /* The names and the values come from the design system. The site brings only
-   the tokens a rule below reads; tests/design-tokens.test.mjs rejects the rest. */
+   the tokens a rule below reads. */
 :root {
   /* grounds */
   --ink: #14181F;
@@ -304,15 +304,11 @@ h1 {
 .eyebrow {
   font-family: var(--font-monospace);
   font-size: var(--font-size-metadata);
-  font-weight: 500;
+  font-weight: 600;
   line-height: var(--line-height-monospace);
   letter-spacing: var(--letter-spacing-uppercase);
   text-transform: uppercase;
   color: var(--muted);
-}
-
-.eyebrow {
-  font-weight: 600;
 }
 
 /* The gradient dash that opens every eyebrow in the system. It rides in the

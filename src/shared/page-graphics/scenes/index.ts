@@ -1,7 +1,7 @@
 import type { CanvasHandle } from "../mount.ts";
 
 /** A page graphic mounts itself in the container and returns the handle, or null when canvas is missing. */
-export type PageGraphicMount = (container: HTMLElement) => CanvasHandle | null;
+type PageGraphicMount = (container: HTMLElement) => CanvasHandle | null;
 
 // One entry for each page. The import is dynamic, so a page loads only its own drawing code.
 const graphics: Record<string, () => Promise<PageGraphicMount>> = {
@@ -15,7 +15,7 @@ const graphics: Record<string, () => Promise<PageGraphicMount>> = {
  * Mount the graphic that `container[data-graphic]` names. Hide the container when
  * the page has no such graphic or the browser cannot draw it, so an empty band never stays.
  */
-export async function mountPageGraphic(container: HTMLElement): Promise<CanvasHandle | null> {
+export async function mountPageGraphic(container: HTMLElement): Promise<void> {
   const load = graphics[container.dataset.graphic ?? ""];
   let handle: CanvasHandle | null = null;
   try {
@@ -24,5 +24,4 @@ export async function mountPageGraphic(container: HTMLElement): Promise<CanvasHa
     handle = null;
   }
   if (!handle) container.hidden = true;
-  return handle;
 }

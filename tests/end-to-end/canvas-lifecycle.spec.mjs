@@ -41,7 +41,6 @@ for (const canvasPolicy of ["page", "globe"]) {
         window.__handle.destroy();
         window.__handle.wake();
         window.__handle.redraw();
-        window.__handle.replay();
       });
       await dispatchPageTransition(page, "pageshow");
       expect(await readResourceCounts(page)).toEqual(emptyResourceCounts);

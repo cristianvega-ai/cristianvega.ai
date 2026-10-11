@@ -1,5 +1,5 @@
 import { LYRA_LINKS } from "../../lyra/constellation.ts";
-import { around, placeLabel, type LabelAlign, type PlacedLabel, type Rectangle, type Segment } from "../labels.ts";
+import { around, placeLabel, type PlacedLabel, type Rectangle, type Segment } from "../labels.ts";
 import { FIGURE_INSET } from "../inset.ts";
 import { layoutLyra, type LyraPoint } from "../lyra.ts";
 import { FULL_TURN_RADIANS, unit } from "../math.ts";
@@ -12,10 +12,8 @@ import { FULL_TURN_RADIANS, unit } from "../math.ts";
 const FILLER = 26;
 /** The clear distance a label keeps from a star centre, in CSS pixels. */
 const STAR_CLEARANCE = 10;
-export type { LabelAlign, Rectangle };
-export { rectanglesOverlap as overlaps } from "../labels.ts";
 
-export interface FieldPoint {
+interface FieldPoint {
   x: number;
   y: number;
   /** The radius of a filler star. Articles draw their own mark. */
@@ -25,17 +23,14 @@ export interface FieldPoint {
   article: boolean;
 }
 
-export interface FieldLink {
+interface FieldLink {
   from: number;
   to: number;
   /** 1 when an article is one end of the link, else 0. */
   weight: number;
 }
 
-/** A label with its place. It is a placed label from labels.ts. */
-export type FieldLabel = PlacedLabel;
-
-export interface FieldInput {
+interface FieldInput {
   articleIdentifiers: readonly string[];
   labels: readonly string[];
   /** Measured text widths in CSS pixels, in label order. */
@@ -56,13 +51,13 @@ export interface FieldLayout {
   /** Articles first, in list order, then the filler stars. */
   points: FieldPoint[];
   links: FieldLink[];
-  articleLabels: FieldLabel[];
+  articleLabels: PlacedLabel[];
   /** One entry for each Lyra star. Null when no clear place exists. */
-  starLabels: (FieldLabel | null)[];
+  starLabels: (PlacedLabel | null)[];
 }
 
 /** A stable value in [0, 1) from a text and a salt (FNV-1a, then a scramble). */
-export function hashUnit(text: string, salt = 0): number {
+function hashUnit(text: string, salt = 0): number {
   let h = 2166136261 ^ salt;
   for (let i = 0; i < text.length; i++) {
     h ^= text.charCodeAt(i);

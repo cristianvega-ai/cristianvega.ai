@@ -2,19 +2,19 @@ import { createHash } from "node:crypto";
 import { buildGlobe, type Globe } from "./model.ts";
 
 /** The picture is this many times as wide as the globe box. It is a design choice. */
-export const PICTURE_SCALE = 1.3;
+const PICTURE_SCALE = 1.3;
 /**
  * The box crops the picture from a little above the outer ring to a little below the caption anchor.
  * The margins are shares of the outer ring radius, so the crop follows the sphere. They are design choices.
  */
-export const CROP_ABOVE_RING = 0.0359;
-export const CROP_BELOW_CAPTION = 0.05;
+const CROP_ABOVE_RING = 0.0359;
+const CROP_BELOW_CAPTION = 0.05;
 
 /** Round to the precision of the projection: four decimal places. */
 const round = (value: number) => Math.round(value * 10_000) / 10_000;
 
 /** Model measurements that home.css reads. Each share has its unit in the comment. */
-export interface GlobeProjection {
+interface GlobeProjection {
   /** Picture width per box width. */
   pictureScale: number;
   /** Picture height per picture width. */
@@ -43,7 +43,7 @@ export interface GlobeProjection {
  * Measure the globe for its CSS. The desktop values are rounded at build time, so CSS needs no
  * round(). The centre and Vega keep full precision, as the band crop uses them directly.
  */
-export function projectGlobe(globe: Globe): GlobeProjection {
+function projectGlobe(globe: Globe): GlobeProjection {
   const ring = globe.rings.reduce((outer, candidate) => candidate.rx * candidate.ry > outer.rx * outer.ry ? candidate : outer);
   const vega = globe.nodes.find((node) => node.vega)!;
   const caption = globe.labels.find((label) => label.align === "center")!;
@@ -70,7 +70,7 @@ export function projectGlobe(globe: Globe): GlobeProjection {
 }
 
 /** Write the projection as custom properties on the globe host. */
-export function globeProjectionStylesheet(globe: Globe): string {
+function globeProjectionStylesheet(globe: Globe): string {
   const projection = projectGlobe(globe);
   const property = (name: string) => `--globe-${name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`;
   return `.hero__globe{${Object.entries(projection).map(([name, value]) => `${property(name)}:${value};`).join("")}}`;
