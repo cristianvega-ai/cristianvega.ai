@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { MAXIMUM_SLOTS as maximumSlots, assertProductCapacity } from "../../src/shared/page-graphics/scenes/product-slots.ts";
-import { MINIMUM_SLOTS as minimumSlots, planOrbit } from "../../src/shared/page-graphics/scenes/products.ts";
+import { MINIMUM_SLOTS as minimumSlots, planOrbit } from "../../src/shared/page-graphics/scenes/products-layout.ts";
 
 test("planOrbit provides minimum slots for empty content and limits active slots to capacity", () => {
   assert.deepEqual(planOrbit(0), { lit: 0, total: minimumSlots });

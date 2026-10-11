@@ -3,7 +3,7 @@
 
 /** The angle of each slot from the direction away from the figure, in degrees. */
 export const SLOT_OFFSET = [0, 52, -52, -112, 112, 172, -165, 30] as const;
-/** The orbit that each slot sits on, as an index into RINGS in products.ts. */
+/** The orbit that each slot sits on, as an index into RINGS in products-layout.ts. */
 export const SLOT_RING = [1, 2, 0, 2, 0, 2, 1, 2] as const;
 /** The picture never shows more slots than this. */
 export const MAXIMUM_SLOTS = SLOT_OFFSET.length;

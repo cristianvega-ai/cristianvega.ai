@@ -1,23 +1,28 @@
-import { cubicPoint, type Point } from "../../motion/easing.ts";
 import { LYRA_LINKS } from "../../lyra/constellation.ts";
-import { stagger } from "../../motion/clock.ts";
-import { reportFigureLeft } from "../inset.ts";
-import { labelBounds } from "../labels.ts";
-import { starNameWidths } from "../lyra.ts";
-import { makeGridLayer } from "../mesh.ts";
-import { drawComet, drawEdge, drawLabel, drawNode, drawVegaBloom, makeRoute, type Route } from "../marks.ts";
-import { clamp, riseAndFall, smooth, FULL_TURN_RADIANS } from "../math.ts";
 import { MAXIMUM_FRAME_INTERVAL_MILLISECONDS } from "../../motion/canvas-controller.ts";
+import { stagger } from "../../motion/clock.ts";
+import { drawComet, type Route } from "../../motion/comets.ts";
+import { clamp, riseAndFall, smooth } from "../../motion/easing.ts";
+import { FULL_TURN_RADIANS } from "../../motion/geometry.ts";
+import { drawEdge, drawNode, drawVegaBloom } from "../../motion/marks.ts";
+import { labelBounds, reportFigureLeft } from "../container.ts";
+import { makeGridLayer } from "../grid-layer.ts";
+import { drawLabel, drawLabelHighlight, drawLabels } from "../labels.ts";
+import { starNameWidths } from "../lyra.ts";
 import { mountCanvas, showChange, type CanvasHandle, type FrameState } from "../mount.ts";
-import { buildField, pathToVega, type FieldLayout } from "./writing-layout.ts";
+import {
+  buildArticleRoutes,
+  buildField,
+  CURVE_STEPS,
+  entranceArticleIndices,
+  type FieldLayout,
+} from "./writing-layout.ts";
 
 // Reading field: each article is a ringed star in a star-field round Lyra, placed from its identifier.
 // Faint synapses link near stars. The entrance runs field, synapses, comets, then the Vega bloom.
 // A pointer or focus on an article lights its path through Lyra to Vega, and a comet runs it.
 // After the entrance the picture rests, and frames run only while an article is lit.
 
-/** Samples on the bent stretch from an article to the nearest Lyra star. */
-const CURVE_STEPS = 12;
 /** A lit comet repeats every CYCLE milliseconds, and runs for RUN of them. */
 const CYCLE = 2700;
 const RUN = 1750;
@@ -56,7 +61,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
   let field: FieldLayout | undefined;
   let grid: HTMLCanvasElement | null = null;
   let routes: Route[] = [];
-  let entranceArticleIndices: number[] = [];
+  let entranceArticles: number[] = [];
   // The box, in canvas pixels, that no article text covers.
   let originX = 0;
   let boxWidth = 0;
@@ -67,10 +72,6 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
   let activeArticleIndex = -1;
   let selectionStartTime = 0;
   let previousActiveTime = 0;
-  const scratch: Point = { x: 0, y: 0 };
-  const start: Point = { x: 0, y: 0 };
-  const control: Point = { x: 0, y: 0 };
-  const end: Point = { x: 0, y: 0 };
 
   // Rebuild the layout from the measured box. The list, when it sits beside the graphic, takes the left part.
   function build(state: FrameState) {
@@ -92,39 +93,8 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
       bounds: labelBounds(container, state.width, state.height, originX),
     });
     grid = makeGridLayer(boxWidth, boxHeight, state.ratio, state.palette);
-    const { stars, points } = field;
-
-    // A route: the article, a bent path to the nearest Lyra star, then along the figure to Vega.
-    routes = articles.map((_, articleIndex) => {
-      const articlePoint = points[articleIndex];
-      let nearestStarIndex = 1;
-      let nearestDistance = Infinity;
-      for (let starIndex = 1; starIndex < stars.length; starIndex++) {
-        const distance = Math.hypot(stars[starIndex].x - articlePoint.x, stars[starIndex].y - articlePoint.y);
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nearestStarIndex = starIndex;
-        }
-      }
-      const target = stars[nearestStarIndex];
-      const bend = (articleIndex % 2 ? 1 : -1) * 0.16;
-      start.x = articlePoint.x;
-      start.y = articlePoint.y;
-      end.x = target.x;
-      end.y = target.y;
-      control.x = (articlePoint.x + target.x) / 2 - (target.y - articlePoint.y) * bend;
-      control.y = (articlePoint.y + target.y) / 2 + (target.x - articlePoint.x) * bend;
-      const route: Point[] = [];
-      for (let sampleIndex = 0; sampleIndex < CURVE_STEPS; sampleIndex++) {
-        cubicPoint(scratch, sampleIndex / CURVE_STEPS, start, control, control, end);
-        route.push({ x: scratch.x, y: scratch.y });
-      }
-      for (const starIndex of pathToVega(nearestStarIndex, LYRA_LINKS, stars.length)) route.push(stars[starIndex]);
-      return makeRoute(route);
-    });
-    entranceArticleIndices = [0, 3, 5, articleCount - 1].filter(
-      (articleIndex, index, indices) => articleIndex < articleCount && indices.indexOf(articleIndex) === index,
-    );
+    routes = buildArticleRoutes(field, articleCount);
+    entranceArticles = entranceArticleIndices(articleCount);
   }
 
   // Ease the weights toward the lit article. `snap` jumps to the end, for reduced motion.
@@ -284,13 +254,13 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     if (!state.reduced) {
       let pulse = 0;
       if (progress < 1) {
-        for (let cometIndex = 0; cometIndex < entranceArticleIndices.length; cometIndex++) {
+        for (let cometIndex = 0; cometIndex < entranceArticles.length; cometIndex++) {
           const travel = stagger(progress, 0.36 + cometIndex * 0.1, 0.36);
           drawComet(
             drawingContext,
             state.palette,
             state.glow,
-            routes[entranceArticleIndices[cometIndex]],
+            routes[entranceArticles[cometIndex]],
             travel,
             70,
           );
@@ -329,44 +299,18 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     }
   }
 
-  function drawLabels(drawingContext: CanvasRenderingContext2D, state: FrameState, layout: FieldLayout) {
+  function drawFieldLabels(drawingContext: CanvasRenderingContext2D, state: FrameState, layout: FieldLayout) {
     const articleLabelProgress = smooth((state.progress - 0.2) / 0.2);
     const starLabelProgress = smooth((state.progress - 0.72) / 0.2);
+    const canvasFont = state.labelFont.canvasFont;
     for (let articleIndex = 0; articleIndex < articleCount; articleIndex++) {
       const label = layout.articleLabels[articleIndex];
-      drawLabel(
-        drawingContext,
-        state.palette,
-        state.labelFont.canvasFont,
-        label.text,
-        label.x,
-        label.y,
-        label.align,
-        articleLabelProgress,
-      );
+      drawLabel(drawingContext, state.palette, canvasFont, label, articleLabelProgress);
+      // A lit article lights its label too.
       const weight = weights[articleIndex];
-      if (weight > 0.02) {
-        drawingContext.globalAlpha = weight * articleLabelProgress;
-        drawingContext.fillStyle = state.palette.text;
-        drawingContext.fillText(label.text, label.x, label.y);
-        drawingContext.globalAlpha = 1;
-      }
+      if (weight > 0.02) drawLabelHighlight(drawingContext, state.palette, canvasFont, label, weight * articleLabelProgress);
     }
-    for (let starIndex = 0; starIndex < layout.starLabels.length; starIndex++) {
-      const label = layout.starLabels[starIndex];
-      if (label) {
-        drawLabel(
-          drawingContext,
-          state.palette,
-          state.labelFont.canvasFont,
-          label.text,
-          label.x,
-          label.y,
-          label.align,
-          starLabelProgress,
-        );
-      }
-    }
+    drawLabels(drawingContext, state.palette, canvasFont, layout.starLabels, starLabelProgress);
   }
 
   function draw(drawingContext: CanvasRenderingContext2D, state: FrameState) {
@@ -385,7 +329,7 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     drawSelectionPaths(drawingContext, state);
     drawStars(drawingContext, state, field);
     drawSignals(drawingContext, state, field);
-    drawLabels(drawingContext, state, field);
+    drawFieldLabels(drawingContext, state, field);
     drawingContext.restore();
 
     // Ask for frames only while an article is lit or its glow still fades.

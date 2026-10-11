@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { stagger } from "../../src/shared/motion/clock.ts";
-import { interpolate, smooth } from "../../src/shared/page-graphics/math.ts";
+import { interpolate, smooth } from "../../src/shared/motion/easing.ts";
 
 test("stagger, smooth, and interpolate return expected values for fixed boundary and intermediate inputs", () => {
   assert.equal(stagger(0.1, 0.2, 0.4), 0);

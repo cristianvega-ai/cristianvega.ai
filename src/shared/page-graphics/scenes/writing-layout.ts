@@ -1,7 +1,10 @@
-import { around, placeLabel, type PlacedLabel, type Rectangle, type Segment } from "../labels.ts";
+import { LYRA_LINKS } from "../../lyra/constellation.ts";
+import { makeRoute, type Route } from "../../motion/comets.ts";
+import { cubicPoint, FULL_TURN_RADIANS, type Point } from "../../motion/geometry.ts";
+import { unit } from "../../motion/random.ts";
 import { FIGURE_INSET } from "../inset.ts";
+import { around, placeLabel, type PlacedLabel, type Rectangle, type Segment } from "../labels.ts";
 import { boundsOf, layoutLyra, lyraLinkSegments, type LyraPoint } from "../lyra.ts";
-import { FULL_TURN_RADIANS, unit } from "../math.ts";
 
 // The layout of the Writing graphic, "Reading field". It has no DOM and no canvas,
 // so a test can run it. The caller gives the box, the article identifiers, and the label texts.
@@ -9,6 +12,8 @@ import { FULL_TURN_RADIANS, unit } from "../math.ts";
 
 /** Field stars that link the articles to the sky. They carry no label. */
 const FILLER = 26;
+/** Samples on the bent stretch of a route, from an article to the nearest Lyra star. */
+export const CURVE_STEPS = 12;
 /** The clear distance a label keeps from a star centre, in CSS pixels. */
 const STAR_CLEARANCE = 10;
 
@@ -211,4 +216,50 @@ export function buildField({ articleIdentifiers, labels, labelWidthsInPixels, st
   });
 
   return { stars, points, links, articleLabels, starLabels };
+}
+
+/**
+ * One route for each article: a bent path to the nearest Lyra star, then along the figure to Vega.
+ * The first CURVE_STEPS points are the bent path. The rest are Lyra stars, with Vega last.
+ */
+export function buildArticleRoutes(layout: FieldLayout, articleCount: number): Route[] {
+  const { stars, points } = layout;
+  const scratch: Point = { x: 0, y: 0 };
+  const start: Point = { x: 0, y: 0 };
+  const control: Point = { x: 0, y: 0 };
+  const end: Point = { x: 0, y: 0 };
+  return Array.from({ length: articleCount }, (_, articleIndex) => {
+    const articlePoint = points[articleIndex];
+    let nearestStarIndex = 1;
+    let nearestDistance = Infinity;
+    for (let starIndex = 1; starIndex < stars.length; starIndex++) {
+      const distance = Math.hypot(stars[starIndex].x - articlePoint.x, stars[starIndex].y - articlePoint.y);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestStarIndex = starIndex;
+      }
+    }
+    const target = stars[nearestStarIndex];
+    const bend = (articleIndex % 2 ? 1 : -1) * 0.16;
+    start.x = articlePoint.x;
+    start.y = articlePoint.y;
+    end.x = target.x;
+    end.y = target.y;
+    control.x = (articlePoint.x + target.x) / 2 - (target.y - articlePoint.y) * bend;
+    control.y = (articlePoint.y + target.y) / 2 + (target.x - articlePoint.x) * bend;
+    const route: Point[] = [];
+    for (let sampleIndex = 0; sampleIndex < CURVE_STEPS; sampleIndex++) {
+      cubicPoint(scratch, sampleIndex / CURVE_STEPS, start, control, control, end);
+      route.push({ x: scratch.x, y: scratch.y });
+    }
+    for (const starIndex of pathToVega(nearestStarIndex, LYRA_LINKS, stars.length)) route.push(stars[starIndex]);
+    return makeRoute(route);
+  });
+}
+
+/** The articles whose comets run during the entrance: up to four, spread over the list, each once. */
+export function entranceArticleIndices(articleCount: number): number[] {
+  return [0, 3, 5, articleCount - 1].filter(
+    (articleIndex, index, indices) => articleIndex < articleCount && indices.indexOf(articleIndex) === index,
+  );
 }

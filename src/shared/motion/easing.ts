@@ -1,6 +1,4 @@
-export type Point = { x: number; y: number };
-
-export const FULL_TURN_RADIANS = Math.PI * 2;
+// Shares from 0 to 1, and the curves that ease them.
 
 export function clamp(value: number, min = 0, max = 1): number {
   return Math.max(min, Math.min(max, value));
@@ -10,29 +8,17 @@ export function easeOutCubic(t: number): number {
   return 1 - (1 - t) ** 3;
 }
 
-/** Evaluate cubic Bezier into `outputPoint` (no allocation). */
-export function cubicPoint(
-  outputPoint: Point,
-  t: number,
-  start: Point,
-  control1: Point,
-  control2: Point,
-  end: Point,
-): Point {
-  const oneMinusT = 1 - t;
-  const tSquared = t * t;
-  const oneMinusTSquared = oneMinusT * oneMinusT;
-  const oneMinusTCubed = oneMinusTSquared * oneMinusT;
-  const tCubed = tSquared * t;
-  outputPoint.x =
-    oneMinusTCubed * start.x +
-    3 * oneMinusTSquared * t * control1.x +
-    3 * oneMinusT * tSquared * control2.x +
-    tCubed * end.x;
-  outputPoint.y =
-    oneMinusTCubed * start.y +
-    3 * oneMinusTSquared * t * control1.y +
-    3 * oneMinusT * tSquared * control2.y +
-    tCubed * end.y;
-  return outputPoint;
+/** Ease from 0 to 1 with no jump at either end. */
+export function smooth(value: number): number {
+  const t = clamp(value);
+  return t * t * (3 - 2 * t);
+}
+
+/** Rise smoothly from 0 to 1 over the rise span, then fall smoothly back to 0 over the fall span. */
+export function riseAndFall(value: number, riseStart: number, riseSpan: number, fallStart: number, fallSpan: number): number {
+  return smooth((value - riseStart) / riseSpan) * (1 - smooth((value - fallStart) / fallSpan));
+}
+
+export function interpolate(from: number, to: number, t: number): number {
+  return from + (to - from) * t;
 }

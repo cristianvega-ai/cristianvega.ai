@@ -85,13 +85,17 @@ npm run generate:touch-icon
 - Use the pull request checklist below before you open a pull request.
 - Use [the deploy skill](.claude/skills/deploy/SKILL.md) for deployment, live verification, rollback, or approved account and domain setup.
 - Use the [Linear website reference](https://linear.app/martinez-vega-inc/document/cristianvegaai-website-reference-90867b83f0f9) for authoring and image derivatives.
-- `src/styles/global.css` holds the site-wide design system and the responsive behavior.
+- `src/styles/global.css` holds the design tokens, the base elements, and the small parts that many pages share.
+- Each component, layout, and page imports its own stylesheet from `src/styles/`, for example `SiteHeader.astro` imports `site-header.css`.
 - `src/styles/reading-column.css` holds the page head and prose rules that about, products, articles, and the 404 share.
-- `src/shared/site.ts` holds the owner's name and job title. `ProfileHeading.astro` prints them on the homepage and the about page.
+- `src/styles/entries.css` holds the list rows that `ArticleList.astro` and `ProductList.astro` share.
+- `src/layouts/BaseLayout.astro` is the page frame. `SiteHead`, `SiteHeader`, and `SiteFooter` in `src/components/` fill it.
+- `ArticleLayout.astro` and `ProductLayout.astro` hold the article and product detail pages. Their `[slug].astro` routes only load content.
+- `src/shared/site.ts` holds the owner's name, job title, profile links, and page kinds. `ProfileHeading.astro` prints the name and title on the homepage and the about page.
 - `src/shared/` holds content helpers, article interactions, and canvas modules.
 - `src/shared/lyra-globe/` holds the Lyra globe. `src/shared/lyra/` holds its star data.
 - `src/shared/page-graphics/` holds page graphics. Read its [guide](src/shared/page-graphics/README.md) for scene setup.
-- `src/shared/motion/` holds easing, the entrance clock, the palette, and the canvas controller.
+- `src/shared/motion/` holds the shared canvas layer: easing, geometry, the entrance clock, the palette, marks, comets, star fields, and the canvas controller.
 - `src/shared/article-interactions.ts` holds article behavior. `writing.ts` and `products.ts` hold content helpers.
 - `src/content/` holds the Markdown for the `writing` and `products` collections. Both collections hide drafts in production.
 - The `writing` collection publishes at `/writing/`.

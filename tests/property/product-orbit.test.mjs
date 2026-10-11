@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { LYRA as lyraStars } from "../../src/shared/lyra/constellation.ts";
 import { MAXIMUM_SLOTS as maximumSlots } from "../../src/shared/page-graphics/scenes/product-slots.ts";
 import { fitLyraAtVega } from "../../src/shared/page-graphics/lyra.ts";
-import { orbitSlot, planOrbit, productProgress } from "../../src/shared/page-graphics/scenes/products.ts";
+import { orbitSlot, planOrbit, productProgress } from "../../src/shared/page-graphics/scenes/products-layout.ts";
 
 // Exercise the column and band layout branches.
 const orbitBounds = [

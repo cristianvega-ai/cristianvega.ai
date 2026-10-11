@@ -1,0 +1,16 @@
+---
+// The site footer: a fixed bar with the disclaimer and the copyright.
+import { SITE_NAME } from "../shared/site";
+import "../styles/site-footer.css";
+
+const buildYear = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="wrap site-footer__inner">
+    <p class="site-footer__disclaimer">
+      Disclaimer: The views and opinions expressed on this site are my own.
+    </p>
+    <p class="site-footer__copyright">© Copyright {buildYear} {SITE_NAME}</p>
+  </div>
+</footer>

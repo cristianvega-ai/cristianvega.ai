@@ -1,0 +1,85 @@
+---
+// The site header: the brand, the navigation, and the menu that holds the same links on a phone.
+// A section link shows only when the section has something visible.
+import { getArticles } from "../shared/writing";
+import { getProducts } from "../shared/products";
+import { PROFILE_LINKS, SITE_NAME, type PageKind } from "../shared/site";
+import "../styles/site-header.css";
+
+interface Props {
+  active: PageKind;
+}
+
+const { active } = Astro.props;
+// Writing shows when an article is visible. The writing pages keep their own link.
+const showWriting = active === "writing" || active === "article" || (await getArticles()).length > 0;
+// Products show the same way: the link appears when a product is visible.
+const showProducts = active === "products" || active === "product" || (await getProducts()).length > 0;
+const internalLinks: { label: string; href: string; current?: "page" | "location" }[] = [
+  { label: "about", href: "/about/", current: active === "about" ? ("page" as const) : undefined },
+  ...(showWriting
+    ? [{ label: "writing", href: "/writing/", current: active === "writing" ? ("page" as const) : active === "article" ? ("location" as const) : undefined }]
+    : []),
+  ...(showProducts
+    ? [{ label: "products", href: "/products/", current: active === "products" ? ("page" as const) : active === "product" ? ("location" as const) : undefined }]
+    : []),
+];
+---
+
+<header class="site-header">
+  <div class="site-header__inner">
+    <a class="brand" href="/" aria-label={`${SITE_NAME} home`}>
+      <span class="brand__mark" aria-hidden="true"><i></i><i></i></span>
+      <span class="brand__word"><i>Cristian</i>Vega</span>
+    </a>
+
+    <nav class="navigation" aria-label="Primary">
+      {internalLinks.map((link, index) => (
+        <a class={index === internalLinks.length - 1 ? "navigation__link navigation__link--divided" : "navigation__link"} href={link.href} aria-current={link.current}>{link.label}</a>
+      ))}
+      {PROFILE_LINKS.map((link) => (
+        <a class="navigation__link" href={link.href} rel="me noopener noreferrer" target="_blank">{link.label}</a>
+      ))}
+    </nav>
+
+    <details class="navigation-menu">
+      <summary class="navigation-menu__toggle">menu</summary>
+      <nav class="navigation-menu__panel" aria-label="Menu">
+        {internalLinks.map((link) => (
+          <a class="navigation-menu__link" href={link.href} aria-current={link.current}>{link.label}</a>
+        ))}
+        <div class="navigation-menu__rule" role="presentation"></div>
+        {PROFILE_LINKS.map((link) => (
+          <a class="navigation-menu__link" href={link.href} rel="me noopener noreferrer" target="_blank">{link.label}</a>
+        ))}
+      </nav>
+    </details>
+  </div>
+</header>
+
+<script>
+  // The menu closes on Escape, when focus leaves it, and on a click
+  // outside it. It still opens and closes without this script.
+  const menu = document.querySelector<HTMLDetailsElement>(".navigation-menu");
+  menu?.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !menu.open) return;
+    menu.open = false;
+    menu.querySelector("summary")?.focus();
+  });
+  // A press on the panel padding moves focus to nothing, so it is not a focus exit.
+  // A Tab past the last link on a page with nothing after the menu also moves focus
+  // to nothing, and it must close the menu.
+  let pressing = false;
+  menu?.addEventListener("pointerdown", () => { pressing = true; });
+  document.addEventListener("pointerup", () => { pressing = false; });
+  document.addEventListener("pointercancel", () => { pressing = false; });
+  menu?.addEventListener("focusout", (event) => {
+    const next = event.relatedTarget;
+    if (!menu.open || (next instanceof Node && menu.contains(next))) return;
+    if (next === null && pressing) return;
+    menu.open = false;
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (menu?.open && event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
+  });
+</script>

@@ -1,11 +1,13 @@
 /* The head and the body text of the pages that use the reading column: about,
    the 404, products, and articles. Each page stylesheet keeps its own parts. */
 .about__header,
+.missing-page__header,
 .product__header {
   padding-top: var(--page-top-gap);
 }
 
 .about__title,
+.missing-page__title,
 .product__title,
 .article__title {
   margin-top: var(--title-gap);
@@ -13,6 +15,7 @@
 }
 
 .about__lede,
+.missing-page__lede,
 .product__lede,
 .article__description {
   max-width: 56ch;

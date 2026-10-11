@@ -1,0 +1,8 @@
+/* The 404 page. reading-column.css holds the head. */
+.missing-page :focus-visible {
+  outline-color: var(--sky);
+}
+
+.missing-page__actions {
+  margin-top: 32px;
+}

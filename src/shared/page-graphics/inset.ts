@@ -6,12 +6,3 @@
  * The inset is larger than the 24px edge fade, so the fade is a soft finish and never a crop.
  */
 export const FIGURE_INSET = 32;
-
-/**
- * Publish the left bound of the figure, in CSS pixels from the left edge of the graphic box.
- * A page module calls it once for each layout, so a test can read where the figure starts.
- * `origin` is the left edge of the drawing area inside the box, which is 0 unless the figure shares the box.
- */
-export function reportFigureLeft(container: HTMLElement, origin = 0): void {
-  container.dataset.figureLeft = String(origin + FIGURE_INSET);
-}

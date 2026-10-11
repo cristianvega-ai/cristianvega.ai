@@ -11,7 +11,7 @@ Pass the visible product count on both product routes.
 Pass `null` for `currentProductIndex` on the product index.
 Pass the visible product's list index on detail pages.
 The products picture has `MAXIMUM_SLOTS` (8) slots.
-The product route's `getStaticPaths()` checks the published count before it returns build paths.
+Both product routes call `assertProductCapacity()` in `getStaticPaths()` before they return build paths.
 Drafts do not count toward this limit.
 `getProducts()` only loads and sorts visible content.
 `scenes/product-slots.ts` holds the slots and the build check.
@@ -55,7 +55,7 @@ Reduced motion completes entrances immediately and runs no continuous frames, dr
 
 `--font-monospace` supplies the label font family, and `--font-size-graphic-label` supplies its size in pixels.
 A label line is `LABEL_LINE_RATIO` (1.2) times that size. `labelFont.lineHeightInPixels` holds it.
-The globe labels in `home.css` read the same two tokens.
+The globe labels in `lyra-globe.css` read the same two tokens.
 `label-font.ts` caches measured widths in CSS pixels.
 Font completion, failure, and resizing rebuild these measurements.
 `placeLabel()` uses measured widths and the line of the label font.
@@ -75,7 +75,8 @@ It owns the crop margins and the picture scale.
 It writes a versioned stylesheet of `--globe-*` properties.
 The homepage links that stylesheet in the head slot of `BaseLayout.astro`.
 Its URL has an immutable cache rule.
-[home.css](../../styles/home.css) owns responsive placement.
+[home.css](../../styles/home.css) owns responsive placement and the band crop below 1100px.
+[lyra-globe.css](../../styles/lyra-globe.css) owns the picture crop inside the globe box.
 Each `--globe-*` `var()` falls back to the current model value.
 The backdrop behind the sphere sits on the sphere centre.
 Globe labels use canvas entrance progress and pause with the drawing.
@@ -84,22 +85,30 @@ Globe labels use canvas entrance progress and pause with the drawing.
 
 - `../motion/clock.ts`: `DURATION`, `entranceProgress()`, and `stagger()`. The globe uses the same clock.
 - `../motion/palette.ts`: validated site colors and a cached glow sprite. The globe uses the same palette.
-- `math.ts`: easing, interpolation, `riseAndFall()`, and stable numeric samples.
+- `../motion/easing.ts`: `clamp()`, easing curves, `interpolate()`, and `riseAndFall()`.
+- `../motion/geometry.ts`: `Point`, `FULL_TURN_RADIANS`, and `cubicPoint()`.
+- `../motion/random.ts`: stable numeric samples.
+- `../motion/marks.ts`: nodes, edges, curves, and blooms.
+  The globe draws with the same marks. `entranceBloom()` times the Vega bloom of an entrance.
+- `../motion/comets.ts`: routes and the comets that travel them.
+- `../motion/star-field.ts`: the faint background stars.
 - `lyra.ts`: `layoutLyra(width, height)` preserves proportions and caps the figure at `LYRA_MAXIMUM_SIZE`.
   `fitLyraAtVega()` puts Vega at a given centre with the same cap.
   `placeStarNames()` places the star names, and `lyraLinkSegments()` gives the figure links that a label must not cross.
 - `label-font.ts`: measured label widths and the canvas font.
-- `labels.ts`: `placeLabel()` uses measured widths, the label line, and `labelBounds()`.
-- `inset.ts`: `FIGURE_INSET` keeps the figure inside the edge fade. `reportFigureLeft()` publishes its left bound.
+- `labels.ts`: `placeLabel()` uses measured widths and the label line. It reads no DOM.
+  `drawLabel()`, `drawLabels()`, and `drawLabelHighlight()` draw placed labels.
+- `container.ts`: `labelBounds()` reads the label area of the container. `reportFigureLeft()` publishes the left bound of the figure.
+- `inset.ts`: `FIGURE_INSET` keeps the figure inside the edge fade.
   A scene must keep the reach of its marks inside the inset, not only the mark centres.
   The products scene keeps `SLOT_REACH`, the largest ring or halo round a slot.
-- `mesh.ts`: sparse neural meshes and cached site grids.
-- `marks.ts`: nodes, edges, curves, routes, comets, labels, blooms, and star fields.
-  The globe draws with the same marks. `entranceBloom()` times the Vega bloom of an entrance.
+- `mesh.ts`: sparse neural meshes.
+- `grid-layer.ts`: cached site grids.
 - `mount.ts`: page policies, scene mounting, and font refreshes through `handle.rebuild()`.
   `showChange(handle)` shows an interaction change: it redraws under reduced motion and wakes the scene otherwise.
 - `scroll.ts`: measured page geometry and a smoothed reader position.
-- `scenes/`: page drawings and the lazy registry in `scenes/index.ts`.
+- `scenes/`: page drawings, the lazy registry in `scenes/index.ts`, and the layout of each scene.
+  A layout module, such as `scenes/about-layout.ts`, has no DOM and no canvas, so a Node test can run it.
 
 ## How to add a page graphic
 
@@ -131,9 +140,9 @@ Globe labels use canvas entrance progress and pause with the drawing.
 5. Put `<PageGraphic page="<scene>" />` first inside `<main>`.
    Pass required props through this component.
    Use dedicated page hooks for list bindings.
-   `global.css` fixes the box beside the reading column from 1100px.
+   `page-graphic.css` fixes the box beside the reading column from 1100px.
    Narrower layouts use the shared responsive `--band-height` token.
-   Writing uses 1.19 times that height through `writing.css`.
+   Writing uses 1.19 times that height through `writing-index.css`.
 6. Read [tests/AGENTS.md](../../../tests/AGENTS.md) before adding browser checks.
    Keep scene assertions in the owning page suite.
    Use [page-graphics-layout.spec.mjs](../../../tests/end-to-end/page-graphics-layout.spec.mjs) for shared scene paint, reduced-motion, and text overlap checks.

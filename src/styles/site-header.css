@@ -1,0 +1,229 @@
+/* The site header: the brand, the navigation, and the menu that holds the
+   same links on a phone. SiteHeader.astro renders it. */
+
+/* The header stays sticky on inner pages. The homepage header scrolls with the page.
+   home.css supplies the homepage exception.
+   The opaque background keeps underlying content hidden.
+   The shadow adds a hairline without changing header height.
+   The shared header uses the dark page ground. */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--ink);
+  box-shadow: 0 1px 0 var(--masthead-line);
+}
+
+.site-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--header-height);
+  gap: 20px;
+  max-width: var(--frame);
+  margin-inline: auto;
+  padding-inline: var(--frame-padding);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--masthead-text);
+  white-space: nowrap;
+}
+
+/* Two 16px rings on a diagonal. The first pins to the top left of the box and
+   the second to the bottom right, so the 25x24 box supplies the offset. The
+   first ring is sky on every ground; the second takes the ground's own tone. */
+.brand__mark {
+  position: relative;
+  width: 25px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+
+.brand__mark i {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  border: 1.8px solid var(--sky);
+  border-radius: 50%;
+}
+
+.brand__mark i:last-child {
+  top: auto;
+  left: auto;
+  right: 0;
+  bottom: 0;
+  border-color: var(--brand-second-ring-ink);
+}
+
+/* The two names join with no space, and tone marks the join: the given name
+   takes the meta grey, the family name takes the ground's foreground. */
+.brand__word {
+  font-family: var(--font-monospace);
+  font-size: var(--font-size-metadata);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.brand__word i {
+  font-style: normal;
+  color: var(--masthead-metadata);
+}
+
+.navigation {
+  --navigation-gap: 6px;
+  --navigation-padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: var(--navigation-gap);
+  margin-right: calc(var(--navigation-padding) * -1);
+  font-family: var(--font-monospace);
+  font-size: var(--font-size-interface);
+  font-weight: 500;
+  color: var(--masthead-metadata);
+}
+
+/* Padding sets the target: 40px tall and at least 24px wide. "x" is 8px of
+   text, so 8px of padding on each side makes exactly 24px. Every link has the
+   same inline padding, so the visible space between two words is the same
+   22px: two paddings plus the gap. */
+.navigation__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  min-width: 24px;
+  padding-inline: var(--navigation-padding);
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.navigation__link:hover,
+.navigation__link[aria-current] {
+  color: var(--masthead-text);
+}
+
+.navigation__link[aria-current] {
+  border-bottom-color: var(--sky);
+}
+
+/* The divider sits after the last internal link, before the profile links.
+   It has 22px of clear space on each side, the same as two words have between
+   them. The margin makes room for those two spaces and the divider's 1px. */
+.navigation__link--divided {
+  position: relative;
+  margin-right: 23px;
+}
+
+.navigation__link--divided::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -15px;
+  width: 1px;
+  height: 14px;
+  background: currentColor;
+  opacity: .5;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.site-header :focus-visible {
+  outline-color: var(--sky);
+}
+
+/* Above 640px the nav shows every link inline. At 640px and below the same
+   links sit in a menu, so the header stays on one row however many links a
+   page has. The menu is a details element and works without JavaScript. */
+.navigation-menu {
+  display: none;
+  position: relative;
+  font-family: var(--font-monospace);
+  font-size: var(--font-size-interface);
+  font-weight: 500;
+}
+
+.navigation-menu__toggle {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 8px;
+  color: var(--masthead-metadata);
+  cursor: pointer;
+  list-style: none;
+}
+
+.navigation-menu__toggle::-webkit-details-marker {
+  display: none;
+}
+
+.navigation-menu__toggle::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-left: 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.navigation-menu[open] > .navigation-menu__toggle::after {
+  transform: translateY(1px) rotate(-135deg);
+}
+
+.navigation-menu__panel {
+  position: absolute;
+  /* The gap clears the 5px focus ring of the toggle. */
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--ink-raised);
+  border: 1px solid var(--masthead-line);
+  border-radius: var(--radius-medium);
+}
+
+.navigation-menu__link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 12px;
+  color: var(--masthead-metadata);
+  border-radius: 4px;
+}
+
+.navigation-menu__link:hover,
+.navigation-menu__link[aria-current] {
+  color: var(--masthead-text);
+}
+
+.navigation-menu__link[aria-current] {
+  box-shadow: inset 2px 0 0 var(--sky);
+}
+
+.navigation-menu__rule {
+  height: 1px;
+  margin: 6px 12px;
+  background: var(--masthead-line);
+}
+
+@media (max-width: 640px) {
+  .site-header__inner {
+    gap: 12px;
+  }
+
+  .navigation {
+    display: none;
+  }
+
+  .navigation-menu {
+    display: block;
+  }
+}

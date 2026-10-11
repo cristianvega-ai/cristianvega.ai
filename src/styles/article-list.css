@@ -1,0 +1,45 @@
+/* The numbered article rows of the writing index. ArticleList.astro renders
+   them. entries.css holds the parts that the product rows share. */
+.article-list__item {
+  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-areas: "number title" ". metadata" ". excerpt";
+  gap: 6px 12px;
+  padding: 18px 12px 20px 0;
+}
+
+.article-list__number {
+  grid-area: number;
+  padding-top: 5px;
+  font: 600 var(--font-size-label) var(--font-monospace);
+  letter-spacing: .08em;
+  color: var(--sky);
+}
+
+.article-list__title {
+  grid-area: title;
+}
+
+/* The ring wraps the whole row, and the link is only its title. This margin makes a
+   keyboard scroll reveal the whole ring above the footer fade, not only the title. */
+.article-list__link {
+  scroll-margin-bottom: 120px;
+}
+
+.article-list__metadata {
+  grid-area: metadata;
+}
+
+.article-list__excerpt {
+  grid-area: excerpt;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (max-width: 760px) {
+  .article-list__item {
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 8px 10px;
+  }
+}

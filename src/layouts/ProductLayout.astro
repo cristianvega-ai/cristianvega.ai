@@ -1,0 +1,36 @@
+---
+// The page of one product: its head, its prose, and its links.
+import BaseLayout from "./BaseLayout.astro";
+import PageGraphic from "../components/PageGraphic.astro";
+import type { Product } from "../shared/products";
+import "../styles/reading-column.css";
+import "../styles/products.css";
+
+interface Props {
+  product: Product;
+  /** Every visible product, so the graphic can show this product among them. */
+  products: Product[];
+}
+
+const { product, products } = Astro.props;
+---
+
+<BaseLayout title={product.data.title} description={product.data.description} active="product" noindex={product.data.draft}>
+  <main>
+    <PageGraphic page="products" productCount={products.length} currentProductIndex={products.findIndex((entry) => entry.id === product.id)} />
+    <article class="product" aria-labelledby="product-title">
+      <header class="product__header wrap wrap--read">
+        <p class="eyebrow">{product.data.status ?? "Product"}{product.data.draft && <span class="draft-label"> · Draft</span>}</p>
+        <h1 id="product-title" class="product__title">{product.data.title}</h1>
+        <p class="product__lede">{product.data.description}</p>
+      </header>
+      <div class="product__body wrap wrap--read">
+        <div class="product__prose"><slot /></div>
+        <p class="product__links">
+          {product.data.url && <a class="product__link" href={product.data.url} target="_blank" rel="noopener noreferrer">Visit {product.data.title} ↗</a>}
+          <a class="product__link" href="/products/">All products →</a>
+        </p>
+      </div>
+    </article>
+  </main>
+</BaseLayout>

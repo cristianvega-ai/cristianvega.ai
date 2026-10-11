@@ -74,7 +74,8 @@ Split a mixed suite when its cases need different types.
 
 | Type | File | Owns |
 | --- | --- | --- |
-| Unit | `tests/unit/easing.test.mjs` | Clamping and cubic-point endpoint results. |
+| Unit | `tests/unit/easing.test.mjs` | Clamping results. |
+| Unit | `tests/unit/geometry.test.mjs` | Cubic-point endpoint results and output reuse. |
 | Unit | `tests/unit/label-font.test.mjs` | Measured width caching, refreshed metrics, supplied font families, and size fallback. |
 | Unit | `tests/unit/route-lengths.test.mjs` | Cumulative route lengths for fixed points. |
 | Unit | `tests/unit/graphics-math.test.mjs` | Fixed staggering, smoothing, and interpolation results. |
