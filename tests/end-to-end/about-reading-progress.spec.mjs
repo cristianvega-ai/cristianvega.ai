@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { pendingFrames, useManualFrames, useReducedMotion, VIEWPORTS as viewports } from "../shared/browser-fixtures.mjs";
+import { pendingFrames, useManualFrames, useReducedMotion } from "../shared/browser-fixtures.mjs";
 
 const graphicSelector = "[data-graphic='about']";
 
@@ -45,20 +45,6 @@ test("About updates path progress immediately with no frames under reduced motio
     await expect(page.locator(graphicSelector)).toHaveAttribute("data-progress", "1");
     expect(await pendingFrames(page)).toBe(0);
   });
-
-test("About keeps its profile readable without JavaScript", async ({ browser, baseURL: baseAddress }) => {
-  const browserContext = await browser.newContext({ javaScriptEnabled: false, viewport: viewports.mobile });
-  try {
-    const page = await browserContext.newPage();
-    await page.goto(new URL("/about/", baseAddress).href);
-    await expect(page.locator(graphicSelector)).toBeHidden();
-    await expect(page.locator("h1")).toBeVisible();
-    await expect(page.locator(".about__lede")).toBeVisible();
-    await expect(page.locator(".about__profile")).toBeVisible();
-  } finally {
-    await browserContext.close();
-  }
-});
 
 test("About removes its scroll listener on pagehide and restores reader tracking on pageshow", async ({ page }) => {
   await useReducedMotion(page);

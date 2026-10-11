@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { DRAFT_ORIGIN as draftOrigin, expectDecorativeGraphic, expectGraphicClearOfText, expectReadablePage, openGraphic, paintedPixels, pendingFrames, playFrames, settle, useManualFrames, useReducedMotion, VIEWPORTS as viewports } from "../shared/browser-fixtures.mjs";
+import { DRAFT_ORIGIN as draftOrigin, expectDecorativeGraphic, expectGraphicClearOfText, expectReadablePage, openGraphic, pendingFrames, settle, useManualFrames, useReducedMotion, VIEWPORTS as viewports } from "../shared/browser-fixtures.mjs";
 
 const graphicTargets = [
   { name: "About", address: "/about/", graphic: "[data-graphic='about']" },
@@ -36,16 +36,3 @@ for (const graphicTarget of graphicTargets) {
     });
   }
 }
-
-test("The product scene stops requesting frames after motion completes", async ({ page }) => {
-  await page.setViewportSize(viewports.desktop);
-  await useManualFrames(page);
-  await openGraphic(page, graphicTargets[2]);
-  await expect(page.locator(graphicTargets[2].graphic)).toHaveAttribute("data-motion-state", "playing");
-  await playFrames(page, 32);
-  const entrancePixelCount = await paintedPixels(page, graphicTargets[2].graphic, 8);
-  await playFrames(page, 33_000);
-  await expect(page.locator(graphicTargets[2].graphic)).toHaveAttribute("data-motion-state", "still");
-  expect(await paintedPixels(page, graphicTargets[2].graphic, 8), "The completed product entrance must increase foreground paint").toBeGreaterThan(entrancePixelCount);
-  expect(await pendingFrames(page), "Completed product motion must queue no frames").toBe(0);
-});

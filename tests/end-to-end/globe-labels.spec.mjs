@@ -1,12 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { paintedPixels, pendingFrames, playFrames, settle, useManualFrames, useReducedMotion, VIEWPORTS as viewports } from "../shared/browser-fixtures.mjs";
+import { dispatchPageTransition, paintedPixels, pendingFrames, playFrames, settle, useManualFrames, useReducedMotion, VIEWPORTS as viewports } from "../shared/browser-fixtures.mjs";
 
 const globeSelector = "[data-lyra-globe]";
 const labelSelector = `${globeSelector} .lyra-globe__label`;
 const readLabelOpacities = (page) => page.locator(labelSelector).evaluateAll((nodes) => nodes.map((node) => Number(getComputedStyle(node).opacity)));
-const dispatchPageTransition = (page, transitionType) => page.evaluate((transitionType) => {
-  window.dispatchEvent(new PageTransitionEvent(transitionType, { persisted: true }));
-}, transitionType);
 
 test.use({ viewport: viewports.desktop });
 
