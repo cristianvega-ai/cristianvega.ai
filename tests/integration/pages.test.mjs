@@ -6,7 +6,8 @@ import { assertPageBasics, escapeHtml, publishedContent, readContentInventory, r
 // Check rendered landmarks, metadata, navigation, and asset delivery.
 // Publication fixtures live in publication.test.mjs. Browsers check runtime behavior.
 
-const visibleText = (pageHtml = "") => pageHtml.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+const hasVisibleText = (pageHtml = "") => [...pageHtml.matchAll(/<[^>]*>|([^<]+)/g)]
+  .some(([, text]) => text !== undefined && !/^(?:\s|&nbsp;)*$/.test(text));
 
 test("the About page renders readable profile content and marks its current navigation link", () => {
   const pageHtml = readDistFile("about", "index.html");
@@ -20,14 +21,14 @@ test("the About page renders readable profile content and marks its current navi
   assert.match(pageHtml, /<article\b[^>]*aria-labelledby="about-title"/);
   assert.match(pageHtml, /<h1\b[^>]*id="about-title"[^>]*>Cristian <span[^>]*>Vega<\/span><\/h1>/);
   const introduction = pageHtml.match(/<p class="about__lede">([\s\S]*?)<\/p>/)?.[1];
-  assert.ok(visibleText(introduction), "about must show its introduction");
+  assert.ok(hasVisibleText(introduction), "about must show its introduction");
   const profileHtml = pageHtml.match(/<div class="about__profile">([\s\S]*?)<\/div>/)?.[1];
   assert.ok(profileHtml, "about must render the profile");
   const profileParagraphs = [...profileHtml.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)];
-  assert.ok(profileParagraphs.length > 0 && profileParagraphs.every(([, content]) => visibleText(content)), "the profile must contain readable paragraphs");
+  assert.ok(profileParagraphs.length > 0 && profileParagraphs.every(([, content]) => hasVisibleText(content)), "the profile must contain readable paragraphs");
   const principlesHtml = profileHtml.match(/<ul class="about__principles">([\s\S]*?)<\/ul>/)?.[1];
   const principleItems = [...(principlesHtml ?? "").matchAll(/<li>([\s\S]*?)<\/li>/g)];
-  assert.ok(principleItems.length > 0 && principleItems.every(([, content]) => visibleText(content)), "the profile must list nonempty principles");
+  assert.ok(principleItems.length > 0 && principleItems.every(([, content]) => hasVisibleText(content)), "the profile must list nonempty principles");
 });
 
 test("the homepage renders introduction text and marks its globe as decorative", () => {
@@ -38,7 +39,7 @@ test("the homepage renders introduction text and marks its globe as decorative",
   assert.match(pageHtml, /<h1 id="home-title" class="hero__name">Cristian <span class="highlight">Vega<\/span><\/h1>/);
   for (const paragraphName of ["lede", "thesis"]) {
     const paragraph = normalizedHtml.match(new RegExp(`<p class="hero__${paragraphName}">([\\s\\S]*?)</p>`))?.[1];
-    assert.ok(visibleText(paragraph), `the homepage must show its ${paragraphName}`);
+    assert.ok(hasVisibleText(paragraph), `the homepage must show its ${paragraphName}`);
   }
 
   const globeElement = pageHtml.match(/<div class="lyra-globe"[^>]*>/)?.[0];
