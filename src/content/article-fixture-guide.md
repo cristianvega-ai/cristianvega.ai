@@ -75,7 +75,9 @@ Keep the fixture readable without JavaScript.
 
 ## Maintenance and shared components
 
-Use [writing.spec.mjs](../../tests/end-to-end/writing.spec.mjs) for article layout, keyboard scrolling, draft exclusion, and JavaScript failure checks.
+Use [writing-navigation.spec.mjs](../../tests/end-to-end/writing-navigation.spec.mjs) for article layout and draft exclusion checks.
+Use [article-keyboard.spec.mjs](../../tests/end-to-end/article-keyboard.spec.mjs) for keyboard scrolling and focus checks.
+Use [page-fallbacks.spec.mjs](../../tests/end-to-end/page-fallbacks.spec.mjs) for JavaScript failure checks.
 Use [article-interactions.spec.mjs](../../tests/end-to-end/article-interactions.spec.mjs) for authored semantics and missing defaults.
 Use [article-menu.spec.mjs](../../tests/end-to-end/article-menu.spec.mjs) for article text and menu contrast.
 Review desktop, tablet, and mobile widths after presentation changes.

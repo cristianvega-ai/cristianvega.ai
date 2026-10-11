@@ -1,7 +1,7 @@
 import { readFileSync as readFileSynchronously } from "node:fs";
 import { expect, test as browserTest } from "@playwright/test";
 
-import { DRAFT_ORIGIN as draftOrigin, drawnLabels, settle, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS as viewports, pendingFrames } from "../shared/browser-fixtures.mjs";
+import { DRAFT_ORIGIN as draftOrigin, drawnLabels, settle, useDeferredPreference, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS as viewports, pendingFrames } from "../shared/browser-fixtures.mjs";
 
 const wideFontPath = "/__graphic-wide-font__.woff2";
 const monospacedFont = readFileSynchronously(new URL("../../src/assets/fonts/ibm-plex-mono-latin-400.woff2", import.meta.url));
@@ -99,21 +99,7 @@ test("Graphic labels refresh measurements and placement after delayed fonts load
 test("Graphic font refresh applies a pending motion preference before drawing", async ({ page, problems: recordedPageProblems }) => {
   await useLabelSpy(page);
   await useManualFrames(page);
-  await page.addInitScript(() => {
-    const originalAddEventListener = MediaQueryList.prototype.addEventListener;
-    const originalRemoveEventListener = MediaQueryList.prototype.removeEventListener;
-    const listenerWrappers = new WeakMap();
-    window.__preferenceJobs = [];
-    MediaQueryList.prototype.addEventListener = function (eventType, listener, listenerOptions) {
-      if (eventType !== "change" || !this.media.includes("prefers-reduced-motion")) return originalAddEventListener.call(this, eventType, listener, listenerOptions);
-      const deferredListener = (event) => window.__preferenceJobs.push(() => listener.call(this, event));
-      listenerWrappers.set(listener, deferredListener);
-      return originalAddEventListener.call(this, eventType, deferredListener, listenerOptions);
-    };
-    MediaQueryList.prototype.removeEventListener = function (eventType, listener, listenerOptions) {
-      return originalRemoveEventListener.call(this, eventType, listenerWrappers.get(listener) ?? listener, listenerOptions);
-    };
-  });
+  await useDeferredPreference(page);
   await page.goto("/about/");
   await expect(page.locator("[data-graphic]")).toHaveAttribute("data-ready", "true");
   await settle(page);

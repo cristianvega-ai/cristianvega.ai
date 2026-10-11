@@ -10,7 +10,9 @@ Treat code and filename naming as a repository adaptation of STE technical termi
 
 - State the subject, condition, and expected behavior in each test description.
 - Keep assertion messages useful when the test fails.
-- Name each test file by its tested module or behavior.
+- Name each Node test file by its tested module or behavior.
+- Name each browser file `<subject>-<behavior>.spec.mjs`. The subject is a page, a component, or the runtime.
+- Give each browser file one behavior. Do not split shared setup into one file for each test.
 - Keep `.test.mjs` for Node suites and `.spec.mjs` for browser suites.
 - Preserve clear names, assertion inputs, case counts, and cleanup behavior during naming changes.
 - Preserve the native and production names listed in root `AGENTS.md`.
@@ -21,7 +23,7 @@ Treat code and filename naming as a repository adaptation of STE technical termi
 | Assertion message | Article menu: Escape must restore button focus. |
 | Local identifier | `viewportWidth` or `articleIndex` |
 | Node filename | `graphics-geometry.test.mjs` |
-| Browser filename | `article-menu.spec.mjs` |
+| Browser filename | `writing-navigation.spec.mjs` |
 | Comment | `// The entrance animation must finish before geometry measurements.` |
 
 Use one term for each test concept.
@@ -34,6 +36,19 @@ These terms adapt the [official STE terminology guidance](https://www.asd-ste100
 | Route | A path that the website serves. |
 | Interpolate | Calculate a value between supplied values. |
 | Assertion | A check that compares an observed result with an expected result. |
+
+Use one behavior word for each shared browser concern.
+Use a word from this table when it matches the concern.
+Name a concern that only one subject has directly, for example `reading-progress` or `article-highlight`.
+
+| Behavior | Meaning |
+| --- | --- |
+| `layout` | Readable content and geometry at each tested viewport. |
+| `navigation` | Links, routes, and draft visibility. |
+| `keyboard` | Keyboard focus, focus rings, and keyboard scrolling. |
+| `motion` | Frames, entrances, and motion preferences. |
+| `lifecycle` | Teardown on pagehide and restoration on pageshow. |
+| `fallbacks` | Readable content when JavaScript, canvas, fonts, storage, stylesheets, or observers fail. |
 
 ## Testing strategy
 
@@ -106,25 +121,36 @@ The deployment integration suite starts Wrangler on `dist/`.
 
 | File | Owns |
 | --- | --- |
-| `tests/end-to-end/home.spec.mjs` | Readable content, visible globe, navigation, publication links, keyboard access, reduced motion, and frame completion. |
-| `tests/end-to-end/globe-presentation.spec.mjs` | Globe label clocks, hidden tabs, restored entrances, motion preferences, and stylesheet failure. |
-| `tests/end-to-end/products.spec.mjs` | Basic product list and detail navigation, responsive reading, and production draft privacy. |
-| `tests/end-to-end/404.spec.mjs` | Real 404 status, return navigation, and readable content without JavaScript. |
-| `tests/end-to-end/about.spec.mjs` | Reader tracking, pages without scrolling, reduced motion, reading without JavaScript, and scroll listener cleanup. |
-| `tests/end-to-end/writing.spec.mjs` | Basic article navigation, draft privacy, keyboard and pointer interactions, readable controls, fallbacks, reduced motion, and cleanup. |
+| `tests/end-to-end/home-layout.spec.mjs` | Readable home content and a visible decorative globe at desktop, mobile, and short viewports. |
+| `tests/end-to-end/home-navigation.spec.mjs` | The About and brand links, links for published sections only, and keyboard access to preview links. |
+| `tests/end-to-end/globe-motion.spec.mjs` | Globe frame completion after the entrance and drawing without frames under reduced motion. |
+| `tests/end-to-end/globe-labels.spec.mjs` | Globe label clocks, hidden tabs, restored entrances, motion preferences, and stylesheet failure. |
+| `tests/end-to-end/globe-fallbacks.spec.mjs` | The globe fallback, readable content, and resource cleanup after canvas, observer, setup, and restore failures. |
+| `tests/end-to-end/about-reading-progress.spec.mjs` | Reader tracking, pages without scrolling, reduced motion, and scroll listener cleanup and restoration. |
+| `tests/end-to-end/writing-navigation.spec.mjs` | Article navigation from the list and back, adjacent article links, and draft privacy. |
+| `tests/end-to-end/writing-article-highlight.spec.mjs` | Article highlights from keyboard focus and the pointer, reduced motion, and frame and listener cleanup. |
+| `tests/end-to-end/article-keyboard.spec.mjs` | Keyboard scrolling and focus rings on wide code and diagrams, and focus rings clear of the header and footer. |
 | `tests/end-to-end/article-interactions.spec.mjs` | Article code and diagram names, roles, focus order, and the scope of the article setup. |
 | `tests/end-to-end/article-menu.spec.mjs` | The article menu at minimum width: text contrast, focus rings, and the current link. |
-| `tests/end-to-end/publication.spec.mjs` | Published content in an isolated production build: routes, sitemap, robots, navigation, scripts, and the copy link. |
-| `tests/end-to-end/canvas-controller.spec.mjs` | Controller clocks, observers, motion preferences, restoration, resource cleanup, bitmap cropping, and failure fallbacks. |
-| `tests/end-to-end/page-graphics.spec.mjs` | Decorative scenes, readable content, reduced motion, and product clock completion. |
+| `tests/end-to-end/products-navigation.spec.mjs` | Basic product list and detail navigation, responsive reading, and production draft privacy. |
+| `tests/end-to-end/products-motion.spec.mjs` | Product drift after reduced motion ends and frame completion after the entrance. |
+| `tests/end-to-end/missing-page-navigation.spec.mjs` | Real 404 status and return navigation to home. |
+| `tests/end-to-end/page-fallbacks.spec.mjs` | Readable home, About, writing, and missing pages without JavaScript, and readable writing when canvas, fonts, and storage fail. |
+| `tests/end-to-end/page-shell-layout.spec.mjs` | Readable content and footer in the shared page shell, and article anchors below the sticky header. |
+| `tests/end-to-end/header-navigation.spec.mjs` | Header links at each layout width, the compact menu, the skip link, and the menu without JavaScript. |
+| `tests/end-to-end/page-graphics-layout.spec.mjs` | Decorative page scenes clear of page text, with readable content and no frames under reduced motion. |
 | `tests/end-to-end/graphic-font.spec.mjs` | Missing and delayed fonts, measured labels, resizing, pending motion preferences, and font callback lifetimes. |
-| `tests/end-to-end/layout.spec.mjs` | Shell readability, responsive navigation, keyboard focus, skip links, article anchors, and reading without JavaScript. |
+| `tests/end-to-end/canvas-clocks.spec.mjs` | Controller frame interval caps, pixel ratio policies, hidden and offscreen time, and idle scenes. |
+| `tests/end-to-end/canvas-motion.spec.mjs` | Controller reduced motion changes and pending motion preferences during a rebuild. |
+| `tests/end-to-end/canvas-lifecycle.spec.mjs` | Controller restoration, resource cleanup, and callbacks from previous observers. |
+| `tests/end-to-end/canvas-pixel-ratio.spec.mjs` | Complete canvas paint at higher device pixel ratios. |
+| `tests/end-to-end/publication.spec.mjs` | Published content in an isolated production build: routes, sitemap, robots, navigation, scripts, and the copy link. |
 | `tests/end-to-end/hosting.spec.mjs` | Local Cloudflare headers, redirects, preview indexing, compression, caching, security contact, and refused requests. |
 | `tests/end-to-end/security.spec.mjs` | The browser enforces the CSP and the permissions policy. |
 | `tests/end-to-end/analytics.spec.mjs` | The Cloudflare beacon loads on the production origin only, and pages work when it is blocked. |
 
 Keep page selectors and expectations in their owning suite.
-Share identical navigation, settlement, frame, and pixel mechanisms through `tests/shared/browser-fixtures.mjs`.
+Share identical navigation, settlement, frame, pixel, and canvas controller mechanisms through `tests/shared/browser-fixtures.mjs`.
 Pass page selectors and alpha thresholds to the pixel helpers.
 
 To choose a layer, ask what the test must look at:
