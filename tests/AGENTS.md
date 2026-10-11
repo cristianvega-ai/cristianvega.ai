@@ -2,6 +2,39 @@
 
 These rules add to the root `AGENTS.md`. Read them before you add, move, or change a test.
 
+## Language and naming
+
+Use the root `AGENTS.md` for general language and naming rules.
+Apply its STE writing principles to test descriptions, assertion messages, and comments.
+Treat code and filename naming as a repository adaptation of STE technical terminology.
+
+- State the subject, condition, and expected behavior in each test description.
+- Keep assertion messages useful when the test fails.
+- Name each test file by its tested module or behavior.
+- Keep `.test.mjs` for Node suites and `.spec.mjs` for browser suites.
+- Preserve clear names, assertion inputs, case counts, and cleanup behavior during naming changes.
+- Preserve the native and production names listed in root `AGENTS.md`.
+
+| Item | Example |
+| --- | --- |
+| Description | The article menu restores button focus when Escape closes it. |
+| Assertion message | Article menu: Escape must restore button focus. |
+| Local identifier | `viewportWidth` or `articleIndex` |
+| Node filename | `graphics-geometry.test.mjs` |
+| Browser filename | `article-menu.spec.mjs` |
+| Comment | `// The entrance animation must finish before geometry measurements.` |
+
+Use one term for each test concept.
+These terms adapt the [official STE terminology guidance](https://www.asd-ste100.org/about_STE.html) to this suite.
+
+| Term | Meaning |
+| --- | --- |
+| Fixture | Test data or setup that supplies a controlled test state. |
+| Viewport | The browser area that displays the page. |
+| Route | A path that the website serves. |
+| Interpolate | Calculate a value between supplied values. |
+| Assertion | A check that compares an observed result with an expected result. |
+
 ## Testing strategy
 
 The suite has two runners and four test types.
