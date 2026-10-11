@@ -25,14 +25,29 @@ Preserve private security reporting through `SECURITY.md`.
 
 ## Language
 
-Write everything about the work in ASD-STE100 Simplified Technical English.
-This covers replies, commit messages, comments, test names, and documents, including this file.
+Use ASD-STE100 Simplified Technical English (STE) writing principles for prose about the work.
+Apply these principles to replies, commit messages, comments, test descriptions, assertion messages, and documentation.
+These repository rules adapt STE for software maintenance.
+They do not establish full ASD-STE100 conformance.
 
 - Keep one topic and 20 words or fewer in each sentence.
 - Use the active voice.
 - Give one instruction per sentence, and start it with the verb.
 - Use "must" for a requirement and "can" for a possibility. Do not use "should".
-- Use the same word for the same thing.
+- Use one precise technical term for each concept.
+- Keep familiar technical terms when they name the concept accurately.
+- Explain an unfamiliar technical term at first use.
+
+Review prose and technical terms manually.
+An automated check alone cannot establish ASD-STE100 conformance.
+Use the [official ASD-STE100 guidance](https://www.asd-ste100.org/about_STE.html) for writing rules and technical terminology.
+Read the [official STE FAQ](https://www.asd-ste100.org/STE_faq.html) for dictionary words and technical terminology.
+
+| Prose | Example |
+| --- | --- |
+| Description | The font cache returns the stored width for the same font and text. |
+| Assertion message | Font metrics: measuring the label must return a finite width. |
+| Comment | `// The font cache must reset after the font loads.` |
 
 **Do not apply Simplified Technical English to what the site publishes.** Page copy, headlines, and the meta descriptions that quote them are the owner's voice. Match the voice already on the page. Keep the figurative lines, because they are deliberate: the homepage says "I build agentic AI where mistakes are expensive", and Simplified Technical English would reject that sentence.
 
@@ -123,17 +138,33 @@ Never weaken an assertion merely to make a check pass.
 
 ## Naming
 
+Code and filename conventions adapt the STE principle of consistent technical terminology.
+These conventions use the syntax of each language and tool.
+They do not establish ASD-STE100 conformance for code.
+
 - Use complete, familiar words for owned paths, commands, code identifiers, style names, environment variables, and branch types.
 - Name the subject and purpose. Avoid acronyms, shortened words, unexplained codes, and single-letter labels.
+- Use `camelCase` for local JavaScript and TypeScript variables, parameters, fields, and imported aliases.
+- Use `width` and `height` for dimensions.
+- Name loop indices by their subject, such as `articleIndex` or `pathIndex`.
+- Keep an already clear name unless its purpose changes.
 - Keep task codes inside documents. Do not use them as opaque path names.
 - Use lowercase words with hyphens for folders and ordinary files.
 - Use PascalCase for component and layout filenames.
 - Use `writing` for the section and collection. Use `article` for an individual piece and its helpers.
 - Name test fixtures by the behavior they test.
+- Name test files by their tested module or behavior.
 - Use `YYYY-MM-DD` for dates in names.
 - Keep `src/`, `Lyra`, official brand and font names, and ordinary mathematical coordinates.
 - Preserve required tool names, filenames, file extensions, and package keys.
 - Keep native interface names and required format, protocol, and schema keys, such as `og:image`.
+- During naming changes, preserve production exports, selectors, URLs, and fixture content.
+
+| Name | Example | Purpose |
+| --- | --- | --- |
+| Local value | `viewportWidth` | The viewport width in pixels. |
+| Loop index | `articleIndex` | The current article position. |
+| Test file | `graphic-font.test.mjs` | The graphic font Node suite. |
 
 ## Frontend, accessibility, and motion
 
