@@ -1,6 +1,5 @@
 /* The writing index and the article pages. reading-column.css holds the
    article head and prose, and entries.css holds the shared list rows. */
-.writing-index :focus-visible,
 .article :focus-visible {
   outline-color: var(--sky);
 }

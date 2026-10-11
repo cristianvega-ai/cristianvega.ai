@@ -260,9 +260,8 @@ h1 {
   border-radius: 4px;
 }
 
-/* Sky outlines on dark surfaces, where azure lacks contrast */
-.hero :focus-visible,
-.site-footer :focus-visible {
+/* A sky outline on the hero, where azure lacks contrast */
+.hero :focus-visible {
   outline: 3px solid var(--sky);
   outline-offset: 2px;
 }
