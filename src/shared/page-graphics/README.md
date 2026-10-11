@@ -22,8 +22,8 @@ Keep page bindings separate from geometry helpers and drawing.
 
 ## Lifecycle and clocks
 
-[canvas-controller.ts](../motion/canvas-controller.ts) owns active clocks, observers, frames, listeners, and cleanup.
-`../motion/` is the shared canvas layer. It does not import from `page-graphics/` or `lyra-globe/`.
+[canvas-controller.ts](../canvas/canvas-controller.ts) owns active clocks, observers, frames, listeners, and cleanup.
+`../canvas/` is the shared canvas layer. It does not import from `page-graphics/` or `lyra-globe/`.
 Scenes own layout, drawing, and interaction listeners.
 Active time excludes hidden tabs and periods outside the viewport.
 Every canvas caps one frame interval at `MAXIMUM_FRAME_INTERVAL_MILLISECONDS` (64 milliseconds).
@@ -47,7 +47,7 @@ The marker fades into Vega at the path's end.
 Writing answers pointer and keyboard focus, then rests after the glow fades.
 Reduced motion updates Writing selection immediately, without comets.
 Products drift until 30 active seconds, then rest.
-The 404 scene uses a 30.5-second controller duration for four later search pulses.
+The 404 scene, `scenes/missing-page.ts`, uses a 30.5-second controller duration for four later search pulses.
 It draws its visual entrance from `state.elapsed`.
 Reduced motion completes entrances immediately and runs no continuous frames, drift, comets, or search pulses.
 
@@ -83,15 +83,15 @@ Globe labels use canvas entrance progress and pause with the drawing.
 
 ## Modules
 
-- `../motion/clock.ts`: `DURATION`, `entranceProgress()`, and `stagger()`. The globe uses the same clock.
-- `../motion/palette.ts`: validated site colors and a cached glow sprite. The globe uses the same palette.
-- `../motion/easing.ts`: `clamp()`, easing curves, `interpolate()`, and `riseAndFall()`.
-- `../motion/geometry.ts`: `Point`, `FULL_TURN_RADIANS`, and `cubicPoint()`.
-- `../motion/random.ts`: stable numeric samples.
-- `../motion/marks.ts`: nodes, edges, curves, and blooms.
+- `../canvas/clock.ts`: `DURATION`, `entranceProgress()`, and `stagger()`. The globe uses the same clock.
+- `../canvas/palette.ts`: validated site colors and a cached glow sprite. The globe uses the same palette.
+- `../canvas/easing.ts`: `clamp()`, easing curves, `interpolate()`, and `riseAndFall()`.
+- `../canvas/geometry.ts`: `Point`, `FULL_TURN_RADIANS`, and `cubicPoint()`.
+- `../canvas/random.ts`: stable numeric samples.
+- `../canvas/marks.ts`: nodes, edges, curves, and blooms.
   The globe draws with the same marks. `entranceBloom()` times the Vega bloom of an entrance.
-- `../motion/comets.ts`: routes and the comets that travel them.
-- `../motion/star-field.ts`: the faint background stars.
+- `../canvas/comets.ts`: routes and the comets that travel them.
+- `../canvas/star-field.ts`: the faint background stars.
 - `lyra.ts`: `layoutLyra(width, height)` preserves proportions and caps the figure at `LYRA_MAXIMUM_SIZE`.
   `fitLyraAtVega()` puts Vega at a given centre with the same cap.
   `placeStarNames()` places the star names, and `lyraLinkSegments()` gives the figure links that a label must not cross.
@@ -107,7 +107,7 @@ Globe labels use canvas entrance progress and pause with the drawing.
 - `mount.ts`: page policies, scene mounting, and font refreshes through `handle.rebuild()`.
   `showChange(handle)` shows an interaction change: it redraws under reduced motion and wakes the scene otherwise.
 - `scroll.ts`: measured page geometry and a smoothed reader position.
-- `scenes/`: page drawings, the lazy registry in `scenes/index.ts`, and the layout of each scene.
+- `scenes/`: page drawings, the lazy registry in `scenes/registry.ts`, and the layout of each scene.
   A layout module, such as `scenes/about-layout.ts`, has no DOM and no canvas, so a Node test can run it.
 
 ## How to add a page graphic
@@ -134,7 +134,7 @@ Globe labels use canvas entrance progress and pause with the drawing.
    `showChange(handle)` chooses between the two.
    Call `handle.rebuild()` when layout inputs change outside a resize.
    It applies a pending motion preference before it draws.
-4. Add a lazy import to `scenes/index.ts`:
+4. Add a lazy import to `scenes/registry.ts`:
    `<scene>: () => import("./<scene>.ts").then((module) => module.mount<Scene>)`.
    Add its name and required inputs to the `Props` union in [PageGraphic.astro](../../components/PageGraphic.astro).
 5. Put `<PageGraphic page="<scene>" />` first inside `<main>`.

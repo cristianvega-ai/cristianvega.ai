@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { clamp } from "../../src/shared/motion/easing.ts";
+import { clamp } from "../../src/shared/canvas/easing.ts";
 
 test("clamp returns boundary values for out-of-range inputs and preserves values inside the range", () => {
   assert.equal(clamp(-1), 0);

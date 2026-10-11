@@ -1,9 +1,9 @@
 import { VEGA_NAME } from "../../lyra/constellation.ts";
-import { stagger } from "../../motion/clock.ts";
-import { smooth } from "../../motion/easing.ts";
-import { FULL_TURN_RADIANS, type Point } from "../../motion/geometry.ts";
-import { drawCurve, drawNode, drawVegaBloom, entranceBloom } from "../../motion/marks.ts";
-import type { Palette } from "../../motion/palette.ts";
+import { stagger } from "../../canvas/clock.ts";
+import { smooth } from "../../canvas/easing.ts";
+import { FULL_TURN_RADIANS, type Point } from "../../canvas/geometry.ts";
+import { drawCurve, drawNode, drawVegaBloom, entranceBloom } from "../../canvas/marks.ts";
+import type { Palette } from "../../canvas/palette.ts";
 import { labelBounds, reportFigureLeft } from "../container.ts";
 import { drawLabel, placeLabel, type PlacedLabel } from "../labels.ts";
 import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
@@ -35,7 +35,7 @@ function drawRings(drawingContext: CanvasRenderingContext2D, palette: Palette, t
   for (let ringIndex = 0; ringIndex < 3; ringIndex++) {
     drawingContext.globalAlpha = smooth((progress - 0.1 - ringIndex * 0.08) / 0.3) * 2.4;
     drawingContext.beginPath();
-    drawingContext.arc(trajectory.vx, trajectory.vy, trajectory.ring * RING_SHARES[ringIndex], 0, FULL_TURN_RADIANS);
+    drawingContext.arc(trajectory.vegaX, trajectory.vegaY, trajectory.ringRadius * RING_SHARES[ringIndex], 0, FULL_TURN_RADIANS);
     drawingContext.stroke();
   }
   drawingContext.globalAlpha = 1;
@@ -151,8 +151,8 @@ function drawNeurons(
     drawingContext,
     palette,
     glow,
-    trajectory.vx,
-    trajectory.vy,
+    trajectory.vegaX,
+    trajectory.vegaY,
     2.7,
     stagger(progress, 0.25, 0.25),
     true,
@@ -180,8 +180,8 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
     mesh = makeMesh(width, height, 5);
     vegaLabel = placeLabel(
       VEGA_NAME,
-      trajectory.vx,
-      trajectory.vy,
+      trajectory.vegaX,
+      trajectory.vegaY,
       {
         widthInPixels: state.labelFont.widthInPixels(VEGA_NAME),
         lineHeightInPixels: state.labelFont.lineHeightInPixels,
@@ -238,7 +238,7 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
     drawReachMarker(drawingContext, state, trajectory, reach);
     // The arrival bloom on Vega, only when the light reaches it during the entrance.
     if (!state.reduced) {
-      drawVegaBloom(drawingContext, glow, trajectory.vx, trajectory.vy, entranceBloom(progress) * smooth((reach - 0.9) / 0.1));
+      drawVegaBloom(drawingContext, glow, trajectory.vegaX, trajectory.vegaY, entranceBloom(progress) * smooth((reach - 0.9) / 0.1));
     }
     if (vegaLabel) drawLabel(drawingContext, palette, state.labelFont.canvasFont, vegaLabel, smooth((progress - 0.7) / 0.2));
     if (scroll.linked) reportProgress(reach);

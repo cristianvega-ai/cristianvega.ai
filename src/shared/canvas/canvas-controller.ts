@@ -128,10 +128,10 @@ export function mountCanvasController(
       busy = draw(drawingContext!, state) === true;
       drawingContext!.globalAlpha = 1;
       // Write the motion state only when it changes.
-      const next = state.entranceComplete && !(busy && !state.reduced) ? "still" : "playing";
-      if (next !== motion) {
-        motion = next;
-        container.dataset.motionState = next;
+      const nextMotionState = state.entranceComplete && !(busy && !state.reduced) ? "still" : "playing";
+      if (nextMotionState !== motion) {
+        motion = nextMotionState;
+        container.dataset.motionState = nextMotionState;
       }
     } catch {
       fail();

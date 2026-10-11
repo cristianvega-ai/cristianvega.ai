@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { glowStops } from "../../src/shared/motion/palette.ts";
+import { glowStops } from "../../src/shared/canvas/palette.ts";
 
 test("glowStops preserves color channels and scales glow opacity by color alpha", () => {
   for (const [color, expectedStops] of [

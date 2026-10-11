@@ -1,8 +1,8 @@
 ---
 // The site header: the brand, the navigation, and the menu that holds the same links on a phone.
 // A section link shows only when the section has something visible.
-import { getArticles } from "../shared/writing";
-import { getProducts } from "../shared/products";
+import { getArticles } from "../shared/content/writing";
+import { getProducts } from "../shared/content/products";
 import { PROFILE_LINKS, SITE_NAME, type PageKind } from "../shared/site";
 import "../styles/site-header.css";
 
@@ -34,8 +34,8 @@ const internalLinks: { label: string; href: string; current?: "page" | "location
     </a>
 
     <nav class="navigation" aria-label="Primary">
-      {internalLinks.map((link, index) => (
-        <a class={index === internalLinks.length - 1 ? "navigation__link navigation__link--divided" : "navigation__link"} href={link.href} aria-current={link.current}>{link.label}</a>
+      {internalLinks.map((link, linkIndex) => (
+        <a class={linkIndex === internalLinks.length - 1 ? "navigation__link navigation__link--divided" : "navigation__link"} href={link.href} aria-current={link.current}>{link.label}</a>
       ))}
       {PROFILE_LINKS.map((link) => (
         <a class="navigation__link" href={link.href} rel="me noopener noreferrer" target="_blank">{link.label}</a>
@@ -74,9 +74,9 @@ const internalLinks: { label: string; href: string; current?: "page" | "location
   document.addEventListener("pointerup", () => { pressing = false; });
   document.addEventListener("pointercancel", () => { pressing = false; });
   menu?.addEventListener("focusout", (event) => {
-    const next = event.relatedTarget;
-    if (!menu.open || (next instanceof Node && menu.contains(next))) return;
-    if (next === null && pressing) return;
+    const focusTarget = event.relatedTarget;
+    if (!menu.open || (focusTarget instanceof Node && menu.contains(focusTarget))) return;
+    if (focusTarget === null && pressing) return;
     menu.open = false;
   });
   document.addEventListener("pointerdown", (event) => {

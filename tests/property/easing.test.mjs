@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { easeOutCubic } from "../../src/shared/motion/easing.ts";
+import { easeOutCubic } from "../../src/shared/canvas/easing.ts";
 
 test("easeOutCubic returns zero and one at the endpoints and increases monotonically across progress samples", () => {
   assert.equal(easeOutCubic(0), 0);

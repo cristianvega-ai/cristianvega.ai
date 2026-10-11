@@ -13,7 +13,7 @@ interface MissingLayout {
   /** True for a band, where the figure turns a quarter turn. */
   wide: boolean;
   padding: number;
-  rotate: number;
+  rotation: number;
   showNames: boolean;
   /** How far a pulse spreads beyond the ring, in CSS pixels. */
   reach: number;
@@ -25,7 +25,7 @@ export function missingLayout(width: number, height: number): MissingLayout {
   return {
     wide,
     padding: wide ? FIGURE_INSET : 56,
-    rotate: wide ? -Math.PI / 2 : 0,
+    rotation: wide ? -Math.PI / 2 : 0,
     showNames: height > 300,
     reach: Math.min(58, Math.min(width, height) * 0.2),
   };
@@ -48,7 +48,7 @@ function placeLabels(
     widthsInPixels,
     lineHeightInPixels,
     segments: lyraLinkSegments(stars),
-    avoid: stars.map((star, i) => around(star.x, star.y, i === MISSING ? RING_RADIUS + 5 : 9)),
+    avoid: stars.map((star, starIndex) => around(star.x, star.y, starIndex === MISSING ? RING_RADIUS + 5 : 9)),
   });
 }
 
@@ -65,10 +65,10 @@ export function layoutMissing(
   lineHeightInPixels: number,
   outputStars: LyraPoint[] = [],
 ) {
-  let stars = layoutLyra(width, height, { padding: layout.padding, rotate: layout.rotate, outputPoints: outputStars });
+  let stars = layoutLyra(width, height, { padding: layout.padding, rotation: layout.rotation, outputPoints: outputStars });
   let labels = placeLabels(bounds, stars, layout.showNames, widthsInPixels, lineHeightInPixels);
   if (labels[0] && !labels[0].clear) {
-    stars = layoutLyra(width - widthsInPixels[0] - 24, height, { padding: layout.padding, rotate: layout.rotate, outputPoints: outputStars });
+    stars = layoutLyra(width - widthsInPixels[0] - 24, height, { padding: layout.padding, rotation: layout.rotation, outputPoints: outputStars });
     labels = placeLabels(bounds, stars, layout.showNames, widthsInPixels, lineHeightInPixels);
   }
   return { stars, labels };

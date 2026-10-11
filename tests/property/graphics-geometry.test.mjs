@@ -28,8 +28,8 @@ test("makeMesh keeps all nodes inside its bounds and references existing nodes i
   assert.ok(mesh.count > 0, "the mesh must contain nodes");
   assert.ok(mesh.linkCount > 0, "the mesh must contain links");
   for (let nodeIndex = 0; nodeIndex < mesh.count; nodeIndex += 1) {
-    assert.ok(mesh.xs[nodeIndex] >= 0 && mesh.xs[nodeIndex] <= 460, `node ${nodeIndex}: x must fit the mesh width`);
-    assert.ok(mesh.ys[nodeIndex] >= 0 && mesh.ys[nodeIndex] <= 700, `node ${nodeIndex}: y must fit the mesh height`);
+    assert.ok(mesh.nodeX[nodeIndex] >= 0 && mesh.nodeX[nodeIndex] <= 460, `node ${nodeIndex}: x must fit the mesh width`);
+    assert.ok(mesh.nodeY[nodeIndex] >= 0 && mesh.nodeY[nodeIndex] <= 700, `node ${nodeIndex}: y must fit the mesh height`);
   }
   for (let linkEndpointIndex = 0; linkEndpointIndex < mesh.linkCount * 2; linkEndpointIndex += 1) {
     assert.ok(mesh.links[linkEndpointIndex] < mesh.count, `link endpoint ${linkEndpointIndex} must reference an existing node`);

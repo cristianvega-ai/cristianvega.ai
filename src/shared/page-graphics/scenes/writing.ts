@@ -1,10 +1,10 @@
 import { LYRA_LINKS } from "../../lyra/constellation.ts";
-import { MAXIMUM_FRAME_INTERVAL_MILLISECONDS } from "../../motion/canvas-controller.ts";
-import { stagger } from "../../motion/clock.ts";
-import { drawComet, type Route } from "../../motion/comets.ts";
-import { clamp, riseAndFall, smooth } from "../../motion/easing.ts";
-import { FULL_TURN_RADIANS } from "../../motion/geometry.ts";
-import { drawEdge, drawNode, drawVegaBloom } from "../../motion/marks.ts";
+import { MAXIMUM_FRAME_INTERVAL_MILLISECONDS } from "../../canvas/canvas-controller.ts";
+import { stagger } from "../../canvas/clock.ts";
+import { drawComet, type Route } from "../../canvas/comets.ts";
+import { clamp, riseAndFall, smooth } from "../../canvas/easing.ts";
+import { FULL_TURN_RADIANS } from "../../canvas/geometry.ts";
+import { drawEdge, drawNode, drawVegaBloom } from "../../canvas/marks.ts";
 import { labelBounds, reportFigureLeft } from "../container.ts";
 import { makeGridLayer } from "../grid-layer.ts";
 import { drawLabel, drawLabelHighlight, drawLabels } from "../labels.ts";
@@ -23,9 +23,9 @@ import {
 // A pointer or focus on an article lights its path through Lyra to Vega, and a comet runs it.
 // After the entrance the picture rests, and frames run only while an article is lit.
 
-/** A lit comet repeats every CYCLE milliseconds, and runs for RUN of them. */
-const CYCLE = 2700;
-const RUN = 1750;
+/** A lit comet repeats every COMET_CYCLE_MILLISECONDS, and runs for COMET_RUN_MILLISECONDS of each cycle. */
+const COMET_CYCLE_MILLISECONDS = 2700;
+const COMET_RUN_MILLISECONDS = 1750;
 /** The resting alpha of a synapse to an article, and of a synapse between field stars. The second must not draw a hard outline. */
 const LINK_ARTICLE_ALPHA = 0.15;
 const LINK_FIELD_ALPHA = 0.035;
@@ -270,8 +270,8 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
         }
         pulse = riseAndFall(progress, 0.6, 0.25, 0.88, 0.12) * 0.9;
       } else if (activeArticleIndex >= 0) {
-        const phase = (state.activeTime - selectionStartTime) % CYCLE;
-        const travel = phase < RUN ? phase / RUN : 0;
+        const phase = (state.activeTime - selectionStartTime) % COMET_CYCLE_MILLISECONDS;
+        const travel = phase < COMET_RUN_MILLISECONDS ? phase / COMET_RUN_MILLISECONDS : 0;
         drawComet(
           drawingContext,
           state.palette,
@@ -341,18 +341,18 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     const events = new AbortController();
     const options = { signal: events.signal };
 
-    function select(index: number) {
-      if (index === activeArticleIndex) return;
-      activeArticleIndex = index;
+    function select(articleIndex: number) {
+      if (articleIndex === activeArticleIndex) return;
+      activeArticleIndex = articleIndex;
       selectionStartTime = canvasHandle.state.activeTime;
-      if (index >= 0) container.dataset.activeArticle = articles[index].identifier;
+      if (articleIndex >= 0) container.dataset.activeArticle = articles[articleIndex].identifier;
       else delete container.dataset.activeArticle;
       showChange(canvasHandle);
     }
 
-    articles.forEach((article, index) => {
-      article.element.addEventListener("pointerenter", () => select(index), options);
-      article.element.addEventListener("focusin", () => select(index), options);
+    articles.forEach((article, articleIndex) => {
+      article.element.addEventListener("pointerenter", () => select(articleIndex), options);
+      article.element.addEventListener("focusin", () => select(articleIndex), options);
       article.element.addEventListener(
         "pointerleave",
         () => {

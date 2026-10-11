@@ -1,7 +1,7 @@
 import { LYRA_LINKS } from "../../lyra/constellation.ts";
-import { makeRoute, type Route } from "../../motion/comets.ts";
-import { cubicPoint, FULL_TURN_RADIANS, type Point } from "../../motion/geometry.ts";
-import { unit } from "../../motion/random.ts";
+import { makeRoute, type Route } from "../../canvas/comets.ts";
+import { cubicPoint, FULL_TURN_RADIANS, type Point } from "../../canvas/geometry.ts";
+import { unit } from "../../canvas/random.ts";
 import { FIGURE_INSET } from "../inset.ts";
 import { around, placeLabel, type PlacedLabel, type Rectangle, type Segment } from "../labels.ts";
 import { boundsOf, layoutLyra, lyraLinkSegments, type LyraPoint } from "../lyra.ts";
@@ -11,7 +11,7 @@ import { boundsOf, layoutLyra, lyraLinkSegments, type LyraPoint } from "../lyra.
 // Every place comes from the identifiers, so a reload keeps the picture.
 
 /** Field stars that link the articles to the sky. They carry no label. */
-const FILLER = 26;
+const FILLER_STAR_COUNT = 26;
 /** Samples on the bent stretch of a route, from an article to the nearest Lyra star. */
 export const CURVE_STEPS = 12;
 /** The clear distance a label keeps from a star centre, in CSS pixels. */
@@ -62,17 +62,17 @@ export interface FieldLayout {
 
 /** A stable value in [0, 1) from a text and a salt (FNV-1a, then a scramble). */
 function hashUnit(text: string, salt = 0): number {
-  let h = 2166136261 ^ salt;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 16777619);
+  let hash = 2166136261 ^ salt;
+  for (let characterIndex = 0; characterIndex < text.length; characterIndex++) {
+    hash ^= text.charCodeAt(characterIndex);
+    hash = Math.imul(hash, 16777619);
   }
-  h ^= h >>> 15;
-  h = Math.imul(h, 2246822519);
-  h ^= h >>> 13;
-  h = Math.imul(h, 3266489917);
-  h ^= h >>> 16;
-  return (h >>> 0) / 4294967296;
+  hash ^= hash >>> 15;
+  hash = Math.imul(hash, 2246822519);
+  hash ^= hash >>> 13;
+  hash = Math.imul(hash, 3266489917);
+  hash ^= hash >>> 16;
+  return (hash >>> 0) / 4294967296;
 }
 
 /** The shortest path, as node numbers, from `start` to node 0 over an undirected edge list. */
@@ -82,11 +82,11 @@ export function pathToVega(start: number, edges: readonly (readonly [number, num
   previous[0] = 0;
   for (let head = 0; head < queue.length; head++) {
     const node = queue[head];
-    for (const [a, b] of edges) {
-      const next = a === node ? b : b === node ? a : -1;
-      if (next >= 0 && previous[next] < 0) {
-        previous[next] = node;
-        queue.push(next);
+    for (const [fromNode, toNode] of edges) {
+      const neighbor = fromNode === node ? toNode : toNode === node ? fromNode : -1;
+      if (neighbor >= 0 && previous[neighbor] < 0) {
+        previous[neighbor] = node;
+        queue.push(neighbor);
       }
     }
   }
@@ -101,34 +101,34 @@ function spread(
   center: { x: number; y: number },
   zone: { x: number; y: number },
   minimum: number,
-  margins: { l: number; r: number; t: number; b: number },
-  w: number,
-  h: number,
+  margins: { left: number; right: number; top: number; bottom: number },
+  width: number,
+  height: number,
 ): void {
   for (let pass = 0; pass < 60; pass++) {
-    for (let i = 0; i < list.length; i++) {
-      for (let j = i + 1; j < list.length; j++) {
-        const dx = list[j].x - list[i].x;
-        const dy = list[j].y - list[i].y;
-        const d = Math.hypot(dx, dy) || 0.01;
-        if (d < minimum) {
-          const k = (minimum - d) / 2 / d;
-          list[i].x -= dx * k;
-          list[i].y -= dy * k;
-          list[j].x += dx * k;
-          list[j].y += dy * k;
+    for (let firstIndex = 0; firstIndex < list.length; firstIndex++) {
+      for (let secondIndex = firstIndex + 1; secondIndex < list.length; secondIndex++) {
+        const deltaX = list[secondIndex].x - list[firstIndex].x;
+        const deltaY = list[secondIndex].y - list[firstIndex].y;
+        const distance = Math.hypot(deltaX, deltaY) || 0.01;
+        if (distance < minimum) {
+          const pushShare = (minimum - distance) / 2 / distance;
+          list[firstIndex].x -= deltaX * pushShare;
+          list[firstIndex].y -= deltaY * pushShare;
+          list[secondIndex].x += deltaX * pushShare;
+          list[secondIndex].y += deltaY * pushShare;
         }
       }
-      const p = list[i];
-      const nx = (p.x - center.x) / zone.x;
-      const ny = (p.y - center.y) / zone.y;
-      const nd = Math.hypot(nx, ny) || 0.01;
-      if (nd < 1) {
-        p.x = center.x + (nx / nd) * zone.x;
-        p.y = center.y + (ny / nd) * zone.y;
+      const point = list[firstIndex];
+      const zoneShareX = (point.x - center.x) / zone.x;
+      const zoneShareY = (point.y - center.y) / zone.y;
+      const zoneDistance = Math.hypot(zoneShareX, zoneShareY) || 0.01;
+      if (zoneDistance < 1) {
+        point.x = center.x + (zoneShareX / zoneDistance) * zone.x;
+        point.y = center.y + (zoneShareY / zoneDistance) * zone.y;
       }
-      p.x = Math.min(w - margins.r, Math.max(margins.l, p.x));
-      p.y = Math.min(h - margins.b, Math.max(margins.t, p.y));
+      point.x = Math.min(width - margins.right, Math.max(margins.left, point.x));
+      point.y = Math.min(height - margins.bottom, Math.max(margins.top, point.y));
     }
   }
 }
@@ -136,82 +136,82 @@ function spread(
 export function buildField({ articleIdentifiers, labels, labelWidthsInPixels, starWidthsInPixels, lineHeightInPixels, width, height, bounds = { x0: 0, y0: 0, x1: width, y1: height } }: FieldInput): FieldLayout {
   const count = articleIdentifiers.length;
   const tall = height > width * 1.05;
-  const labelWidth = labelWidthsInPixels.reduce((widest, width) => Math.max(widest, width), 0);
-  const cx = width / 2 + (tall ? 8 : 0);
-  const cy = height / 2;
+  const labelWidth = labelWidthsInPixels.reduce((widest, measuredWidth) => Math.max(widest, measuredWidth), 0);
+  const centerX = width / 2 + (tall ? 8 : 0);
+  const centerY = height / 2;
 
   // The Lyra figure sits in the middle. Upright in a tall box, on its side in a wide one.
-  const stars = layoutLyra(Math.min(width * 0.42, 220), Math.min(height * (tall ? 0.3 : 0.4), 260), { padding: 2, rotate: tall ? 0 : Math.PI / 2 });
-  const { x0: minX, x1: maxX, y0: minY, y1: maxY } = boundsOf(stars);
-  const shiftX = cx - (minX + maxX) / 2;
-  const shiftY = cy - (minY + maxY) / 2;
+  const stars = layoutLyra(Math.min(width * 0.42, 220), Math.min(height * (tall ? 0.3 : 0.4), 260), { padding: 2, rotation: tall ? 0 : Math.PI / 2 });
+  const { x0: minimumX, x1: maximumX, y0: minimumY, y1: maximumY } = boundsOf(stars);
+  const shiftX = centerX - (minimumX + maximumX) / 2;
+  const shiftY = centerY - (minimumY + maximumY) / 2;
   for (const star of stars) {
     star.x += shiftX;
     star.y += shiftY;
   }
-  const zone = { x: (maxX - minX) / 2 + 26, y: (maxY - minY) / 2 + 26 };
+  const zone = { x: (maximumX - minimumX) / 2 + 26, y: (maximumY - minimumY) / 2 + 26 };
 
   // Articles: the angle slots follow the hash order, so the identifiers place the stars and the ring stays even.
-  const margins = { l: labelWidth + 26, r: labelWidth + 26, t: Math.max(40, FIGURE_INSET), b: Math.max(40, FIGURE_INSET) };
-  const rx = (width - margins.l - margins.r) / 2;
-  const ry = (height - margins.t - margins.b) / 2;
-  const order = articleIdentifiers.map((identifier, index) => ({ index, angle: hashUnit(identifier, 1) })).sort((a, b) => a.angle - b.angle);
+  const margins = { left: labelWidth + 26, right: labelWidth + 26, top: Math.max(40, FIGURE_INSET), bottom: Math.max(40, FIGURE_INSET) };
+  const radiusX = (width - margins.left - margins.right) / 2;
+  const radiusY = (height - margins.top - margins.bottom) / 2;
+  const order = articleIdentifiers.map((identifier, articleIndex) => ({ articleIndex, angle: hashUnit(identifier, 1) })).sort((first, second) => first.angle - second.angle);
   const points: FieldPoint[] = new Array(count);
-  order.forEach(({ index }, rank) => {
-    const identifier = articleIdentifiers[index];
+  order.forEach(({ articleIndex }, rank) => {
+    const identifier = articleIdentifiers[articleIndex];
     const angle = -Math.PI / 2 + ((rank + 0.5 + (hashUnit(identifier, 3) - 0.5) * 0.5) / count) * FULL_TURN_RADIANS + 0.35;
     const reach = 0.66 + 0.34 * hashUnit(identifier, 2);
-    points[index] = { x: cx + Math.cos(angle) * rx * reach * 1.1, y: cy + Math.sin(angle) * ry * reach, radius: 0, alpha: 1, article: true };
+    points[articleIndex] = { x: centerX + Math.cos(angle) * radiusX * reach * 1.1, y: centerY + Math.sin(angle) * radiusY * reach, radius: 0, alpha: 1, article: true };
   });
-  spread(points, { x: cx, y: cy }, zone, Math.min(width, height) * 0.2 + 10, margins, width, height);
+  spread(points, { x: centerX, y: centerY }, zone, Math.min(width, height) * 0.2 + 10, margins, width, height);
 
   // Filler stars fill the gaps, clear of the Lyra zone and of every point placed before.
-  for (let i = 0; i < FILLER; i++) {
-    const x = FIGURE_INSET + unit(i * 5 + 9) * (width - 2 * FIGURE_INSET);
-    const y = FIGURE_INSET + unit(i * 5 + 10) * (height - 2 * FIGURE_INSET);
-    const nx = (x - cx) / zone.x;
-    const ny = (y - cy) / zone.y;
-    if (nx * nx + ny * ny < 1.1) continue;
-    if (points.some((p) => Math.hypot(p.x - x, p.y - y) < 30)) continue;
-    points.push({ x, y, radius: 0.6 + unit(i * 5 + 11) * 0.7, alpha: 0.5 + 0.3 * Math.sin(unit(i * 5 + 12) * FULL_TURN_RADIANS), article: false });
+  for (let fillerIndex = 0; fillerIndex < FILLER_STAR_COUNT; fillerIndex++) {
+    const x = FIGURE_INSET + unit(fillerIndex * 5 + 9) * (width - 2 * FIGURE_INSET);
+    const y = FIGURE_INSET + unit(fillerIndex * 5 + 10) * (height - 2 * FIGURE_INSET);
+    const zoneShareX = (x - centerX) / zone.x;
+    const zoneShareY = (y - centerY) / zone.y;
+    if (zoneShareX * zoneShareX + zoneShareY * zoneShareY < 1.1) continue;
+    if (points.some((point) => Math.hypot(point.x - x, point.y - y) < 30)) continue;
+    points.push({ x, y, radius: 0.6 + unit(fillerIndex * 5 + 11) * 0.7, alpha: 0.5 + 0.3 * Math.sin(unit(fillerIndex * 5 + 12) * FULL_TURN_RADIANS), article: false });
   }
 
   // Synapses: each point links to its two nearest neighbours, once for each pair.
   const links: FieldLink[] = [];
   const seen = new Set<number>();
   const maximumDistance = Math.max(width, height) * 0.24;
-  points.forEach((p, i) => {
+  points.forEach((point, pointIndex) => {
     const ranked = points
-      .map((q, j) => ({ j, d: Math.hypot(q.x - p.x, q.y - p.y) }))
-      .filter((entry) => entry.j !== i && entry.d < maximumDistance)
-      .sort((a, b) => a.d - b.d)
+      .map((other, otherIndex) => ({ otherIndex, distance: Math.hypot(other.x - point.x, other.y - point.y) }))
+      .filter((entry) => entry.otherIndex !== pointIndex && entry.distance < maximumDistance)
+      .sort((first, second) => first.distance - second.distance)
       .slice(0, 2);
-    for (const { j } of ranked) {
-      const key = i < j ? i * 4096 + j : j * 4096 + i;
+    for (const { otherIndex } of ranked) {
+      const key = pointIndex < otherIndex ? pointIndex * 4096 + otherIndex : otherIndex * 4096 + pointIndex;
       if (seen.has(key)) continue;
       seen.add(key);
-      links.push({ from: i, to: j, weight: p.article || points[j].article ? 1 : 0 });
+      links.push({ from: pointIndex, to: otherIndex, weight: point.article || points[otherIndex].article ? 1 : 0 });
     }
   });
 
   // Labels. Each takes the first side of its star that no synapse, figure link, or earlier label crosses.
-  const synapses: Segment[] = links.map((link) => ({ ax: points[link.from].x, ay: points[link.from].y, bx: points[link.to].x, by: points[link.to].y }));
+  const synapses: Segment[] = links.map((link) => ({ startX: points[link.from].x, startY: points[link.from].y, endX: points[link.to].x, endY: points[link.to].y }));
   const figure = lyraLinkSegments(stars);
   const segments = [...synapses, ...figure];
   const taken: Rectangle[] = [];
   for (const star of stars) taken.push(around(star.x, star.y, STAR_CLEARANCE));
-  for (let i = 0; i < count; i++) taken.push(around(points[i].x, points[i].y, STAR_CLEARANCE));
+  for (let articleIndex = 0; articleIndex < count; articleIndex++) taken.push(around(points[articleIndex].x, points[articleIndex].y, STAR_CLEARANCE));
 
-  const articleLabels = labels.map((text, i) => {
-    const { x, y } = points[i];
-    const placeOnRight = x >= cx;
-    return placeLabel(text, x, y, { widthInPixels: labelWidthsInPixels[i], lineHeightInPixels, bounds, segments, avoid: taken, gap: 13, prefer: placeOnRight ? ["right", "left", "above", "below"] : ["left", "right", "above", "below"] });
+  const articleLabels = labels.map((text, articleIndex) => {
+    const { x, y } = points[articleIndex];
+    const placeOnRight = x >= centerX;
+    return placeLabel(text, x, y, { widthInPixels: labelWidthsInPixels[articleIndex], lineHeightInPixels, bounds, segments, avoid: taken, gap: 13, prefer: placeOnRight ? ["right", "left", "above", "below"] : ["left", "right", "above", "below"] });
   });
 
-  const starLabels = stars.map((star, i) => {
+  const starLabels = stars.map((star, starIndex) => {
     if (!star.name) return null;
     // A star name keeps clear of the figure links. A faint synapse under it only breaks a tie, and the halo cuts it out.
-    const label = placeLabel(star.name, star.x, star.y, { widthInPixels: starWidthsInPixels[i], lineHeightInPixels, bounds, segments: figure, soft: synapses, avoid: taken, gap: 14, lift: star.vega ? -10 : 0 });
+    const label = placeLabel(star.name, star.x, star.y, { widthInPixels: starWidthsInPixels[starIndex], lineHeightInPixels, bounds, segments: figure, soft: synapses, avoid: taken, gap: 14, lift: star.vega ? -10 : 0 });
     return label.clear ? label : null;
   });
 
@@ -260,6 +260,6 @@ export function buildArticleRoutes(layout: FieldLayout, articleCount: number): R
 /** The articles whose comets run during the entrance: up to four, spread over the list, each once. */
 export function entranceArticleIndices(articleCount: number): number[] {
   return [0, 3, 5, articleCount - 1].filter(
-    (articleIndex, index, indices) => articleIndex < articleCount && indices.indexOf(articleIndex) === index,
+    (articleIndex, listIndex, indices) => articleIndex < articleCount && indices.indexOf(articleIndex) === listIndex,
   );
 }

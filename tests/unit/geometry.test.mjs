@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { cubicPoint } from "../../src/shared/motion/geometry.ts";
+import { cubicPoint } from "../../src/shared/canvas/geometry.ts";
 
 test("cubicPoint reuses the output point and returns each endpoint at zero and full progress", () => {
   const outputPoint = { x: 0, y: 0 };

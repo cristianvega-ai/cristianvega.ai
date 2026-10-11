@@ -1,11 +1,11 @@
 import { LYRA_LINKS } from "../../lyra/constellation.ts";
-import { stagger } from "../../motion/clock.ts";
-import { drawComet } from "../../motion/comets.ts";
-import { easeOutCubic, riseAndFall, smooth } from "../../motion/easing.ts";
-import { FULL_TURN_RADIANS } from "../../motion/geometry.ts";
-import { drawEdge, drawNode, drawVegaBloom } from "../../motion/marks.ts";
-import type { Palette } from "../../motion/palette.ts";
-import { drawStarField, makeStarField, type FieldStar } from "../../motion/star-field.ts";
+import { stagger } from "../../canvas/clock.ts";
+import { drawComet } from "../../canvas/comets.ts";
+import { easeOutCubic, riseAndFall, smooth } from "../../canvas/easing.ts";
+import { FULL_TURN_RADIANS } from "../../canvas/geometry.ts";
+import { drawEdge, drawNode, drawVegaBloom } from "../../canvas/marks.ts";
+import type { Palette } from "../../canvas/palette.ts";
+import { drawStarField, makeStarField, type FieldStar } from "../../canvas/star-field.ts";
 import { labelBounds, reportFigureLeft } from "../container.ts";
 import { drawLabels, type PlacedLabel } from "../labels.ts";
 import { placeStarNames, starNameWidths } from "../lyra.ts";
@@ -41,10 +41,10 @@ const SATELLITE_SPEED = [0.00009 * 1.4, -0.00006, 0.00004] as const;
 function drawLink(
   drawingContext: CanvasRenderingContext2D,
   sky: string,
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
   progress: number,
   alpha: number,
 ): void {
@@ -54,8 +54,8 @@ function drawLink(
   drawingContext.strokeStyle = sky;
   drawingContext.lineWidth = 0.8;
   drawingContext.beginPath();
-  drawingContext.moveTo(ax, ay);
-  drawingContext.lineTo(ax + (bx - ax) * growth, ay + (by - ay) * growth);
+  drawingContext.moveTo(startX, startY);
+  drawingContext.lineTo(startX + (endX - startX) * growth, startY + (endY - startY) * growth);
   drawingContext.stroke();
   drawingContext.globalAlpha = 1;
 }
@@ -88,13 +88,13 @@ function drawSatellites(drawingContext: CanvasRenderingContext2D, palette: Palet
   drawingContext.fillStyle = palette.metadata;
   const drift = state.reduced ? 0 : Math.min(state.activeTime, DRIFT_DURATION_MILLISECONDS);
   const satelliteProgress = smooth((state.progress - 0.5) / 0.3);
-  for (let i = 0; i < SATELLITE_RING.length; i++) {
-    const angle = SATELLITE_PHASE[i] + drift * SATELLITE_SPEED[i];
+  for (let satelliteIndex = 0; satelliteIndex < SATELLITE_RING.length; satelliteIndex++) {
+    const angle = SATELLITE_PHASE[satelliteIndex] + drift * SATELLITE_SPEED[satelliteIndex];
     drawingContext.globalAlpha = 0.55 * satelliteProgress;
     drawingContext.beginPath();
     drawingContext.arc(
-      orbit.centerX + Math.cos(angle) * RINGS[SATELLITE_RING[i]] * orbit.halfWidth,
-      orbit.centerY + Math.sin(angle) * RINGS[SATELLITE_RING[i]] * orbit.halfHeight,
+      orbit.centerX + Math.cos(angle) * RINGS[SATELLITE_RING[satelliteIndex]] * orbit.halfWidth,
+      orbit.centerY + Math.sin(angle) * RINGS[SATELLITE_RING[satelliteIndex]] * orbit.halfHeight,
       1.1,
       0,
       FULL_TURN_RADIANS,
@@ -107,32 +107,32 @@ function drawSatellites(drawingContext: CanvasRenderingContext2D, palette: Palet
 /** The Lyra figure: its links, then its stars. */
 function drawFigure(drawingContext: CanvasRenderingContext2D, palette: Palette, glow: HTMLCanvasElement, orbit: Orbit, progress: number): void {
   const { stars } = orbit;
-  for (let i = 0; i < LYRA_LINKS.length; i++) {
-    const [a, b] = LYRA_LINKS[i];
+  for (let linkIndex = 0; linkIndex < LYRA_LINKS.length; linkIndex++) {
+    const [startIndex, endIndex] = LYRA_LINKS[linkIndex];
     drawEdge(
       drawingContext,
       palette,
-      stars[a].x,
-      stars[a].y,
-      stars[b].x,
-      stars[b].y,
-      stagger(progress, 0.14 + i * 0.05, 0.2),
-      i < 2,
+      stars[startIndex].x,
+      stars[startIndex].y,
+      stars[endIndex].x,
+      stars[endIndex].y,
+      stagger(progress, 0.14 + linkIndex * 0.05, 0.2),
+      linkIndex < 2,
       0.4,
     );
   }
-  for (let i = 0; i < stars.length; i++) {
+  for (let starIndex = 0; starIndex < stars.length; starIndex++) {
     drawNode(
       drawingContext,
       palette,
       glow,
-      stars[i].x,
-      stars[i].y,
-      i ? 1.8 : 2.6,
-      stagger(progress, 0.1 + i * 0.05, 0.14),
-      i === 0,
+      stars[starIndex].x,
+      stars[starIndex].y,
+      starIndex ? 1.8 : 2.6,
+      stagger(progress, 0.1 + starIndex * 0.05, 0.14),
+      starIndex === 0,
       0.9,
-      i === 0,
+      starIndex === 0,
     );
   }
 }
@@ -148,12 +148,12 @@ function drawEmptyRings(
 ): void {
   drawingContext.strokeStyle = palette.metadata;
   drawingContext.lineWidth = 0.7;
-  for (let i = litProductCount; i < slotCount; i++) {
-    const growth = smooth(stagger(progress, 0.3 + i * 0.03, 0.2));
+  for (let slotIndex = litProductCount; slotIndex < slotCount; slotIndex++) {
+    const growth = smooth(stagger(progress, 0.3 + slotIndex * 0.03, 0.2));
     if (growth <= 0) continue;
     drawingContext.globalAlpha = 0.42 * growth;
     drawingContext.beginPath();
-    drawingContext.arc(orbit.spots[i].x, orbit.spots[i].y, EMPTY_RING, 0, FULL_TURN_RADIANS);
+    drawingContext.arc(orbit.spots[slotIndex].x, orbit.spots[slotIndex].y, EMPTY_RING, 0, FULL_TURN_RADIANS);
     drawingContext.stroke();
   }
   drawingContext.globalAlpha = 1;
@@ -170,24 +170,24 @@ function drawProducts(
   progress: number,
 ): void {
   const { stars, spots } = orbit;
-  for (let i = 0; i < litProductCount; i++) {
-    const growth = productProgress(progress, i, litProductCount, "node");
+  for (let productIndex = 0; productIndex < litProductCount; productIndex++) {
+    const growth = productProgress(progress, productIndex, litProductCount, "node");
     drawLink(
       drawingContext,
       palette.sky,
-      spots[i].x,
-      spots[i].y,
+      spots[productIndex].x,
+      spots[productIndex].y,
       stars[0].x,
       stars[0].y,
-      productProgress(progress, i, litProductCount, "link"),
+      productProgress(progress, productIndex, litProductCount, "link"),
       0.32,
     );
     drawNode(
       drawingContext,
       palette,
       glow,
-      spots[i].x,
-      spots[i].y,
+      spots[productIndex].x,
+      spots[productIndex].y,
       2.6,
       growth,
       true,
@@ -199,12 +199,12 @@ function drawProducts(
       drawingContext.lineWidth = MARK_LINE;
       drawingContext.globalAlpha = 0.5 * easeOutCubic(growth);
       drawingContext.beginPath();
-      drawingContext.arc(spots[i].x, spots[i].y, PRODUCT_RING, 0, FULL_TURN_RADIANS);
+      drawingContext.arc(spots[productIndex].x, spots[productIndex].y, PRODUCT_RING, 0, FULL_TURN_RADIANS);
       drawingContext.stroke();
-      if (i === currentProductIndex) {
+      if (productIndex === currentProductIndex) {
         drawingContext.globalAlpha = 0.9 * easeOutCubic(growth);
         drawingContext.beginPath();
-        drawingContext.arc(spots[i].x, spots[i].y, CURRENT_RING, 0, FULL_TURN_RADIANS);
+        drawingContext.arc(spots[productIndex].x, spots[productIndex].y, CURRENT_RING, 0, FULL_TURN_RADIANS);
         drawingContext.stroke();
       }
       drawingContext.globalAlpha = 1;
@@ -214,13 +214,13 @@ function drawProducts(
 
 /** Comets converge on Vega, then the bloom. Both are part of the entrance only. */
 function drawSignals(drawingContext: CanvasRenderingContext2D, palette: Palette, glow: HTMLCanvasElement, orbit: Orbit, progress: number): void {
-  for (let i = 0; i < orbit.routes.length; i++) {
+  for (let routeIndex = 0; routeIndex < orbit.routes.length; routeIndex++) {
     drawComet(
       drawingContext,
       palette,
       glow,
-      orbit.routes[i],
-      stagger(progress, 0.5 + i * 0.05, 0.4),
+      orbit.routes[routeIndex],
+      stagger(progress, 0.5 + routeIndex * 0.05, 0.4),
       46,
     );
   }

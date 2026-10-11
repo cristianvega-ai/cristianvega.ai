@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { unit } from "../../src/shared/motion/random.ts";
+import { unit } from "../../src/shared/canvas/random.ts";
 
 test("unit returns a repeatable value in the unit interval for each sampled index", () => {
   for (let sampleIndex = 0; sampleIndex < 200; sampleIndex += 1) {

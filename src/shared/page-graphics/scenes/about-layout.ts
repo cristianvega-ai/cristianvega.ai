@@ -1,6 +1,6 @@
-import { clamp, interpolate } from "../../motion/easing.ts";
-import { cubicPoint, type Point } from "../../motion/geometry.ts";
-import { unit } from "../../motion/random.ts";
+import { clamp, interpolate } from "../../canvas/easing.ts";
+import { cubicPoint, type Point } from "../../canvas/geometry.ts";
+import { unit } from "../../canvas/random.ts";
 import { FIGURE_INSET } from "../inset.ts";
 import { around, polylineSegments, type Rectangle, type Segment } from "../labels.ts";
 
@@ -20,9 +20,9 @@ interface AboutLayout {
   /** True for a band, where the path runs sideways. */
   horizontal: boolean;
   /** The place of Vega, and the radius of its outer ring. The ring fits inside the box with RING_MARGIN to spare. */
-  vx: number;
-  vy: number;
-  ring: number;
+  vegaX: number;
+  vegaY: number;
+  ringRadius: number;
   /** The path as x and y of a start, two controls, and an end. Every point lies inside the figure inset. */
   curve: number[];
 }
@@ -34,15 +34,15 @@ interface AboutLayout {
  */
 export function aboutLayout(width: number, height: number): AboutLayout {
   const horizontal = width > height * 1.3;
-  const ring = clamp(Math.min(width * 0.4, height * 0.28), 20, MAXIMUM_RING_RADIUS);
-  const vx = width - ring - RING_MARGIN;
-  const vy = ring + RING_MARGIN;
+  const ringRadius = clamp(Math.min(width * 0.4, height * 0.28), 20, MAXIMUM_RING_RADIUS);
+  const vegaX = width - ringRadius - RING_MARGIN;
+  const vegaY = ringRadius + RING_MARGIN;
   const left = Math.max(FIGURE_INSET, width * 0.1);
   const bottom = height - FIGURE_INSET;
   const curve = horizontal
-    ? [FIGURE_INSET, bottom, width * 0.4, bottom, width * 0.55, vy, vx, vy]
-    : [left, bottom - 8, width - FIGURE_INSET, height * 0.78, FIGURE_INSET, height * 0.36, vx, vy];
-  return { horizontal, vx, vy, ring, curve };
+    ? [FIGURE_INSET, bottom, width * 0.4, bottom, width * 0.55, vegaY, vegaX, vegaY]
+    : [left, bottom - 8, width - FIGURE_INSET, height * 0.78, FIGURE_INSET, height * 0.36, vegaX, vegaY];
+  return { horizontal, vegaX, vegaY, ringRadius, curve };
 }
 
 export interface Trajectory extends AboutLayout {
@@ -69,7 +69,7 @@ export function buildTrajectory(width: number, height: number): Trajectory {
   const start: Point = { x: curve[0], y: curve[1] };
   const control1: Point = { x: curve[2], y: curve[3] };
   const control2: Point = { x: curve[4], y: curve[5] };
-  const end: Point = { x: layout.vx, y: layout.vy };
+  const end: Point = { x: layout.vegaX, y: layout.vegaY };
   const scratch: Point = { x: 0, y: 0 };
   const pathX = new Float32Array(SAMPLES + 1);
   const pathY = new Float32Array(SAMPLES + 1);
@@ -91,12 +91,12 @@ export function buildTrajectory(width: number, height: number): Trajectory {
   const nodeX = new Float32Array(nodeCount);
   const nodeY = new Float32Array(nodeCount);
   const nodeFractions = new Float32Array(nodeCount);
-  const at = new Int16Array(nodeCount);
+  const nodeSampleIndices = new Int16Array(nodeCount);
   let nearestSampleIndex = 0;
   for (let nodeIndex = 0; nodeIndex <= segmentCount; nodeIndex++) {
     const distance = (nodeIndex / segmentCount) * length;
     while (nearestSampleIndex < SAMPLES && cumulative[nearestSampleIndex] < distance) nearestSampleIndex++;
-    at[nodeIndex] = nearestSampleIndex;
+    nodeSampleIndices[nodeIndex] = nearestSampleIndex;
     nodeFractions[nodeIndex] = nearestSampleIndex / SAMPLES;
     nodeX[nodeIndex] = pathX[nearestSampleIndex];
     nodeY[nodeIndex] = pathY[nearestSampleIndex];
@@ -111,30 +111,30 @@ export function buildTrajectory(width: number, height: number): Trajectory {
   for (let nodeIndex = 1; nodeIndex < segmentCount - 1; nodeIndex++) {
     for (let branchPass = 0; branchPass < 2; branchPass++) {
       if (branchPass === 1 && unit(nodeIndex * 9 + 2) < 0.55) continue;
-      const sampleIndex = at[nodeIndex];
+      const sampleIndex = nodeSampleIndices[nodeIndex];
       const sampleBefore = Math.max(0, sampleIndex - 3);
       const sampleAfter = Math.min(SAMPLES, sampleIndex + 3);
-      const tx = pathX[sampleAfter] - pathX[sampleBefore];
-      const ty = pathY[sampleAfter] - pathY[sampleBefore];
-      const tangentLength = Math.hypot(tx, ty) || 1;
+      const tangentX = pathX[sampleAfter] - pathX[sampleBefore];
+      const tangentY = pathY[sampleAfter] - pathY[sampleBefore];
+      const tangentLength = Math.hypot(tangentX, tangentY) || 1;
       const side = (nodeIndex + branchPass) % 2 ? 1 : -1;
       const angle = side * (0.6 + unit(nodeIndex * 5 + branchPass) * 0.6) * (branchPass ? -1 : 1);
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
-      const dx = (tx * cos - ty * sin) / tangentLength;
-      const dy = (tx * sin + ty * cos) / tangentLength;
+      const cosine = Math.cos(angle);
+      const sine = Math.sin(angle);
+      const directionX = (tangentX * cosine - tangentY * sine) / tangentLength;
+      const directionY = (tangentX * sine + tangentY * cosine) / tangentLength;
       const reach = (horizontal ? 34 : 52) + unit(nodeIndex * 3 + branchPass * 7) * (horizontal ? 30 : 60) * (branchPass ? 0.7 : 1);
-      const ex = clamp(nodeX[nodeIndex] + dx * reach, padding, width - padding);
-      const ey = clamp(nodeY[nodeIndex] + dy * reach, padding, height - padding);
+      const branchEndX = clamp(nodeX[nodeIndex] + directionX * reach, padding, width - padding);
+      const branchEndY = clamp(nodeY[nodeIndex] + directionY * reach, padding, height - padding);
       const branchOffset = branchCount * BRANCH_STRIDE;
       branchCoordinates[branchOffset] = nodeX[nodeIndex];
       branchCoordinates[branchOffset + 1] = nodeY[nodeIndex];
-      branchCoordinates[branchOffset + 2] = clamp(nodeX[nodeIndex] + (tx / tangentLength) * reach * 0.45, padding, width - padding);
-      branchCoordinates[branchOffset + 3] = clamp(nodeY[nodeIndex] + (ty / tangentLength) * reach * 0.45, padding, height - padding);
-      branchCoordinates[branchOffset + 4] = clamp(ex - dx * reach * 0.3, padding, width - padding);
-      branchCoordinates[branchOffset + 5] = clamp(ey - dy * reach * 0.3, padding, height - padding);
-      branchCoordinates[branchOffset + 6] = ex;
-      branchCoordinates[branchOffset + 7] = ey;
+      branchCoordinates[branchOffset + 2] = clamp(nodeX[nodeIndex] + (tangentX / tangentLength) * reach * 0.45, padding, width - padding);
+      branchCoordinates[branchOffset + 3] = clamp(nodeY[nodeIndex] + (tangentY / tangentLength) * reach * 0.45, padding, height - padding);
+      branchCoordinates[branchOffset + 4] = clamp(branchEndX - directionX * reach * 0.3, padding, width - padding);
+      branchCoordinates[branchOffset + 5] = clamp(branchEndY - directionY * reach * 0.3, padding, height - padding);
+      branchCoordinates[branchOffset + 6] = branchEndX;
+      branchCoordinates[branchOffset + 7] = branchEndY;
       branchNodeIndices[branchCount] = nodeIndex;
       branchCount++;
     }
@@ -149,14 +149,14 @@ export function trajectorySegments(trajectory: Trajectory): Segment[] {
   polylineSegments(trajectory.pathX, trajectory.pathY, segments);
   for (let branchIndex = 0; branchIndex < trajectory.branchCount; branchIndex++) {
     const branchOffset = branchIndex * BRANCH_STRIDE;
-    segments.push({ ax: branchCoordinates[branchOffset], ay: branchCoordinates[branchOffset + 1], bx: branchCoordinates[branchOffset + 6], by: branchCoordinates[branchOffset + 7] });
+    segments.push({ startX: branchCoordinates[branchOffset], startY: branchCoordinates[branchOffset + 1], endX: branchCoordinates[branchOffset + 6], endY: branchCoordinates[branchOffset + 7] });
   }
   return segments;
 }
 
 /** The marks that the Vega name must keep clear of: Vega, and each neuron on the path before it. */
 export function trajectoryMarks(trajectory: Trajectory): Rectangle[] {
-  const avoid: Rectangle[] = [around(trajectory.vx, trajectory.vy, 10)];
+  const avoid: Rectangle[] = [around(trajectory.vegaX, trajectory.vegaY, 10)];
   for (let nodeIndex = 0; nodeIndex < trajectory.nodeCount - 1; nodeIndex++) avoid.push(around(trajectory.nodeX[nodeIndex], trajectory.nodeY[nodeIndex], 6));
   return avoid;
 }

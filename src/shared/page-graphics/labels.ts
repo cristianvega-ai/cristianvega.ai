@@ -1,4 +1,4 @@
-import type { Palette } from "../motion/palette.ts";
+import type { Palette } from "../canvas/palette.ts";
 import { FALLBACK_LINE_HEIGHT_IN_PIXELS } from "./label-font.ts";
 
 // Labels for the page graphics: where each one goes, and how it draws. It has no DOM read, so a test
@@ -14,10 +14,10 @@ export interface Rectangle {
 
 /** A straight line that a label must not cross. */
 export interface Segment {
-  ax: number;
-  ay: number;
-  bx: number;
-  by: number;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
 }
 
 export type LabelAlign = "left" | "right" | "center";
@@ -37,16 +37,16 @@ export interface PlacedLabel {
 
 const HALO_PADDING = 3;
 /** The weight of a crossing. A hard crossing must lose to no free place, and a soft one only breaks a tie. */
-const HARD = 100;
-const SOFT = 1;
+const HARD_CROSSING_COST = 100;
+const SOFT_CROSSING_COST = 1;
 /** A label on a mark or another label reads worse than a label on a line, so it costs more. */
-const MARK = 1000;
-const OUTSIDE = 10_000;
+const MARK_OVERLAP_COST = 1000;
+const OUTSIDE_BOUNDS_COST = 10_000;
 
 const SIDES: readonly LabelSide[] = ["right", "left", "above", "below", "above-right", "above-left", "below-right", "below-left"];
 
-export function rectanglesOverlap(a: Rectangle, b: Rectangle): boolean {
-  return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+export function rectanglesOverlap(first: Rectangle, second: Rectangle): boolean {
+  return first.x0 < second.x1 && second.x0 < first.x1 && first.y0 < second.y1 && second.y0 < first.y1;
 }
 
 /** A square round a point, for a mark that labels must keep clear. */
@@ -56,27 +56,27 @@ export function around(x: number, y: number, reach: number): Rectangle {
 
 /** True when the segment touches the rectangle (Liang-Barsky clip). */
 export function segmentIntersectsRectangle(segment: Segment, rectangle: Rectangle): boolean {
-  const dx = segment.bx - segment.ax;
-  const dy = segment.by - segment.ay;
-  let t0 = 0;
-  let t1 = 1;
-  const edges = [
-    [-dx, segment.ax - rectangle.x0],
-    [dx, rectangle.x1 - segment.ax],
-    [-dy, segment.ay - rectangle.y0],
-    [dy, rectangle.y1 - segment.ay],
+  const deltaX = segment.endX - segment.startX;
+  const deltaY = segment.endY - segment.startY;
+  let entering = 0;
+  let leaving = 1;
+  const clipBoundaries = [
+    [-deltaX, segment.startX - rectangle.x0],
+    [deltaX, rectangle.x1 - segment.startX],
+    [-deltaY, segment.startY - rectangle.y0],
+    [deltaY, rectangle.y1 - segment.startY],
   ];
-  for (const [p, q] of edges) {
-    if (p === 0) {
-      if (q < 0) return false;
+  for (const [direction, distance] of clipBoundaries) {
+    if (direction === 0) {
+      if (distance < 0) return false;
     } else {
-      const r = q / p;
-      if (p < 0) {
-        if (r > t1) return false;
-        t0 = Math.max(t0, r);
+      const ratio = distance / direction;
+      if (direction < 0) {
+        if (ratio > leaving) return false;
+        entering = Math.max(entering, ratio);
       } else {
-        if (r < t0) return false;
-        t1 = Math.min(t1, r);
+        if (ratio < entering) return false;
+        leaving = Math.min(leaving, ratio);
       }
     }
   }
@@ -84,22 +84,22 @@ export function segmentIntersectsRectangle(segment: Segment, rectangle: Rectangl
 }
 
 /** Turn a run of points into the segments between them. Flat arrays: x0, y0, x1, y1, and so on. */
-export function polylineSegments(xs: ArrayLike<number>, ys: ArrayLike<number>, outputSegments: Segment[]): Segment[] {
-  for (let i = 1; i < xs.length; i++) outputSegments.push({ ax: xs[i - 1], ay: ys[i - 1], bx: xs[i], by: ys[i] });
+export function polylineSegments(xValues: ArrayLike<number>, yValues: ArrayLike<number>, outputSegments: Segment[]): Segment[] {
+  for (let pointIndex = 1; pointIndex < xValues.length; pointIndex++) outputSegments.push({ startX: xValues[pointIndex - 1], startY: yValues[pointIndex - 1], endX: xValues[pointIndex], endY: yValues[pointIndex] });
   return outputSegments;
 }
 
 /** Sample an ellipse into segments, so a label can avoid a ring. */
-export function ellipseSegments(cx: number, cy: number, rx: number, ry: number, steps: number, outputSegments: Segment[]): Segment[] {
-  let px = cx + rx;
-  let py = cy;
-  for (let i = 1; i <= steps; i++) {
-    const angle = (i / steps) * Math.PI * 2;
-    const x = cx + Math.cos(angle) * rx;
-    const y = cy + Math.sin(angle) * ry;
-    outputSegments.push({ ax: px, ay: py, bx: x, by: y });
-    px = x;
-    py = y;
+export function ellipseSegments(centerX: number, centerY: number, radiusX: number, radiusY: number, steps: number, outputSegments: Segment[]): Segment[] {
+  let previousX = centerX + radiusX;
+  let previousY = centerY;
+  for (let stepIndex = 1; stepIndex <= steps; stepIndex++) {
+    const angle = (stepIndex / steps) * Math.PI * 2;
+    const x = centerX + Math.cos(angle) * radiusX;
+    const y = centerY + Math.sin(angle) * radiusY;
+    outputSegments.push({ startX: previousX, startY: previousY, endX: x, endY: y });
+    previousX = x;
+    previousY = y;
   }
   return outputSegments;
 }
@@ -128,57 +128,57 @@ export interface PlaceOptions {
   lift?: number;
 }
 
-function candidate(text: string, x: number, y: number, side: LabelSide, width: number, line: number, gap: number, lift: number): PlacedLabel {
-  const rise = gap + line / 2;
+function candidate(text: string, x: number, y: number, side: LabelSide, width: number, lineHeight: number, gap: number, lift: number): PlacedLabel {
+  const rise = gap + lineHeight / 2;
   const corner = gap * 0.75;
-  let cx = x;
-  let cy = y + lift;
+  let anchorX = x;
+  let anchorY = y + lift;
   let align: LabelAlign = "center";
   switch (side) {
     case "right":
-      cx = x + gap;
+      anchorX = x + gap;
       align = "left";
       break;
     case "left":
-      cx = x - gap;
+      anchorX = x - gap;
       align = "right";
       break;
     case "above":
-      cy = y - rise;
+      anchorY = y - rise;
       break;
     case "below":
-      cy = y + rise;
+      anchorY = y + rise;
       break;
     case "above-right":
-      cx = x + corner;
-      cy = y - rise;
+      anchorX = x + corner;
+      anchorY = y - rise;
       align = "left";
       break;
     case "above-left":
-      cx = x - corner;
-      cy = y - rise;
+      anchorX = x - corner;
+      anchorY = y - rise;
       align = "right";
       break;
     case "below-right":
-      cx = x + corner;
-      cy = y + rise;
+      anchorX = x + corner;
+      anchorY = y + rise;
       align = "left";
       break;
     case "below-left":
-      cx = x - corner;
-      cy = y + rise;
+      anchorX = x - corner;
+      anchorY = y + rise;
       align = "right";
       break;
   }
-  const left = align === "left" ? cx : align === "right" ? cx - width : cx - width / 2;
+  const left = align === "left" ? anchorX : align === "right" ? anchorX - width : anchorX - width / 2;
   return {
     text,
-    x: cx,
-    y: cy,
+    x: anchorX,
+    y: anchorY,
     align,
     side,
     clear: false,
-    rectangle: { x0: left - HALO_PADDING, y0: cy - line / 2 - HALO_PADDING, x1: left + width + HALO_PADDING, y1: cy + line / 2 + HALO_PADDING },
+    rectangle: { x0: left - HALO_PADDING, y0: anchorY - lineHeight / 2 - HALO_PADDING, x1: left + width + HALO_PADDING, y1: anchorY + lineHeight / 2 + HALO_PADDING },
   };
 }
 
@@ -186,13 +186,13 @@ function cost(label: PlacedLabel, options: PlaceOptions): number {
   const { rectangle } = label;
   const { bounds } = options;
   let total = 0;
-  if (rectangle.x0 < bounds.x0) total += OUTSIDE + (bounds.x0 - rectangle.x0);
-  if (rectangle.x1 > bounds.x1) total += OUTSIDE + (rectangle.x1 - bounds.x1);
-  if (rectangle.y0 < bounds.y0) total += OUTSIDE + (bounds.y0 - rectangle.y0);
-  if (rectangle.y1 > bounds.y1) total += OUTSIDE + (rectangle.y1 - bounds.y1);
-  for (const segment of options.segments ?? []) if (segmentIntersectsRectangle(segment, rectangle)) total += HARD;
-  for (const other of options.avoid ?? []) if (rectanglesOverlap(other, rectangle)) total += MARK;
-  for (const segment of options.soft ?? []) if (segmentIntersectsRectangle(segment, rectangle)) total += SOFT;
+  if (rectangle.x0 < bounds.x0) total += OUTSIDE_BOUNDS_COST + (bounds.x0 - rectangle.x0);
+  if (rectangle.x1 > bounds.x1) total += OUTSIDE_BOUNDS_COST + (rectangle.x1 - bounds.x1);
+  if (rectangle.y0 < bounds.y0) total += OUTSIDE_BOUNDS_COST + (bounds.y0 - rectangle.y0);
+  if (rectangle.y1 > bounds.y1) total += OUTSIDE_BOUNDS_COST + (rectangle.y1 - bounds.y1);
+  for (const segment of options.segments ?? []) if (segmentIntersectsRectangle(segment, rectangle)) total += HARD_CROSSING_COST;
+  for (const other of options.avoid ?? []) if (rectanglesOverlap(other, rectangle)) total += MARK_OVERLAP_COST;
+  for (const segment of options.soft ?? []) if (segmentIntersectsRectangle(segment, rectangle)) total += SOFT_CROSSING_COST;
   return total;
 }
 
@@ -215,7 +215,7 @@ export function placeLabel(text: string, x: number, y: number, options: PlaceOpt
     if (price === 0) break;
   }
   const chosen = best as PlacedLabel;
-  chosen.clear = bestCost < HARD;
+  chosen.clear = bestCost < HARD_CROSSING_COST;
   options.avoid?.push(chosen.rectangle);
   return chosen;
 }

@@ -4,7 +4,7 @@ export type Article = CollectionEntry<"writing">;
 
 export async function getArticles(): Promise<Article[]> {
   const articles = await getCollection("writing", ({ data }) => import.meta.env.DEV || !data.draft);
-  return articles.sort((a, b) => b.data.date.getTime() - a.data.date.getTime() || a.id.localeCompare(b.id));
+  return articles.sort((first, second) => second.data.date.getTime() - first.data.date.getTime() || first.id.localeCompare(second.id));
 }
 
 export function articleAddress(article: Article): string {

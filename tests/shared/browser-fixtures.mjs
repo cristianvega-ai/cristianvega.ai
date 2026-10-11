@@ -290,7 +290,7 @@ export async function mountScene(page, canvasPolicy, { duration: entranceDuratio
   await page.goto(sceneAddress);
   await page.evaluate(async (sceneSettings) => {
     const { mountCanvas } = await import("/src/shared/page-graphics/mount.ts");
-    const { GLOBE_POLICY: globePolicy, mountCanvasController } = await import("/src/shared/motion/canvas-controller.ts");
+    const { GLOBE_POLICY: globePolicy, mountCanvasController } = await import("/src/shared/canvas/canvas-controller.ts");
     Object.defineProperty(window, "devicePixelRatio", { configurable: true, get: () => 3 });
     window.__busy = sceneSettings.busy;
     window.__draws = 0;

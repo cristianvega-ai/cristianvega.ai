@@ -1,5 +1,5 @@
 /* The Lyra globe. LyraGlobe.astro renders it. The host box sets --figure-inset,
-   --globe-room, and --fade, and the projection stylesheet sets the --globe-*
+   --globe-room, and --edge-fade-width, and the projection stylesheet sets the --globe-*
    measurements on the host (.hero__globe in home.css). The host also crops
    the globe into the band below 1100px. */
 
@@ -13,9 +13,9 @@
   pointer-events: none;
   /* The soft edge of the inner page graphics. The box runs past the screen, so the fade
      ends at the screen edge. The caption sits inside it. The top and the bottom keep no fade. */
-  --edge: min(var(--globe-room), 100%);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(var(--edge) - var(--fade)), transparent var(--edge), transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(var(--edge) - var(--fade)), transparent var(--edge), transparent);
+  --visible-width: min(var(--globe-room), 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--edge-fade-width), #000 calc(var(--visible-width) - var(--edge-fade-width)), transparent var(--visible-width), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 var(--edge-fade-width), #000 calc(var(--visible-width) - var(--edge-fade-width)), transparent var(--visible-width), transparent);
 }
 
 /* The picture has an empty margin on every side of the sphere. The box crops
