@@ -2,12 +2,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
-import yaml from "js-yaml";
+import { load } from "js-yaml";
 
 import { root as repositoryRoot } from "../shared/node-helpers.mjs";
 
 // Parse workflow structure. Inspect shell commands only when their ordering or arguments define the deployment boundary.
-const workflow = yaml.load(readFileSync(join(repositoryRoot, ".github", "workflows", "deploy.yml"), "utf8"));
+const workflow = load(readFileSync(join(repositoryRoot, ".github", "workflows", "deploy.yml"), "utf8"));
 const { verify: verificationJob, deploy: deploymentJob } = workflow.jobs;
 const workflowSteps = Object.values(workflow.jobs).flatMap((job) => job.steps);
 const readJobCommands = (job) => job.steps.map((step) => step.run ?? "").join("\n");
