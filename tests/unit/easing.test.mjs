@@ -1,0 +1,23 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { clamp, cubicPoint } from "../../src/shared/motion/easing.ts";
+
+test("clamp holds a value inside its range", () => {
+  assert.equal(clamp(-1), 0);
+  assert.equal(clamp(2), 1);
+  assert.equal(clamp(0.4), 0.4);
+  assert.equal(clamp(15, 10, 20), 15);
+  assert.equal(clamp(25, 10, 20), 20);
+});
+
+test("cubicPoint writes into the point it receives and hits both ends", () => {
+  const outputPoint = { x: 0, y: 0 };
+  const start = { x: 0, y: 0 };
+  const end = { x: 10, y: 20 };
+  const result = cubicPoint(outputPoint, 0, start, { x: 3, y: 0 }, { x: 7, y: 20 }, end);
+  assert.equal(result, outputPoint, "cubicPoint must reuse the output point");
+  assert.deepEqual(outputPoint, { x: 0, y: 0 });
+  cubicPoint(outputPoint, 1, start, { x: 3, y: 0 }, { x: 7, y: 20 }, end);
+  assert.deepEqual(outputPoint, { x: 10, y: 20 });
+});

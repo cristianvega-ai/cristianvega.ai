@@ -131,9 +131,9 @@ Globe labels use canvas entrance progress and pause with the drawing.
    Writing uses 1.19 times that height through `writing.css`.
 6. Read [tests/AGENTS.md](../../../tests/AGENTS.md) before adding browser checks.
    Keep scene assertions in the owning page suite.
-   Use [page-graphics.spec.mjs](../../../tests/browser/page-graphics.spec.mjs) for shared entrance, pause, reduced-motion, and restoration checks.
-   Use [canvas-controller.spec.mjs](../../../tests/browser/canvas-controller.spec.mjs) for controller policies and cleanup.
-   Share frame stepping and pixel helpers through [fixtures.mjs](../../../tests/browser/fixtures.mjs).
+   Use [page-graphics.spec.mjs](../../../tests/end-to-end/page-graphics.spec.mjs) for shared entrance, pause, reduced-motion, and restoration checks.
+   Use [canvas-controller.spec.mjs](../../../tests/end-to-end/canvas-controller.spec.mjs) for controller policies and cleanup.
+   Share frame stepping and pixel helpers through [browser-fixtures.mjs](../../../tests/support/browser-fixtures.mjs).
 
 ## mountCanvas guarantees
 
