@@ -1,7 +1,7 @@
 import { readFileSync as readFileSynchronously } from "node:fs";
 import { expect, test as browserTest } from "@playwright/test";
 
-import { DRAFT_ORIGIN as draftOrigin, drawnLabels, settle, useDeferredPreference, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS as viewports, pendingFrames } from "../shared/browser-fixtures.mjs";
+import { drawnLabels, settle, useDeferredPreference, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS as viewports, pendingFrames } from "../shared/browser-fixtures.mjs";
 
 const wideFontPath = "/__graphic-wide-font__.woff2";
 const monospacedFont = readFileSynchronously(new URL("../../src/assets/fonts/ibm-plex-mono-latin-400.woff2", import.meta.url));

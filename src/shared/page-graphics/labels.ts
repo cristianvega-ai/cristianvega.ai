@@ -1,5 +1,4 @@
 import type { Palette } from "../canvas/palette.ts";
-import { FALLBACK_LINE_HEIGHT_IN_PIXELS } from "./label-font.ts";
 
 // Labels for the page graphics: where each one goes, and how it draws. It has no DOM read, so a test
 // can run it. A label takes the first side of its node (right, left, above, or below) that no edge crosses,
@@ -20,8 +19,8 @@ export interface Segment {
   endY: number;
 }
 
-export type LabelAlign = "left" | "right" | "center";
-export type LabelSide = "right" | "left" | "above" | "below" | "above-right" | "above-left" | "below-right" | "below-left";
+type LabelAlign = "left" | "right" | "center";
+type LabelSide = "right" | "left" | "above" | "below" | "above-right" | "above-left" | "below-right" | "below-left";
 
 export interface PlacedLabel {
   text: string;
@@ -104,14 +103,14 @@ export function ellipseSegments(centerX: number, centerY: number, radiusX: numbe
   return outputSegments;
 }
 
-export interface PlaceOptions {
+interface PlaceOptions {
   /** The measured text width in CSS pixels, without the halo. */
   widthInPixels: number;
   /**
    * The height of one label line in CSS pixels, without the halo. Pass labelFont.lineHeightInPixels, so the box follows
-   * the --font-size-graphic-label token. It defaults to the line of the fallback label size.
+   * the --font-size-graphic-label token.
    */
-  lineHeightInPixels?: number;
+  lineHeightInPixels: number;
   /** The area that the label box must stay inside. */
   bounds: Rectangle;
   /** Edges that must stay clear of the label. A node's own edges belong here. */
@@ -201,7 +200,7 @@ function cost(label: PlacedLabel, options: PlaceOptions): number {
  * When none is free, it takes the cheapest, so a label always has a place, and `clear` says whether it is free.
  */
 export function placeLabel(text: string, x: number, y: number, options: PlaceOptions): PlacedLabel {
-  const { gap = 12, prefer = SIDES, widthInPixels, lineHeightInPixels = FALLBACK_LINE_HEIGHT_IN_PIXELS, lift = 0 } = options;
+  const { gap = 12, prefer = SIDES, widthInPixels, lineHeightInPixels, lift = 0 } = options;
   const order = prefer.length >= SIDES.length ? prefer : [...prefer, ...SIDES.filter((side) => !prefer.includes(side))];
   let best: PlacedLabel | undefined;
   let bestCost = Infinity;

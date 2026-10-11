@@ -15,7 +15,7 @@ export interface CanvasHandle extends ControllerHandle {
   state: FrameState;
 }
 
-export interface MountOptions extends Omit<ControllerOptions, "draw" | "onResize" | "attach"> {
+interface MountOptions extends Omit<ControllerOptions, "draw" | "onResize" | "attach"> {
   draw: (drawingContext: CanvasRenderingContext2D, state: FrameState) => boolean | void;
   /** Build the scene when its canvas box or loaded fonts change. */
   onResize?: (state: FrameState) => void;

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { activeResourceCounts, dispatchPageTransition, emptyResourceCounts, mountScene, pausedResourceCounts, pendingFrames, readControllerClock, readResourceCounts, stepFrame } from "../shared/browser-fixtures.mjs";
+import { activeResourceCounts, dispatchPageTransition, mountScene, pausedResourceCounts, pendingFrames, readControllerClock, readResourceCounts, stepFrame } from "../shared/browser-fixtures.mjs";
 
 for (const canvasPolicy of ["page", "globe"]) {
   test.describe(`${canvasPolicy} canvas controller`, () => {
@@ -35,19 +35,6 @@ for (const canvasPolicy of ["page", "globe"]) {
         expect(await readControllerClock(page)).toEqual(restoredClock);
         await page.evaluate((time) => window.__step(time + 16), restoreCycle * 10000);
       }
-      const drawCount = await page.evaluate(() => window.__draws);
-      await page.evaluate(() => {
-        window.__handle.destroy();
-        window.__handle.destroy();
-        window.__handle.wake();
-        window.__handle.redraw();
-      });
-      await dispatchPageTransition(page, "pageshow");
-      expect(await readResourceCounts(page)).toEqual(emptyResourceCounts);
-      expect(await pendingFrames(page)).toBe(0);
-      expect(await page.evaluate(() => window.__draws)).toBe(drawCount);
-      expect(await page.evaluate(() => window.__detached)).toBe(4);
-      await expect(page.locator("[data-scene]")).not.toHaveAttribute("data-ready", /.*/);
     });
   });
 }

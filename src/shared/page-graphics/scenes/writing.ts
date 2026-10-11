@@ -5,7 +5,7 @@ import { drawComet, type Route } from "../../canvas/comets.ts";
 import { clamp, riseAndFall, smooth } from "../../canvas/easing.ts";
 import { FULL_TURN_RADIANS } from "../../canvas/geometry.ts";
 import { drawEdge, drawNode, drawVegaBloom } from "../../canvas/marks.ts";
-import { labelBounds, reportFigureLeft } from "../container.ts";
+import { labelBounds } from "../container.ts";
 import { makeGridLayer } from "../grid-layer.ts";
 import { drawLabel, drawLabelHighlight, drawLabels } from "../labels.ts";
 import { starNameWidths } from "../lyra.ts";
@@ -81,7 +81,6 @@ export function mountWriting(container: HTMLElement): CanvasHandle | null {
     originX = beside ? Math.min(Math.max(0, listBox.right - box.left), state.width * 0.6) : 0;
     boxWidth = state.width - originX;
     boxHeight = state.height;
-    reportFigureLeft(container, originX);
     field = buildField({
       articleIdentifiers: articles.map((article) => article.identifier),
       labels: articles.map((article) => article.label),

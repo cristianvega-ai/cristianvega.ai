@@ -45,8 +45,6 @@ export interface CanvasHandle {
   rebuild: () => void;
   /** Request a frame when the scene is idle and visible. */
   wake: () => void;
-  /** Stop the controller permanently. */
-  destroy: () => void;
 }
 
 /**
@@ -307,7 +305,6 @@ export function mountCanvasController(
 
   const handle: CanvasHandle = {
     state,
-    destroy,
     wake,
     redraw: paint,
     rebuild,

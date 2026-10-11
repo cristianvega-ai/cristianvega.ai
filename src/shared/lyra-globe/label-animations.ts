@@ -4,7 +4,7 @@ import { clamp } from "../canvas/easing.ts";
 // The globe labels are SVG text over the canvas. Each one fades in on the canvas clock:
 // its animation is paused, and every frame sets its time from the entrance progress.
 
-export interface LabelAnimations {
+interface LabelAnimations {
   /** Bind paused animations once per entrance. Return the cleanup. */
   attach(): () => void;
   /** Set each label to its share of the entrance. A complete entrance finishes the labels and lets them go. */

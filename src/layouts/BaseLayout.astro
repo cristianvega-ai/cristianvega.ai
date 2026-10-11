@@ -10,7 +10,7 @@ import { JOB_TITLE, SITE_NAME, type PageKind } from "../shared/site";
 interface Props {
   title?: string;
   description?: string;
-  active?: PageKind;
+  active: PageKind;
   noindex?: boolean;
   published?: string;
 }
@@ -18,7 +18,7 @@ interface Props {
 const {
   title = `${SITE_NAME} · ${JOB_TITLE}`,
   description = "AI engineering leader building agentic AI and multi-agent platforms for regulated domains, and the engineering organizations that ship them.",
-  active = "home",
+  active,
   noindex = false,
   published,
 } = Astro.props;

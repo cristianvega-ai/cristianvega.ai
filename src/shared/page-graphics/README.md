@@ -98,7 +98,7 @@ Globe labels use canvas entrance progress and pause with the drawing.
 - `label-font.ts`: measured label widths and the canvas font.
 - `labels.ts`: `placeLabel()` uses measured widths and the label line. It reads no DOM.
   `drawLabel()`, `drawLabels()`, and `drawLabelHighlight()` draw placed labels.
-- `container.ts`: `labelBounds()` reads the label area of the container. `reportFigureLeft()` publishes the left bound of the figure.
+- `container.ts`: `labelBounds()` reads the label area of the container.
 - `inset.ts`: `FIGURE_INSET` keeps the figure inside the edge fade.
   A scene must keep the reach of its marks inside the inset, not only the mark centres.
   The products scene keeps `SLOT_REACH`, the largest ring or halo round a slot.

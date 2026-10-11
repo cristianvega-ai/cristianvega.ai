@@ -6,7 +6,7 @@ import { FULL_TURN_RADIANS } from "../../canvas/geometry.ts";
 import { drawEdge, drawNode, drawVegaBloom, entranceBloom } from "../../canvas/marks.ts";
 import type { Palette } from "../../canvas/palette.ts";
 import { drawStarField, makeStarField, type FieldStar } from "../../canvas/star-field.ts";
-import { labelBounds, reportFigureLeft } from "../container.ts";
+import { labelBounds } from "../container.ts";
 import { drawLabels, type PlacedLabel } from "../labels.ts";
 import { starNameWidths, type LyraPoint } from "../lyra.ts";
 import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
@@ -157,7 +157,6 @@ export function mountMissingPage(container: HTMLElement): CanvasHandle | null {
   function build(state: FrameState) {
     const layout = missingLayout(state.width, state.height);
     reach = layout.reach;
-    reportFigureLeft(container);
     const bounds = labelBounds(container, state.width, state.height);
     const widthsInPixels = starNameWidths(state.labelFont);
     const placed = layoutMissing(state.width, state.height, layout, bounds, widthsInPixels, state.labelFont.lineHeightInPixels, stars);
