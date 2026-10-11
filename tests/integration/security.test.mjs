@@ -3,64 +3,64 @@ import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { dist, permissionsPolicy, readDistFile } from "../shared/helpers.mjs";
+import { dist as buildDirectory, permissionsPolicy, readDistFile } from "../shared/node-helpers.mjs";
 
 // Check the compiled policy. Browser tests check Cloudflare's response.
 const headerRules = readDistFile("_headers");
 
-function headerBlock(path) {
-  const blocks = headerRules.split(/\n(?=\S)/);
-  const block = blocks.find((value) => value.startsWith(`${path}\n`));
-  assert.ok(block, `missing header rule for ${path}`);
-  return block;
+function findHeaderBlock(routePattern) {
+  const ruleBlocks = headerRules.split(/\n(?=\S)/);
+  const ruleBlock = ruleBlocks.find((value) => value.startsWith(`${routePattern}\n`));
+  assert.ok(ruleBlock, `the compiled headers must include a rule for ${routePattern}`);
+  return ruleBlock;
 }
 
-test("Cloudflare keeps the security headers on all static paths", () => {
-  const block = headerBlock("/*");
-  for (const line of [
+test("the Cloudflare header rules apply approved security headers to all static paths", () => {
+  const ruleBlock = findHeaderBlock("/*");
+  for (const expectedHeader of [
     "X-Content-Type-Options: nosniff",
     "X-Frame-Options: DENY",
     "Referrer-Policy: strict-origin-when-cross-origin",
     `Permissions-Policy: ${permissionsPolicy}`,
     "Strict-Transport-Security: max-age=31536000",
-  ]) assert.ok(block.includes(line), `missing ${line}`);
-  assert.doesNotMatch(block, /includeSubDomains/);
+  ]) assert.ok(ruleBlock.includes(expectedHeader), `the static-path header rule must include ${expectedHeader}`);
+  assert.doesNotMatch(ruleBlock, /includeSubDomains/);
   for (const directive of ["default-src 'self'", "base-uri 'self'", "object-src 'none'", "frame-ancestors 'none'", "form-action 'self'"]) {
-    assert.ok(block.includes(directive), `missing ${directive}`);
+    assert.ok(ruleBlock.includes(directive), `the static-path header rule must include ${directive}`);
   }
 });
 
-test("Cloudflare keeps each cache policy on its own paths", () => {
-  assert.match(headerBlock("/_astro/*"), /Cache-Control: public, max-age=31536000, immutable/);
-  assert.match(headerBlock("/images/*"), /Cache-Control: public, max-age=604800, stale-while-revalidate=86400/);
-  assert.doesNotMatch(headerBlock("/images/*"), /immutable/);
-  assert.doesNotMatch(headerBlock("/*"), /Cache-Control:/);
-  assert.match(headerBlock("/"), /Cache-Control: public, max-age=0, must-revalidate, no-transform/);
+test("the Cloudflare header rules apply each cache policy to its assigned paths", () => {
+  assert.match(findHeaderBlock("/_astro/*"), /Cache-Control: public, max-age=31536000, immutable/);
+  assert.match(findHeaderBlock("/images/*"), /Cache-Control: public, max-age=604800, stale-while-revalidate=86400/);
+  assert.doesNotMatch(findHeaderBlock("/images/*"), /immutable/);
+  assert.doesNotMatch(findHeaderBlock("/*"), /Cache-Control:/);
+  assert.match(findHeaderBlock("/"), /Cache-Control: public, max-age=0, must-revalidate, no-transform/);
 });
 
-test("Cloudflare test addresses stay out of search results", () => {
-  assert.match(headerBlock("https://:worker.:account.workers.dev/*"), /X-Robots-Tag: noindex/);
+test("the Cloudflare test-origin header rule excludes preview addresses from search indexing", () => {
+  assert.match(findHeaderBlock("https://:worker.:account.workers.dev/*"), /X-Robots-Tag: noindex/);
 });
 
-test("Cloudflare CSP blocks unapproved inline scripts and styles", () => {
-  const headers = readDistFile("_headers");
-  const csp = headers.match(/Content-Security-Policy: ([^\n]+)/)?.[1];
-  assert.ok(csp, "CSP header must be present");
+test("the content security policy limits script sources and the build excludes executable inline scripts and styles", () => {
+  const headersRecord = readDistFile("_headers");
+  const contentSecurityPolicy = headersRecord.match(/Content-Security-Policy: ([^\n]+)/)?.[1];
+  assert.ok(contentSecurityPolicy, "the Content-Security-Policy header must exist");
 
-  const scriptSrc = csp.match(/script-src\s+([^;]+)/)?.[1]?.trim();
-  assert.ok(scriptSrc, "script-src directive must be present");
-  assert.match(scriptSrc, /'self'/, "bundled scripts stay same-origin");
-  assert.doesNotMatch(scriptSrc, /unsafe-inline|unsafe-eval/);
-  for (const token of scriptSrc.split(/\s+/)) {
+  const scriptSources = contentSecurityPolicy.match(/script-src\s+([^;]+)/)?.[1]?.trim();
+  assert.ok(scriptSources, "script-src directive must be present");
+  assert.match(scriptSources, /'self'/, "bundled scripts must use this origin");
+  assert.doesNotMatch(scriptSources, /unsafe-inline|unsafe-eval/);
+  for (const scriptSource of scriptSources.split(/\s+/)) {
     assert.ok(
-      token === "'self'" || token === "https://static.cloudflareinsights.com/beacon.min.js",
-      `unexpected script source ${token}`,
+      scriptSource === "'self'" || scriptSource === "https://static.cloudflareinsights.com/beacon.min.js",
+      `script source ${scriptSource} must match an approved source`,
     );
   }
 
-  const styleSrc = csp.match(/style-src\s+([^;]+)/)?.[1] ?? "";
-  assert.equal(styleSrc.trim(), "'self'", "stylesheets must come from this site");
-  assert.match(csp, /(?:^|;)\s*style-src-attr 'none'(?:;|$)/);
+  const styleSources = contentSecurityPolicy.match(/style-src\s+([^;]+)/)?.[1] ?? "";
+  assert.equal(styleSources.trim(), "'self'", "stylesheets must come from this site");
+  assert.match(contentSecurityPolicy, /(?:^|;)\s*style-src-attr 'none'(?:;|$)/);
 
   // Executable scripts must use external files. Keep JSON-LD as a non-executable data block.
   const executableTypes = new Set([
@@ -72,98 +72,97 @@ test("Cloudflare CSP blocks unapproved inline scripts and styles", () => {
     "text/ecmascript",
   ]);
   const htmlFiles = [];
-  const stack = [dist];
+  const stack = [buildDirectory];
   while (stack.length) {
-    const dir = stack.pop();
-    for (const name of readdirSync(dir)) {
-      const path = join(dir, name);
-      if (statSync(path).isDirectory()) stack.push(path);
-      else if (name.endsWith(".html")) htmlFiles.push(path);
+    const directory = stack.pop();
+    for (const filename of readdirSync(directory)) {
+      const builtPath = join(directory, filename);
+      if (statSync(builtPath).isDirectory()) stack.push(builtPath);
+      else if (filename.endsWith(".html")) htmlFiles.push(builtPath);
     }
   }
-  // Home and 404. The guard exists so an empty or half-written dist/ cannot
-  // pass this scan by finding nothing.
-  assert.ok(htmlFiles.length >= 2, "expected the static HTML pages");
+  // Require homepage and missing-page output before scanning inline scripts.
+  assert.ok(htmlFiles.length >= 2, "the build must contain at least two static HTML pages");
   const dataBlockTypes = new Set();
-  for (const file of htmlFiles) {
-    const html = readFileSync(file, "utf8");
-    assert.doesNotMatch(html, /<style\b|<[^>]+\sstyle\s*=/i, `${file} must not contain inline styles`);
-    for (const [, attributes] of html.matchAll(
+  for (const htmlFilePath of htmlFiles) {
+    const pageHtml = readFileSync(htmlFilePath, "utf8");
+    assert.doesNotMatch(pageHtml, /<style\b|<[^>]+\sstyle\s*=/i, `${htmlFilePath} must not contain inline styles`);
+    for (const [, attributes] of pageHtml.matchAll(
       /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi,
     )) {
-      const type = (attributes.match(/\btype=["']([^"']*)["']/i)?.[1] ?? "").toLowerCase().trim();
-      if (!executableTypes.has(type)) {
-        dataBlockTypes.add(type);
+      const scriptType = (attributes.match(/\btype=["']([^"']*)["']/i)?.[1] ?? "").toLowerCase().trim();
+      if (!executableTypes.has(scriptType)) {
+        dataBlockTypes.add(scriptType);
         continue;
       }
-      assert.fail(`executable inline script in ${file} must use an external file`);
+      assert.fail(`executable inline script in ${htmlFilePath} must use an external file`);
     }
   }
   assert.deepEqual(
     [...dataBlockTypes].sort(),
     ["application/ld+json"],
-    "the JSON-LD graph is the only non-executable script block the build may ship",
+    "the build must include only JSON-LD graph data in non-executable script blocks",
   );
 });
 
-test("the security policy allows the Cloudflare script and beacon endpoint", () => {
-  const headers = readDistFile("_headers");
-  const csp = headers.match(/Content-Security-Policy: ([^\n]+)/)?.[1];
-  assert.ok(csp, "Content-Security-Policy header must be present");
+test("the content security policy allows only approved connection sources and the Cloudflare beacon script", () => {
+  const headersRecord = readDistFile("_headers");
+  const contentSecurityPolicy = headersRecord.match(/Content-Security-Policy: ([^\n]+)/)?.[1];
+  assert.ok(contentSecurityPolicy, "Content-Security-Policy header must be present");
 
-  const connectSrc = csp.match(/connect-src\s+([^;]+)/)?.[1]?.trim();
-  assert.ok(connectSrc, "CSP must declare connect-src");
-  const tokens = connectSrc.split(/\s+/);
+  const connectionSources = contentSecurityPolicy.match(/connect-src\s+([^;]+)/)?.[1]?.trim();
+  assert.ok(connectionSources, "the content security policy must declare connect-src");
+  const connectionSourceTokens = connectionSources.split(/\s+/);
   assert.deepEqual(
-    [...tokens].sort(),
+    [...connectionSourceTokens].sort(),
     ["'self'", "https://cloudflareinsights.com"],
     "connect-src must allow only this site and Cloudflare Web Analytics",
   );
 
-  const scriptSrc = csp.match(/script-src\s+([^;]+)/)?.[1] ?? "";
+  const scriptSources = contentSecurityPolicy.match(/script-src\s+([^;]+)/)?.[1] ?? "";
   assert.deepEqual(
-    scriptSrc.trim().split(/\s+/).filter((source) => source.startsWith("https:")),
+    scriptSources.trim().split(/\s+/).filter((source) => source.startsWith("https:")),
     ["https://static.cloudflareinsights.com/beacon.min.js"],
-    "allow only the Cloudflare beacon script URL as an external script",
+    "the external script sources must contain only the Cloudflare beacon URL",
   );
 });
 
-test("Cloudflare CSP hosts fonts and styles from this origin only", () => {
-  const headers = readDistFile("_headers");
-  const csp = headers.match(/Content-Security-Policy: ([^\n]+)/)?.[1];
-  assert.ok(csp, "Content-Security-Policy header must be present");
+test("the content security policy restricts fonts and styles to this origin", () => {
+  const headersRecord = readDistFile("_headers");
+  const contentSecurityPolicy = headersRecord.match(/Content-Security-Policy: ([^\n]+)/)?.[1];
+  assert.ok(contentSecurityPolicy, "Content-Security-Policy header must be present");
 
-  const fontSrc = csp.match(/font-src\s+([^;]+)/)?.[1]?.trim();
-  assert.ok(fontSrc, "CSP must declare font-src");
+  const fontSources = contentSecurityPolicy.match(/font-src\s+([^;]+)/)?.[1]?.trim();
+  assert.ok(fontSources, "the content security policy must declare font-src");
   assert.deepEqual(
-    fontSrc.split(/\s+/),
+    fontSources.split(/\s+/),
     ["'self'"],
-    "font-src must be 'self' after fonts are self-hosted",
+    "font-src must allow only this origin",
   );
 
-  const styleSrc = csp.match(/style-src\s+([^;]+)/)?.[1]?.trim();
-  assert.ok(styleSrc, "CSP must declare style-src");
-  const styleTokens = styleSrc.split(/\s+/);
-  assert.deepEqual(styleTokens, ["'self'"], "stylesheets must come from this site");
+  const styleSources = contentSecurityPolicy.match(/style-src\s+([^;]+)/)?.[1]?.trim();
+  assert.ok(styleSources, "the content security policy must declare style-src");
+  const styleSourceTokens = styleSources.split(/\s+/);
+  assert.deepEqual(styleSourceTokens, ["'self'"], "stylesheets must come from this site");
   assert.equal(
-    styleTokens.some((token) => /googleapis|gstatic|fonts\./i.test(token)),
+    styleSourceTokens.some((styleSource) => /googleapis|gstatic|fonts\./i.test(styleSource)),
     false,
     "style-src must not list a Google Fonts host",
   );
 
   assert.doesNotMatch(
-    csp,
+    contentSecurityPolicy,
     /fonts\.googleapis\.com|fonts\.gstatic\.com/,
-    "the CSP must not name Google Fonts hosts",
+    "the content security policy must not name Google Fonts hosts",
   );
 });
 
-test("security.txt gives a private report contact and a valid expiry date", () => {
+test("security.txt declares private reporting addresses and an expiry date within the next year", () => {
   const record = readDistFile(".well-known", "security.txt");
   assert.match(record, /^Contact: https:\/\/github\.com\/cristianvega-ai\/cristianvega\.ai\/security\/advisories\/new$/m);
   assert.match(record, /^Canonical: https:\/\/cristianvega\.ai\/\.well-known\/security\.txt$/m);
   assert.match(record, /^Policy: https:\/\/github\.com\/cristianvega-ai\/cristianvega\.ai\/security\/policy$/m);
-  const expires = Date.parse(record.match(/^Expires: (.+)$/m)?.[1] ?? "");
-  assert.ok(expires > Date.now(), "security.txt must not be expired");
-  assert.ok(expires < Date.now() + 366 * 24 * 60 * 60 * 1000, "renew security.txt within one year");
+  const expiryTimestamp = Date.parse(record.match(/^Expires: (.+)$/m)?.[1] ?? "");
+  assert.ok(expiryTimestamp > Date.now(), "security.txt must not be expired");
+  assert.ok(expiryTimestamp < Date.now() + 366 * 24 * 60 * 60 * 1000, "security.txt must expire within one year");
 });

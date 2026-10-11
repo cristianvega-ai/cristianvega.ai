@@ -1,18 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { LYRA } from "../../src/shared/lyra/constellation.ts";
+import { LYRA as lyraStars } from "../../src/shared/lyra/constellation.ts";
 import { layoutLyra } from "../../src/shared/page-graphics/lyra.ts";
-import { MISSING, missingLayout } from "../../src/shared/page-graphics/scenes/404.ts";
+import { MISSING as missingStarIndex, missingLayout } from "../../src/shared/page-graphics/scenes/404.ts";
 
-test("the missing star and its empty ring stay inside the box for a column and a band", () => {
+test("the missing-star ring remains inside column and band layout bounds", () => {
   // Exercise the column and band layout branches.
-  for (const [w, h] of [[380, 720], [700, 150]]) {
-    const layout = missingLayout(w, h);
-    const stars = layoutLyra(w, h, { padding: layout.padding, rotate: layout.rotate });
-    assert.equal(stars.length, LYRA.length);
-    assert.ok(MISSING > 0 && MISSING < stars.length, "the missing star is not Vega");
-    const gap = stars[MISSING];
-    assert.ok(gap.x > 7 && gap.x < w - 7 && gap.y > 7 && gap.y < h - 7, `the ring at ${w} by ${h} must fit in the box`);
+  for (const [width, height] of [[380, 720], [700, 150]]) {
+    const missingStarLayout = missingLayout(width, height);
+    const stars = layoutLyra(width, height, { padding: missingStarLayout.padding, rotate: missingStarLayout.rotate });
+    assert.equal(stars.length, lyraStars.length);
+    assert.ok(missingStarIndex > 0 && missingStarIndex < stars.length, "the missing-star index must identify an existing star other than Vega");
+    const missingStar = stars[missingStarIndex];
+    assert.ok(missingStar.x > 7 && missingStar.x < width - 7 && missingStar.y > 7 && missingStar.y < height - 7, `the missing-star ring must fit within ${width} by ${height} layout bounds`);
   }
 });

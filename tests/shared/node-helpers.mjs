@@ -11,8 +11,7 @@ import yaml from "js-yaml";
 // Share repository paths, publication fixtures, and rendered-page checks.
 // Keep helpers used by one suite in that suite.
 
-// fileURLToPath, not URL.pathname: the latter stays percent-encoded, so a
-// checkout under a path with spaces or non-ASCII characters would ENOENT.
+// Decode the repository file URL to preserve spaces and non-ASCII path characters.
 export const root = fileURLToPath(new URL("../..", import.meta.url));
 export const dist = join(root, "dist");
 
@@ -23,23 +22,23 @@ export const starWidthsInPixels = [66, 0, 0, 0, 42, 42];
 export function readContentInventory(projectRoot = root) {
   const inventory = {};
   for (const [section, collection] of [["writing", "writing"], ["products", "products"]]) {
-    const directory = join(projectRoot, "src", "content", collection);
-    inventory[section] = readdirSync(directory).filter((file) => file.endsWith(".md")).map((file) => {
-      const markdown = readFileSync(join(directory, file), "utf8");
-      const frontmatter = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
-      assert.ok(frontmatter, `${file} must have YAML frontmatter`);
-      const data = yaml.load(frontmatter[1]);
-      data.draft ??= true;
-      if (section === "writing") data.date = new Date(data.date);
+    const contentDirectory = join(projectRoot, "src", "content", collection);
+    inventory[section] = readdirSync(contentDirectory).filter((contentFilename) => contentFilename.endsWith(".md")).map((contentFilename) => {
+      const markdownSource = readFileSync(join(contentDirectory, contentFilename), "utf8");
+      const frontmatterMatch = markdownSource.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+      assert.ok(frontmatterMatch, `${contentFilename} must have YAML frontmatter`);
+      const frontmatterData = yaml.load(frontmatterMatch[1]);
+      frontmatterData.draft ??= true;
+      if (section === "writing") frontmatterData.date = new Date(frontmatterData.date);
       else {
-        data.order ??= 0;
-        data.status ??= "Product";
+        frontmatterData.order ??= 0;
+        frontmatterData.status ??= "Product";
       }
-      return { id: file.slice(0, -3), data, body: markdown.slice(frontmatter[0].length), href: `/${section}/${file.slice(0, -3)}/` };
+      return { id: contentFilename.slice(0, -3), data: frontmatterData, body: markdownSource.slice(frontmatterMatch[0].length), href: `/${section}/${contentFilename.slice(0, -3)}/` };
     });
   }
-  inventory.writing.sort((a, b) => b.data.date - a.data.date || a.id.localeCompare(b.id));
-  inventory.products.sort((a, b) => a.data.order - b.data.order || a.data.title.localeCompare(b.data.title));
+  inventory.writing.sort((firstEntry, secondEntry) => secondEntry.data.date - firstEntry.data.date || firstEntry.id.localeCompare(secondEntry.id));
+  inventory.products.sort((firstEntry, secondEntry) => firstEntry.data.order - secondEntry.data.order || firstEntry.data.title.localeCompare(secondEntry.data.title));
   return inventory;
 }
 
@@ -52,23 +51,23 @@ export const latestWork = [
   { section: "products", href: "/products/", label: "See my latest products", soon: "Latest products · coming soon" },
 ];
 
-// The header links in site order. A section joins them when it holds a published entry.
+// Return header links in site order. Include each section that contains published entries.
 export function headerLinks(inventory = readContentInventory()) {
-  const published = publishedContent(inventory);
+  const publishedEntries = publishedContent(inventory);
   return [
     { label: "about", href: "/about/" },
-    ...latestWork.filter((item) => published[item.section].length > 0).map((item) => ({ label: item.section, href: item.href })),
+    ...latestWork.filter((sectionLink) => publishedEntries[sectionLink.section].length > 0).map((sectionLink) => ({ label: sectionLink.section, href: sectionLink.href })),
     { label: "linkedin", href: "https://www.linkedin.com/in/cristianvega-ai" },
     { label: "x", href: "https://x.com/cristianvega" },
     { label: "github", href: "https://github.com/cristianvega-ai" },
   ];
 }
 
-export function listBuiltRoutes(directory = dist, prefix = "/") {
+export function listBuiltRoutes(buildDirectory = dist, prefix = "/") {
   const routes = [];
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+  for (const entry of readdirSync(buildDirectory, { withFileTypes: true })) {
     if (entry.isDirectory() && entry.name !== "_astro") {
-      routes.push(...listBuiltRoutes(join(directory, entry.name), `${prefix}${entry.name}/`));
+      routes.push(...listBuiltRoutes(join(buildDirectory, entry.name), `${prefix}${entry.name}/`));
     } else if (entry.name === "index.html") routes.push(prefix);
   }
   return routes.sort();
@@ -84,12 +83,12 @@ export function contentRoutes(inventory) {
     entries.length ? [`/${section}/`, ...entries.map((entry) => entry.href)] : []).sort();
 }
 
-export function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+export function escapeHtml(inputValue) {
+  return String(inputValue).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 }
 
-export function escapeAttribute(value) {
-  return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+export function escapeAttribute(inputValue) {
+  return String(inputValue).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
 const publicationEntries = {
@@ -110,13 +109,11 @@ const publicationEntries = {
 };
 
 /**
- * Build a copy of the project in a temporary directory. The source, the build
- * output, and the caches of the repository stay unchanged.
+ * Build a project copy in a temporary directory. Preserve repository source, build output, and caches.
  *
- * `edits` maps a file path below the project root to a list of [before, after]
- * replacements. Each `before` must occur in the file, so a stale edit fails
- * instead of building the unchanged source. `prepare` receives the copy's root
- * and can change it further before the build.
+ * Map project-relative file paths to [originalText, replacementText] pairs in `edits`.
+ * Require each originalText value to occur in its file.
+ * Pass the copied project root to `prepare` before the build.
  */
 export async function createIsolatedBuild({ prefix = "cristianai-build-", edits = {}, prepare } = {}) {
   const projectRoot = await realpath(await mkdtemp(join(tmpdir(), prefix)));
@@ -129,19 +126,19 @@ export async function createIsolatedBuild({ prefix = "cristianai-build-", edits 
       cp(join(root, "package.json"), join(projectRoot, "package.json")),
       symlink(join(root, "node_modules"), join(projectRoot, "node_modules"), "dir"),
     ]);
-    for (const [path, replacements] of Object.entries(edits)) {
-      const file = join(projectRoot, path);
-      let source = await readFile(file, "utf8");
-      for (const [before, after] of replacements) {
-        assert.ok(source.includes(before), `${path} must hold ${before}`);
-        source = source.replaceAll(before, after);
+    for (const [relativePath, replacements] of Object.entries(edits)) {
+      const editedFilePath = join(projectRoot, relativePath);
+      let sourceText = await readFile(editedFilePath, "utf8");
+      for (const [originalText, replacementText] of replacements) {
+        assert.ok(sourceText.includes(originalText), `${relativePath} must contain the original replacement text ${originalText}`);
+        sourceText = sourceText.replaceAll(originalText, replacementText);
       }
-      await writeFile(file, source);
+      await writeFile(editedFilePath, sourceText);
     }
     if (prepare) await prepare(projectRoot);
-    const configUrl = pathToFileURL(join(root, "astro.config.mjs")).href;
+    const configurationUrl = pathToFileURL(join(root, "astro.config.mjs")).href;
     await writeFile(join(projectRoot, "astro.config.mjs"),
-      `import config from ${JSON.stringify(configUrl)};\nexport default { ...config, cacheDir: "./.cache/", vite: { ...config.vite, cacheDir: "./.cache/vite/" } };\n`);
+      `import config from ${JSON.stringify(configurationUrl)};\nexport default { ...config, cacheDir: "./.cache/", vite: { ...config.vite, cacheDir: "./.cache/vite/" } };\n`);
     await promisify(execFile)(process.execPath, [join(root, "node_modules", "astro", "bin", "astro.mjs"), "build", "--root", projectRoot], {
       cwd: projectRoot,
       env: { ...process.env, ASTRO_TELEMETRY_DISABLED: "1" },
@@ -156,37 +153,37 @@ export async function createIsolatedBuild({ prefix = "cristianai-build-", edits 
 }
 
 // Build fixture content in a temporary project. Keep source content and caches separate.
-export async function createContentBuild(kind) {
-  assert.ok(["all-draft", "mixed"].includes(kind), "select an approved publication fixture");
+export async function createContentBuild(fixtureKind) {
+  assert.ok(["all-draft", "mixed"].includes(fixtureKind), "the publication fixture must be all-draft or mixed");
   let inventory;
-  const build = await createIsolatedBuild({
+  const isolatedBuild = await createIsolatedBuild({
     prefix: "cristianai-publication-",
     async prepare(projectRoot) {
       await rm(join(projectRoot, "src", "content"), { recursive: true });
       for (const [collection, entries] of Object.entries(publicationEntries)) {
-        const directory = join(projectRoot, "src", "content", collection);
-        await mkdir(directory, { recursive: true });
+        const contentDirectory = join(projectRoot, "src", "content", collection);
+        await mkdir(contentDirectory, { recursive: true });
         for (const entry of entries) {
-          const { id, ...data } = entry;
-          if (kind === "all-draft" && "draft" in data) data.draft = true;
-          data.description = `Description for ${data.title}.`;
-          if (collection === "writing") data.topic = "Systems";
-          const body = `## Fixture content\n\nBody for ${id}.\n\n` + (collection === "writing"
+          const { id: entryIdentifier, ...frontmatterData } = entry;
+          if (fixtureKind === "all-draft" && "draft" in frontmatterData) frontmatterData.draft = true;
+          frontmatterData.description = `Description for ${frontmatterData.title}.`;
+          if (collection === "writing") frontmatterData.topic = "Systems";
+          const fixtureBody = `## Fixture content\n\nBody for ${entryIdentifier}.\n\n` + (collection === "writing"
             ? "```js\nconst signal = 1;\n```\n\n<div class=\"figure__panel\" role=\"img\" aria-label=\"Fixture signal path\">Signal path</div>\n"
             : "");
-          await writeFile(join(directory, `${id}.md`), `---\n${yaml.dump(data)}---\n\n${body}`);
+          await writeFile(join(contentDirectory, `${entryIdentifier}.md`), `---\n${yaml.dump(frontmatterData)}---\n\n${fixtureBody}`);
         }
       }
       inventory = readContentInventory(projectRoot);
     },
   });
-  return { ...build, inventory };
+  return { ...isolatedBuild, inventory };
 }
 
-export async function withContentBuild(kind, use) {
-  const fixture = await createContentBuild(kind);
+export async function withContentBuild(fixtureKind, useFixture) {
+  const fixture = await createContentBuild(fixtureKind);
   try {
-    return await use(fixture);
+    return await useFixture(fixture);
   } finally {
     await fixture.cleanup();
   }
@@ -198,22 +195,22 @@ export const blockedBrowserFeatures = [
   "midi", "payment", "picture-in-picture", "screen-wake-lock", "usb",
   "xr-spatial-tracking",
 ];
-export const permissionsPolicy = blockedBrowserFeatures.map((name) => `${name}=()`).join(", ");
+export const permissionsPolicy = blockedBrowserFeatures.map((featureName) => `${featureName}=()`).join(", ");
 
-export function readDistFile(...segments) {
-  return readFileSync(join(dist, ...segments), "utf8");
+export function readDistFile(...pathSegments) {
+  return readFileSync(join(dist, ...pathSegments), "utf8");
 }
 
-/** Count <h1>…</h1> occurrences (case-insensitive tag). */
-function countH1(html) {
-  return (html.match(/<h1\b[^>]*>/gi) || []).length;
+/** Count primary heading tags without case sensitivity. */
+function countPrimaryHeadings(pageHtml) {
+  return (pageHtml.match(/<h1\b[^>]*>/gi) || []).length;
 }
 
-export function assertPageBasics(html, { titleFragment, descriptionFragment } = {}) {
-  assert.match(html, /<html\b[^>]*\blang="en"/i, "document language must be en");
-  assert.match(html, /<link\b[^>]*rel="canonical"/i, "canonical URL required");
-  assert.match(html, /<meta\b[^>]*name="description"/i, "meta description required");
-  assert.equal(countH1(html), 1, "each page must have exactly one H1");
-  if (titleFragment) assert.match(html, new RegExp(titleFragment, "i"));
-  if (descriptionFragment) assert.match(html, new RegExp(descriptionFragment, "i"));
+export function assertPageBasics(pageHtml, { titleFragment, descriptionFragment } = {}) {
+  assert.match(pageHtml, /<html\b[^>]*\blang="en"/i, "document language must be en");
+  assert.match(pageHtml, /<link\b[^>]*rel="canonical"/i, "each page must declare a canonical URL");
+  assert.match(pageHtml, /<meta\b[^>]*name="description"/i, "each page must declare a metadata description");
+  assert.equal(countPrimaryHeadings(pageHtml), 1, "each page must contain exactly one primary heading");
+  if (titleFragment) assert.match(pageHtml, new RegExp(titleFragment, "i"));
+  if (descriptionFragment) assert.match(pageHtml, new RegExp(descriptionFragment, "i"));
 }

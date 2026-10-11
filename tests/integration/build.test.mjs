@@ -3,85 +3,82 @@ import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { assertPageBasics, dist, listBuiltRoutes, readDistFile, root } from "../shared/helpers.mjs";
+import { assertPageBasics, dist as buildDirectory, listBuiltRoutes, readDistFile, root as repositoryRoot } from "../shared/node-helpers.mjs";
 
-// Build output contract: the files the static deploy uploads must exist and be
-// complete. Page copy lives in tests/integration/pages.test.mjs; this suite only asks
-// whether the build emitted the files Cloudflare serves.
+// Check files that Cloudflare serves from the static build.
+// Check page content in tests/integration/pages.test.mjs.
 
-function assertDistPath(...segments) {
-  const path = join(dist, ...segments);
-  assert.equal(existsSync(path), true, `missing build output: ${path} (run \`npm test\` or \`npm run build\`)`);
+function assertBuildPathExists(...segments) {
+  const buildPath = join(buildDirectory, ...segments);
+  assert.equal(existsSync(buildPath), true, `build output ${buildPath} must exist; run \`npm test\` or \`npm run build\``);
 }
 
-test("sitemap enumerates every public route the build produces", () => {
-  // robots.txt points crawlers at the index, so an index that references a
-  // missing or stale child sitemap is a silent SEO regression.
-  const index = readDistFile("sitemap-index.xml");
-  const child = index.match(/<loc>https:\/\/cristianvega\.ai\/(sitemap-\d+\.xml)<\/loc>/)?.[1];
-  assert.ok(child, `sitemap index must reference a child sitemap: ${index}`);
-  assert.equal(existsSync(join(dist, child)), true, `${child} is referenced but missing`);
+test("the built sitemap lists every public route and references an existing child sitemap", () => {
+  // robots.txt directs crawlers to this index. Check that its child sitemap exists and lists current routes.
+  const sitemapIndex = readDistFile("sitemap-index.xml");
+  const childSitemapFilename = sitemapIndex.match(/<loc>https:\/\/cristianvega\.ai\/(sitemap-\d+\.xml)<\/loc>/)?.[1];
+  assert.ok(childSitemapFilename, `sitemap index must reference a child sitemap: ${sitemapIndex}`);
+  assert.equal(existsSync(join(buildDirectory, childSitemapFilename)), true, `referenced child sitemap ${childSitemapFilename} must exist`);
 
-  const locations = [...readDistFile(child).matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, loc]) => loc);
-  const expected = listBuiltRoutes().map((route) => `https://cristianvega.ai${route}`);
+  const sitemapLocations = [...readDistFile(childSitemapFilename).matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, location]) => location);
+  const expectedLocations = listBuiltRoutes().map((route) => `https://cristianvega.ai${route}`);
 
-  assert.ok(expected.length > 0, "build must emit public routes to enumerate");
+  assert.ok(expectedLocations.length > 0, "the build must produce public routes for the sitemap");
   assert.deepEqual(
-    [...locations].sort(),
-    [...expected].sort(),
-    "sitemap must list exactly the public built routes, absolute and trailing-slashed",
+    [...sitemapLocations].sort(),
+    [...expectedLocations].sort(),
+    "the sitemap must list exactly the public built routes as absolute URLs with trailing slashes",
   );
 });
 
-test("static ops assets ship with the build", () => {
-  assert.equal(existsSync(join(dist, "robots.txt")), true);
-  assert.equal(existsSync(join(dist, "404.html")), true);
-  assert.equal(existsSync(join(dist, "_headers")), true);
-  assert.equal(existsSync(join(dist, "_redirects")), true);
-  assert.equal(existsSync(join(dist, ".htaccess")), false);
+test("the build includes required hosting files and omits Apache configuration", () => {
+  assert.equal(existsSync(join(buildDirectory, "robots.txt")), true);
+  assert.equal(existsSync(join(buildDirectory, "404.html")), true);
+  assert.equal(existsSync(join(buildDirectory, "_headers")), true);
+  assert.equal(existsSync(join(buildDirectory, "_redirects")), true);
+  assert.equal(existsSync(join(buildDirectory, ".htaccess")), false);
 
-  const robots = readDistFile("robots.txt");
-  assert.match(robots, /Sitemap:\s*https:\/\/cristianvega\.ai\/sitemap-index\.xml/);
+  const robotsRecord = readDistFile("robots.txt");
+  assert.match(robotsRecord, /Sitemap:\s*https:\/\/cristianvega\.ai\/sitemap-index\.xml/);
 
-  const notFound = readDistFile("404.html");
-  assertPageBasics(notFound, { titleFragment: "Page not found" });
-  assert.match(notFound, /href="\/"/);
+  const notFoundHtml = readDistFile("404.html");
+  assertPageBasics(notFoundHtml, { titleFragment: "Page not found" });
+  assert.match(notFoundHtml, /href="\/"/);
 });
 
-test("the build ships usable self-hosted fonts", () => {
-  const astroDirectory = join(dist, "_astro");
-  const files = readdirSync(astroDirectory);
-  const fonts = files.filter((file) => file.endsWith(".woff2"));
-  assert.ok(fonts.length > 0, "the build must contain font files");
-  for (const file of fonts) {
-    assert.ok(statSync(join(astroDirectory, file)).size > 1_000, `${file} must contain font data`);
+test("the build includes font data and references each font through a local asset URL", () => {
+  const astroDirectory = join(buildDirectory, "_astro");
+  const builtFilenames = readdirSync(astroDirectory);
+  const fontFilenames = builtFilenames.filter((filename) => filename.endsWith(".woff2"));
+  assert.ok(fontFilenames.length > 0, "the build must contain font files");
+  for (const filename of fontFilenames) {
+    assert.ok(statSync(join(astroDirectory, filename)).size > 1_000, `${filename} must contain font data`);
   }
-  const css = files.filter((file) => file.endsWith(".css"))
-    .map((file) => readFileSync(join(astroDirectory, file), "utf8")).join("\n");
-  assert.match(css, /@font-face/, "the build must declare its fonts");
-  const references = [...css.matchAll(/url\(["']?([^"')]+\.woff2)["']?\)/g)];
-  assert.ok(references.length > 0, "the stylesheet must reference font files");
-  for (const [, fontPath] of references) {
+  const compiledStylesheet = builtFilenames.filter((filename) => filename.endsWith(".css"))
+    .map((filename) => readFileSync(join(astroDirectory, filename), "utf8")).join("\n");
+  assert.match(compiledStylesheet, /@font-face/, "the build must declare its fonts");
+  const fontReferences = [...compiledStylesheet.matchAll(/url\(["']?([^"')]+\.woff2)["']?\)/g)];
+  assert.ok(fontReferences.length > 0, "the stylesheet must reference font files");
+  for (const [, fontPath] of fontReferences) {
     assert.ok(fontPath.startsWith("/_astro/"), `${fontPath} must use a local asset URL`);
-    assertDistPath(fontPath.slice(1));
+    assertBuildPathExists(fontPath.slice(1));
   }
-  assert.doesNotMatch(css, /fonts\.googleapis\.com|fonts\.gstatic\.com/);
+  assert.doesNotMatch(compiledStylesheet, /fonts\.googleapis\.com|fonts\.gstatic\.com/);
 });
 
-// The portrait master is a generator source, not a page asset. Files in
-// public/ copy into dist/, and the deploy uploads dist/. Keep the master
-// outside public/ and keep dist/images to the URLs pages actually use.
-test("the portrait master stays out of the static publish set", () => {
-  assert.equal(existsSync(join(root, "assets", "cristian-vega.png")), true);
-  assert.deepEqual(readdirSync(join(dist, "images")).sort(), [
+// Keep the portrait master outside public/.
+// Publish only the image derivatives that pages use.
+test("the build publishes approved image derivatives and excludes the portrait master", () => {
+  assert.equal(existsSync(join(repositoryRoot, "assets", "cristian-vega.png")), true);
+  assert.deepEqual(readdirSync(join(buildDirectory, "images")).sort(), [
     "apple-touch-icon.png",
     "cristian-vega-social-preview.jpg",
   ]);
 });
 
 // Publish static assets and the two Cloudflare rule files only.
-const DEPLOY_SUFFIXES = new Set(["html", "css", "js", "jpg", "png", "svg", "txt", "xml", "woff2"]);
-const DEPLOY_FORBIDDEN_COMPONENTS = new Set([
+const approvedStaticSuffixes = new Set(["html", "css", "js", "jpg", "png", "svg", "txt", "xml", "woff2"]);
+const forbiddenSuffixComponents = new Set([
   "php", "php3", "php4", "php5", "php7", "php8", "phtml", "phar", "phps", "pht",
   "cgi", "fcgi", "pl", "py", "rb", "sh", "bash", "zsh",
   "shtml", "shtm", "stm", "inc", "ini", "user",
@@ -89,35 +86,35 @@ const DEPLOY_FORBIDDEN_COMPONENTS = new Set([
   "exe", "dll", "so",
 ]);
 
-function listDistFiles(dir = dist, prefix = "") {
-  const files = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const rel = `${prefix}${entry.name}`;
-    if (entry.isDirectory()) files.push(...listDistFiles(join(dir, entry.name), `${rel}/`));
-    else files.push(rel);
+function listBuildFiles(directory = buildDirectory, prefix = "") {
+  const builtFilenames = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const relativePath = `${prefix}${entry.name}`;
+    if (entry.isDirectory()) builtFilenames.push(...listBuildFiles(join(directory, entry.name), `${relativePath}/`));
+    else builtFilenames.push(relativePath);
   }
-  return files.sort();
+  return builtFilenames.sort();
 }
 
 test("the build contains only approved static files and Cloudflare rules", () => {
-  const files = listDistFiles();
-  assert.ok(files.length > 0, "the build must contain files");
-  for (const rel of files) {
-    if (["_headers", "_redirects", ".well-known/security.txt"].includes(rel)) continue;
-    const parts = rel.split("/");
-    for (const part of parts) {
-      assert.ok(!part.startsWith("."), `${rel}: hidden names must not be published`);
+  const builtFilenames = listBuildFiles();
+  assert.ok(builtFilenames.length > 0, "the build must contain files");
+  for (const relativePath of builtFilenames) {
+    if (["_headers", "_redirects", ".well-known/security.txt"].includes(relativePath)) continue;
+    const pathComponents = relativePath.split("/");
+    for (const pathComponent of pathComponents) {
+      assert.ok(!pathComponent.startsWith("."), `${relativePath}: hidden names must not be published`);
     }
-    const pieces = parts.at(-1).split(".");
-    assert.ok(pieces.length >= 2, `${rel}: static files must have a suffix`);
-    assert.ok(DEPLOY_SUFFIXES.has(pieces.at(-1)), `${rel}: .${pieces.at(-1)} is not an approved static type`);
-    for (const piece of pieces.slice(1)) {
-      assert.ok(!DEPLOY_FORBIDDEN_COMPONENTS.has(piece.toLowerCase()), `${rel}: do not publish the suffix component .${piece}`);
+    const filenameComponents = pathComponents.at(-1).split(".");
+    assert.ok(filenameComponents.length >= 2, `${relativePath}: static files must have a filename extension`);
+    assert.ok(approvedStaticSuffixes.has(filenameComponents.at(-1)), `${relativePath}: .${filenameComponents.at(-1)} is not an approved static type`);
+    for (const suffixComponent of filenameComponents.slice(1)) {
+      assert.ok(!forbiddenSuffixComponents.has(suffixComponent.toLowerCase()), `${relativePath}: the filename must not contain forbidden suffix component .${suffixComponent}`);
     }
     // The package is ustar; a plain ustar name holds 100 bytes.
-    assert.ok(rel.length <= 100, `${rel}: longer than a ustar name (100); switch the package to --format=posix`);
+    assert.ok(relativePath.length <= 100, `${relativePath}: the published path must fit the 100-byte ustar filename limit`);
   }
-  for (const required of ["_headers", "_redirects", ".well-known/security.txt", "index.html", "404.html", "robots.txt", "sitemap-index.xml"]) {
-    assertDistPath(required);
+  for (const requiredPath of ["_headers", "_redirects", ".well-known/security.txt", "index.html", "404.html", "robots.txt", "sitemap-index.xml"]) {
+    assertBuildPathExists(requiredPath);
   }
 });

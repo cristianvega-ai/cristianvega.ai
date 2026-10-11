@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 
 import { unit } from "../../src/shared/page-graphics/math.ts";
 
-test("unit gives the same value for an index and stays below one", () => {
-  for (let i = 0; i < 200; i += 1) {
-    const value = unit(i);
-    assert.equal(value, unit(i));
-    assert.ok(value >= 0 && value < 1, `unit(${i}) must be in [0, 1)`);
+test("unit returns a repeatable value in the unit interval for each sampled index", () => {
+  for (let sampleIndex = 0; sampleIndex < 200; sampleIndex += 1) {
+    const sampleValue = unit(sampleIndex);
+    assert.equal(sampleValue, unit(sampleIndex));
+    assert.ok(sampleValue >= 0 && sampleValue < 1, `unit(${sampleIndex}) must be in [0, 1)`);
   }
 });
