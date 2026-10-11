@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-import { blockedBrowserFeatures } from "../shared/helpers.mjs";
+import { blockedBrowserFeatures } from "../shared/node-helpers.mjs";
 import { useReducedMotion } from "../shared/browser-fixtures.mjs";
 
-for (const path of ["/", "/missing-security-check/"]) {
-  test(`${path} blocks injected style elements and attributes`, async ({ page }) => {
+for (const pagePath of ["/", "/missing-security-check/"]) {
+  test(`${pagePath} rejects injected style elements and style attributes`, async ({ page }) => {
     await useReducedMotion(page);
     await page.addInitScript(() => {
       window.__styleViolations = [];
@@ -12,16 +12,16 @@ for (const path of ["/", "/missing-security-check/"]) {
         window.__styleViolations.push(event.effectiveDirective);
       });
     });
-    await page.goto(path);
+    await page.goto(pagePath);
     await page.evaluate(() => {
-      const probe = document.createElement("div");
-      probe.dataset.securityProbe = "";
-      probe.textContent = "Style policy check";
-      document.body.append(probe);
-      probe.setAttribute("style", "opacity: 0");
-      const style = document.createElement("style");
-      style.textContent = "[data-security-probe] { visibility: hidden; }";
-      document.head.append(style);
+      const styleProbe = document.createElement("div");
+      styleProbe.dataset.securityProbe = "";
+      styleProbe.textContent = "Style policy check";
+      document.body.append(styleProbe);
+      styleProbe.setAttribute("style", "opacity: 0");
+      const injectedStyle = document.createElement("style");
+      injectedStyle.textContent = "[data-security-probe] { visibility: hidden; }";
+      document.head.append(injectedStyle);
     });
     await expect.poll(() => page.evaluate(() => window.__styleViolations)).toEqual(
       expect.arrayContaining(["style-src-attr", "style-src-elem"]),
@@ -30,18 +30,18 @@ for (const path of ["/", "/missing-security-check/"]) {
     await expect(page.locator("[data-security-probe]")).toBeVisible();
   });
 
-  test(`${path} denies unused browser features`, async ({ page }) => {
-    await page.goto(path);
-    const permissions = await page.evaluate((names) => {
-      const policy = document.featurePolicy;
-      return names.map((name) => ({
-        name,
-        known: policy.features().includes(name),
-        allowed: policy.allowsFeature(name),
+  test(`${pagePath} blocks unused browser features through the permissions policy`, async ({ page }) => {
+    await page.goto(pagePath);
+    const featurePermissions = await page.evaluate((featureNames) => {
+      const featurePolicy = document.featurePolicy;
+      return featureNames.map((featureName) => ({
+        name: featureName,
+        known: featurePolicy.features().includes(featureName),
+        allowed: featurePolicy.allowsFeature(featureName),
       }));
     }, blockedBrowserFeatures);
-    expect(permissions).toEqual(blockedBrowserFeatures.map((name) => ({
-      name, known: true, allowed: false,
+    expect(featurePermissions).toEqual(blockedBrowserFeatures.map((featureName) => ({
+      name: featureName, known: true, allowed: false,
     })));
   });
 }

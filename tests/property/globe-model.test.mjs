@@ -3,31 +3,31 @@ import assert from "node:assert/strict";
 
 import { buildGlobe } from "../../src/shared/lyra-globe/model.ts";
 
-test("the globe sends entrance comets along real edges, and each one ends on Vega", () => {
+test("buildGlobe creates entrance routes along existing edges and ends each route at Vega", () => {
   const globe = buildGlobe(600, 500);
-  const vega = globe.nodes.find((node) => node.vega);
-  assert.ok(vega, "the globe must contain Vega");
+  const vegaNode = globe.nodes.find((node) => node.vega);
+  assert.ok(vegaNode, "the globe must contain Vega");
   assert.ok(globe.routes.length > 0, "the globe must contain routes");
-  const joined = (a, b) => globe.edges.some((edge) => (
-    (edge.a.x === a.x && edge.a.y === a.y && edge.b.x === b.x && edge.b.y === b.y)
-    || (edge.b.x === a.x && edge.b.y === a.y && edge.a.x === b.x && edge.a.y === b.y)));
+  const pointsShareEdge = (startPoint, endPoint) => globe.edges.some((edge) => (
+    (edge.a.x === startPoint.x && edge.a.y === startPoint.y && edge.b.x === endPoint.x && edge.b.y === endPoint.y)
+    || (edge.b.x === startPoint.x && edge.b.y === startPoint.y && edge.a.x === endPoint.x && edge.a.y === endPoint.y)));
   for (const route of globe.routes) {
-    const end = route.points[route.points.length - 1];
-    assert.deepEqual(end, { x: vega.x, y: vega.y }, "a route ends on Vega");
-    for (let i = 1; i < route.points.length; i++) assert.ok(joined(route.points[i - 1], route.points[i]), "a route follows an edge");
+    const routeEndpoint = route.points[route.points.length - 1];
+    assert.deepEqual(routeEndpoint, { x: vegaNode.x, y: vegaNode.y }, "each entrance route must end at Vega");
+    for (let pointIndex = 1; pointIndex < route.points.length; pointIndex++) assert.ok(pointsShareEdge(route.points[pointIndex - 1], route.points[pointIndex]), "each route segment must follow an existing edge");
     assert.equal(route.lengths.length, route.points.length);
     assert.ok(Math.abs(route.lengths[route.lengths.length - 1] - route.length) < 1e-6);
   }
 });
 
-test("the globe keeps every node inside its box at both build sizes", () => {
+test("buildGlobe keeps every node inside the bounds at desktop and narrow sizes", () => {
   // Exercise the desktop model and its narrow display size.
   for (const [width, height] of [[600, 500], [280, 233]]) {
     const globe = buildGlobe(width, height);
     assert.ok(globe.nodes.length > 0, "the globe must contain nodes");
     for (const node of globe.nodes) {
-      assert.ok(node.x >= 0 && node.x <= width, `node x ${node.x} must sit inside ${width}`);
-      assert.ok(node.y >= 0 && node.y <= height, `node y ${node.y} must sit inside ${height}`);
+      assert.ok(node.x >= 0 && node.x <= width, `node x ${node.x} must remain within width ${width}`);
+      assert.ok(node.y >= 0 && node.y <= height, `node y ${node.y} must remain within height ${height}`);
     }
   }
 });

@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-import { permissionsPolicy } from "../shared/helpers.mjs";
+import { permissionsPolicy } from "../shared/node-helpers.mjs";
 
-for (const [path, status] of [["/", 200], ["/missing-hosting-check/", 404]]) {
-  test(`${path} sends the security policy with HTTP ${status}`, async ({ request }) => {
-    const response = await request.get(path, { maxRedirects: 0 });
-    expect(response.status()).toBe(status);
+for (const [requestPath, expectedStatus] of [["/", 200], ["/missing-hosting-check/", 404]]) {
+  test(`${requestPath} sends security headers with HTTP ${expectedStatus}`, async ({ request }) => {
+    const response = await request.get(requestPath, { maxRedirects: 0 });
+    expect(response.status()).toBe(expectedStatus);
     const headers = response.headers();
     expect(headers["x-content-type-options"]).toBe("nosniff");
     expect(headers["x-frame-options"]).toBe("DENY");
@@ -17,7 +17,7 @@ for (const [path, status] of [["/", 200], ["/missing-hosting-check/", 404]]) {
     expect(headers["content-security-policy"]).toContain("form-action 'self'");
     expect(headers["cache-control"]).toContain("max-age=0");
     expect(headers["cache-control"]).toContain("must-revalidate");
-    if (status === 404) {
+    if (expectedStatus === 404) {
       expect(await response.text()).toContain("Page not found");
     } else {
       expect(headers["cache-control"]).toContain("no-transform");
@@ -25,57 +25,57 @@ for (const [path, status] of [["/", 200], ["/missing-hosting-check/", 404]]) {
   });
 }
 
-for (const path of ["/contact", "/contact/"]) {
-  test(`${path} redirects to the homepage and keeps the query`, async ({ request }) => {
-    const response = await request.get(`${path}?from=hosting-check`, { maxRedirects: 0 });
+for (const requestPath of ["/contact", "/contact/"]) {
+  test(`${requestPath} redirects to home and preserves the query string`, async ({ request }) => {
+    const response = await request.get(`${requestPath}?from=hosting-check`, { maxRedirects: 0 });
     expect(response.status()).toBe(301);
-    const location = new URL(response.headers().location, response.url());
-    expect(location.origin).toBe(new URL(response.url()).origin);
-    expect(location.pathname).toBe("/");
-    expect(location.search).toBe("?from=hosting-check");
+    const redirectAddress = new URL(response.headers().location, response.url());
+    expect(redirectAddress.origin).toBe(new URL(response.url()).origin);
+    expect(redirectAddress.pathname).toBe("/");
+    expect(redirectAddress.search).toBe("?from=hosting-check");
   });
 }
 
-test("only the Cloudflare test address sends noindex", async ({ request }) => {
-  for (const [host, robots] of [
+test("Cloudflare sends noindex only for the preview hostname", async ({ request }) => {
+  for (const [requestHostname, expectedRobotsHeader] of [
     ["cristianvega-ai.preview.workers.dev", "noindex"],
     ["cristianvega.ai", undefined],
   ]) {
-    const response = await request.get("/", { headers: { host } });
+    const response = await request.get("/", { headers: { host: requestHostname } });
     expect(response.status()).toBe(200);
-    expect(response.headers()["x-robots-tag"], host).toBe(robots);
+    expect(response.headers()["x-robots-tag"], requestHostname).toBe(expectedRobotsHeader);
   }
 });
 
-test("Cloudflare compresses built scripts and gives them an immutable cache", async ({ request }) => {
-  const home = await request.get("/");
-  const pageMarkup = await home.text();
-  const sources = [...pageMarkup.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, scriptAddress]) => scriptAddress);
-  const globe = sources.find((scriptAddress) => scriptAddress.includes("LyraGlobe"));
-  const analytics = sources.find((scriptAddress) => scriptAddress.includes("CloudflareAnalytics"));
-  expect(globe).toBeTruthy();
-  expect(analytics).toBeTruthy();
-  const paths = [
-    [globe, "public, max-age=31536000, immutable"],
-    [analytics, "public, max-age=31536000, immutable"],
+test("Cloudflare compresses built scripts and sets immutable caching", async ({ request }) => {
+  const homeResponse = await request.get("/");
+  const pageMarkup = await homeResponse.text();
+  const scriptAddresses = [...pageMarkup.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, scriptAddress]) => scriptAddress);
+  const globeScriptAddress = scriptAddresses.find((scriptAddress) => scriptAddress.includes("LyraGlobe"));
+  const analyticsScriptAddress = scriptAddresses.find((scriptAddress) => scriptAddress.includes("CloudflareAnalytics"));
+  expect(globeScriptAddress).toBeTruthy();
+  expect(analyticsScriptAddress).toBeTruthy();
+  const scriptCacheExpectations = [
+    [globeScriptAddress, "public, max-age=31536000, immutable"],
+    [analyticsScriptAddress, "public, max-age=31536000, immutable"],
   ];
-  for (const [path, cache] of paths) {
-    const response = await request.get(path, { headers: { "accept-encoding": "gzip" } });
+  for (const [requestPath, expectedCacheHeader] of scriptCacheExpectations) {
+    const response = await request.get(requestPath, { headers: { "accept-encoding": "gzip" } });
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toMatch(/javascript/);
     expect(response.headers()["content-encoding"]).toBe("gzip");
-    expect(response.headers()["cache-control"]).toBe(cache);
+    expect(response.headers()["cache-control"]).toBe(expectedCacheHeader);
   }
-  const portrait = await request.get("/images/cristian-vega-social-preview.jpg");
-  expect(portrait.status()).toBe(200);
-  expect(portrait.headers()["cache-control"]).toBe("public, max-age=604800, stale-while-revalidate=86400");
+  const portraitResponse = await request.get("/images/cristian-vega-social-preview.jpg");
+  expect(portraitResponse.status()).toBe(200);
+  expect(portraitResponse.headers()["cache-control"]).toBe("public, max-age=604800, stale-while-revalidate=86400");
 });
 
 test("Cloudflare does not serve configuration files or directory listings", async ({ request }) => {
-  for (const path of ["/_headers", "/_redirects", "/.htaccess", "/.env", "/.well-known/.env", "/_astro/", "/images/"]) {
-    const response = await request.get(path, { maxRedirects: 0 });
-    expect(response.status(), path).toBe(404);
-    expect(await response.text(), path).toContain("Page not found");
+  for (const requestPath of ["/_headers", "/_redirects", "/.htaccess", "/.env", "/.well-known/.env", "/_astro/", "/images/"]) {
+    const response = await request.get(requestPath, { maxRedirects: 0 });
+    expect(response.status(), requestPath).toBe(404);
+    expect(await response.text(), requestPath).toContain("Page not found");
   }
 });
 

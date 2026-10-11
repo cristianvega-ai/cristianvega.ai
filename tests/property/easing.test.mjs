@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 
 import { easeOutCubic } from "../../src/shared/motion/easing.ts";
 
-test("easeOutCubic starts at zero, ends at one, and never falls", () => {
+test("easeOutCubic returns zero and one at the endpoints and increases monotonically across progress samples", () => {
   assert.equal(easeOutCubic(0), 0);
   assert.equal(easeOutCubic(1), 1);
-  let previous = 0;
-  for (let t = 0.05; t <= 1; t += 0.05) {
-    const value = easeOutCubic(t);
-    assert.ok(value >= previous, `easeOutCubic must not fall at ${t}`);
-    previous = value;
+  let previousValue = 0;
+  for (let progress = 0.05; progress <= 1; progress += 0.05) {
+    const easedProgress = easeOutCubic(progress);
+    assert.ok(easedProgress >= previousValue, `easeOutCubic must not decrease at progress ${progress}`);
+    previousValue = easedProgress;
   }
 });

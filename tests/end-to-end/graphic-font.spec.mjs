@@ -1,48 +1,48 @@
 import { readFileSync as readFileSynchronously } from "node:fs";
-import { expect, test as baseTest } from "@playwright/test";
+import { expect, test as browserTest } from "@playwright/test";
 
-import { DRAFT_ORIGIN, drawnLabels, settle, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS, pendingFrames } from "../shared/browser-fixtures.mjs";
+import { DRAFT_ORIGIN as draftOrigin, drawnLabels, settle, useLabelSpy, useManualFrames, useReducedMotion, VIEWPORTS as viewports, pendingFrames } from "../shared/browser-fixtures.mjs";
 
 const wideFontPath = "/__graphic-wide-font__.woff2";
 const monospacedFont = readFileSynchronously(new URL("../../src/assets/fonts/ibm-plex-mono-latin-400.woff2", import.meta.url));
 
-const test = baseTest.extend({
+const test = browserTest.extend({
   problems: async ({ page }, use) => {
-    const problems = [];
-    page.on("pageerror", (error) => problems.push(error.message));
+    const recordedPageProblems = [];
+    page.on("pageerror", (error) => recordedPageProblems.push(error.message));
     page.on("console", (message) => {
-      const blockedFont = message.location().url.includes(".woff2") && message.text().includes("ERR_FAILED");
-      if (!blockedFont && ["error", "warning"].includes(message.type())) problems.push(message.text());
+      const expectedBlockedFontError = message.location().url.includes(".woff2") && message.text().includes("ERR_FAILED");
+      if (!expectedBlockedFontError && ["error", "warning"].includes(message.type())) recordedPageProblems.push(message.text());
     });
-    await use(problems);
-    expect(problems).toEqual([]);
+    await use(recordedPageProblems);
+    expect(recordedPageProblems).toEqual([]);
   },
 });
 
-async function useFontToken(page, family, name = "--font-monospace") {
-  await page.addInitScript(([property, token]) => {
+async function useFontToken(page, fontFamily, propertyName = "--font-monospace") {
+  await page.addInitScript(([propertyName, fontFamily]) => {
     document.addEventListener("readystatechange", () => {
-      if (document.readyState === "interactive") document.documentElement.style.setProperty(property, token, "important");
+      if (document.readyState === "interactive") document.documentElement.style.setProperty(propertyName, fontFamily, "important");
     });
-  }, [name, family]);
+  }, [propertyName, fontFamily]);
 }
 
 
-async function assertLabels(page) {
+async function expectReadableLabels(page) {
   const { labels } = await drawnLabels(page);
-  expect(labels.length, "the font check requires drawn labels").toBeGreaterThan(0);
+  expect(labels.length, "The font check must receive drawn labels").toBeGreaterThan(0);
   for (const label of labels) {
-    expect(label.font, `${label.text}: the label has a canvas font`).toBeTruthy();
-    expect(label.localLeft, `${label.text}: the label stays inside the canvas`).toBeGreaterThanOrEqual(0);
-    expect(label.localRight, `${label.text}: the label stays inside the canvas`).toBeLessThanOrEqual(label.canvasWidth);
-    expect(label.localTop, `${label.text}: the label stays inside the canvas`).toBeGreaterThanOrEqual(0);
-    expect(label.localBottom, `${label.text}: the label stays inside the canvas`).toBeLessThanOrEqual(label.canvasHeight);
+    expect(label.font, `${label.text}: the drawn label must have a canvas font`).toBeTruthy();
+    expect(label.localLeft, `${label.text}: the drawn label bounds must stay inside the canvas`).toBeGreaterThanOrEqual(0);
+    expect(label.localRight, `${label.text}: the drawn label bounds must stay inside the canvas`).toBeLessThanOrEqual(label.canvasWidth);
+    expect(label.localTop, `${label.text}: the drawn label bounds must stay inside the canvas`).toBeGreaterThanOrEqual(0);
+    expect(label.localBottom, `${label.text}: the drawn label bounds must stay inside the canvas`).toBeLessThanOrEqual(label.canvasHeight);
   }
   return labels;
 }
 
-test("missing fonts keep content and graphic labels readable", async ({ page, problems }) => {
-  await page.setViewportSize(VIEWPORTS.mobile);
+test("Content and graphic labels remain readable when fonts fail", async ({ page, problems: recordedPageProblems }) => {
+  await page.setViewportSize(viewports.mobile);
   await useReducedMotion(page);
   await useLabelSpy(page);
   await page.route("**/*.woff2*", (route) => route.abort());
@@ -50,68 +50,68 @@ test("missing fonts keep content and graphic labels readable", async ({ page, pr
   await expect(page.locator("[data-graphic]")).toHaveAttribute("data-ready", "true");
   await settle(page);
   await expect(page.locator("main h1")).toBeVisible();
-  await assertLabels(page);
-  expect(problems).toEqual([]);
+  await expectReadableLabels(page);
+  expect(recordedPageProblems).toEqual([]);
 });
 
-test("refreshes delayed wide font measurements and resized placement", async ({ page, problems }) => {
-  let release;
+test("Graphic labels refresh measurements and placement after delayed fonts load and viewport sizes change", async ({ page, problems: recordedPageProblems }) => {
+  let releaseFontResponse;
   await useLabelSpy(page);
   await useReducedMotion(page);
   await useFontToken(page, '"Wide Label", monospace');
   await page.route(`**${wideFontPath}`, (route) => new Promise((resolve) => {
-    release = async () => {
+    releaseFontResponse = async () => {
       await route.fulfill({ contentType: "font/woff2", body: monospacedFont });
       resolve();
     };
   }));
   await page.addInitScript((fontPath) => {
-    const face = new FontFace("Wide Label", `url(${fontPath})`, { sizeAdjust: "160%" });
-    document.fonts.add(face);
-    window.__wideFont = face;
-    window.__wideFontReady = face.load();
+    const fontFace = new FontFace("Wide Label", `url(${fontPath})`, { sizeAdjust: "160%" });
+    document.fonts.add(fontFace);
+    window.__wideFont = fontFace;
+    window.__wideFontReady = fontFace.load();
   }, wideFontPath);
   await page.goto("/about/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("[data-graphic]")).toHaveAttribute("data-ready", "true");
-  await expect.poll(() => typeof release).toBe("function");
+  await expect.poll(() => typeof releaseFontResponse).toBe("function");
   expect(await page.evaluate(() => window.__wideFont.status)).toBe("loading");
-  const before = (await drawnLabels(page)).labels.find((label) => label.text === "VEGA · α LYR");
-  const fallbackWidth = before.localRight - before.localLeft;
-  const measures = await page.evaluate(() => window.__labelMeasureCount);
-  await release();
+  const fallbackLabel = (await drawnLabels(page)).labels.find((label) => label.text === "VEGA · α LYR");
+  const fallbackWidth = fallbackLabel.localRight - fallbackLabel.localLeft;
+  const measurementCount = await page.evaluate(() => window.__labelMeasureCount);
+  await releaseFontResponse();
   await page.evaluate(() => window.__wideFontReady);
   await settle(page);
   await expect.poll(async () => {
-    const label = (await drawnLabels(page)).labels.find((item) => item.text === "VEGA · α LYR");
+    const label = (await drawnLabels(page)).labels.find((drawnLabel) => drawnLabel.text === "VEGA · α LYR");
     return label.localRight - label.localLeft;
   }).toBeGreaterThan(fallbackWidth * 1.4);
-  expect(await page.evaluate(() => window.__labelMeasureCount)).toBeGreaterThan(measures);
-  for (const viewport of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
+  expect(await page.evaluate(() => window.__labelMeasureCount)).toBeGreaterThan(measurementCount);
+  for (const viewport of [viewports.desktop, viewports.mobile]) {
     await page.evaluate(() => window.__labels.clear());
     await page.setViewportSize(viewport);
     await expect.poll(() => page.evaluate(() => window.__labels.size)).toBeGreaterThan(0);
     await settle(page);
-    await assertLabels(page);
+    await expectReadableLabels(page);
   }
-  expect(problems).toEqual([]);
+  expect(recordedPageProblems).toEqual([]);
 });
 
-test("applies a pending motion preference when a font refresh comes first", async ({ page, problems }) => {
+test("Graphic font refresh applies a pending motion preference before drawing", async ({ page, problems: recordedPageProblems }) => {
   await useLabelSpy(page);
   await useManualFrames(page);
   await page.addInitScript(() => {
     const originalAddEventListener = MediaQueryList.prototype.addEventListener;
     const originalRemoveEventListener = MediaQueryList.prototype.removeEventListener;
-    const wrappers = new WeakMap();
+    const listenerWrappers = new WeakMap();
     window.__preferenceJobs = [];
-    MediaQueryList.prototype.addEventListener = function (type, listener, options) {
-      if (type !== "change" || !this.media.includes("prefers-reduced-motion")) return originalAddEventListener.call(this, type, listener, options);
-      const wrapped = (event) => window.__preferenceJobs.push(() => listener.call(this, event));
-      wrappers.set(listener, wrapped);
-      return originalAddEventListener.call(this, type, wrapped, options);
+    MediaQueryList.prototype.addEventListener = function (eventType, listener, listenerOptions) {
+      if (eventType !== "change" || !this.media.includes("prefers-reduced-motion")) return originalAddEventListener.call(this, eventType, listener, listenerOptions);
+      const deferredListener = (event) => window.__preferenceJobs.push(() => listener.call(this, event));
+      listenerWrappers.set(listener, deferredListener);
+      return originalAddEventListener.call(this, eventType, deferredListener, listenerOptions);
     };
-    MediaQueryList.prototype.removeEventListener = function (type, listener, options) {
-      return originalRemoveEventListener.call(this, type, wrappers.get(listener) ?? listener, options);
+    MediaQueryList.prototype.removeEventListener = function (eventType, listener, listenerOptions) {
+      return originalRemoveEventListener.call(this, eventType, listenerWrappers.get(listener) ?? listener, listenerOptions);
     };
   });
   await page.goto("/about/");
@@ -124,37 +124,37 @@ test("applies a pending motion preference when a font refresh comes first", asyn
     document.documentElement.style.setProperty("--font-monospace", '"IBM Plex Sans", sans-serif');
     document.fonts.dispatchEvent(new Event("loadingdone"));
   });
-  // The controller applies the new preference before the font redraw, whatever the event order.
+  // The controller must apply the pending motion preference before the font redraw.
   await expect(page.locator("[data-graphic]")).toHaveAttribute("data-motion-state", "still");
   expect(await pendingFrames(page)).toBe(0);
   await page.evaluate(() => window.__preferenceJobs.shift()());
   await expect(page.locator("[data-graphic]")).toHaveAttribute("data-motion-state", "still");
   expect(await pendingFrames(page)).toBe(0);
-  const labels = await assertLabels(page);
+  const labels = await expectReadableLabels(page);
   expect(labels[0].font).toContain("IBM Plex Sans");
-  expect(problems).toEqual([]);
+  expect(recordedPageProblems).toEqual([]);
 });
 
-test("ignores font callbacks after teardown and rebuilds after restore", async ({ page, problems }) => {
+test("Graphic font callbacks stop after teardown and labels rebuild after page restoration", async ({ page, problems: recordedPageProblems }) => {
   await useLabelSpy(page);
   await useReducedMotion(page);
   await page.addInitScript(() => {
-    const ready = Object.getOwnPropertyDescriptor(FontFaceSet.prototype, "ready").get;
-    window.__nativeFontReady = () => ready.call(document.fonts);
-    const pending = new Promise((resolve) => { window.__releaseFontReady = resolve; });
-    Object.defineProperty(document.fonts, "ready", { configurable: true, get: () => pending });
+    const nativeReadyGetter = Object.getOwnPropertyDescriptor(FontFaceSet.prototype, "ready").get;
+    window.__nativeFontReady = () => nativeReadyGetter.call(document.fonts);
+    const fontReadyPromise = new Promise((resolve) => { window.__releaseFontReady = resolve; });
+    Object.defineProperty(document.fonts, "ready", { configurable: true, get: () => fontReadyPromise });
   });
   await page.goto("/about/");
   await expect(page.locator("[data-graphic]")).toHaveAttribute("data-ready", "true");
   await page.evaluate(() => window.__nativeFontReady());
-  const measures = await page.evaluate(() => window.__labelMeasureCount);
+  const measurementCount = await page.evaluate(() => window.__labelMeasureCount);
   await page.evaluate(() => {
     dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true }));
     window.__releaseFontReady();
     document.fonts.dispatchEvent(new Event("loadingdone"));
     document.fonts.dispatchEvent(new Event("loadingerror"));
   });
-  expect(await page.evaluate(() => window.__labelMeasureCount)).toBe(measures);
+  expect(await page.evaluate(() => window.__labelMeasureCount)).toBe(measurementCount);
   await expect(page.locator("[data-graphic]")).not.toHaveAttribute("data-ready", /.*/);
   await page.evaluate(() => {
     document.documentElement.style.setProperty("--font-monospace", '"IBM Plex Sans", sans-serif');
@@ -162,8 +162,8 @@ test("ignores font callbacks after teardown and rebuilds after restore", async (
   });
   await expect(page.locator("[data-graphic]")).toHaveAttribute("data-ready", "true");
   await settle(page);
-  const labels = await assertLabels(page);
+  const labels = await expectReadableLabels(page);
   expect(labels[0].font).toContain("IBM Plex Sans");
-  expect(await page.evaluate(() => window.__labelMeasureCount)).toBeGreaterThan(measures);
-  expect(problems).toEqual([]);
+  expect(await page.evaluate(() => window.__labelMeasureCount)).toBeGreaterThan(measurementCount);
+  expect(recordedPageProblems).toEqual([]);
 });

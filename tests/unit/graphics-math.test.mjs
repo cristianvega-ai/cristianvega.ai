@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { stagger } from "../../src/shared/motion/clock.ts";
 import { interpolate, smooth } from "../../src/shared/page-graphics/math.ts";
 
-test("stagger, smooth, and interpolate stay inside their ranges", () => {
+test("stagger, smooth, and interpolate return expected values for fixed boundary and intermediate inputs", () => {
   assert.equal(stagger(0.1, 0.2, 0.4), 0);
   assert.equal(stagger(0.4, 0.2, 0.4), 0.5);
   assert.equal(stagger(0.9, 0.2, 0.4), 1);

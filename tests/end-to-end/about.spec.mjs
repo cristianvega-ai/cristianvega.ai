@@ -1,89 +1,89 @@
 import { expect, test } from "@playwright/test";
-import { pendingFrames, useManualFrames, useReducedMotion, VIEWPORTS } from "../shared/browser-fixtures.mjs";
+import { pendingFrames, useManualFrames, useReducedMotion, VIEWPORTS as viewports } from "../shared/browser-fixtures.mjs";
 
-const graphic = "[data-graphic='about']";
+const graphicSelector = "[data-graphic='about']";
 
 test.use({ viewport: { width: 1440, height: 600 } });
 
-test("maps the reader's place to the whole path: the start at the top, Vega at the bottom", async ({ page }) => {
+test("About maps scroll position to path progress from the start to Vega", async ({ page }) => {
     await page.goto("/about/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
-    const progress = async () => Number(await page.locator(graphic).getAttribute("data-progress"));
-    const scrollToPageFraction = (where) => page.evaluate((share) => scrollTo(0, (document.documentElement.scrollHeight - innerHeight) * share), where);
+    await expect(page.locator(graphicSelector)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
+    const readPathProgress = async () => Number(await page.locator(graphicSelector).getAttribute("data-progress"));
+    const scrollToPageFraction = (pageFraction) => page.evaluate((pageFraction) => scrollTo(0, (document.documentElement.scrollHeight - innerHeight) * pageFraction), pageFraction);
 
-    await expect.poll(progress, "rests at the start of the path at the top").toBeCloseTo(0, 2);
+    await expect.poll(readPathProgress, "The About path must start at zero progress at the page top").toBeCloseTo(0, 2);
     await scrollToPageFraction(0.5);
-    await expect.poll(progress).toBeGreaterThan(0.45);
-    await expect.poll(progress).toBeLessThan(0.55);
+    await expect.poll(readPathProgress).toBeGreaterThan(0.45);
+    await expect.poll(readPathProgress).toBeLessThan(0.55);
     await scrollToPageFraction(1);
-    await expect.poll(progress, "reaches Vega at the bottom").toBeCloseTo(1, 2);
-    // The loop stops once the marker reaches the reader.
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still");
+    await expect.poll(readPathProgress, "The About path must reach full progress at the page bottom").toBeCloseTo(1, 2);
+    // The animation stops when the marker reaches the scroll position.
+    await expect(page.locator(graphicSelector)).toHaveAttribute("data-motion-state", "still");
     await scrollToPageFraction(0);
-    await expect.poll(progress).toBeCloseTo(0, 2);
+    await expect.poll(readPathProgress).toBeCloseTo(0, 2);
   });
 
-test("rests on the full path when the page cannot scroll", async ({ page }) => {
+test("About completes the path when the page cannot scroll", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 5000 });
     await page.goto("/about/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
-    expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight), "the page fits the window").toBe(true);
-    await expect(page.locator(graphic)).toHaveAttribute("data-progress", "1");
+    await expect(page.locator(graphicSelector)).toHaveAttribute("data-motion-state", "still", { timeout: 10_000 });
+    expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight), "The About page must fit inside the viewport").toBe(true);
+    await expect(page.locator(graphicSelector)).toHaveAttribute("data-progress", "1");
   });
 
-test("reduced motion lights the path to the reader's place and the marker jumps without easing", async ({ page }) => {
+test("About updates path progress immediately with no frames under reduced motion", async ({ page }) => {
     await useManualFrames(page);
     await useReducedMotion(page);
     await page.goto("/about/");
-    await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-    // No frame runs, so a value that follows the scroll at once cannot come from an eased marker.
+    await expect(page.locator(graphicSelector)).toHaveAttribute("data-ready", "true");
+    // Immediate progress without frames proves that reduced motion bypasses marker easing.
     await page.evaluate(() => scrollTo(0, (document.documentElement.scrollHeight - innerHeight) * 0.5));
-    await expect.poll(async () => Number(await page.locator(graphic).getAttribute("data-progress"))).toBeGreaterThan(0.45);
-    expect(Number(await page.locator(graphic).getAttribute("data-progress"))).toBeLessThan(0.55);
+    await expect.poll(async () => Number(await page.locator(graphicSelector).getAttribute("data-progress"))).toBeGreaterThan(0.45);
+    expect(Number(await page.locator(graphicSelector).getAttribute("data-progress"))).toBeLessThan(0.55);
     expect(await pendingFrames(page)).toBe(0);
     await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
-    await expect(page.locator(graphic)).toHaveAttribute("data-progress", "1");
+    await expect(page.locator(graphicSelector)).toHaveAttribute("data-progress", "1");
     expect(await pendingFrames(page)).toBe(0);
   });
 
 test("About keeps its profile readable without JavaScript", async ({ browser, baseURL: baseAddress }) => {
-  const context = await browser.newContext({ javaScriptEnabled: false, viewport: VIEWPORTS.mobile });
+  const browserContext = await browser.newContext({ javaScriptEnabled: false, viewport: viewports.mobile });
   try {
-    const page = await context.newPage();
+    const page = await browserContext.newPage();
     await page.goto(new URL("/about/", baseAddress).href);
-    await expect(page.locator(graphic)).toBeHidden();
+    await expect(page.locator(graphicSelector)).toBeHidden();
     await expect(page.locator("h1")).toBeVisible();
     await expect(page.locator(".about__lede")).toBeVisible();
     await expect(page.locator(".about__profile")).toBeVisible();
   } finally {
-    await context.close();
+    await browserContext.close();
   }
 });
 
-test("About removes its scroll listener and restores reader tracking", async ({ page }) => {
+test("About removes its scroll listener on pagehide and restores reader tracking on pageshow", async ({ page }) => {
   await useReducedMotion(page);
   await page.addInitScript(() => {
-    const listeners = new Set();
-    const add = EventTarget.prototype.addEventListener;
-    const remove = EventTarget.prototype.removeEventListener;
-    EventTarget.prototype.addEventListener = function (type, listener, options) {
-      if (this === window && type === "scroll") listeners.add(listener);
-      return add.call(this, type, listener, options);
+    const scrollListeners = new Set();
+    const originalAddEventListener = EventTarget.prototype.addEventListener;
+    const originalRemoveEventListener = EventTarget.prototype.removeEventListener;
+    EventTarget.prototype.addEventListener = function (eventType, listener, listenerOptions) {
+      if (this === window && eventType === "scroll") scrollListeners.add(listener);
+      return originalAddEventListener.call(this, eventType, listener, listenerOptions);
     };
-    EventTarget.prototype.removeEventListener = function (type, listener, options) {
-      if (this === window && type === "scroll") listeners.delete(listener);
-      return remove.call(this, type, listener, options);
+    EventTarget.prototype.removeEventListener = function (eventType, listener, listenerOptions) {
+      if (this === window && eventType === "scroll") scrollListeners.delete(listener);
+      return originalRemoveEventListener.call(this, eventType, listener, listenerOptions);
     };
-    window.__scrollListeners = () => listeners.size;
+    window.__scrollListeners = () => scrollListeners.size;
   });
   await page.goto("/about/");
-  await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-  expect(await page.evaluate(() => window.__scrollListeners()), "one reader listener attaches").toBe(1);
+  await expect(page.locator(graphicSelector)).toHaveAttribute("data-ready", "true");
+  expect(await page.evaluate(() => window.__scrollListeners()), "The About page must attach one scroll listener").toBe(1);
   await page.evaluate(() => dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true })));
-  expect(await page.evaluate(() => window.__scrollListeners()), "pagehide must remove the reader listener").toBe(0);
+  expect(await page.evaluate(() => window.__scrollListeners()), "The About page must remove its scroll listener on pagehide").toBe(0);
   await page.evaluate(() => dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })));
-  await expect(page.locator(graphic)).toHaveAttribute("data-ready", "true");
-  expect(await page.evaluate(() => window.__scrollListeners()), "one reader listener returns after restore").toBe(1);
+  await expect(page.locator(graphicSelector)).toHaveAttribute("data-ready", "true");
+  expect(await page.evaluate(() => window.__scrollListeners()), "The About page must restore one scroll listener on pageshow").toBe(1);
   await page.evaluate(() => scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
-  await expect(page.locator(graphic)).toHaveAttribute("data-progress", "1");
+  await expect(page.locator(graphicSelector)).toHaveAttribute("data-progress", "1");
 });

@@ -1,38 +1,38 @@
 import { expect, test } from "@playwright/test";
-import { paintedPixels, pendingFrames, playFrames, settle, useManualFrames, useReducedMotion, VIEWPORTS } from "../shared/browser-fixtures.mjs";
+import { paintedPixels, pendingFrames, playFrames, settle, useManualFrames, useReducedMotion, VIEWPORTS as viewports } from "../shared/browser-fixtures.mjs";
 
-const globe = "[data-lyra-globe]";
-const labels = `${globe} .lyra-globe__label`;
-const opacity = (page) => page.locator(labels).evaluateAll((nodes) => nodes.map((node) => Number(getComputedStyle(node).opacity)));
-const transition = (page, type) => page.evaluate((name) => {
-  window.dispatchEvent(new PageTransitionEvent(name, { persisted: true }));
-}, type);
+const globeSelector = "[data-lyra-globe]";
+const labelSelector = `${globeSelector} .lyra-globe__label`;
+const readLabelOpacities = (page) => page.locator(labelSelector).evaluateAll((nodes) => nodes.map((node) => Number(getComputedStyle(node).opacity)));
+const dispatchPageTransition = (page, transitionType) => page.evaluate((transitionType) => {
+  window.dispatchEvent(new PageTransitionEvent(transitionType, { persisted: true }));
+}, transitionType);
 
-test.use({ viewport: VIEWPORTS.desktop });
+test.use({ viewport: viewports.desktop });
 
 async function finishLabels(page) {
-  await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "still");
-  const visible = await opacity(page);
-  expect(visible.length, "the globe supplies visible labels").toBeGreaterThan(0);
-  expect(visible.every((value) => value > 0), "the completed labels must be visible").toBe(true);
-  await expect.poll(() => page.locator(labels).evaluateAll((nodes) => nodes.flatMap((node) => node.getAnimations()).length)).toBe(0);
+  await expect(page.locator(globeSelector)).toHaveAttribute("data-motion-state", "still");
+  const labelOpacities = await readLabelOpacities(page);
+  expect(labelOpacities.length, "The globe must supply labels before the visibility check").toBeGreaterThan(0);
+  expect(labelOpacities.every((labelOpacity) => labelOpacity > 0), "Completed globe labels must have positive opacity").toBe(true);
+  await expect.poll(() => page.locator(labelSelector).evaluateAll((nodes) => nodes.flatMap((node) => node.getAnimations()).length)).toBe(0);
   await settle(page);
 }
 
-test("globe labels pause with their canvas in a hidden tab", async ({ page }) => {
+test("Globe labels pause with the canvas when the tab becomes hidden", async ({ page }) => {
   await useManualFrames(page);
   await page.goto("/");
-  await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
+  await expect(page.locator(globeSelector)).toHaveAttribute("data-ready", "true");
   await playFrames(page, 800);
-  await expect.poll(async () => (await opacity(page))[1]).toBeGreaterThan(0);
-  const first = await opacity(page);
+  await expect.poll(async () => (await readLabelOpacities(page))[1]).toBeGreaterThan(0);
+  const pausedOpacities = await readLabelOpacities(page);
   await page.evaluate(() => {
     Object.defineProperty(document, "hidden", { configurable: true, value: true });
     document.dispatchEvent(new Event("visibilitychange"));
   });
-  expect(await pendingFrames(page), "the hidden globe must stop its clock").toBe(0);
+  expect(await pendingFrames(page), "The hidden globe must queue no frames").toBe(0);
   await playFrames(page, 3000);
-  expect(await opacity(page), "the labels must keep their paused progress").toEqual(first);
+  expect(await readLabelOpacities(page), "Hidden globe labels must preserve their paused opacity").toEqual(pausedOpacities);
   await page.evaluate(() => {
     Object.defineProperty(document, "hidden", { configurable: true, value: false });
     document.dispatchEvent(new Event("visibilitychange"));
@@ -43,23 +43,23 @@ test("globe labels pause with their canvas in a hidden tab", async ({ page }) =>
   expect(await pendingFrames(page)).toBe(0);
 });
 
-test("a restored globe replays its entrance and completes its labels", async ({ page }) => {
+test("A restored globe replays its entrance and completes its labels", async ({ page }) => {
   await useManualFrames(page);
   await page.goto("/");
-  await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
+  await expect(page.locator(globeSelector)).toHaveAttribute("data-ready", "true");
   await playFrames(page, 3000);
   await finishLabels(page);
-  await transition(page, "pagehide");
-  expect(await pendingFrames(page), "the hidden page must cancel its frames").toBe(0);
-  await expect(page.locator(globe)).not.toHaveAttribute("data-ready", /.*/);
-  await transition(page, "pageshow");
-  await expect(page.locator(globe)).toHaveAttribute("data-motion-state", "playing");
+  await dispatchPageTransition(page, "pagehide");
+  expect(await pendingFrames(page), "The globe must cancel queued frames on pagehide").toBe(0);
+  await expect(page.locator(globeSelector)).not.toHaveAttribute("data-ready", /.*/);
+  await dispatchPageTransition(page, "pageshow");
+  await expect(page.locator(globeSelector)).toHaveAttribute("data-motion-state", "playing");
   expect(await pendingFrames(page)).toBe(1);
   await playFrames(page, 3000);
   await finishLabels(page);
 });
 
-test("shows complete labels for reduced motion and live preference changes", async ({ page }) => {
+test("Globe labels complete under reduced motion and live preference changes", async ({ page }) => {
   await useManualFrames(page);
   await useReducedMotion(page);
   await page.goto("/");
@@ -67,37 +67,37 @@ test("shows complete labels for reduced motion and live preference changes", asy
   expect(await pendingFrames(page)).toBe(0);
   await useReducedMotion(page, "no-preference");
   await finishLabels(page);
-  await transition(page, "pagehide");
-  await transition(page, "pageshow");
-  await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
+  await dispatchPageTransition(page, "pagehide");
+  await dispatchPageTransition(page, "pageshow");
+  await expect(page.locator(globeSelector)).toHaveAttribute("data-ready", "true");
   await expect.poll(() => pendingFrames(page)).toBe(1);
-  expect(await opacity(page)).toEqual([0, 0]);
+  expect(await readLabelOpacities(page)).toEqual([0, 0]);
   await playFrames(page, 816);
   await useReducedMotion(page);
   await finishLabels(page);
   expect(await pendingFrames(page)).toBe(0);
 });
 
-// A failed projection stylesheet must leave useful geometry in both layouts.
-for (const viewport of [VIEWPORTS.desktop, VIEWPORTS.mobile]) {
-  test(`home keeps a readable globe after stylesheet failure at ${viewport.width}px`, async ({ page }) => {
-    const problems = [];
-    page.on("pageerror", (error) => problems.push(error.message));
+// Check globe dimensions after stylesheet failure in both navigation layouts.
+for (const viewport of [viewports.desktop, viewports.mobile]) {
+  test(`Home preserves a readable globe after stylesheet failure at ${viewport.width}px`, async ({ page }) => {
+    const recordedPageProblems = [];
+    page.on("pageerror", (error) => recordedPageProblems.push(error.message));
     page.on("console", (message) => {
       const blockedStylesheet = message.location().url.includes("/globe-projection/") && message.text().includes("ERR_FAILED");
-      if (message.type() === "error" && !blockedStylesheet) problems.push(message.text());
+      if (message.type() === "error" && !blockedStylesheet) recordedPageProblems.push(message.text());
     });
     await page.setViewportSize(viewport);
     await useReducedMotion(page);
     await page.route("**/globe-projection/**", (route) => route.abort());
     await page.goto("/");
-    await expect(page.locator(globe)).toHaveAttribute("data-ready", "true");
+    await expect(page.locator(globeSelector)).toHaveAttribute("data-ready", "true");
     await finishLabels(page);
     await expect(page.locator("h1")).toBeVisible();
-    const box = await page.locator(globe).boundingBox();
-    expect(box.width, "the globe keeps a useful width without its stylesheet").toBeGreaterThan(100);
-    expect(box.height, "the globe keeps a useful height without its stylesheet").toBeGreaterThan(100);
-    expect(await paintedPixels(page, globe, 8), "the stylesheet fallback must leave foreground paint").toBeGreaterThan(100);
-    expect(problems).toEqual([]);
+    const globeRectangle = await page.locator(globeSelector).boundingBox();
+    expect(globeRectangle.width, "The globe width must exceed 100 pixels when its stylesheet fails").toBeGreaterThan(100);
+    expect(globeRectangle.height, "The globe height must exceed 100 pixels when its stylesheet fails").toBeGreaterThan(100);
+    expect(await paintedPixels(page, globeSelector, 8), "The globe must preserve foreground paint when its stylesheet fails").toBeGreaterThan(100);
+    expect(recordedPageProblems).toEqual([]);
   });
 }

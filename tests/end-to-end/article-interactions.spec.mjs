@@ -1,30 +1,30 @@
 import { expect, test } from "@playwright/test";
-import { DRAFT_ORIGIN, pageProblems, settle, useReducedMotion, VIEWPORTS } from "../shared/browser-fixtures.mjs";
+import { DRAFT_ORIGIN as draftOrigin, pageProblems, settle, useReducedMotion, VIEWPORTS as viewports } from "../shared/browser-fixtures.mjs";
 
-test.use({ baseURL: DRAFT_ORIGIN });
+test.use({ baseURL: draftOrigin });
 
-const article = "/writing/full-article-layout-fixture/";
+const articlePath = "/writing/full-article-layout-fixture/";
 
 // Add test content to the browser and run the article setup.
-async function loadArticle(page, content, outside = "") {
-  const errors = pageProblems(page);
+async function loadArticle(page, articleMarkup, outsideMarkup = "") {
+  const recordedPageProblems = pageProblems(page);
   await useReducedMotion(page);
-  await page.goto(article);
+  await page.goto(articlePath);
   await settle(page);
-  await page.locator(".article").evaluate((element, { content, outside }) => {
-    element.insertAdjacentHTML("beforeend", content);
-    element.insertAdjacentHTML("beforebegin", outside);
-  }, { content, outside });
+  await page.locator(".article").evaluate((element, { content: articleMarkup, outside: outsideMarkup }) => {
+    element.insertAdjacentHTML("beforeend", articleMarkup);
+    element.insertAdjacentHTML("beforebegin", outsideMarkup);
+  }, { content: articleMarkup, outside: outsideMarkup });
   await page.evaluate(async () => {
     const { setupArticle } = await import("/src/shared/article-interactions.ts");
     setupArticle();
   });
-  return errors;
+  return recordedPageProblems;
 }
 
-test("article supplies accessible defaults and keyboard access", async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.mobile);
-    const errors = await loadArticle(page, `
+test("Article setup supplies default code and diagram names with keyboard access", async ({ page }) => {
+    await page.setViewportSize(viewports.mobile);
+    const recordedPageProblems = await loadArticle(page, `
       <div class="prose">
         <a id="before-defaults" href="#after-defaults">Before examples</a>
         <pre id="default-code"><code>const signal = 1;</code></pre>
@@ -35,12 +35,12 @@ test("article supplies accessible defaults and keyboard access", async ({ page }
     const authoredDiagram = page.locator(".figure__panel").first();
     await expect.soft(authoredDiagram).toHaveAttribute("aria-label", "Lorem ipsum diagram");
     await expect.soft(authoredDiagram).toHaveAccessibleName("Lorem ipsum diagram");
-    for (const [selector, label] of [["#default-code", "Code example"], ["#default-diagram", "Diagram"]]) {
+    for (const [selector, accessibleLabel] of [["#default-code", "Code example"], ["#default-diagram", "Diagram"]]) {
       const element = page.locator(selector);
       await expect(element).toHaveAttribute("role", "region");
       await expect(element).toHaveAttribute("tabindex", "0");
-      await expect(element).toHaveAttribute("aria-label", label);
-      await expect(element).toHaveAccessibleName(label);
+      await expect(element).toHaveAttribute("aria-label", accessibleLabel);
+      await expect(element).toHaveAccessibleName(accessibleLabel);
     }
     await page.locator("#before-defaults").focus();
     await page.keyboard.press("Tab");
@@ -51,27 +51,27 @@ test("article supplies accessible defaults and keyboard access", async ({ page }
     await expect(page.locator("#default-diagram")).toHaveCSS("outline-style", "solid");
     await page.keyboard.press("Tab");
     await expect(page.locator("#after-defaults")).toBeFocused();
-    expect(errors).toEqual([]);
+    expect(recordedPageProblems).toEqual([]);
   });
-test("article keeps authored code and diagram labels", async ({ page }) => {
-  const errors = await loadArticle(page, `
+test("Article setup preserves authored code and diagram labels", async ({ page }) => {
+  const recordedPageProblems = await loadArticle(page, `
     <div class="prose">
       <pre id="named-code" aria-label="Signal configuration"><code>signal.enable();</code></pre>
       <div id="named-diagram" class="figure__panel" aria-label="Signal path">Signal path</div>
     </div>
   `);
-  for (const [selector, label] of [["#named-code", "Signal configuration"], ["#named-diagram", "Signal path"]]) {
+  for (const [selector, accessibleLabel] of [["#named-code", "Signal configuration"], ["#named-diagram", "Signal path"]]) {
     const element = page.locator(selector);
-    await expect.soft(element).toHaveAttribute("aria-label", label);
-    await expect.soft(element).toHaveAccessibleName(label);
+    await expect.soft(element).toHaveAttribute("aria-label", accessibleLabel);
+    await expect.soft(element).toHaveAccessibleName(accessibleLabel);
     await expect(element).toHaveAttribute("role", "region");
     await expect(element).toHaveAttribute("tabindex", "0");
   }
-  expect(errors).toEqual([]);
+  expect(recordedPageProblems).toEqual([]);
 });
 
-test("article keeps label references without adding a label", async ({ page }) => {
-  const errors = await loadArticle(page, `
+test("Article setup preserves label references without adding an aria-label", async ({ page }) => {
+  const recordedPageProblems = await loadArticle(page, `
     <div class="prose">
       <h2 id="code-name">Signal configuration</h2>
       <pre id="referenced-code" aria-labelledby="code-name"><code>signal.enable();</code></pre>
@@ -80,22 +80,22 @@ test("article keeps label references without adding a label", async ({ page }) =
       <div id="referenced-diagram" class="figure__panel" aria-labelledby="diagram-name diagram-detail">Signal path</div>
     </div>
   `);
-  for (const [selector, references, label] of [
+  for (const [selector, labelReferences, accessibleLabel] of [
     ["#referenced-code", "code-name", "Signal configuration"],
     ["#referenced-diagram", "diagram-name diagram-detail", "Signal path With validation"],
   ]) {
     const element = page.locator(selector);
-    await expect(element).toHaveAttribute("aria-labelledby", references);
+    await expect(element).toHaveAttribute("aria-labelledby", labelReferences);
     await expect.soft(element).not.toHaveAttribute("aria-label");
-    await expect(element).toHaveAccessibleName(label);
+    await expect(element).toHaveAccessibleName(accessibleLabel);
     await expect(element).toHaveAttribute("role", "region");
     await expect(element).toHaveAttribute("tabindex", "0");
   }
-  expect(errors).toEqual([]);
+  expect(recordedPageProblems).toEqual([]);
 });
 
-test("article keeps authored roles and focus order", async ({ page }) => {
-  const errors = await loadArticle(page, `
+test("Article setup preserves authored roles and keyboard focus order", async ({ page }) => {
+  const recordedPageProblems = await loadArticle(page, `
     <div class="prose">
       <a id="before-code" href="#after-code">Before code</a>
       <pre id="manual-code" role="group" tabindex="-1" aria-label="Signal configuration"><code>signal.enable();</code></pre>
@@ -103,24 +103,24 @@ test("article keeps authored roles and focus order", async ({ page }) => {
       <div id="first-diagram" class="figure__panel" role="img" tabindex="3" aria-label="Signal path">Signal path</div>
     </div>
   `);
-  const code = page.locator("#manual-code");
-  const diagram = page.locator("#first-diagram");
-  await expect.soft(code).toHaveAttribute("role", "group");
-  await expect.soft(code).toHaveAttribute("tabindex", "-1");
-  await expect.soft(diagram).toHaveAttribute("role", "img");
-  await expect.soft(diagram).toHaveAttribute("tabindex", "3");
+  const codeBlock = page.locator("#manual-code");
+  const diagramPanel = page.locator("#first-diagram");
+  await expect.soft(codeBlock).toHaveAttribute("role", "group");
+  await expect.soft(codeBlock).toHaveAttribute("tabindex", "-1");
+  await expect.soft(diagramPanel).toHaveAttribute("role", "img");
+  await expect.soft(diagramPanel).toHaveAttribute("tabindex", "3");
   await page.keyboard.press("Tab");
-  await expect.soft(diagram).toBeFocused();
+  await expect.soft(diagramPanel).toBeFocused();
   await page.locator("#before-code").focus();
   await page.keyboard.press("Tab");
   await expect.soft(page.locator("#after-code")).toBeFocused();
-  await code.focus();
-  await expect(code).toBeFocused();
-  expect(errors).toEqual([]);
+  await codeBlock.focus();
+  await expect(codeBlock).toBeFocused();
+  expect(recordedPageProblems).toEqual([]);
 });
 
-test("article leaves content and controls outside its root unchanged", async ({ page }) => {
-  const errors = await loadArticle(page, "", `
+test("Article setup leaves content and controls outside the article root unchanged", async ({ page }) => {
+  const recordedPageProblems = await loadArticle(page, "", `
     <div class="prose">
       <pre id="outside-code"><code>signal.enable();</code></pre>
       <div id="outside-diagram" class="figure__panel">Signal path</div>
@@ -135,5 +135,5 @@ test("article leaves content and controls outside its root unchanged", async ({ 
   }
   await expect.soft(page.locator("#outside-copy")).toBeHidden();
   await expect(page.locator("#outside-status")).toHaveText("Outside status");
-  expect(errors).toEqual([]);
+  expect(recordedPageProblems).toEqual([]);
 });

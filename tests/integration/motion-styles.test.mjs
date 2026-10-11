@@ -3,73 +3,72 @@ import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { dist } from "../shared/helpers.mjs";
+import { dist as buildDirectory } from "../shared/node-helpers.mjs";
 
 // Check the compiled CSS reset. Browser tests check content visibility and canvas behavior.
 
-const astroDir = join(dist, "_astro");
+const astroDirectory = join(buildDirectory, "_astro");
 
 function readAstroAssets(extension) {
-  return readdirSync(astroDir)
+  return readdirSync(astroDirectory)
     .filter((file) => file.endsWith(extension))
-    .map((file) => readFileSync(join(astroDir, file), "utf8"));
+    .map((file) => readFileSync(join(astroDirectory, file), "utf8"));
 }
 
 /**
- * Flatten a stylesheet into leaf rules, keeping the at-rule preludes each rule
- * sits under and the full selector path when nesting is present.
+ * Extract leaf rules with their at-rule preludes and complete nested selector paths.
  */
-function parseRules(css, context = []) {
-  const rules = [];
-  let index = 0;
+function parseRules(stylesheet, ruleContext = []) {
+  const stylesheetRules = [];
+  let characterIndex = 0;
 
-  while (index < css.length) {
-    const open = css.indexOf("{", index);
-    if (open === -1) break;
+  while (characterIndex < stylesheet.length) {
+    const openingBraceIndex = stylesheet.indexOf("{", characterIndex);
+    if (openingBraceIndex === -1) break;
 
-    let depth = 0;
-    let close = open;
-    for (; close < css.length; close += 1) {
-      if (css[close] === "{") depth += 1;
-      else if (css[close] === "}") {
-        depth -= 1;
-        if (depth === 0) break;
+    let braceDepth = 0;
+    let closingBraceIndex = openingBraceIndex;
+    for (; closingBraceIndex < stylesheet.length; closingBraceIndex += 1) {
+      if (stylesheet[closingBraceIndex] === "{") braceDepth += 1;
+      else if (stylesheet[closingBraceIndex] === "}") {
+        braceDepth -= 1;
+        if (braceDepth === 0) break;
       }
     }
-    if (depth !== 0) break;
+    if (braceDepth !== 0) break;
 
-    const prelude = css.slice(index, open).trim();
-    const body = css.slice(open + 1, close);
+    const prelude = stylesheet.slice(characterIndex, openingBraceIndex).trim();
+    const ruleBody = stylesheet.slice(openingBraceIndex + 1, closingBraceIndex);
 
     if (/^@(?:media|supports|layer|container|scope)\b/.test(prelude)) {
-      rules.push(...parseRules(body, [...context, prelude]));
+      stylesheetRules.push(...parseRules(ruleBody, [...ruleContext, prelude]));
     } else if (!prelude.startsWith("@")) {
-      if (body.includes("{")) rules.push(...parseRules(body, [...context, prelude]));
-      const media = context.filter((entry) => entry.startsWith("@"));
-      const parents = context.filter((entry) => !entry.startsWith("@"));
-      rules.push({
-        selector: [...parents, prelude].join(" "),
-        declarations: body.replace(/[^{}]*\{[^{}]*\}/g, ""),
-        media,
+      if (ruleBody.includes("{")) stylesheetRules.push(...parseRules(ruleBody, [...ruleContext, prelude]));
+      const atRulePreludes = ruleContext.filter((entry) => entry.startsWith("@"));
+      const parentSelectors = ruleContext.filter((entry) => !entry.startsWith("@"));
+      stylesheetRules.push({
+        selector: [...parentSelectors, prelude].join(" "),
+        declarations: ruleBody.replace(/[^{}]*\{[^{}]*\}/g, ""),
+        atRulePreludes,
       });
     }
 
-    index = close + 1;
+    characterIndex = closingBraceIndex + 1;
   }
 
-  return rules;
+  return stylesheetRules;
 }
 
-function declarations(rule) {
+function parseDeclarations(rule) {
   return rule.declarations
     .split(";")
     .map((declaration) => {
-      const colon = declaration.indexOf(":");
-      if (colon === -1) return null;
+      const colonIndex = declaration.indexOf(":");
+      if (colonIndex === -1) return null;
       return {
-        property: declaration.slice(0, colon).trim().toLowerCase(),
+        property: declaration.slice(0, colonIndex).trim().toLowerCase(),
         value: declaration
-          .slice(colon + 1)
+          .slice(colonIndex + 1)
           .replace(/!important/gi, "")
           .trim()
           .toLowerCase(),
@@ -79,36 +78,35 @@ function declarations(rule) {
 }
 
 function declarationValue(rule, property) {
-  return declarations(rule).findLast((entry) => entry.property === property)?.value;
+  return parseDeclarations(rule).findLast((entry) => entry.property === property)?.value;
 }
 
-const css = readAstroAssets(".css").join("\n");
-const rules = parseRules(css);
+const stylesheet = readAstroAssets(".css").join("\n");
+const stylesheetRules = parseRules(stylesheet);
 
-test("compiled css ships a meaningful reduced-motion contract", () => {
-  assert.ok(css.length > 1_000, "compiled stylesheet required");
+test("compiled styles reset motion for reduced preferences and limit page entrances to unrestricted motion preferences", () => {
+  assert.ok(stylesheet.length > 1_000, "the build must contain a compiled stylesheet");
 
-  const isReduce = (rule) =>
-    rule.media.some((query) => /prefers-reduced-motion\s*:\s*reduce/.test(query));
-  const reduceRules = rules.filter(isReduce);
-  assert.ok(reduceRules.length > 0, "a prefers-reduced-motion: reduce block is required");
+  const usesReducedMotion = (rule) =>
+    rule.atRulePreludes.some((query) => /prefers-reduced-motion\s*:\s*reduce/.test(query));
+  const reducedMotionRules = stylesheetRules.filter(usesReducedMotion);
+  assert.ok(reducedMotionRules.length > 0, "the stylesheet must contain rules for reduced motion");
 
-  // Site-wide reset: animations and transitions collapse instead of playing.
-  const reset = reduceRules.find((rule) => /(?:^|,)\s*\*/.test(rule.selector));
-  assert.ok(reset, "reduce block must reset every element");
-  assert.match(declarationValue(reset, "animation-duration") ?? "", /^0?\.01ms$/);
-  assert.match(declarationValue(reset, "transition-duration") ?? "", /^0?\.01ms$/);
-  assert.equal(declarationValue(reset, "animation-iteration-count"), "1");
+  // Check that the site reset limits animation and transition duration.
+  const motionResetRule = reducedMotionRules.find((rule) => /(?:^|,)\s*\*/.test(rule.selector));
+  assert.ok(motionResetRule, "reduced-motion rules must reset every element");
+  assert.match(declarationValue(motionResetRule, "animation-duration") ?? "", /^0?\.01ms$/);
+  assert.match(declarationValue(motionResetRule, "transition-duration") ?? "", /^0?\.01ms$/);
+  assert.equal(declarationValue(motionResetRule, "animation-iteration-count"), "1");
 
-  // Page entrances must live inside the no-preference wrapper, so a new one
-  // cannot animate for users who asked for reduced motion.
-  for (const rule of rules) {
+  // Require the no-preference media condition for every page entrance animation.
+  for (const rule of stylesheetRules) {
     if (!/\[data-page[=~^|$*\]]/.test(rule.selector)) continue;
-    const animation = declarationValue(rule, "animation") ?? declarationValue(rule, "animation-name");
-    if (!animation || /^none\b/.test(animation)) continue;
+    const animationValue = declarationValue(rule, "animation") ?? declarationValue(rule, "animation-name");
+    if (!animationValue || /^none\b/.test(animationValue)) continue;
     assert.ok(
-      rule.media.some((query) => /prefers-reduced-motion\s*:\s*no-preference/.test(query)),
-      `page entrance animates outside a no-preference block: ${rule.selector}`,
+      rule.atRulePreludes.some((query) => /prefers-reduced-motion\s*:\s*no-preference/.test(query)),
+      `page entrance ${rule.selector} must require the no-preference motion condition`,
     );
   }
 });

@@ -164,7 +164,7 @@ They do not establish ASD-STE100 conformance for code.
 | --- | --- | --- |
 | Local value | `viewportWidth` | The viewport width in pixels. |
 | Loop index | `articleIndex` | The current article position. |
-| Test file | `graphic-font.test.mjs` | The graphic font Node suite. |
+| Test file | `label-font.test.mjs` | The label font Node suite. |
 
 ## Frontend, accessibility, and motion
 

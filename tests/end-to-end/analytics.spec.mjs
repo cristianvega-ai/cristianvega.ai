@@ -2,20 +2,21 @@ import { expect, test } from "@playwright/test";
 
 import { settle, useReducedMotion } from "../shared/browser-fixtures.mjs";
 
-const production = "https://cristianvega.ai";
+const productionOrigin = "https://cristianvega.ai";
 const beaconScript = "https://static.cloudflareinsights.com/beacon.min.js";
 const beaconEndpoint = "https://cloudflareinsights.com/cdn-cgi/rum";
 
-// Serve the local build at a chosen browser origin. No production request leaves the test.
-async function serveAtOrigin(page, baseAddress, origin) {
-  await page.route(`${origin}/**`, async (route) => {
+// Serve the local build at the selected browser origin.
+// Keep production requests inside the test.
+async function serveAtOrigin(page, baseAddress, pageOrigin) {
+  await page.route(`${pageOrigin}/**`, async (route) => {
     const requestAddress = new URL(route.request().url());
     const response = await page.request.get(new URL(requestAddress.pathname + requestAddress.search, baseAddress).href);
     await route.fulfill({ response });
   });
 }
 
-// The probe checks script loading, the site identifier, and the browser's CSP.
+// The beacon probe checks script loading, the site identifier, and the content security policy.
 // Live deployment checks use the real Cloudflare script and endpoint.
 async function installBeaconProbe(page) {
   await page.route(beaconScript, (route) => route.fulfill({
@@ -36,58 +37,58 @@ async function installBeaconProbe(page) {
   }));
 }
 
-for (const [path, status] of [["/", 200], ["/missing-analytics-check/", 404]]) {
-  test(`${path} loads one Cloudflare beacon and sends its site identifier`, async ({ page, baseURL: baseAddress }) => {
-    await serveAtOrigin(page, baseAddress, production);
+for (const [pagePath, expectedStatus] of [["/", 200], ["/missing-analytics-check/", 404]]) {
+  test(`${pagePath} loads one Cloudflare beacon on the production origin and sends its site identifier`, async ({ page, baseURL: baseAddress }) => {
+    await serveAtOrigin(page, baseAddress, productionOrigin);
     await installBeaconProbe(page);
-    const errors = [];
-    page.on("pageerror", (error) => errors.push(error.message));
+    const recordedPageProblems = [];
+    page.on("pageerror", (error) => recordedPageProblems.push(error.message));
     page.on("console", (message) => {
-      const missingPage = status === 404 && message.location().url === `${production}${path}` && message.text().includes("404");
-      if (message.type() === "error" && !missingPage) errors.push(message.text());
+      const expectedMissingPageError = expectedStatus === 404 && message.location().url === `${productionOrigin}${pagePath}` && message.text().includes("404");
+      if (message.type() === "error" && !expectedMissingPageError) recordedPageProblems.push(message.text());
     });
-    const sent = page.waitForRequest((request) => request.url() === beaconEndpoint && request.method() === "POST");
-    const response = await page.goto(`${production}${path}`);
-    expect(response.status()).toBe(status);
-    const request = await sent;
+    const beaconRequestReceived = page.waitForRequest((request) => request.url() === beaconEndpoint && request.method() === "POST");
+    const response = await page.goto(`${productionOrigin}${pagePath}`);
+    expect(response.status()).toBe(expectedStatus);
+    const request = await beaconRequestReceived;
     expect(request.postDataJSON()).toEqual({
       siteToken: "4de814b85a2343b0a5ccfea91d96fc4f",
-      location: `${production}${path}`,
+      location: `${productionOrigin}${pagePath}`,
     });
-    const beacon = page.locator("script[data-cf-beacon]");
-    await expect(beacon).toHaveCount(1);
-    await expect(beacon).toHaveAttribute("type", "module");
-    await expect(beacon).toHaveAttribute("src", beaconScript);
+    const beaconElement = page.locator("script[data-cf-beacon]");
+    await expect(beaconElement).toHaveCount(1);
+    await expect(beaconElement).toHaveAttribute("type", "module");
+    await expect(beaconElement).toHaveAttribute("src", beaconScript);
     await page.waitForLoadState("networkidle");
-    expect(errors).toEqual([]);
+    expect(recordedPageProblems).toEqual([]);
   });
 }
 
-for (const origin of ["http://localhost:4323", "https://cristianvega-ai.preview.workers.dev"]) {
-  test(`${origin} does not load the analytics beacon`, async ({ page, baseURL: baseAddress }) => {
-    if (origin.startsWith("https:")) await serveAtOrigin(page, baseAddress, origin);
+for (const pageOrigin of ["http://localhost:4323", "https://cristianvega-ai.preview.workers.dev"]) {
+  test(`${pageOrigin} omits the Cloudflare analytics beacon`, async ({ page, baseURL: baseAddress }) => {
+    if (pageOrigin.startsWith("https:")) await serveAtOrigin(page, baseAddress, pageOrigin);
     await installBeaconProbe(page);
-    const requests = [];
+    const beaconRequestAddresses = [];
     page.on("request", (request) => {
-      const host = new URL(request.url()).hostname;
-      if (host === "cloudflareinsights.com" || host.endsWith(".cloudflareinsights.com")) {
-        requests.push(request.url());
+      const requestHostname = new URL(request.url()).hostname;
+      if (requestHostname === "cloudflareinsights.com" || requestHostname.endsWith(".cloudflareinsights.com")) {
+        beaconRequestAddresses.push(request.url());
       }
     });
-    await page.goto(origin, { waitUntil: "networkidle" });
+    await page.goto(pageOrigin, { waitUntil: "networkidle" });
     await expect(page.locator('script[src*="CloudflareAnalytics"]')).toHaveCount(1);
     await expect(page.locator("script[data-cf-beacon]")).toHaveCount(0);
-    expect(requests).toEqual([]);
+    expect(beaconRequestAddresses).toEqual([]);
   });
 }
 
-test("the page works when the analytics script is blocked", async ({ page, baseURL: baseAddress }) => {
-  await serveAtOrigin(page, baseAddress, production);
+test("Home preserves content and keyboard navigation when the analytics script is blocked", async ({ page, baseURL: baseAddress }) => {
+  await serveAtOrigin(page, baseAddress, productionOrigin);
   await page.route(beaconScript, (route) => route.abort());
   await useReducedMotion(page);
-  const blocked = page.waitForEvent("requestfailed", (request) => request.url() === beaconScript);
-  await page.goto(production);
-  await blocked;
+  const beaconRequestFailed = page.waitForEvent("requestfailed", (request) => request.url() === beaconScript);
+  await page.goto(productionOrigin);
+  await beaconRequestFailed;
   await settle(page);
   await expect(page.locator(".hero__name")).toHaveText("Cristian Vega");
   await expect(page.locator(".hero__name")).toBeVisible();

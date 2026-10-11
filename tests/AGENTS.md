@@ -60,28 +60,28 @@ Split a mixed suite when its cases need different types.
 | Type | File | Owns |
 | --- | --- | --- |
 | Unit | `tests/unit/easing.test.mjs` | Clamping and cubic-point endpoint results. |
-| Unit | `tests/unit/graphic-font.test.mjs` | Measured width caching, refreshed metrics, supplied font families, and size fallback. |
-| Unit | `tests/unit/graphics-geometry.test.mjs` | Cumulative route lengths for fixed points. |
+| Unit | `tests/unit/label-font.test.mjs` | Measured width caching, refreshed metrics, supplied font families, and size fallback. |
+| Unit | `tests/unit/route-lengths.test.mjs` | Cumulative route lengths for fixed points. |
 | Unit | `tests/unit/graphics-math.test.mjs` | Fixed staggering, smoothing, and interpolation results. |
 | Unit | `tests/unit/labels.test.mjs` | Label placement, rectangle overlap, and segment intersections. |
 | Unit | `tests/unit/palette.test.mjs` | Glow stops from a resolved color, with the color alpha. |
-| Unit | `tests/unit/products-model.test.mjs` | Empty content, slot capacity, and overflow rejection. |
+| Unit | `tests/unit/product-orbit-capacity.test.mjs` | Empty content, slot capacity, and overflow rejection. |
 | Property | `tests/property/404-model.test.mjs` | Missing star geometry in columns and bands. |
-| Property | `tests/property/about-model.test.mjs` | Path shape and ring bounds in columns and bands. |
+| Property | `tests/property/about-layout.test.mjs` | Path shape and ring bounds in columns and bands. |
 | Property | `tests/property/easing.test.mjs` | Cubic easing endpoints and monotonic samples. |
 | Property | `tests/property/globe-model.test.mjs` | Node bounds, route connections, Vega endpoints, and cumulative route lengths. |
-| Property | `tests/property/graphics-clock.test.mjs` | Entrance endpoints and monotonic clock samples. |
+| Property | `tests/property/entrance-clock.test.mjs` | Entrance endpoints and monotonic clock samples. |
 | Property | `tests/property/graphics-geometry.test.mjs` | Valid star indices, padded Lyra layout, and mesh bounds. |
 | Property | `tests/property/graphics-math.test.mjs` | Stable numeric samples in the unit interval. |
-| Property | `tests/property/products-model.test.mjs` | Progress endpoints and ordering, distinct orbit slots, and Lyra bounds. |
-| Property | `tests/property/writing-model.test.mjs` | Article point counts, physical bounds, connected paths, and unique valid links. |
+| Property | `tests/property/product-orbit.test.mjs` | Progress endpoints and ordering, distinct orbit slots, and Lyra bounds. |
+| Property | `tests/property/writing-layout.test.mjs` | Article point counts, physical bounds, connected paths, and unique valid links. |
 | Integration | `tests/integration/build.test.mjs` | Static file safety, sitemap completeness, local font references, and private image exclusions. |
 | Integration | `tests/integration/pages.test.mjs` | Owner content, landmarks, metadata consistency, navigation state, safe outbound links, and local fonts. |
 | Integration | `tests/integration/publication.test.mjs` | Production routes, draft privacy, rendered publication, content order, escaped metadata, and product build capacity. |
-| Integration | `tests/integration/public-input.test.mjs` | The prebuild guard keeps operating system metadata out of public assets. |
+| Integration | `tests/integration/public-asset-guard.test.mjs` | The prebuild guard keeps operating system metadata out of public assets. |
 | Integration | `tests/integration/security.test.mjs` | Cloudflare header and cache rules, the CSP, and `security.txt`. |
-| Integration | `tests/integration/deploy-gate.test.mjs` | Verified build acceptance, representative broken responses, unsafe script URLs, approved headers, and the local Cloudflare build. |
-| Integration | `tests/integration/deploy-workflow.test.mjs` | Parsed workflow triggers, action pins, token scope, secrets, freshness conditions, and artifact integrity. |
+| Integration | `tests/integration/deployment-gate.test.mjs` | Verified build acceptance, representative broken responses, unsafe script URLs, approved headers, and the local Cloudflare build. |
+| Integration | `tests/integration/deployment-workflow.test.mjs` | Parsed workflow triggers, action pins, token scope, secrets, freshness conditions, and artifact integrity. |
 | Integration | `tests/integration/node-version.test.mjs` | Exact .nvmrc format and the actual test runtime. |
 | Integration | `tests/integration/motion-styles.test.mjs` | Reduced motion reset and compiled CSS entrance preferences. |
 
@@ -175,14 +175,14 @@ Do not use case counts as coverage targets.
 - Use explicit Node globs for those three folders.
 - Configure Playwright to discover only `tests/end-to-end/*.spec.mjs`.
 - Keep shared files outside both runners' discovery patterns.
-- Share browser helpers through `tests/shared/browser-fixtures.mjs` and Node helpers through `tests/shared/helpers.mjs`.
+- Share browser helpers through `tests/shared/browser-fixtures.mjs` and Node helpers through `tests/shared/node-helpers.mjs`.
 - Do not copy a helper into a second file.
-- Build changed source or content with `createIsolatedBuild` or `createContentBuild` from `tests/shared/helpers.mjs`.
+- Build changed source or content with `createIsolatedBuild` or `createContentBuild` from `tests/shared/node-helpers.mjs`.
 - Do not change the source of the repository in a test.
 - Browser specs must be deterministic. Use Playwright's auto-waiting or `expect.poll`. Never use a fixed sleep.
 - Wait for the page entrance animation before you measure geometry. Use `settle(page)` from the fixtures. Geometry read during the animation is the animation's, not the layout's.
 - The site scrolls smoothly. Scroll with `behavior: "instant"` before you measure, or poll for the scroll result.
-- A test must pass with drafts and with published entries. Derive expected content from `tests/shared/helpers.mjs`, including `publishedContent` and `headerLinks`.
+- A test must pass with drafts and with published entries. Derive expected content from `tests/shared/node-helpers.mjs`, including `publishedContent` and `headerLinks`.
 - The draft server runs with `tests/shared/development-server.config.mjs`.
 - That configuration disables HMR, so the server never reloads a page under test.
 - Use `DRAFT_ORIGIN` from the browser fixtures for its address.

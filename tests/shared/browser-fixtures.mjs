@@ -1,252 +1,242 @@
-import { expect, test as baseTest } from "@playwright/test";
+import { expect, test as browserTest } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { cp as copyFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join } from "node:path";
-import { createContentBuild, latestWork, publishedContent, readContentInventory, root } from "./helpers.mjs";
+import { createContentBuild, latestWork, publishedContent, readContentInventory, root as projectRoot } from "./node-helpers.mjs";
 
 export const currentContent = readContentInventory();
 export const currentPublished = publishedContent(currentContent);
 export { latestWork };
 
 // Serve the isolated build through the same local Cloudflare runtime.
-export const publicationTest = baseTest.extend({
+export const publicationTest = browserTest.extend({
   publication: [async ({}, use) => {
-    const fixture = await createContentBuild("mixed");
-    let server;
-    let closed;
+    const publicationFixture = await createContentBuild("mixed");
+    let publicationServer;
+    let serverClosed;
     try {
-      await copyFile(join(root, "wrangler.jsonc"), join(fixture.root, "wrangler.jsonc"));
-      const port = await new Promise((resolve, reject) => {
-        const probe = createServer();
-        probe.once("error", reject);
-        probe.listen(0, "127.0.0.1", () => {
-          const address = probe.address();
-          probe.close((error) => error ? reject(error) : resolve(address.port));
+      await copyFile(join(projectRoot, "wrangler.jsonc"), join(publicationFixture.root, "wrangler.jsonc"));
+      const serverPort = await new Promise((resolve, reject) => {
+        const portProbe = createServer();
+        portProbe.once("error", reject);
+        portProbe.listen(0, "127.0.0.1", () => {
+          const serverAddress = portProbe.address();
+          portProbe.close((error) => error ? reject(error) : resolve(serverAddress.port));
         });
       });
-      const origin = `http://127.0.0.1:${port}`;
-      server = spawn(process.execPath, [join(root, "node_modules", "wrangler", "bin", "wrangler.js"),
-        "dev", "--local", "--env", "test", "--port", String(port), "--ip", "127.0.0.1",
+      const publicationOrigin = `http://127.0.0.1:${serverPort}`;
+      publicationServer = spawn(process.execPath, [join(projectRoot, "node_modules", "wrangler", "bin", "wrangler.js"),
+        "dev", "--local", "--env", "test", "--port", String(serverPort), "--ip", "127.0.0.1",
         "--inspector-port", "0", "--show-interactive-dev-session", "false",
-        "--persist-to", join(fixture.root, ".wrangler", "state")], {
-        cwd: fixture.root,
+        "--persist-to", join(publicationFixture.root, ".wrangler", "state")], {
+        cwd: publicationFixture.root,
         env: { ...process.env, WRANGLER_SEND_METRICS: "false" },
         stdio: ["ignore", "pipe", "pipe"],
       });
-      closed = new Promise((resolve) => server.once("close", resolve));
-      let output = "";
-      const record = (chunk) => { output = `${output}${chunk}`.slice(-6000); };
-      server.stdout.on("data", record);
-      server.stderr.on("data", record);
-      server.on("error", (error) => record(error.message));
+      serverClosed = new Promise((resolve) => publicationServer.once("close", resolve));
+      let serverOutput = "";
+      const recordServerOutput = (outputChunk) => { serverOutput = `${serverOutput}${outputChunk}`.slice(-6000); };
+      publicationServer.stdout.on("data", recordServerOutput);
+      publicationServer.stderr.on("data", recordServerOutput);
+      publicationServer.on("error", (error) => recordServerOutput(error.message));
       await expect.poll(async () => {
-        if (server.exitCode !== null) throw new Error(`Publication runtime stopped: ${output}`);
+        if (publicationServer.exitCode !== null) throw new Error(`Publication runtime stopped: ${serverOutput}`);
         try {
-          return (await fetch(origin, { signal: AbortSignal.timeout(1000) })).status;
+          return (await fetch(publicationOrigin, { signal: AbortSignal.timeout(1000) })).status;
         } catch {
           return 0;
         }
-      }, { timeout: 60_000, message: "publication runtime must serve the isolated build" }).toBe(200);
-      await use({ ...fixture, origin });
+      }, { timeout: 60_000, message: "The publication runtime must serve the isolated build" }).toBe(200);
+      await use({ ...publicationFixture, origin: publicationOrigin });
     } finally {
-      if (server && server.exitCode === null) {
-        server.kill("SIGTERM");
-        const timeout = setTimeout(() => server.kill("SIGKILL"), 5000);
-        await closed;
-        clearTimeout(timeout);
+      if (publicationServer && publicationServer.exitCode === null) {
+        publicationServer.kill("SIGTERM");
+        const shutdownTimeout = setTimeout(() => publicationServer.kill("SIGKILL"), 5000);
+        await serverClosed;
+        clearTimeout(shutdownTimeout);
       }
-      await fixture.cleanup();
+      await publicationFixture.cleanup();
     }
   }, { scope: "worker", timeout: 90_000 }],
 });
 
 /**
- * Shared helpers for the browser suite.
- *
- * Specs assert computed layout and runtime behavior — things absent from the
- * built HTML and therefore unreachable from the Node contract tests. Anything
- * here is page-agnostic; page-specific selectors belong in the spec that uses
- * them.
+ * Share browser helpers for computed layout and runtime behavior.
+ * Keep page selectors in the suite that uses them.
  */
 
-/** The dev server that shows drafts. Playwright starts it on this port. */
+/** Playwright starts the development server at this origin to show drafts. */
 export const DRAFT_ORIGIN = process.env.BROWSER_TEST_DRAFT_ORIGIN ?? "http://127.0.0.1:4324";
 
 /**
- * Collect uncaught page errors and the console messages of the given types.
- * Call it before the page loads, and read the returned list at the end of the test.
+ * Collect uncaught page errors and console messages of the supplied types.
+ * Call this helper before navigation.
+ * Read the returned errors at the end of the test.
  */
-export function pageProblems(page, types = ["error"]) {
-  const problems = [];
-  page.on("pageerror", (error) => problems.push(error.message));
+export function pageProblems(page, consoleTypes = ["error"]) {
+  const recordedPageProblems = [];
+  page.on("pageerror", (error) => recordedPageProblems.push(error.message));
   page.on("console", (message) => {
-    if (types.includes(message.type())) problems.push(message.text());
+    if (consoleTypes.includes(message.type())) recordedPageProblems.push(message.text());
   });
-  return problems;
+  return recordedPageProblems;
 }
 
-/** Record each CSP violation of the page. Call it before the page loads. */
+/** Record content security policy violations before navigation. */
 export const recordContentSecurityPolicyViolations = (page) =>
   page.addInitScript(() => {
     window.__contentSecurityPolicyViolations = [];
     document.addEventListener("securitypolicyviolation", (event) => window.__contentSecurityPolicyViolations.push(event.violatedDirective));
   });
 
-/** The directives the page violated since `recordContentSecurityPolicyViolations`. */
+/** Read the content security policy directives that the page violated. */
 export const contentSecurityPolicyViolations = (page) => page.evaluate(() => window.__contentSecurityPolicyViolations);
 
 /** Read the accessibility state of a decorative canvas. */
-const decorativeState = (page, selector) =>
+const readDecorativeState = (page, selector) =>
   page.evaluate((graphicSelector) => {
-    const root = document.querySelector(graphicSelector);
+    const graphicRoot = document.querySelector(graphicSelector);
     return {
-      hidden: root.getAttribute("aria-hidden"),
-      pointerEvents: [root, root.querySelector("canvas")].map((part) => getComputedStyle(part).pointerEvents),
-      canvases: root.querySelectorAll("canvas").length,
-      focusable: root.querySelectorAll("a, button, input, select, textarea, [tabindex]").length,
+      accessibilityHidden: graphicRoot.getAttribute("aria-hidden"),
+      pointerEvents: [graphicRoot, graphicRoot.querySelector("canvas")].map((graphicElement) => getComputedStyle(graphicElement).pointerEvents),
+      canvasCount: graphicRoot.querySelectorAll("canvas").length,
+      focusableControlCount: graphicRoot.querySelectorAll("a, button, input, select, textarea, [tabindex]").length,
     };
   }, selector);
 
 /** Desktop and mobile select distinct navigation and graphic layouts. */
 export const VIEWPORTS = {
-  /** Comfortably above every breakpoint. */
+  /** Select the desktop layout above all responsive breakpoints. */
   desktop: { width: 1440, height: 900 },
-  /** Below the 760px and 520px refinements. */
+  /** Select the mobile layout below the 760px and 520px breakpoints. */
   mobile: { width: 390, height: 844 },
 };
 
 /**
- * Wait out any entrance animation in main, and any web font, before measuring.
- *
- * Geometry read while an animation is mid-flight is the animation's transform,
- * not the layout's. Geometry read before the web fonts arrive is the fallback
- * font's, which is taller and wider. A slow runner shows that gap. Resolves at
- * once when nothing animates, as under reduced motion.
- *
- * A cancelled animation is not mid-flight, so its cancellation counts as done.
+ * Wait for main content entrance animations and web fonts before measuring layout.
+ * Active animation transforms and fallback fonts can change measured geometry.
+ * Treat cancelled animations as complete.
  */
 export async function settle(page) {
   await page
     .locator("main")
     .evaluate(async (element) => {
-      await Promise.all([...document.fonts].map((face) => face.load().catch(() => undefined)));
+      await Promise.all([...document.fonts].map((fontFace) => fontFace.load().catch(() => undefined)));
       await document.fonts.ready;
       await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)));
     });
 }
 
 /**
- * Set the reduced-motion preference for this page.
- *
- * Use this helper to change the preference before navigation or during a running scene.
- * Playwright also supports a fixed preference through `test.use({ reducedMotion: "reduce" })`.
+ * Set the reduced motion preference before navigation or during a running scene.
+ * Use `test.use({ reducedMotion: "reduce" })` for a fixed Playwright preference.
  */
 export async function useReducedMotion(page, reducedMotion = "reduce") {
   await page.emulateMedia({ reducedMotion });
 }
 
-/** Tab forward until the target holds focus, so :focus-visible genuinely applies. */
-export async function tabTo(page, selector, limit = 25) {
-  const target = page.locator(selector);
+/** Press Tab until the target has keyboard focus and can match :focus-visible. */
+export async function tabTo(page, selector, maximumAttempts = 25) {
+  const focusTarget = page.locator(selector);
 
-  for (let focusAttempt = 0; focusAttempt < limit; focusAttempt += 1) {
+  for (let focusAttempt = 0; focusAttempt < maximumAttempts; focusAttempt += 1) {
     await page.keyboard.press("Tab");
-    if (await target.evaluate((element) => element === document.activeElement)) return true;
+    if (await focusTarget.evaluate((element) => element === document.activeElement)) return true;
   }
 
   return false;
 }
 
 /**
- * Locate a header link by its label. At 640px and below the links sit in a
- * menu, so this opens the menu first when its button is showing.
- * Returns the link locator. Call it again after each navigation.
+ * Click a header link by its label.
+ * Open the navigation menu first when its toggle is visible.
+ * Get a new link helper after each navigation.
  */
-export function navigationLink(page, name) {
-  const link = page.locator(".navigation:visible, .navigation-menu:visible").getByRole("link", { name, exact: true });
+export function navigationLink(page, linkName) {
+  const link = page.locator(".navigation:visible, .navigation-menu:visible").getByRole("link", { name: linkName, exact: true });
   return {
     async click() {
-      const toggle = page.locator(".navigation-menu__toggle:visible");
-      if (await toggle.count()) await toggle.click();
+      const menuToggle = page.locator(".navigation-menu__toggle:visible");
+      if (await menuToggle.count()) await menuToggle.click();
       await link.click();
     },
   };
 }
 
 /**
- * Replace requestAnimationFrame with a manual clock. A frame runs only when a
- * test calls `window.__step(time)`, so the entrance stays in flight until the
- * test says otherwise, and `window.__pending()` counts the frames left queued.
+ * Replace requestAnimationFrame with a manual clock.
+ * Run queued frames with `window.__step(time)`.
+ * Count queued frames with `window.__pending()`.
  */
 export async function useManualFrames(page) {
   await page.addInitScript(() => {
-    let next = 0;
-    const queue = new Map();
-    window.requestAnimationFrame = (callback) => {
-      next += 1;
-      queue.set(next, callback);
-      return next;
+    let nextFrameIdentifier = 0;
+    const frameCallbacks = new Map();
+    window.requestAnimationFrame = (frameCallback) => {
+      nextFrameIdentifier += 1;
+      frameCallbacks.set(nextFrameIdentifier, frameCallback);
+      return nextFrameIdentifier;
     };
     window.cancelAnimationFrame = (frameIdentifier) => {
-      queue.delete(frameIdentifier);
+      frameCallbacks.delete(frameIdentifier);
     };
-    window.__pending = () => queue.size;
-    window.__step = (time) => {
-      const callbacks = [...queue.values()];
-      queue.clear();
-      for (const callback of callbacks) callback(time);
+    window.__pending = () => frameCallbacks.size;
+    window.__step = (frameTime) => {
+      const pendingCallbacks = [...frameCallbacks.values()];
+      frameCallbacks.clear();
+      for (const frameCallback of pendingCallbacks) frameCallback(frameTime);
     };
   });
 }
 
 /** Run one manual frame at the supplied time. */
-export const stepFrame = (page, time) => page.evaluate((value) => window.__step(value), time);
+export const stepFrame = (page, frameTime) => page.evaluate((frameTime) => window.__step(frameTime), frameTime);
 
 /** Count the queued manual frames. */
 export const pendingFrames = (page) => page.evaluate(() => window.__pending());
 
 /** Advance the manual clock in 16 ms frames. */
-export const playFrames = (page, milliseconds) =>
-  page.evaluate((span) => {
+export const playFrames = (page, durationMilliseconds) =>
+  page.evaluate((durationMilliseconds) => {
     window.__time = window.__time ?? 0;
-    for (let end = window.__time + span; window.__time < end; ) {
+    for (let endTime = window.__time + durationMilliseconds; window.__time < endTime; ) {
       window.__time += 16;
       window.__step(window.__time);
     }
-  }, milliseconds);
+  }, durationMilliseconds);
 
 /** Count canvas pixels above the supplied alpha threshold. */
-export const paintedPixels = (page, graphic, minimumAlpha) =>
-  page.locator(`${graphic} canvas`).evaluate((canvas, threshold) => {
-    const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
-    let count = 0;
-    for (let alphaIndex = 3; alphaIndex < data.length; alphaIndex += 4) if (data[alphaIndex] > threshold) count += 1;
-    return count;
+export const paintedPixels = (page, graphicSelector, minimumAlpha) =>
+  page.locator(`${graphicSelector} canvas`).evaluate((canvas, minimumAlpha) => {
+    const { data: pixelData } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+    let paintedPixelCount = 0;
+    for (let alphaIndex = 3; alphaIndex < pixelData.length; alphaIndex += 4) if (pixelData[alphaIndex] > minimumAlpha) paintedPixelCount += 1;
+    return paintedPixelCount;
   }, minimumAlpha);
 
 /** Open a page and wait for its graphic. */
-export async function openGraphic(page, target) {
-  await page.goto(target.address);
-  await expect(page.locator(target.graphic)).toHaveAttribute("data-ready", "true", { timeout: 20_000 });
+export async function openGraphic(page, graphicTarget) {
+  await page.goto(graphicTarget.address);
+  await expect(page.locator(graphicTarget.graphic)).toHaveAttribute("data-ready", "true", { timeout: 20_000 });
 }
 
 /** Read the visible text boxes in main. */
-async function textBoxes(page) {
+async function readVisibleTextRectangles(page) {
   return page.evaluate(() => {
-    const boxes = [];
-    const walker = document.createTreeWalker(document.querySelector("main"), NodeFilter.SHOW_TEXT);
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (!node.textContent.trim()) continue;
-      const range = document.createRange();
-      range.selectNodeContents(node);
-      for (const rectangle of range.getClientRects()) {
+    const textRectangles = [];
+    const textWalker = document.createTreeWalker(document.querySelector("main"), NodeFilter.SHOW_TEXT);
+    for (let textNode = textWalker.nextNode(); textNode; textNode = textWalker.nextNode()) {
+      if (!textNode.textContent.trim()) continue;
+      const textRange = document.createRange();
+      textRange.selectNodeContents(textNode);
+      for (const rectangle of textRange.getClientRects()) {
         if (rectangle.width > 0 && rectangle.bottom > 0 && rectangle.top < innerHeight) {
-          boxes.push({ x: rectangle.left, y: rectangle.top, width: rectangle.width, height: rectangle.height });
+          textRectangles.push({ x: rectangle.left, y: rectangle.top, width: rectangle.width, height: rectangle.height });
         }
       }
     }
-    return boxes;
+    return textRectangles;
   });
 }
 
@@ -257,30 +247,30 @@ async function textBoxes(page) {
 export async function useLabelSpy(page) {
   await page.addInitScript(() => {
     const canvasPrototype = CanvasRenderingContext2D.prototype;
-    const fillText = canvasPrototype.fillText;
-    const measureText = canvasPrototype.measureText;
+    const originalFillText = canvasPrototype.fillText;
+    const originalMeasureText = canvasPrototype.measureText;
     window.__labels = new Map();
     window.__labelMeasureCount = 0;
-    const canvases = new WeakMap();
+    const canvasIdentifiers = new WeakMap();
     let canvasIdentifier = 0;
     canvasPrototype.measureText = function (...measurementArguments) {
       window.__labelMeasureCount += 1;
-      return measureText.apply(this, measurementArguments);
+      return originalMeasureText.apply(this, measurementArguments);
     };
-    canvasPrototype.fillText = function (text, x, y, ...rest) {
+    canvasPrototype.fillText = function (text, x, y, ...textArguments) {
       const transform = this.getTransform();
-      if (!canvases.has(this.canvas)) canvases.set(this.canvas, ++canvasIdentifier);
-      const key = `${text}@${canvases.get(this.canvas)}`;
-      window.__labels.set(key, {
+      if (!canvasIdentifiers.has(this.canvas)) canvasIdentifiers.set(this.canvas, ++canvasIdentifier);
+      const labelKey = `${text}@${canvasIdentifiers.get(this.canvas)}`;
+      window.__labels.set(labelKey, {
         text,
         x: x + transform.e / transform.a,
         y: y + transform.f / transform.d,
         align: this.textAlign,
         font: this.font,
-        width: measureText.call(this, text).width,
+        width: originalMeasureText.call(this, text).width,
         canvas: this.canvas,
       });
-      return fillText.call(this, text, x, y, ...rest);
+      return originalFillText.call(this, text, x, y, ...textArguments);
     };
   });
 }
@@ -288,85 +278,85 @@ export async function useLabelSpy(page) {
 /** Read drawn label boxes in canvas pixels. */
 export async function drawnLabels(page) {
   return page.evaluate(() => {
-    const labels = [...window.__labels.values()].map((label) => {
-      const box = label.canvas.getBoundingClientRect();
-      const left = label.align === "left" ? label.x : label.align === "right" ? label.x - label.width : label.x - label.width / 2;
+    const labelBoxes = [...window.__labels.values()].map((label) => {
+      const canvasRectangle = label.canvas.getBoundingClientRect();
+      const labelLeft = label.align === "left" ? label.x : label.align === "right" ? label.x - label.width : label.x - label.width / 2;
       return {
         text: label.text,
         font: label.font,
-        localLeft: left,
-        localRight: left + label.width,
+        localLeft: labelLeft,
+        localRight: labelLeft + label.width,
         localTop: label.y - 6,
         localBottom: label.y + 6,
-        canvasWidth: box.width,
-        canvasHeight: box.height,
+        canvasWidth: canvasRectangle.width,
+        canvasHeight: canvasRectangle.height,
       };
     });
-    return { labels };
+    return { labels: labelBoxes };
   });
 }
 
 /**
- * The bottom of the focus ring of the focused element, and the top of the footer fade, in page pixels.
- * The ring belongs to the focused element or to the nearest ancestor that draws an outline, as on an article row.
+ * Read the focus ring bounds and footer fade position in page pixels.
+ * Use the nearest ancestor with an outline when the focused element has none.
  */
 export async function focusRingAndFade(page) {
   return page.evaluate(() => {
     let element = document.activeElement;
     while (element && getComputedStyle(element).outlineStyle === "none") element = element.parentElement;
-    const style = getComputedStyle(element);
-    const box = element.getBoundingClientRect();
-    const footer = document.querySelector(".site-footer").getBoundingClientRect();
-    const fade = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--footer-fade")) || 0;
+    const focusStyle = getComputedStyle(element);
+    const focusedRectangle = element.getBoundingClientRect();
+    const footerRectangle = document.querySelector(".site-footer").getBoundingClientRect();
+    const footerFadeHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--footer-fade")) || 0;
     return {
-      ringTop: box.top - parseFloat(style.outlineOffset) - parseFloat(style.outlineWidth),
-      ringBottom: box.bottom + parseFloat(style.outlineOffset) + parseFloat(style.outlineWidth),
-      fadeTop: footer.top - fade,
+      ringTop: focusedRectangle.top - parseFloat(focusStyle.outlineOffset) - parseFloat(focusStyle.outlineWidth),
+      ringBottom: focusedRectangle.bottom + parseFloat(focusStyle.outlineOffset) + parseFloat(focusStyle.outlineWidth),
+      fadeTop: footerRectangle.top - footerFadeHeight,
     };
   });
 }
 
 
-/** Check visible page content and serious horizontal overflow. */
+/** Check visible page content and horizontal overflow. */
 export async function expectReadablePage(page) {
   await expect(page.locator("main h1")).toHaveCount(1);
   await expect(page.locator("main h1")).toBeVisible();
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-  expect(overflow, `${page.url()}: page content must not overflow sideways`).toBeLessThanOrEqual(1);
+  const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(horizontalOverflow, `${page.url()}: page content must have no horizontal overflow beyond one pixel`).toBeLessThanOrEqual(1);
 }
 
-/** Check actual foreground drawing and decorative accessibility. */
+/** Check foreground paint and decorative accessibility. */
 export async function expectDecorativeGraphic(page, selector) {
-  const state = await decorativeState(page, selector);
-  expect(state.hidden, `${selector}: the graphic remains decorative`).toBe("true");
-  expect(state.pointerEvents, `${selector}: the graphic must not take pointer input`).toEqual(["none", "none"]);
-  expect(state.focusable, `${selector}: the graphic must not take keyboard focus`).toBe(0);
-  expect(state.canvases, `${selector}: one canvas mounts`).toBe(1);
-  const box = await page.locator(selector).boundingBox();
-  expect(box.width, `${selector}: the graphic has a useful width`).toBeGreaterThan(100);
-  expect(box.height, `${selector}: the graphic has a useful height`).toBeGreaterThan(100);
-  expect(await paintedPixels(page, selector, 8), `${selector}: the scene must draw foreground paint`).toBeGreaterThan(100);
+  const accessibilityState = await readDecorativeState(page, selector);
+  expect(accessibilityState.accessibilityHidden, `${selector}: the graphic must stay hidden from accessibility tools`).toBe("true");
+  expect(accessibilityState.pointerEvents, `${selector}: the graphic must ignore pointer input`).toEqual(["none", "none"]);
+  expect(accessibilityState.focusableControlCount, `${selector}: the graphic must contain no focusable controls`).toBe(0);
+  expect(accessibilityState.canvasCount, `${selector}: the graphic must contain one canvas`).toBe(1);
+  const graphicRectangle = await page.locator(selector).boundingBox();
+  expect(graphicRectangle.width, `${selector}: the graphic width must exceed 100 pixels`).toBeGreaterThan(100);
+  expect(graphicRectangle.height, `${selector}: the graphic height must exceed 100 pixels`).toBeGreaterThan(100);
+  expect(await paintedPixels(page, selector, 8), `${selector}: the scene must draw more than 100 foreground pixels`).toBeGreaterThan(100);
 }
 
 /** Check that foreground canvas paint cannot hide visible page text. */
 export async function expectGraphicClearOfText(page, selector) {
-  const boxes = await textBoxes(page);
-  expect(boxes.length, `${page.url()}: the clipping check requires visible text`).toBeGreaterThan(0);
-  const painted = await page.locator(`${selector} canvas`).evaluate((canvas, boxes) => {
+  const textRectangles = await readVisibleTextRectangles(page);
+  expect(textRectangles.length, `${page.url()}: the paint overlap check must receive visible text`).toBeGreaterThan(0);
+  const overlappingPixelCount = await page.locator(`${selector} canvas`).evaluate((canvas, textRectangles) => {
     const rectangle = canvas.getBoundingClientRect();
-    const scale = canvas.width / rectangle.width;
-    const context = canvas.getContext("2d");
-    let count = 0;
-    for (const box of boxes) {
-      const left = Math.max(0, Math.floor((box.x - rectangle.left) * scale));
-      const top = Math.max(0, Math.floor((box.y - rectangle.top) * scale));
-      const right = Math.min(canvas.width, Math.ceil((box.x + box.width - rectangle.left) * scale));
-      const bottom = Math.min(canvas.height, Math.ceil((box.y + box.height - rectangle.top) * scale));
-      if (right <= left || bottom <= top) continue;
-      const { data } = context.getImageData(left, top, right - left, bottom - top);
-      for (let index = 3; index < data.length; index += 4) if (data[index] > 8) count += 1;
+    const bitmapScale = canvas.width / rectangle.width;
+    const drawingContext = canvas.getContext("2d");
+    let paintedPixelCount = 0;
+    for (const textRectangle of textRectangles) {
+      const pixelLeft = Math.max(0, Math.floor((textRectangle.x - rectangle.left) * bitmapScale));
+      const top = Math.max(0, Math.floor((textRectangle.y - rectangle.top) * bitmapScale));
+      const right = Math.min(canvas.width, Math.ceil((textRectangle.x + textRectangle.width - rectangle.left) * bitmapScale));
+      const bottom = Math.min(canvas.height, Math.ceil((textRectangle.y + textRectangle.height - rectangle.top) * bitmapScale));
+      if (right <= pixelLeft || bottom <= top) continue;
+      const { data: pixelData } = drawingContext.getImageData(pixelLeft, top, right - pixelLeft, bottom - top);
+      for (let alphaIndex = 3; alphaIndex < pixelData.length; alphaIndex += 4) if (pixelData[alphaIndex] > 8) paintedPixelCount += 1;
     }
-    return count;
-  }, boxes);
-  expect(painted, `${selector}: foreground paint must not cover page text`).toBe(0);
+    return paintedPixelCount;
+  }, textRectangles);
+  expect(overlappingPixelCount, `${selector}: foreground paint must have no overlap with visible page text`).toBe(0);
 }

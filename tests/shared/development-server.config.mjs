@@ -1,11 +1,7 @@
 import siteConfiguration from "../../astro.config.mjs";
 
-// The draft preview server for the browser tests. It uses the site
-// configuration with one change: the server sends no reload to the browser.
-//
-// On its first start, the dev server writes .astro/data-store.json about
-// 500 ms after it reports ready. Astro then tells every open page to reload.
-// A test page that is open at that time loses its document, and the test
-// fails with "Execution context was destroyed". The tests do not edit
-// files, so they need no reload.
+// Use the site configuration to serve drafts without browser reloads.
+// Astro writes .astro/data-store.json about 500 ms after the development server reports ready.
+// The resulting reload can destroy a test page execution context.
+// Disable reloads because browser tests do not edit source files.
 export default { ...siteConfiguration, vite: { ...siteConfiguration.vite, server: { ...siteConfiguration.vite?.server, hmr: false } } };
