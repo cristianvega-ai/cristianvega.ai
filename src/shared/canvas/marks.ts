@@ -66,14 +66,14 @@ function edgeStyle(
   drawingContext.lineWidth = hot ? 1.1 : 0.65;
 }
 
-/** A straight edge drawn in from a to b. `progress` 0..1 is the draw-in share. */
+/** A straight edge drawn in from the start to the end. `progress` 0..1 is the draw-in share. */
 export function drawEdge(
   drawingContext: CanvasRenderingContext2D,
   palette: Palette,
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
   progress: number,
   hot: boolean,
   alpha: number,
@@ -82,44 +82,48 @@ export function drawEdge(
   const growth = easeOutCubic(clamp(progress));
   edgeStyle(drawingContext, palette, progress, hot, alpha);
   drawingContext.beginPath();
-  drawingContext.moveTo(ax, ay);
-  drawingContext.lineTo(ax + (bx - ax) * growth, ay + (by - ay) * growth);
+  drawingContext.moveTo(startX, startY);
+  drawingContext.lineTo(startX + (endX - startX) * growth, startY + (endY - startY) * growth);
   drawingContext.stroke();
   drawingContext.globalAlpha = 1;
 }
 
-/** A cubic Bezier edge drawn in from a to b. It is split at the draw-in share by de Casteljau. */
+/**
+ * A cubic Bezier edge drawn in from the start to the end. It is split at the draw-in share by de Casteljau:
+ * the legs between the four points split first, then the blends between those splits. The drawn part
+ * keeps the start leg and the first blend as its controls, and it ends between the two blends.
+ */
 export function drawCurve(
   drawingContext: CanvasRenderingContext2D,
   palette: Palette,
-  ax: number,
-  ay: number,
-  c1x: number,
-  c1y: number,
-  c2x: number,
-  c2y: number,
-  bx: number,
-  by: number,
+  startX: number,
+  startY: number,
+  control1X: number,
+  control1Y: number,
+  control2X: number,
+  control2Y: number,
+  endX: number,
+  endY: number,
   progress: number,
   hot: boolean,
   alpha: number,
 ): void {
   if (progress <= 0) return;
   const growth = easeOutCubic(clamp(progress));
-  const q0x = ax + (c1x - ax) * growth;
-  const q0y = ay + (c1y - ay) * growth;
-  const q1x = c1x + (c2x - c1x) * growth;
-  const q1y = c1y + (c2y - c1y) * growth;
-  const q2x = c2x + (bx - c2x) * growth;
-  const q2y = c2y + (by - c2y) * growth;
-  const r0x = q0x + (q1x - q0x) * growth;
-  const r0y = q0y + (q1y - q0y) * growth;
-  const r1x = q1x + (q2x - q1x) * growth;
-  const r1y = q1y + (q2y - q1y) * growth;
+  const startLegX = startX + (control1X - startX) * growth;
+  const startLegY = startY + (control1Y - startY) * growth;
+  const middleLegX = control1X + (control2X - control1X) * growth;
+  const middleLegY = control1Y + (control2Y - control1Y) * growth;
+  const endLegX = control2X + (endX - control2X) * growth;
+  const endLegY = control2Y + (endY - control2Y) * growth;
+  const firstBlendX = startLegX + (middleLegX - startLegX) * growth;
+  const firstBlendY = startLegY + (middleLegY - startLegY) * growth;
+  const secondBlendX = middleLegX + (endLegX - middleLegX) * growth;
+  const secondBlendY = middleLegY + (endLegY - middleLegY) * growth;
   edgeStyle(drawingContext, palette, progress, hot, alpha);
   drawingContext.beginPath();
-  drawingContext.moveTo(ax, ay);
-  drawingContext.bezierCurveTo(q0x, q0y, r0x, r0y, r0x + (r1x - r0x) * growth, r0y + (r1y - r0y) * growth);
+  drawingContext.moveTo(startX, startY);
+  drawingContext.bezierCurveTo(startLegX, startLegY, firstBlendX, firstBlendY, firstBlendX + (secondBlendX - firstBlendX) * growth, firstBlendY + (secondBlendY - firstBlendY) * growth);
   drawingContext.stroke();
   drawingContext.globalAlpha = 1;
 }

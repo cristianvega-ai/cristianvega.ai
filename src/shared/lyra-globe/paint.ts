@@ -1,11 +1,11 @@
-import { stagger } from "../motion/clock.ts";
-import { drawComet } from "../motion/comets.ts";
-import { easeOutCubic, smooth } from "../motion/easing.ts";
-import { FULL_TURN_RADIANS } from "../motion/geometry.ts";
-import type { FrameState } from "../motion/canvas-controller.ts";
-import { drawEdge, drawNode, drawVegaBloom, entranceBloom } from "../motion/marks.ts";
-import type { Palette } from "../motion/palette.ts";
-import { drawStarField } from "../motion/star-field.ts";
+import { stagger } from "../canvas/clock.ts";
+import { drawComet } from "../canvas/comets.ts";
+import { easeOutCubic, smooth } from "../canvas/easing.ts";
+import { FULL_TURN_RADIANS } from "../canvas/geometry.ts";
+import type { FrameState } from "../canvas/canvas-controller.ts";
+import { drawEdge, drawNode, drawVegaBloom, entranceBloom } from "../canvas/marks.ts";
+import type { Palette } from "../canvas/palette.ts";
+import { drawStarField } from "../canvas/star-field.ts";
 import { EDGE_SPAN, GLOBE_HEIGHT, GLOBE_WIDTH, NODE_SPAN, type Globe } from "./model.ts";
 
 /** How far behind its head a comet leaves light, in grid units. */
@@ -52,13 +52,13 @@ function paintGlobe(
   drawingContext.lineCap = "round";
   drawStarField(drawingContext, palette, globe.stars, progress);
   paintRings(drawingContext, globe, palette, progress);
-  for (let i = 0; i < globe.edges.length; i++) {
-    const edge = globe.edges[i];
-    const to = edge.from === edge.a ? edge.b : edge.a;
+  for (let edgeIndex = 0; edgeIndex < globe.edges.length; edgeIndex++) {
+    const edge = globe.edges[edgeIndex];
+    const to = edge.from === edge.first ? edge.second : edge.first;
     drawEdge(drawingContext, palette, edge.from.x, edge.from.y, to.x, to.y, stagger(progress, edge.start, EDGE_SPAN), edge.hot, edge.alpha);
   }
-  for (let i = 0; i < globe.nodes.length; i++) {
-    const node = globe.nodes[i];
+  for (let nodeIndex = 0; nodeIndex < globe.nodes.length; nodeIndex++) {
+    const node = globe.nodes[nodeIndex];
     drawNode(drawingContext, palette, glow, node.x, node.y, node.radius, stagger(progress, node.start, NODE_SPAN), node.hot, node.alpha, node.vega);
   }
 }
@@ -68,12 +68,12 @@ function paintRings(drawingContext: CanvasRenderingContext2D, globe: Globe, pale
   drawingContext.strokeStyle = palette.sky;
   drawingContext.lineWidth = 0.7;
   const ringsIn = smooth((progress - 0.04) / 0.5);
-  for (let i = 0; i < globe.rings.length; i++) {
-    const ring = globe.rings[i];
+  for (let ringIndex = 0; ringIndex < globe.rings.length; ringIndex++) {
+    const ring = globe.rings[ringIndex];
     const grow = 0.94 + 0.06 * easeOutCubic(ringsIn);
     drawingContext.globalAlpha = ring.alpha * ringsIn;
     drawingContext.beginPath();
-    drawingContext.ellipse(ring.x, ring.y, ring.rx * grow, ring.ry * grow, ring.rotate, 0, FULL_TURN_RADIANS);
+    drawingContext.ellipse(ring.x, ring.y, ring.radiusX * grow, ring.radiusY * grow, ring.rotation, 0, FULL_TURN_RADIANS);
     drawingContext.stroke();
   }
   drawingContext.globalAlpha = 1;
@@ -88,8 +88,8 @@ function paintSignals(
   palette: Palette,
   glow: HTMLCanvasElement,
 ) {
-  for (let i = 0; i < globe.routes.length; i++) {
-    const route = globe.routes[i];
+  for (let routeIndex = 0; routeIndex < globe.routes.length; routeIndex++) {
+    const route = globe.routes[routeIndex];
     drawComet(drawingContext, palette, glow, route, stagger(progress, route.start, route.span), TAIL_LENGTH);
   }
   if (vega) drawVegaBloom(drawingContext, glow, vega.x, vega.y, entranceBloom(progress));

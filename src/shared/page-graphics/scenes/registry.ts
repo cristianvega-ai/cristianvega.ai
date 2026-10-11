@@ -7,7 +7,7 @@ type PageGraphicMount = (container: HTMLElement) => CanvasHandle | null;
 const graphics: Record<string, () => Promise<PageGraphicMount>> = {
   about: () => import("./about.ts").then((module) => module.mountAbout),
   products: () => import("./products.ts").then((module) => module.mountProducts),
-  "404": () => import("./404.ts").then((module) => module.mountNotFound),
+  "404": () => import("./missing-page.ts").then((module) => module.mountMissingPage),
   writing: () => import("./writing.ts").then((module) => module.mountWriting),
 };
 

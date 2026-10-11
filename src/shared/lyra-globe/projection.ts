@@ -44,12 +44,12 @@ interface GlobeProjection {
  * round(). The centre and Vega keep full precision, as the band crop uses them directly.
  */
 function projectGlobe(globe: Globe): GlobeProjection {
-  const ring = globe.rings.reduce((outer, candidate) => candidate.rx * candidate.ry > outer.rx * outer.ry ? candidate : outer);
+  const ring = globe.rings.reduce((outer, candidate) => candidate.radiusX * candidate.radiusY > outer.radiusX * outer.radiusY ? candidate : outer);
   const vega = globe.nodes.find((node) => node.vega)!;
   const caption = globe.labels.find((label) => label.align === "center")!;
   // The part of the picture that the box shows, in grid units.
-  const cropTop = ring.y - ring.ry * (1 + CROP_ABOVE_RING);
-  const cropBottom = caption.y + ring.ry * CROP_BELOW_CAPTION;
+  const cropTop = ring.y - ring.radiusY * (1 + CROP_ABOVE_RING);
+  const cropBottom = caption.y + ring.radiusY * CROP_BELOW_CAPTION;
   const pictureAspect = round(globe.height / globe.width);
   const pictureHeight = round(globe.height / (cropBottom - cropTop));
   const pictureTop = round(-cropTop / (cropBottom - cropTop));
@@ -59,8 +59,8 @@ function projectGlobe(globe: Globe): GlobeProjection {
     pictureHeight,
     pictureTop,
     boxAspect: round((pictureAspect * PICTURE_SCALE) / pictureHeight),
-    ringInset: round(((ring.x - ring.rx) / globe.width) * PICTURE_SCALE),
-    centerReach: round((ring.rx / globe.width) * PICTURE_SCALE),
+    ringInset: round(((ring.x - ring.radiusX) / globe.width) * PICTURE_SCALE),
+    centerReach: round((ring.radiusX / globe.width) * PICTURE_SCALE),
     // The picture sits at pictureTop, so the sphere centre sits this far down the box.
     centerTop: round(pictureTop + (ring.y / globe.height) * pictureHeight),
     centerX: ring.x / globe.width,

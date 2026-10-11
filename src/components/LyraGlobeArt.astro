@@ -1,15 +1,15 @@
 ---
 import { GLOBE_HEIGHT, GLOBE_WIDTH, type Globe } from "../shared/lyra-globe/model";
-import { HOT_EDGE_ALPHA, NODE_HALO, VEGA_HALO, VEGA_RING_ALPHA, VEGA_RING_RADIUS } from "../shared/motion/marks";
-import { GLOW_CENTER_ALPHA } from "../shared/motion/palette";
+import { HOT_EDGE_ALPHA, NODE_HALO, VEGA_HALO, VEGA_RING_ALPHA, VEGA_RING_RADIUS } from "../shared/canvas/marks";
+import { GLOW_CENTER_ALPHA } from "../shared/canvas/palette";
 
 interface Props {
   globe: Globe;
 }
 
 const { globe } = Astro.props;
-const point = (edge: { a: { x: number; y: number }; b: { x: number; y: number } }) =>
-  `M${edge.a.x.toFixed(2)},${edge.a.y.toFixed(2)}L${edge.b.x.toFixed(2)},${edge.b.y.toFixed(2)}`;
+const edgePath = (edge: Globe["edges"][number]) =>
+  `M${edge.first.x.toFixed(2)},${edge.first.y.toFixed(2)}L${edge.second.x.toFixed(2)},${edge.second.y.toFixed(2)}`;
 ---
 
 <svg class="lyra-globe__fallback" viewBox={`0 0 ${GLOBE_WIDTH} ${GLOBE_HEIGHT}`} focusable="false">
@@ -33,16 +33,16 @@ const point = (edge: { a: { x: number; y: number }; b: { x: number; y: number } 
       class="lyra-globe__ring"
       cx={ring.x}
       cy={ring.y}
-      rx={ring.rx}
-      ry={ring.ry}
-      transform={`rotate(${((ring.rotate * 180) / Math.PI).toFixed(2)} ${ring.x} ${ring.y})`}
+      rx={ring.radiusX}
+      ry={ring.radiusY}
+      transform={`rotate(${((ring.rotation * 180) / Math.PI).toFixed(2)} ${ring.x} ${ring.y})`}
       opacity={ring.alpha}
     />
   ))}
   {globe.edges.map((edge) => (
     <path
       class:list={["lyra-globe__edge", { "is-hot": edge.hot }]}
-      d={point(edge)}
+      d={edgePath(edge)}
       opacity={edge.hot ? HOT_EDGE_ALPHA : edge.alpha.toFixed(3)}
     />
   ))}

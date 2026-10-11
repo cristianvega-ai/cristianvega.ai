@@ -3,15 +3,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import LyraGlobe from "../components/LyraGlobe.astro";
 import ProfileHeading from "../components/ProfileHeading.astro";
 import { globeProjectionAddress } from "../shared/lyra-globe/projection";
-import { getArticles } from "../shared/writing";
-import { getProducts } from "../shared/products";
+import { getArticles } from "../shared/content/writing";
+import { getProducts } from "../shared/content/products";
 import "../styles/home.css";
 
 // A call to action links to its section only when the section has something
 // to show. Until then it is plain, muted text, so the page never points at a
 // route the build does not emit. Both states share one box, so the layout
 // does not shift when a section goes live.
-const next = [
+const latestWork = [
   { href: "/writing/", live: (await getArticles()).length > 0, label: "Read my latest writing", soon: "Latest writing · coming soon" },
   { href: "/products/", live: (await getProducts()).length > 0, label: "See my latest products", soon: "Latest products · coming soon" },
 ];
@@ -31,7 +31,7 @@ const next = [
             evaluation, and a unit cost.
           </p>
           <ul class="hero__next" aria-label="Latest work">
-            {next.map((item) => (
+            {latestWork.map((item) => (
               <li class="hero__next-item" data-state={item.live ? "live" : "soon"}>
                 {item.live ? (
                   <a class="hero__next-link" href={item.href}>{item.label} <span class="hero__next-arrow" aria-hidden="true">→</span></a>

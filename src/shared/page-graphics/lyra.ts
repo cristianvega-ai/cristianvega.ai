@@ -1,5 +1,5 @@
 import { LYRA, LYRA_LINKS } from "../lyra/constellation.ts";
-import type { Point } from "../motion/geometry.ts";
+import type { Point } from "../canvas/geometry.ts";
 import type { LabelFont } from "./label-font.ts";
 import { placeLabel, type PlacedLabel, type Rectangle, type Segment } from "./labels.ts";
 
@@ -21,16 +21,16 @@ interface LyraLayoutOptions {
   /** Empty space kept round the figure, in CSS pixels. */
   padding?: number;
   /** Turn the figure by this angle, in radians, before it is fitted. */
-  rotate?: number;
+  rotation?: number;
   /** Reuse this array to avoid an allocation. */
   outputPoints?: LyraPoint[];
 }
 
-/** The chart offsets of the figure turned by `rotate` radians. Vega stays at the origin. */
-function turnLyra(rotate: number): Point[] {
-  const cos = Math.cos(rotate);
-  const sin = Math.sin(rotate);
-  return LYRA.map((star) => ({ x: star.x * cos - star.y * sin, y: star.x * sin + star.y * cos }));
+/** The chart offsets of the figure turned by `rotation` radians. Vega stays at the origin. */
+function turnLyra(rotation: number): Point[] {
+  const cosine = Math.cos(rotation);
+  const sine = Math.sin(rotation);
+  return LYRA.map((star) => ({ x: star.x * cosine - star.y * sine, y: star.x * sine + star.y * cosine }));
 }
 
 /** The smallest rectangle that holds every point. */
@@ -52,38 +52,38 @@ export function boundsOf(points: readonly Point[]): Rectangle {
 export function layoutLyra(
   width: number,
   height: number,
-  { padding = 16, rotate = 0, outputPoints = [] }: LyraLayoutOptions = {},
+  { padding = 16, rotation = 0, outputPoints = [] }: LyraLayoutOptions = {},
 ): LyraPoint[] {
-  const turned = turnLyra(rotate);
-  const { x0: minX, x1: maxX, y0: minY, y1: maxY } = boundsOf(turned);
-  const scale = Math.min((width - padding * 2) / (maxX - minX || 1), (height - padding * 2) / (maxY - minY || 1), LYRA_MAXIMUM_SIZE / Math.max(maxX - minX, maxY - minY, 1e-9));
-  const offsetX = (width - (maxX - minX) * scale) / 2 - minX * scale;
-  const offsetY = (height - (maxY - minY) * scale) / 2 - minY * scale;
-  turned.forEach((turnedPoint, i) => {
-    const point = outputPoints[i] ?? (outputPoints[i] = { x: 0, y: 0, name: undefined, vega: false });
+  const turned = turnLyra(rotation);
+  const { x0: minimumX, x1: maximumX, y0: minimumY, y1: maximumY } = boundsOf(turned);
+  const scale = Math.min((width - padding * 2) / (maximumX - minimumX || 1), (height - padding * 2) / (maximumY - minimumY || 1), LYRA_MAXIMUM_SIZE / Math.max(maximumX - minimumX, maximumY - minimumY, 1e-9));
+  const offsetX = (width - (maximumX - minimumX) * scale) / 2 - minimumX * scale;
+  const offsetY = (height - (maximumY - minimumY) * scale) / 2 - minimumY * scale;
+  turned.forEach((turnedPoint, starIndex) => {
+    const point = outputPoints[starIndex] ?? (outputPoints[starIndex] = { x: 0, y: 0, name: undefined, vega: false });
     point.x = turnedPoint.x * scale + offsetX;
     point.y = turnedPoint.y * scale + offsetY;
-    point.name = LYRA[i].name;
-    point.vega = i === 0;
+    point.name = LYRA[starIndex].name;
+    point.vega = starIndex === 0;
   });
   return outputPoints;
 }
 
 /**
- * Fit the Lyra figure with Vega at the centre (cx, cy) so the figure stays inside the
- * half box (rx, ry), with one uniform scale and a cap on its size. A wide box turns the figure a
+ * Fit the Lyra figure with Vega at the centre (centerX, centerY) so the figure stays inside the
+ * half box (halfWidth, halfHeight), with one uniform scale and a cap on its size. A wide box turns the figure a
  * quarter turn. Fills `output` and returns it.
  */
 export function fitLyraAtVega(
   output: Point[],
-  cx: number,
-  cy: number,
-  rx: number,
-  ry: number,
+  centerX: number,
+  centerY: number,
+  halfWidth: number,
+  halfHeight: number,
   wide: boolean,
 ): Point[] {
   const turned = turnLyra(wide ? -Math.PI / 2 : 0);
-  const { x0: minX, x1: maxX, y0: minY, y1: maxY } = boundsOf(turned);
+  const { x0: minimumX, x1: maximumX, y0: minimumY, y1: maximumY } = boundsOf(turned);
   let reachX = 0;
   let reachY = 0;
   for (const point of turned) {
@@ -91,18 +91,18 @@ export function fitLyraAtVega(
     reachY = Math.max(reachY, Math.abs(point.y));
   }
   // One uniform scale, and never bigger than the cap, so the figure has the same size and shape on every canvas.
-  const scale = Math.min(rx / reachX, ry / reachY, LYRA_MAXIMUM_SIZE / Math.max(maxX - minX, maxY - minY));
-  turned.forEach((turnedPoint, i) => {
-    const point = output[i] ?? (output[i] = { x: 0, y: 0 });
-    point.x = cx + turnedPoint.x * scale;
-    point.y = cy + turnedPoint.y * scale;
+  const scale = Math.min(halfWidth / reachX, halfHeight / reachY, LYRA_MAXIMUM_SIZE / Math.max(maximumX - minimumX, maximumY - minimumY));
+  turned.forEach((turnedPoint, starIndex) => {
+    const point = output[starIndex] ?? (output[starIndex] = { x: 0, y: 0 });
+    point.x = centerX + turnedPoint.x * scale;
+    point.y = centerY + turnedPoint.y * scale;
   });
   return output;
 }
 
 /** The links of the figure as segments, so a label can keep clear of them. */
 export function lyraLinkSegments(stars: readonly Point[]): Segment[] {
-  return LYRA_LINKS.map(([a, b]) => ({ ax: stars[a].x, ay: stars[a].y, bx: stars[b].x, by: stars[b].y }));
+  return LYRA_LINKS.map(([startIndex, endIndex]) => ({ startX: stars[startIndex].x, startY: stars[startIndex].y, endX: stars[endIndex].x, endY: stars[endIndex].y }));
 }
 
 /** The measured width of each star name, in Lyra star order. A star without a name measures 0. */
@@ -129,11 +129,11 @@ interface StarNameOptions {
 /** Place the star names. Each takes the first side of its star that no line crosses. */
 export function placeStarNames(stars: readonly Point[], { bounds, showNames, widthsInPixels, lineHeightInPixels, segments, soft, avoid }: StarNameOptions): PlacedLabel[] {
   const placed: PlacedLabel[] = [];
-  LYRA.forEach((star, i) => {
-    const vega = i === 0;
+  LYRA.forEach((star, starIndex) => {
+    const vega = starIndex === 0;
     if (!star.name || !(vega || showNames)) return;
-    placed.push(placeLabel(star.name, stars[i].x, stars[i].y, {
-      widthInPixels: widthsInPixels[i],
+    placed.push(placeLabel(star.name, stars[starIndex].x, stars[starIndex].y, {
+      widthInPixels: widthsInPixels[starIndex],
       lineHeightInPixels,
       bounds,
       segments,

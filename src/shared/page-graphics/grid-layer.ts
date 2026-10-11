@@ -1,4 +1,4 @@
-import type { Palette } from "../motion/palette.ts";
+import type { Palette } from "../canvas/palette.ts";
 
 // The site grid as a canvas layer, for a page graphic that draws the grid itself.
 

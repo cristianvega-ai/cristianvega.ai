@@ -4,7 +4,7 @@ import {
   type CanvasHandle as ControllerHandle,
   type FrameState as ControllerState,
   type MountOptions as ControllerOptions,
-} from "../motion/canvas-controller.ts";
+} from "../canvas/canvas-controller.ts";
 import { makeLabelFont, type LabelFont } from "./label-font.ts";
 
 export interface FrameState extends ControllerState {

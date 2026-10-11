@@ -1,13 +1,13 @@
 ---
 import { render } from "astro:content";
 import ArticleLayout from "../../layouts/ArticleLayout.astro";
-import { getArticles } from "../../shared/writing";
+import { getArticles } from "../../shared/content/writing";
 
 export async function getStaticPaths() {
   const articles = await getArticles();
-  return articles.map((article, index) => ({
+  return articles.map((article, articleIndex) => ({
     params: { slug: article.id },
-    props: { article, older: articles[index + 1], newer: articles[index - 1] },
+    props: { article, older: articles[articleIndex + 1], newer: articles[articleIndex - 1] },
   }));
 }
 

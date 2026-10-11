@@ -8,7 +8,7 @@ const aboutBounds = [[456, 762], [680, 136]];
 
 test("aboutLayout keeps the control points and Vega ring inside column and band bounds", () => {
   for (const [width, height] of aboutBounds) {
-    const { vx: vegaX, vy: vegaY, ring: ringRadius, curve: controlPoints } = aboutLayout(width, height);
+    const { vegaX, vegaY, ringRadius, curve: controlPoints } = aboutLayout(width, height);
     assert.ok(ringRadius > 0, `${width}x${height}: the ring must have a positive radius`);
     assert.ok(vegaX - ringRadius >= 0 && vegaX + ringRadius <= width, `${width}x${height}: the ring must fit horizontally`);
     assert.ok(vegaY - ringRadius >= 0 && vegaY + ringRadius <= height, `${width}x${height}: the ring must fit vertically`);

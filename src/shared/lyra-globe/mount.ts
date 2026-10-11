@@ -1,4 +1,4 @@
-import { GLOBE_POLICY, mountCanvasController, type FrameState } from "../motion/canvas-controller.ts";
+import { GLOBE_POLICY, mountCanvasController, type FrameState } from "../canvas/canvas-controller.ts";
 import { createLabelAnimations } from "./label-animations.ts";
 import { buildGlobe, GLOBE_WIDTH, type Globe } from "./model.ts";
 import { paintGlobeFrame } from "./paint.ts";
@@ -17,18 +17,18 @@ function showFallback(root: HTMLElement): void {
  * without JavaScript, and this function puts a copy in the box when canvas is
  * missing or setup fails.
  */
-export function setupLyraGlobe(): void {
+export function mountLyraGlobe(): void {
   const root = document.querySelector<HTMLElement>("[data-lyra-globe]");
   if (!root) return;
   try {
-    if (!drawGlobe(root)) showFallback(root);
+    if (!mountGlobeCanvas(root)) showFallback(root);
   } catch {
     showFallback(root);
   }
 }
 
 /** Draw the globe scene. Restart its entrance after a restored page. Return false when the canvas cannot draw. */
-function drawGlobe(root: HTMLElement): boolean {
+function mountGlobeCanvas(root: HTMLElement): boolean {
   let globe: Globe | undefined;
   let vega: Globe["hotNodes"][number] | undefined;
   let scale = 1;

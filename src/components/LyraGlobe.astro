@@ -22,8 +22,8 @@ const globe = buildGlobe();
         class:list={["lyra-globe__label", { "lyra-globe__label--caption": label.align === "center" }]}
         x={`${((label.x / GLOBE_WIDTH) * 100).toFixed(3)}%`}
         y={`${((label.y / GLOBE_HEIGHT) * 100).toFixed(3)}%`}
-        dx={label.dx}
-        dy={label.dy}
+        dx={label.offsetX}
+        dy={label.offsetY}
         text-anchor={label.align === "center" ? "middle" : "start"}
         opacity={label.alpha}
       >{label.text}</text>
@@ -32,7 +32,7 @@ const globe = buildGlobe();
 </div>
 
 <script>
-  import { setupLyraGlobe } from "../shared/lyra-globe/motion";
+  import { mountLyraGlobe } from "../shared/lyra-globe/mount";
 
-  setupLyraGlobe();
+  mountLyraGlobe();
 </script>

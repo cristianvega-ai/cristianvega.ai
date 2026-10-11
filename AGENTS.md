@@ -95,8 +95,8 @@ npm run generate:touch-icon
 - `src/shared/` holds content helpers, article interactions, and canvas modules.
 - `src/shared/lyra-globe/` holds the Lyra globe. `src/shared/lyra/` holds its star data.
 - `src/shared/page-graphics/` holds page graphics. Read its [guide](src/shared/page-graphics/README.md) for scene setup.
-- `src/shared/motion/` holds the shared canvas layer: easing, geometry, the entrance clock, the palette, marks, comets, star fields, and the canvas controller.
-- `src/shared/article-interactions.ts` holds article behavior. `writing.ts` and `products.ts` hold content helpers.
+- `src/shared/canvas/` holds the shared canvas layer: easing, geometry, the entrance clock, the palette, marks, comets, star fields, and the canvas controller.
+- `src/shared/article-interactions.ts` holds article behavior. `src/shared/content/` holds the `writing.ts` and `products.ts` content helpers.
 - `src/content/` holds the Markdown for the `writing` and `products` collections. Both collections hide drafts in production.
 - The `writing` collection publishes at `/writing/`.
 - `public/` copies into the build, including `_headers`, `_redirects`, and `robots.txt`.

@@ -1,7 +1,7 @@
-import { stagger } from "../../motion/clock.ts";
-import { makeRoute, type Route } from "../../motion/comets.ts";
-import type { Point } from "../../motion/geometry.ts";
-import { NODE_HALO } from "../../motion/marks.ts";
+import { stagger } from "../../canvas/clock.ts";
+import { makeRoute, type Route } from "../../canvas/comets.ts";
+import type { Point } from "../../canvas/geometry.ts";
+import { NODE_HALO } from "../../canvas/marks.ts";
 import { FIGURE_INSET } from "../inset.ts";
 import { around, ellipseSegments, type Rectangle, type Segment } from "../labels.ts";
 import { fitLyraAtVega, lyraLinkSegments } from "../lyra.ts";
@@ -50,9 +50,9 @@ export function planOrbit(count: number): OrbitPlan {
 }
 
 /** Give each product a share of the entrance. The last link must finish by full progress. */
-export function productProgress(progress: number, index: number, count: number, part: "node" | "link"): number {
+export function productProgress(progress: number, productIndex: number, count: number, part: "node" | "link"): number {
   const step = Math.min(0.08, (1 - PRODUCT_LINK_START - PRODUCT_LINK_SPAN) / Math.max(1, count - 1));
-  const start = (part === "node" ? PRODUCT_NODE_START : PRODUCT_LINK_START) + index * step;
+  const start = (part === "node" ? PRODUCT_NODE_START : PRODUCT_LINK_START) + productIndex * step;
   const span = part === "node" ? PRODUCT_NODE_SPAN : PRODUCT_LINK_SPAN;
   // Compare the end first, so division cannot leave a finished mark below one.
   return progress >= start + span ? 1 : stagger(progress, start, span);
@@ -61,18 +61,18 @@ export function productProgress(progress: number, index: number, count: number, 
 /** Put a slot on its orbit. `wide` is a band: the figure lies to the left and the slots turn with it. */
 export function orbitSlot(
   output: Point,
-  index: number,
+  slotIndex: number,
   wide: boolean,
-  cx: number,
-  cy: number,
+  centerX: number,
+  centerY: number,
   halfWidth: number,
   halfHeight: number,
 ): Point {
   const away = ((wide ? -145 : -55) * Math.PI) / 180;
-  const angle = away + (SLOT_OFFSET[index] * Math.PI) / 180;
-  const ring = RINGS[SLOT_RING[index]];
-  output.x = cx + Math.cos(angle) * ring * halfWidth;
-  output.y = cy + Math.sin(angle) * ring * halfHeight;
+  const angle = away + (SLOT_OFFSET[slotIndex] * Math.PI) / 180;
+  const ring = RINGS[SLOT_RING[slotIndex]];
+  output.x = centerX + Math.cos(angle) * ring * halfWidth;
+  output.y = centerY + Math.sin(angle) * ring * halfHeight;
   return output;
 }
 
@@ -132,9 +132,9 @@ export function layoutOrbit(width: number, height: number, plan: OrbitPlan, orbi
   Object.assign(orbit, orbitBox(width, height));
   const { centerX, centerY, halfWidth, halfHeight, wide, stars, spots, routes } = orbit;
   fitLyraAtVega(stars, centerX, centerY, halfWidth * 0.8, halfHeight * 0.8, wide);
-  for (let i = 0; i < plan.total; i++) orbitSlot(spots[i], i, wide, centerX, centerY, halfWidth, halfHeight);
+  for (let slotIndex = 0; slotIndex < plan.total; slotIndex++) orbitSlot(spots[slotIndex], slotIndex, wide, centerX, centerY, halfWidth, halfHeight);
   routes.length = 0;
-  for (let i = 0; i < Math.min(plan.lit, COMET_COUNT); i++) routes.push(makeRoute([spots[i], stars[0]]));
+  for (let productIndex = 0; productIndex < Math.min(plan.lit, COMET_COUNT); productIndex++) routes.push(makeRoute([spots[productIndex], stars[0]]));
   return orbit;
 }
 
@@ -145,10 +145,10 @@ export function layoutOrbit(width: number, height: number, plan: OrbitPlan, orbi
 export function orbitLabelObstacles(orbit: Orbit, plan: OrbitPlan): { segments: Segment[]; soft: Segment[]; avoid: Rectangle[] } {
   const { centerX, centerY, halfWidth, halfHeight, stars, spots } = orbit;
   const segments: Segment[] = lyraLinkSegments(stars);
-  for (let i = 0; i < plan.lit; i++) segments.push({ ax: spots[i].x, ay: spots[i].y, bx: stars[0].x, by: stars[0].y });
+  for (let productIndex = 0; productIndex < plan.lit; productIndex++) segments.push({ startX: spots[productIndex].x, startY: spots[productIndex].y, endX: stars[0].x, endY: stars[0].y });
   const soft: Segment[] = [];
   for (const ring of RINGS) ellipseSegments(centerX, centerY, ring * halfWidth, ring * halfHeight, 48, soft);
   const avoid: Rectangle[] = stars.map((star) => around(star.x, star.y, 9));
-  for (let i = 0; i < plan.total; i++) avoid.push(around(spots[i].x, spots[i].y, 12));
+  for (let slotIndex = 0; slotIndex < plan.total; slotIndex++) avoid.push(around(spots[slotIndex].x, spots[slotIndex].y, 12));
   return { segments, soft, avoid };
 }

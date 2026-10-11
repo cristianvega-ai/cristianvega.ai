@@ -7,7 +7,7 @@ export type Product = CollectionEntry<"products">;
  */
 export async function getProducts(): Promise<Product[]> {
   const products = await getCollection("products", ({ data }) => import.meta.env.DEV || !data.draft);
-  return products.sort((a, b) => a.data.order - b.data.order || a.data.title.localeCompare(b.data.title));
+  return products.sort((first, second) => first.data.order - second.data.order || first.data.title.localeCompare(second.data.title));
 }
 
 export function productAddress(product: Product): string {

@@ -1,5 +1,5 @@
-import { entranceProgress } from "../motion/clock.ts";
-import { clamp } from "../motion/easing.ts";
+import { entranceProgress } from "../canvas/clock.ts";
+import { clamp } from "../canvas/easing.ts";
 
 // The globe labels are SVG text over the canvas. Each one fades in on the canvas clock:
 // its animation is paused, and every frame sets its time from the entrance progress.
@@ -42,12 +42,12 @@ export function createLabelAnimations(labels: NodeListOf<SVGTextElement>): Label
 
   function update(progress: number, entranceComplete: boolean) {
     if (entranceComplete) {
-      for (let i = 0; i < bindings.length; i++) bindings[i].animation.finish();
+      for (let bindingIndex = 0; bindingIndex < bindings.length; bindingIndex++) bindings[bindingIndex].animation.finish();
       // Restore the model opacity after the entrance.
       detach();
     }
-    for (let i = 0; i < bindings.length; i++) {
-      const binding = bindings[i];
+    for (let bindingIndex = 0; bindingIndex < bindings.length; bindingIndex++) {
+      const binding = bindings[bindingIndex];
       binding.animation.currentTime = clamp((progress - binding.start) / binding.span);
     }
   }

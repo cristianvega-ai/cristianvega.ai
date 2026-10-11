@@ -82,14 +82,14 @@ Split a mixed suite when its cases need different types.
 | Unit | `tests/unit/labels.test.mjs` | Label placement, rectangle overlap, and segment intersections. |
 | Unit | `tests/unit/palette.test.mjs` | Glow stops from a resolved color, with the color alpha. |
 | Unit | `tests/unit/product-orbit-capacity.test.mjs` | Empty content, slot capacity, and overflow rejection. |
-| Property | `tests/property/404-model.test.mjs` | Missing star geometry in columns and bands. |
 | Property | `tests/property/about-layout.test.mjs` | Path shape and ring bounds in columns and bands. |
 | Property | `tests/property/easing.test.mjs` | Cubic easing endpoints and monotonic samples. |
 | Property | `tests/property/globe-model.test.mjs` | Node bounds, route connections, Vega endpoints, and cumulative route lengths. |
 | Property | `tests/property/entrance-clock.test.mjs` | Entrance endpoints and monotonic clock samples. |
 | Property | `tests/property/graphics-geometry.test.mjs` | Valid star indices, padded Lyra layout, and mesh bounds. |
-| Property | `tests/property/graphics-math.test.mjs` | Stable numeric samples in the unit interval. |
+| Property | `tests/property/missing-page-layout.test.mjs` | Missing star geometry in columns and bands. |
 | Property | `tests/property/product-orbit.test.mjs` | Progress endpoints and ordering, distinct orbit slots, and Lyra bounds. |
+| Property | `tests/property/random.test.mjs` | Stable numeric samples in the unit interval. |
 | Property | `tests/property/writing-layout.test.mjs` | Article point counts, physical bounds, connected paths, and unique valid links. |
 | Integration | `tests/integration/build.test.mjs` | Static file safety, sitemap completeness, local font references, and private image exclusions. |
 | Integration | `tests/integration/pages.test.mjs` | Owner content, landmarks, metadata consistency, navigation state, safe outbound links, and local fonts. |

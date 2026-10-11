@@ -1,8 +1,8 @@
 import { LYRA, LYRA_LINKS } from "../lyra/constellation.ts";
-import { makeRoute, type Route } from "../motion/comets.ts";
-import type { Point } from "../motion/geometry.ts";
-import { unit } from "../motion/random.ts";
-import type { FieldStar } from "../motion/star-field.ts";
+import { makeRoute, type Route } from "../canvas/comets.ts";
+import type { Point } from "../canvas/geometry.ts";
+import { unit } from "../canvas/random.ts";
+import type { FieldStar } from "../canvas/star-field.ts";
 
 interface GlobeNode extends Point {
   radius: number;
@@ -14,8 +14,8 @@ interface GlobeNode extends Point {
 }
 
 interface GlobeEdge {
-  a: GlobeNode;
-  b: GlobeNode;
+  first: GlobeNode;
+  second: GlobeNode;
   hot: boolean;
   alpha: number;
   /** Share of the entrance that passes before the edge starts to draw. */
@@ -44,14 +44,14 @@ interface GlobeLabel extends Point {
   text: string;
   alpha: number;
   align: "left" | "center";
-  dx: number;
-  dy: number;
+  offsetX: number;
+  offsetY: number;
 }
 
 interface GlobeRing extends Point {
-  rx: number;
-  ry: number;
-  rotate: number;
+  radiusX: number;
+  radiusY: number;
+  rotation: number;
   alpha: number;
 }
 
@@ -106,7 +106,7 @@ const VEGA_OFFSET_X = 0.12;
  * bright edges. Returns the step each node takes toward Vega.
  */
 function stepsToVega(globe: Globe, vega: GlobeNode): Map<GlobeNode, GlobeNode> {
-  const next = new Map<GlobeNode, GlobeNode>();
+  const nextStep = new Map<GlobeNode, GlobeNode>();
   const cost = new Map<GlobeNode, number>([[vega, 0]]);
   const open = new Set<GlobeNode>([vega]);
   const links = globe.edges.filter((edge) => edge.hot || edge.alpha >= ROUTE_MINIMUM_ALPHA);
@@ -115,17 +115,17 @@ function stepsToVega(globe: Globe, vega: GlobeNode): Map<GlobeNode, GlobeNode> {
     for (const candidate of open) if (!node || cost.get(candidate)! < cost.get(node)!) node = candidate;
     open.delete(node);
     for (const edge of links) {
-      const other = edge.a === node ? edge.b : edge.b === node ? edge.a : undefined;
+      const other = edge.first === node ? edge.second : edge.second === node ? edge.first : undefined;
       if (!other) continue;
-      const total = cost.get(node)! + Math.hypot(edge.a.x - edge.b.x, edge.a.y - edge.b.y);
+      const total = cost.get(node)! + Math.hypot(edge.first.x - edge.second.x, edge.first.y - edge.second.y);
       if (total < (cost.get(other) ?? Infinity)) {
         cost.set(other, total);
-        next.set(other, node);
+        nextStep.set(other, node);
         open.add(other);
       }
     }
   }
-  return next;
+  return nextStep;
 }
 
 /**
@@ -134,28 +134,28 @@ function stepsToVega(globe: Globe, vega: GlobeNode): Map<GlobeNode, GlobeNode> {
  * figure, so the light reads as one flow toward the star. The comets share one
  * speed and arrive in turn, the longest journey first.
  */
-function buildRoutes(globe: Globe, sphere: GlobeNode[], vega: GlobeNode, cx: number, cy: number): GlobeRoute[] {
-  const next = stepsToVega(globe, vega);
+function buildRoutes(globe: Globe, sphere: GlobeNode[], vega: GlobeNode, centerX: number, centerY: number): GlobeRoute[] {
+  const nextStep = stepsToVega(globe, vega);
   const reach = (node: GlobeNode) => Math.hypot(node.x - vega.x, node.y - vega.y);
   const starts: GlobeNode[] = [];
   for (let sector = 0; sector < ROUTE_COUNT; sector++) {
     let best: GlobeNode | undefined;
     for (const node of sphere) {
-      const turn = (Math.atan2(node.y - cy, node.x - cx) + Math.PI) / (Math.PI * 2);
-      if (Math.floor(turn * ROUTE_COUNT) !== sector || !next.has(node) || node.alpha < 0.3 || reach(node) < ROUTE_MINIMUM_REACH) continue;
+      const turn = (Math.atan2(node.y - centerY, node.x - centerX) + Math.PI) / (Math.PI * 2);
+      if (Math.floor(turn * ROUTE_COUNT) !== sector || !nextStep.has(node) || node.alpha < 0.3 || reach(node) < ROUTE_MINIMUM_REACH) continue;
       if (!best || reach(node) > reach(best)) best = node;
     }
     if (best) starts.push(best);
   }
   const chains = starts.map((start) => {
     const points: GlobeNode[] = [start];
-    while (points[points.length - 1] !== vega) points.push(next.get(points[points.length - 1])!);
+    while (points[points.length - 1] !== vega) points.push(nextStep.get(points[points.length - 1])!);
     return makeRoute(points);
   });
   chains.sort((first, second) => second.length - first.length);
-  return chains.map((chain, i) => {
+  return chains.map((chain, chainIndex) => {
     const span = chain.length / ROUTE_SPEED;
-    const arrival = ARRIVAL_FIRST + (ARRIVAL_LAST - ARRIVAL_FIRST) * (chains.length > 1 ? i / (chains.length - 1) : 1);
+    const arrival = ARRIVAL_FIRST + (ARRIVAL_LAST - ARRIVAL_FIRST) * (chains.length > 1 ? chainIndex / (chains.length - 1) : 1);
     return { ...chain, start: Math.max(0, arrival - span), span: Math.min(span, arrival) };
   });
 }
@@ -169,22 +169,22 @@ function schedule(globe: Globe, depths: Map<GlobeNode, number>, vega: GlobeNode)
   const reach = (node: GlobeNode) => Math.hypot(node.x - vega.x, node.y - vega.y);
   const farthest = Math.max(...globe.hotNodes.map(reach), 1);
   // A little jitter in the start times keeps the reveal from stepping in rows.
-  const jitter = (i: number) => unit(i * 5 + 1) * 0.05;
+  const jitter = (seed: number) => unit(seed * 5 + 1) * 0.05;
   const inward = (distance: number) => 1 - Math.min(1, distance / farthest);
   const before = globe.nodes.length;
-  globe.nodes.forEach((node, i) => {
+  globe.nodes.forEach((node, nodeIndex) => {
     if (node.vega) node.start = VEGA_START;
     else if (node.hot) node.start = FIGURE_START + FIGURE_REACH * inward(reach(node)) * 0.9;
-    else node.start = MESH_START + MESH_REACH * depths.get(node)! + jitter(i);
+    else node.start = MESH_START + MESH_REACH * depths.get(node)! + jitter(nodeIndex);
   });
-  globe.edges.forEach((edge, i) => {
+  globe.edges.forEach((edge, edgeIndex) => {
     if (edge.hot) {
-      edge.from = reach(edge.a) >= reach(edge.b) ? edge.a : edge.b;
-      const middle = (reach(edge.a) + reach(edge.b)) / 2;
+      edge.from = reach(edge.first) >= reach(edge.second) ? edge.first : edge.second;
+      const middle = (reach(edge.first) + reach(edge.second)) / 2;
       edge.start = FIGURE_START + FIGURE_REACH * inward(middle);
     } else {
-      edge.from = depths.get(edge.a)! <= depths.get(edge.b)! ? edge.a : edge.b;
-      edge.start = MESH_START + MESH_REACH * ((depths.get(edge.a)! + depths.get(edge.b)!) / 2) + jitter(i + before);
+      edge.from = depths.get(edge.first)! <= depths.get(edge.second)! ? edge.first : edge.second;
+      edge.start = MESH_START + MESH_REACH * ((depths.get(edge.first)! + depths.get(edge.second)!) / 2) + jitter(edgeIndex + before);
     }
   });
 }
@@ -197,8 +197,8 @@ export function buildGlobe(width = GLOBE_WIDTH, height = GLOBE_HEIGHT): Globe {
   const globe: Globe = {
     width, height, nodes: [], edges: [], hotNodes: [], routes: [], labels: [], rings: [], stars: [], rotation: 0.035,
   };
-  const cx = width * 0.51;
-  const cy = height * 0.49;
+  const centerX = width * 0.51;
+  const centerY = height * 0.49;
   const radius = Math.min(width, height) * 0.34;
 
   // Depth runs from 0 on the far side of the sphere to 1 on the near side.
@@ -209,33 +209,33 @@ export function buildGlobe(width = GLOBE_WIDTH, height = GLOBE_HEIGHT): Globe {
     globe.nodes.push(node);
     return node;
   };
-  const connect = (a: GlobeNode, b: GlobeNode, hot: boolean, alpha: number) => {
-    globe.edges.push({ a, b, hot, alpha, start: 0, from: a });
-    if (hot) a.hot = b.hot = true;
+  const connect = (first: GlobeNode, second: GlobeNode, hot: boolean, alpha: number) => {
+    globe.edges.push({ first, second, hot, alpha, start: 0, from: first });
+    if (hot) first.hot = second.hot = true;
   };
 
-  const sphere = Array.from({ length: NODE_COUNT }, (_, i) => {
-    const y = 1 - (2 * (i + 0.5)) / NODE_COUNT;
+  const sphere = Array.from({ length: NODE_COUNT }, (_, nodeIndex) => {
+    const y = 1 - (2 * (nodeIndex + 0.5)) / NODE_COUNT;
     const ring = Math.sqrt(1 - y * y);
-    const angle = i * GOLDEN_ANGLE;
+    const angle = nodeIndex * GOLDEN_ANGLE;
     const x = ring * Math.cos(angle);
     const z = ring * Math.sin(angle);
     const perspective = 1 + z * 0.13;
-    const node = add(cx + x * radius * perspective, cy + y * radius * perspective, z > 0.2 ? 2 : 1.2, 0.16 + (z + 1) * 0.3, (z + 1) / 2);
+    const node = add(centerX + x * radius * perspective, centerY + y * radius * perspective, z > 0.2 ? 2 : 1.2, 0.16 + (z + 1) * 0.3, (z + 1) / 2);
     return { node, x, y, z };
   });
-  for (let i = 0; i < sphere.length; i++) {
-    for (let j = i + 1; j < sphere.length; j++) {
-      const a = sphere[i];
-      const b = sphere[j];
-      if (Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < EDGE_REACH) {
-        connect(a.node, b.node, false, 0.035 + (a.z + b.z + 2) * 0.045);
+  for (let firstIndex = 0; firstIndex < sphere.length; firstIndex++) {
+    for (let secondIndex = firstIndex + 1; secondIndex < sphere.length; secondIndex++) {
+      const first = sphere[firstIndex];
+      const second = sphere[secondIndex];
+      if (Math.hypot(first.x - second.x, first.y - second.y, first.z - second.z) < EDGE_REACH) {
+        connect(first.node, second.node, false, 0.035 + (first.z + second.z + 2) * 0.045);
       }
     }
   }
 
   const scale = radius * 0.175;
-  const lyra = LYRA.map(({ x, y }, i) => add(cx + radius * VEGA_OFFSET_X + x * scale, cy - radius * 0.55 + y * scale, i === 0 ? 4.1 : 2.3, 0.95, 1));
+  const lyra = LYRA.map(({ x, y }, starIndex) => add(centerX + radius * VEGA_OFFSET_X + x * scale, centerY - radius * 0.55 + y * scale, starIndex === 0 ? 4.1 : 2.3, 0.95, 1));
   lyra[0].vega = true;
   for (const [from, to] of LYRA_LINKS) connect(lyra[from], lyra[to], true, 0.3);
 
@@ -249,16 +249,16 @@ export function buildGlobe(width = GLOBE_WIDTH, height = GLOBE_HEIGHT): Globe {
   connect(thirdRouteNode, lyra[5], true, 0.17);
   connect(secondRouteNode, lyra[3], true, 0.17);
 
-  globe.rings.push({ x: cx, y: cy, rx: radius * 1.1, ry: radius * 0.35, rotate: -0.42, alpha: 0.16 });
-  globe.rings.push({ x: cx, y: cy, rx: radius * 1.13, ry: radius * 1.13, rotate: 0, alpha: 0.07 });
-  globe.labels.push({ text: "VEGA", x: lyra[0].x, y: lyra[0].y, alpha: 0.9, align: "left", dx: 13, dy: -13 });
-  globe.labels.push({ text: "LYRA / NEURAL SPHERE", x: cx, y: cy + radius * 1.22, alpha: 0.7, align: "center", dx: 0, dy: 0 });
+  globe.rings.push({ x: centerX, y: centerY, radiusX: radius * 1.1, radiusY: radius * 0.35, rotation: -0.42, alpha: 0.16 });
+  globe.rings.push({ x: centerX, y: centerY, radiusX: radius * 1.13, radiusY: radius * 1.13, rotation: 0, alpha: 0.07 });
+  globe.labels.push({ text: "VEGA", x: lyra[0].x, y: lyra[0].y, alpha: 0.9, align: "left", offsetX: 13, offsetY: -13 });
+  globe.labels.push({ text: "LYRA / NEURAL SPHERE", x: centerX, y: centerY + radius * 1.22, alpha: 0.7, align: "center", offsetX: 0, offsetY: 0 });
 
-  for (let i = 0; i < 42; i++) {
-    globe.stars.push({ x: unit(i * 17 + 3) * width, y: unit(i * 17 + 7) * height, alpha: 0.1 + unit(i) * 0.2, radius: 0.35 + unit(i + 9) * 0.45 });
+  for (let starIndex = 0; starIndex < 42; starIndex++) {
+    globe.stars.push({ x: unit(starIndex * 17 + 3) * width, y: unit(starIndex * 17 + 7) * height, alpha: 0.1 + unit(starIndex) * 0.2, radius: 0.35 + unit(starIndex + 9) * 0.45 });
   }
 
-  globe.routes = buildRoutes(globe, sphere.map((point) => point.node), lyra[0], cx, cy);
+  globe.routes = buildRoutes(globe, sphere.map((point) => point.node), lyra[0], centerX, centerY);
 
   globe.hotNodes = globe.nodes.filter((node) => node.hot);
   schedule(globe, depths, lyra[0]);

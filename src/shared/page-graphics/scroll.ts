@@ -1,5 +1,5 @@
-import { MAXIMUM_FRAME_INTERVAL_MILLISECONDS } from "../motion/canvas-controller.ts";
-import { clamp } from "../motion/easing.ts";
+import { MAXIMUM_FRAME_INTERVAL_MILLISECONDS } from "../canvas/canvas-controller.ts";
+import { clamp } from "../canvas/easing.ts";
 import { showChange, type CanvasHandle, type FrameState } from "./mount.ts";
 
 /**
@@ -27,18 +27,18 @@ export interface ScrollReader {
 const SETTLE_DISTANCE = 0.0005;
 
 export function createScrollReader(container: HTMLElement): ScrollReader {
-  let max = 1;
-  let scrolls = false;
+  let maximumScroll = 1;
+  let pageCanScroll = false;
   let linked = false;
   let settled = true;
   let value = 0;
-  let last = 0;
+  let lastActiveTime = 0;
   let primed = false;
 
   function measure() {
     const room = document.documentElement.scrollHeight - innerHeight;
-    max = Math.max(1, room);
-    scrolls = room > 1;
+    maximumScroll = Math.max(1, room);
+    pageCanScroll = room > 1;
     // The stylesheet decides where the graphic sits. Fixed means it stays in view beside the column.
     linked = getComputedStyle(container).position === "fixed";
   }
@@ -56,10 +56,10 @@ export function createScrollReader(container: HTMLElement): ScrollReader {
         settled = true;
         return 1;
       }
-      const elapsedMilliseconds = clamp(state.activeTime - last, 0, MAXIMUM_FRAME_INTERVAL_MILLISECONDS);
-      last = state.activeTime;
+      const elapsedMilliseconds = clamp(state.activeTime - lastActiveTime, 0, MAXIMUM_FRAME_INTERVAL_MILLISECONDS);
+      lastActiveTime = state.activeTime;
       // A page that cannot scroll rests at the end, so its graphic shows the whole journey.
-      const target = scrolls ? clamp(scrollY / max) : 1;
+      const target = pageCanScroll ? clamp(scrollY / maximumScroll) : 1;
       // Reduced motion jumps to the reader's place. So does the first read, so a restored scroll does not glide.
       if (!primed || state.reduced) {
         primed = true;

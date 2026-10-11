@@ -9,8 +9,8 @@ test("buildGlobe creates entrance routes along existing edges and ends each rout
   assert.ok(vegaNode, "the globe must contain Vega");
   assert.ok(globe.routes.length > 0, "the globe must contain routes");
   const pointsShareEdge = (startPoint, endPoint) => globe.edges.some((edge) => (
-    (edge.a.x === startPoint.x && edge.a.y === startPoint.y && edge.b.x === endPoint.x && edge.b.y === endPoint.y)
-    || (edge.b.x === startPoint.x && edge.b.y === startPoint.y && edge.a.x === endPoint.x && edge.a.y === endPoint.y)));
+    (edge.first.x === startPoint.x && edge.first.y === startPoint.y && edge.second.x === endPoint.x && edge.second.y === endPoint.y)
+    || (edge.second.x === startPoint.x && edge.second.y === startPoint.y && edge.first.x === endPoint.x && edge.first.y === endPoint.y)));
   for (const route of globe.routes) {
     const routeEndpoint = route.points[route.points.length - 1];
     assert.deepEqual(routeEndpoint, { x: vegaNode.x, y: vegaNode.y }, "each entrance route must end at Vega");

@@ -1,17 +1,17 @@
 import { LYRA_LINKS } from "../../lyra/constellation.ts";
-import { entranceProgress, stagger } from "../../motion/clock.ts";
-import { drawComet, makeRoute, type Route } from "../../motion/comets.ts";
-import { easeOutCubic, smooth } from "../../motion/easing.ts";
-import { FULL_TURN_RADIANS } from "../../motion/geometry.ts";
-import { drawEdge, drawNode, drawVegaBloom, entranceBloom } from "../../motion/marks.ts";
-import type { Palette } from "../../motion/palette.ts";
-import { drawStarField, makeStarField, type FieldStar } from "../../motion/star-field.ts";
+import { entranceProgress, stagger } from "../../canvas/clock.ts";
+import { drawComet, makeRoute, type Route } from "../../canvas/comets.ts";
+import { easeOutCubic, smooth } from "../../canvas/easing.ts";
+import { FULL_TURN_RADIANS } from "../../canvas/geometry.ts";
+import { drawEdge, drawNode, drawVegaBloom, entranceBloom } from "../../canvas/marks.ts";
+import type { Palette } from "../../canvas/palette.ts";
+import { drawStarField, makeStarField, type FieldStar } from "../../canvas/star-field.ts";
 import { labelBounds, reportFigureLeft } from "../container.ts";
 import { drawLabels, type PlacedLabel } from "../labels.ts";
 import { starNameWidths, type LyraPoint } from "../lyra.ts";
 import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
 import { mountCanvas, type CanvasHandle, type FrameState } from "../mount.ts";
-import { layoutMissing, MISSING, missingLayout, RING_RADIUS } from "./404-layout.ts";
+import { layoutMissing, MISSING, missingLayout, RING_RADIUS } from "./missing-page-layout.ts";
 
 // Missing star: Lyra with one star absent. A dashed empty ring marks the gap, and dashed
 // ghost links run into it. A slow pulse searches the gap a few times, then the picture rests.
@@ -23,7 +23,7 @@ const PULSE_DURATION_MILLISECONDS = 2600;
 const REST_TIME_MILLISECONDS = 30_500;
 /** The resting alpha of the empty ring. It must read at once, over the mesh and the lattice. */
 const RING_ALPHA = 0.95;
-const DASH = [2.5, 4];
+const DASH_PATTERN = [2.5, 4];
 const NO_DASH: number[] = [];
 
 /** The figure: the links, dashed and dim where they run into the gap, and every star but the missing one. */
@@ -34,19 +34,19 @@ function drawFigure(
   stars: readonly LyraPoint[],
   progress: number,
 ): void {
-  for (let i = 0; i < LYRA_LINKS.length; i++) {
-    const [a, b] = LYRA_LINKS[i];
-    const edgeProgress = stagger(progress, 0.1 + i * 0.07, 0.22);
-    if (a === MISSING || b === MISSING) {
+  for (let linkIndex = 0; linkIndex < LYRA_LINKS.length; linkIndex++) {
+    const [startIndex, endIndex] = LYRA_LINKS[linkIndex];
+    const edgeProgress = stagger(progress, 0.1 + linkIndex * 0.07, 0.22);
+    if (startIndex === MISSING || endIndex === MISSING) {
       // The figure runs on into the gap: dashed and dim.
-      drawingContext.setLineDash(DASH);
+      drawingContext.setLineDash(DASH_PATTERN);
       drawEdge(
         drawingContext,
         palette,
-        stars[a].x,
-        stars[a].y,
-        stars[b].x,
-        stars[b].y,
+        stars[startIndex].x,
+        stars[startIndex].y,
+        stars[endIndex].x,
+        stars[endIndex].y,
         edgeProgress,
         false,
         0.3,
@@ -56,29 +56,29 @@ function drawFigure(
       drawEdge(
         drawingContext,
         palette,
-        stars[a].x,
-        stars[a].y,
-        stars[b].x,
-        stars[b].y,
+        stars[startIndex].x,
+        stars[startIndex].y,
+        stars[endIndex].x,
+        stars[endIndex].y,
         edgeProgress,
-        i < 2,
+        linkIndex < 2,
         0.4,
       );
     }
   }
-  for (let i = 0; i < stars.length; i++) {
-    if (i === MISSING) continue;
+  for (let starIndex = 0; starIndex < stars.length; starIndex++) {
+    if (starIndex === MISSING) continue;
     drawNode(
       drawingContext,
       palette,
       glow,
-      stars[i].x,
-      stars[i].y,
-      i ? 2 : 2.6,
-      stagger(progress, 0.05 + i * 0.06, 0.14),
-      i === 0 || i === 4 || i === 5,
+      stars[starIndex].x,
+      stars[starIndex].y,
+      starIndex ? 2 : 2.6,
+      stagger(progress, 0.05 + starIndex * 0.06, 0.14),
+      starIndex === 0 || starIndex === 4 || starIndex === 5,
       0.95,
-      i === 0,
+      starIndex === 0,
     );
   }
 }
@@ -88,7 +88,7 @@ function drawEmptyRing(drawingContext: CanvasRenderingContext2D, palette: Palett
   drawingContext.strokeStyle = palette.metadata;
   drawingContext.lineWidth = 1.2;
   drawingContext.globalAlpha = RING_ALPHA * smooth(stagger(progress, 0.5, 0.25));
-  drawingContext.setLineDash(DASH);
+  drawingContext.setLineDash(DASH_PATTERN);
   drawingContext.beginPath();
   drawingContext.arc(gap.x, gap.y, RING_RADIUS, 0, FULL_TURN_RADIANS);
   drawingContext.stroke();
@@ -144,7 +144,7 @@ function drawSearchPulses(
   }
 }
 
-export function mountNotFound(container: HTMLElement): CanvasHandle | null {
+export function mountMissingPage(container: HTMLElement): CanvasHandle | null {
   let reach = 40;
   let field: FieldStar[] = [];
   let mesh: Mesh | undefined;
@@ -166,7 +166,7 @@ export function mountNotFound(container: HTMLElement): CanvasHandle | null {
     field = makeStarField(state.width, state.height, Math.round((state.width * state.height) / 8000), 3);
     mesh = makeMesh(state.width, state.height, 3);
     bright.length = 0;
-    for (const i of [5, 4, 2, 0]) bright.push(stars[i]);
+    for (const starIndex of [5, 4, 2, 0]) bright.push(stars[starIndex]);
     comet = makeRoute(bright);
   }
 

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { DURATION as entranceDuration, entranceProgress } from "../../src/shared/motion/clock.ts";
+import { DURATION as entranceDuration, entranceProgress } from "../../src/shared/canvas/clock.ts";
 
 test("entranceProgress returns bounded endpoints and increases monotonically across elapsed-time samples", () => {
   assert.equal(entranceProgress(0), 0);

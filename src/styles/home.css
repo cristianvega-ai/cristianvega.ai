@@ -229,7 +229,7 @@ body[data-page="home"] main {
      fade is at the screen edge. */
   --grid-reach: 120px;
   --grid-fade: 120px;
-  --fade: 24px;
+  --edge-fade-width: 24px;
   /* The room the globe keeps clear below itself, above the footer bar. */
   --globe-gap: 28px;
   /* The left edge of the box, and the room from there to the screen edge. The hero is the
@@ -244,7 +244,7 @@ body[data-page="home"] main {
     var(--globe-maximum-size),
     var(--globe-size),
     max(260px, calc((100svh - var(--header-height) - var(--page-top-gap) - var(--footer-reserve) - 2 * var(--globe-gap)) / var(--globe-box-aspect, .9013))),
-    calc((var(--globe-room) - var(--figure-inset) - var(--globe-caption-reach) - var(--fade)) / var(--globe-center-reach, .4162))
+    calc((var(--globe-room) - var(--figure-inset) - var(--globe-caption-reach) - var(--edge-fade-width)) / var(--globe-center-reach, .4162))
   );
   justify-self: start;
   /* The globe starts level with the eyebrow. Its bottom sits clear of the footer. */
