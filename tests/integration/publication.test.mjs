@@ -4,7 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { assertPageBasics, contentRoutes, createIsolatedBuild, dist, escapeAttribute, escapeHtml, headerLinks, latestWork, listBuiltRoutes, publishedContent, readContentInventory, sitemapPaths, withContentBuild } from "../support/helpers.mjs";
+import { assertPageBasics, contentRoutes, createIsolatedBuild, dist, escapeAttribute, escapeHtml, headerLinks, latestWork, listBuiltRoutes, publishedContent, readContentInventory, sitemapPaths, withContentBuild } from "../shared/helpers.mjs";
 
 // Build each publication fixture once. Check routes and rendered pages against the same independent inventory.
 

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { assertPageBasics, dist, listBuiltRoutes, readDistFile, root } from "../support/helpers.mjs";
+import { assertPageBasics, dist, listBuiltRoutes, readDistFile, root } from "../shared/helpers.mjs";
 
 // Build output contract: the files the static deploy uploads must exist and be
 // complete. Page copy lives in tests/integration/pages.test.mjs; this suite only asks

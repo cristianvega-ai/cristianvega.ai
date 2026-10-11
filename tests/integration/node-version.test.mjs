@@ -3,7 +3,7 @@ import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { root } from "../support/helpers.mjs";
+import { root } from "../shared/helpers.mjs";
 
 const version = readFileSync(join(root, ".nvmrc"), "utf8").trim();
 

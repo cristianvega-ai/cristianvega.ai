@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { DRAFT_ORIGIN, settle, VIEWPORTS, useManualFrames, useReducedMotion, pendingFrames, stepFrame } from "../support/browser-fixtures.mjs";
+import { DRAFT_ORIGIN, settle, VIEWPORTS, useManualFrames, useReducedMotion, pendingFrames, stepFrame } from "../shared/browser-fixtures.mjs";
 
 const lifetimes = (page) => page.evaluate(() => window.__lifetimes());
 const clock = (page) => page.evaluate(() => {

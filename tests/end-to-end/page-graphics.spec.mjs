@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { DRAFT_ORIGIN, expectDecorativeGraphic, expectGraphicClearOfText, expectReadablePage, openGraphic, paintedPixels, pendingFrames, playFrames, settle, useManualFrames, useReducedMotion, VIEWPORTS } from "../support/browser-fixtures.mjs";
+import { DRAFT_ORIGIN, expectDecorativeGraphic, expectGraphicClearOfText, expectReadablePage, openGraphic, paintedPixels, pendingFrames, playFrames, settle, useManualFrames, useReducedMotion, VIEWPORTS } from "../shared/browser-fixtures.mjs";
 
 const pages = [
   { name: "About", address: "/about/", graphic: "[data-graphic='about']" },

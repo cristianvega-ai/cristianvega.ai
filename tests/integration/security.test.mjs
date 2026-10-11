@@ -3,7 +3,7 @@ import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { dist, permissionsPolicy, readDistFile } from "../support/helpers.mjs";
+import { dist, permissionsPolicy, readDistFile } from "../shared/helpers.mjs";
 
 // Check the compiled policy. Browser tests check Cloudflare's response.
 const headerRules = readDistFile("_headers");

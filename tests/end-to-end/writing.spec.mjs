@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { currentContent, currentPublished, DRAFT_ORIGIN, expectReadablePage, focusRingAndFade, navigationLink, pageProblems, pendingFrames, playFrames, settle, tabTo, useManualFrames, useReducedMotion, VIEWPORTS } from "../support/browser-fixtures.mjs";
+import { currentContent, currentPublished, DRAFT_ORIGIN, expectReadablePage, focusRingAndFade, navigationLink, pageProblems, pendingFrames, playFrames, settle, tabTo, useManualFrames, useReducedMotion, VIEWPORTS } from "../shared/browser-fixtures.mjs";
 
 const article = "/writing/full-article-layout-fixture/";
 const title = "Lorem ipsum dolor sit amet";

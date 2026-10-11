@@ -3,7 +3,7 @@ import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { dist } from "../support/helpers.mjs";
+import { dist } from "../shared/helpers.mjs";
 
 // Check the compiled CSS reset. Browser tests check content visibility and canvas behavior.
 

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectReadablePage, VIEWPORTS } from "../support/browser-fixtures.mjs";
+import { expectReadablePage, VIEWPORTS } from "../shared/browser-fixtures.mjs";
 
 test("a missing page reports 404 and returns the reader home", async ({ page }) => {
   const problems = [];

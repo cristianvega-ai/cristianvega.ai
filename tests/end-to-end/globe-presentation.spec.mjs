@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { paintedPixels, pendingFrames, playFrames, settle, useManualFrames, useReducedMotion, VIEWPORTS } from "../support/browser-fixtures.mjs";
+import { paintedPixels, pendingFrames, playFrames, settle, useManualFrames, useReducedMotion, VIEWPORTS } from "../shared/browser-fixtures.mjs";
 
 const globe = "[data-lyra-globe]";
 const labels = `${globe} .lyra-globe__label`;
