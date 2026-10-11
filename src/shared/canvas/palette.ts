@@ -61,7 +61,7 @@ export function glowStops(color: ColorChannels): [string, string] {
  * A missing token draws with its fallback. A token that the canvas cannot parse is a site defect:
  * report it in the console, and draw with its fallback. Return null when the browser has no 2D canvas.
  */
-export function readPalette(element: HTMLElement = document.documentElement): Palette | null {
+export function readPalette(element: HTMLElement): Palette | null {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 1;
   const probe = canvas.getContext("2d", { willReadFrequently: true });

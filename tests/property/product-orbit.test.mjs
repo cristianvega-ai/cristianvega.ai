@@ -42,7 +42,7 @@ test("orbitSlot assigns distinct positions inside column and band bounds for eac
     // Exercise the minimum orbit and the expanded capacity boundary.
     for (const productCount of [1, maximumSlots]) {
       const { total: slotCount } = planOrbit(productCount);
-      const slotPositions = Array.from({ length: slotCount }, (unusedValue, slotIndex) => orbitSlot({ x: 0, y: 0 }, slotIndex, bounds.usesBandLayout, centerX, centerY, halfWidth, halfHeight));
+      const slotPositions = Array.from(Array(slotCount).keys(), (slotIndex) => orbitSlot({ x: 0, y: 0 }, slotIndex, bounds.usesBandLayout, centerX, centerY, halfWidth, halfHeight));
       for (const [slotIndex, slotPosition] of slotPositions.entries()) {
         assert.ok(slotPosition.x > 0 && slotPosition.x < bounds.width && slotPosition.y > 0 && slotPosition.y < bounds.height, `${bounds.layoutName}: slot ${slotIndex} must remain inside the layout bounds`);
         assert.ok(slotPosition.x !== centerX || slotPosition.y !== centerY, `${bounds.layoutName}: slot ${slotIndex} must not overlap Vega`);

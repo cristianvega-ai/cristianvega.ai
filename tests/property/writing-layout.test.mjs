@@ -7,10 +7,12 @@ import { starWidthsInPixels } from "../shared/node-helpers.mjs";
 
 // Exercise a column and a narrow band with sparse and crowded content.
 const fieldDimensions = [[480, 600], [320, 340]];
+// The line of a 10px label.
+const lineHeightInPixels = 12;
 
 const createFieldArticles = (articleCount) => {
-  const articleIdentifiers = Array.from({ length: articleCount }, (unusedValue, articleIndex) => `article-${articleIndex}-lorem-ipsum`);
-  return { articleIdentifiers, labels: articleIdentifiers.map((unusedIdentifier, articleIndex) => `N\u00b0 ${String(articleCount - articleIndex).padStart(2, "0")}`), labelWidthsInPixels: new Array(articleCount).fill(30) };
+  const articleIdentifiers = Array.from(Array(articleCount).keys(), (articleIndex) => `article-${articleIndex}-lorem-ipsum`);
+  return { articleIdentifiers, labels: Array.from(articleIdentifiers.keys(), (articleIndex) => `N\u00b0 ${String(articleCount - articleIndex).padStart(2, "0")}`), labelWidthsInPixels: new Array(articleCount).fill(30) };
 };
 
 test("pathToVega returns a connected path from each star to Vega", () => {
@@ -30,7 +32,7 @@ test("buildField places every article inside the layout bounds and clear of Lyra
   for (const [width, height] of fieldDimensions) {
     for (const articleCount of [1, 12]) {
       const { articleIdentifiers, labels, labelWidthsInPixels } = createFieldArticles(articleCount);
-      const field = buildField({ articleIdentifiers, labels, labelWidthsInPixels, starWidthsInPixels, width, height });
+      const field = buildField({ articleIdentifiers, labels, labelWidthsInPixels, starWidthsInPixels, lineHeightInPixels, width, height, bounds: { x0: 0, y0: 0, x1: width, y1: height } });
       assert.equal(field.points.filter((point) => point.article).length, articleCount);
       assert.ok(field.points.slice(0, articleCount).every((point) => point.article), "article points must precede star points");
       for (const article of field.points.slice(0, articleCount)) {
@@ -45,7 +47,7 @@ test("buildField places every article inside the layout bounds and clear of Lyra
 
 test("buildField creates unique links between distinct existing points", () => {
   const { articleIdentifiers, labels, labelWidthsInPixels } = createFieldArticles(8);
-  const field = buildField({ articleIdentifiers, labels, labelWidthsInPixels, starWidthsInPixels, width: 480, height: 640 });
+  const field = buildField({ articleIdentifiers, labels, labelWidthsInPixels, starWidthsInPixels, lineHeightInPixels, width: 480, height: 640, bounds: { x0: 0, y0: 0, x1: 480, y1: 640 } });
   const seenLinkKeys = new Set();
   for (const link of field.links) {
     assert.ok(link.from !== link.to);

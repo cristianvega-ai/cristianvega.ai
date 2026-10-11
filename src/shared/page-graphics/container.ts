@@ -1,7 +1,7 @@
 import { FIGURE_INSET } from "./inset.ts";
 import type { Rectangle } from "./labels.ts";
 
-// The DOM reads and writes on the box of a page graphic. Call them on resize, not per frame.
+// The DOM read on the box of a page graphic. Call it on resize, not per frame.
 
 /** The space that a label keeps from the canvas edge. It is the figure inset, so a label follows the one bounding rule. */
 const EDGE_INSET = FIGURE_INSET;
@@ -24,13 +24,4 @@ export function labelBounds(container: HTMLElement, width: number, height: numbe
     x1: Math.min(width - originX - EDGE_INSET, viewport - VIEWPORT_INSET - left),
     y1: height - inset,
   };
-}
-
-/**
- * Publish the left bound of the figure, in CSS pixels from the left edge of the graphic box.
- * A page module calls it once for each layout, so a test can read where the figure starts.
- * `origin` is the left edge of the drawing area inside the box, which is 0 unless the figure shares the box.
- */
-export function reportFigureLeft(container: HTMLElement, origin = 0): void {
-  container.dataset.figureLeft = String(origin + FIGURE_INSET);
 }

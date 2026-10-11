@@ -17,7 +17,7 @@ interface Props {
 const { title, description, active, noindex, published } = Astro.props;
 
 const pageTitle = title.includes(SITE_NAME) ? title : `${title} · ${SITE_NAME}`;
-const siteOrigin = Astro.site ?? new URL("https://cristianvega.ai");
+const siteOrigin = Astro.site!;
 const canonicalAddress = new URL(Astro.url.pathname, siteOrigin).toString();
 const themeColor = TOKEN_FALLBACKS["--ink"];
 // Dedicated 1200×630 share card (see scripts/generate-social-preview.mjs); not the square master.

@@ -15,7 +15,7 @@ export interface LyraPoint {
 }
 
 /** The longest side of the figure on any canvas, in CSS pixels. A tall canvas gets a margin, not a bigger figure. */
-export const LYRA_MAXIMUM_SIZE = 280;
+const LYRA_MAXIMUM_SIZE = 280;
 
 interface LyraLayoutOptions {
   /** Empty space kept round the figure, in CSS pixels. */

@@ -4,7 +4,7 @@ import { smooth } from "../../canvas/easing.ts";
 import { FULL_TURN_RADIANS, type Point } from "../../canvas/geometry.ts";
 import { drawCurve, drawNode, drawVegaBloom, entranceBloom } from "../../canvas/marks.ts";
 import type { Palette } from "../../canvas/palette.ts";
-import { labelBounds, reportFigureLeft } from "../container.ts";
+import { labelBounds } from "../container.ts";
 import { drawLabel, placeLabel, type PlacedLabel } from "../labels.ts";
 import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
 import { mountCanvas, type CanvasHandle, type FrameState } from "../mount.ts";
@@ -175,7 +175,6 @@ export function mountAbout(container: HTMLElement): CanvasHandle | null {
     scroll.measure();
     const { width, height } = state;
     trajectory = buildTrajectory(width, height);
-    reportFigureLeft(container);
     // The neural mesh behind the path, and the Vega name on the side that no path or branch crosses.
     mesh = makeMesh(width, height, 5);
     vegaLabel = placeLabel(

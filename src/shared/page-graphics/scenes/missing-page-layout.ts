@@ -10,8 +10,6 @@ export const MISSING = 3;
 export const RING_RADIUS = 7;
 
 interface MissingLayout {
-  /** True for a band, where the figure turns a quarter turn. */
-  wide: boolean;
   padding: number;
   rotation: number;
   showNames: boolean;
@@ -21,9 +19,9 @@ interface MissingLayout {
 
 /** The layout choices for a box, from its measured size. */
 export function missingLayout(width: number, height: number): MissingLayout {
+  // A band turns the figure a quarter turn.
   const wide = width > height * 1.6;
   return {
-    wide,
     padding: wide ? FIGURE_INSET : 56,
     rotation: wide ? -Math.PI / 2 : 0,
     showNames: height > 300,

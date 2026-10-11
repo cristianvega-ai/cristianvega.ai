@@ -6,7 +6,7 @@ import { FULL_TURN_RADIANS } from "../../canvas/geometry.ts";
 import { drawEdge, drawNode, drawVegaBloom } from "../../canvas/marks.ts";
 import type { Palette } from "../../canvas/palette.ts";
 import { drawStarField, makeStarField, type FieldStar } from "../../canvas/star-field.ts";
-import { labelBounds, reportFigureLeft } from "../container.ts";
+import { labelBounds } from "../container.ts";
 import { drawLabels, type PlacedLabel } from "../labels.ts";
 import { placeStarNames, starNameWidths } from "../lyra.ts";
 import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
@@ -247,7 +247,6 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
 
   // Rebuild the layout from the measured box. Nothing here depends on a CSS breakpoint.
   function build(state: FrameState) {
-    reportFigureLeft(container);
     layoutOrbit(state.width, state.height, plan, orbit);
     field = makeStarField(state.width, state.height, Math.round((state.width * state.height) / 11_000), 11);
     mesh = makeMesh(state.width, state.height, 11);

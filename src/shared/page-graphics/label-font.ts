@@ -11,8 +11,6 @@ const FALLBACK_FAMILY = "ui-monospace, monospace";
 const FALLBACK_SIZE = "10px";
 /** One label line is this many times the label size. It is a design ratio: a 10px label has a 12px line. */
 const LABEL_LINE_RATIO = 1.2;
-/** The line of the fallback size. Label placement uses it when the caller gives no line. */
-export const FALLBACK_LINE_HEIGHT_IN_PIXELS = parseFloat(FALLBACK_SIZE) * LABEL_LINE_RATIO;
 
 /**
  * Prepare the label font from the CSS tokens: the --font-monospace family and the --font-size-graphic-label size.

@@ -42,12 +42,12 @@ interface FieldInput {
   /** Measured text widths in CSS pixels, in Lyra star order. */
   starWidthsInPixels: readonly number[];
   /** The height of one label line in CSS pixels, from the label font. */
-  lineHeightInPixels?: number;
+  lineHeightInPixels: number;
   /** The box in CSS pixels. Text must not enter the part of the slot outside it. */
   width: number;
   height: number;
-  /** Where labels may sit, in the same pixels. It defaults to the box. */
-  bounds?: Rectangle;
+  /** Where labels may sit, in the same pixels. */
+  bounds: Rectangle;
 }
 
 export interface FieldLayout {
@@ -61,7 +61,7 @@ export interface FieldLayout {
 }
 
 /** A stable value in [0, 1) from a text and a salt (FNV-1a, then a scramble). */
-function hashUnit(text: string, salt = 0): number {
+function hashUnit(text: string, salt: number): number {
   let hash = 2166136261 ^ salt;
   for (let characterIndex = 0; characterIndex < text.length; characterIndex++) {
     hash ^= text.charCodeAt(characterIndex);
@@ -133,7 +133,7 @@ function spread(
   }
 }
 
-export function buildField({ articleIdentifiers, labels, labelWidthsInPixels, starWidthsInPixels, lineHeightInPixels, width, height, bounds = { x0: 0, y0: 0, x1: width, y1: height } }: FieldInput): FieldLayout {
+export function buildField({ articleIdentifiers, labels, labelWidthsInPixels, starWidthsInPixels, lineHeightInPixels, width, height, bounds }: FieldInput): FieldLayout {
   const count = articleIdentifiers.length;
   const tall = height > width * 1.05;
   const labelWidth = labelWidthsInPixels.reduce((widest, measuredWidth) => Math.max(widest, measuredWidth), 0);

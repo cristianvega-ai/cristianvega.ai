@@ -8,7 +8,7 @@ import { showChange, type CanvasHandle, type FrameState } from "./mount.ts";
  * measures it again only when the layout resizes. The share is `scrollY / max(1, scrollHeight - innerHeight)`,
  * and a page that cannot scroll reads 1.
  */
-export interface ScrollReader {
+interface ScrollReader {
   /** True when the graphic is fixed in the viewport, so the scroll can drive it. Read on resize. */
   readonly linked: boolean;
   /** True when the smoothed value has reached the scroll. The draw can stop asking for frames. */
