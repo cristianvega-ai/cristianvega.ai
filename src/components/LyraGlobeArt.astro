@@ -1,5 +1,7 @@
 ---
 import { GLOBE_HEIGHT, GLOBE_WIDTH, type Globe } from "../shared/lyra-globe/model";
+import { HOT_EDGE_ALPHA, NODE_HALO, VEGA_HALO, VEGA_RING_ALPHA, VEGA_RING_RADIUS } from "../shared/page-graphics/marks";
+import { GLOW_CENTER_ALPHA } from "../shared/motion/palette";
 
 interface Props {
   globe: Globe;
@@ -13,7 +15,7 @@ const point = (edge: { a: { x: number; y: number }; b: { x: number; y: number } 
 <svg class="lyra-globe__fallback" viewBox={`0 0 ${GLOBE_WIDTH} ${GLOBE_HEIGHT}`} focusable="false">
   <defs>
     <radialGradient id="lyra-globe-glow">
-      <stop offset="0" stop-color="var(--sky)" stop-opacity=".45" />
+      <stop offset="0" stop-color="var(--sky)" stop-opacity={GLOW_CENTER_ALPHA} />
       <stop offset="1" stop-color="var(--sky)" stop-opacity="0" />
     </radialGradient>
   </defs>
@@ -41,7 +43,7 @@ const point = (edge: { a: { x: number; y: number }; b: { x: number; y: number } 
     <path
       class:list={["lyra-globe__edge", { "is-hot": edge.hot }]}
       d={point(edge)}
-      opacity={edge.hot ? 0.7 : edge.alpha.toFixed(3)}
+      opacity={edge.hot ? HOT_EDGE_ALPHA : edge.alpha.toFixed(3)}
     />
   ))}
   {globe.nodes.map((node) => <>
@@ -49,7 +51,7 @@ const point = (edge: { a: { x: number; y: number }; b: { x: number; y: number } 
       <circle
         cx={node.x.toFixed(2)}
         cy={node.y.toFixed(2)}
-        r={node.vega ? 18 : 8}
+        r={node.vega ? VEGA_HALO : NODE_HALO}
         fill="url(#lyra-globe-glow)"
       />
     )}
@@ -65,8 +67,8 @@ const point = (edge: { a: { x: number; y: number }; b: { x: number; y: number } 
         class="lyra-globe__ring"
         cx={node.x.toFixed(2)}
         cy={node.y.toFixed(2)}
-        r="10"
-        opacity=".6"
+        r={VEGA_RING_RADIUS}
+        opacity={VEGA_RING_ALPHA}
       />
     )}
   </>)}

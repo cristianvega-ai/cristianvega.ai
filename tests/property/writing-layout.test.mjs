@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { LYRA as lyraStars } from "../../src/shared/lyra/constellation.ts";
-import { buildField, pathToVega, LYRA_EDGES as lyraEdges } from "../../src/shared/page-graphics/scenes/writing-layout.ts";
+import { LYRA as lyraStars, LYRA_LINKS as lyraEdges } from "../../src/shared/lyra/constellation.ts";
+import { buildField, pathToVega } from "../../src/shared/page-graphics/scenes/writing-layout.ts";
 import { starWidthsInPixels } from "../shared/node-helpers.mjs";
 
 // Exercise a column and a narrow band with sparse and crowded content.

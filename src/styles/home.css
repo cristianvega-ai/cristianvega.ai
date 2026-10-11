@@ -23,7 +23,6 @@ body[data-page="home"] {
   --grid-image:
     repeating-linear-gradient(180deg, transparent 0 39px, var(--grid-line) 39px 40px),
     repeating-linear-gradient(90deg, transparent 0 39px, var(--grid-line) 39px 40px);
-  background-color: var(--ink);
 }
 
 /* The header is not sticky here, and it sits on the same ground as the page,
@@ -70,9 +69,6 @@ body[data-page="home"] main {
   /* The grid layer measures the width of the hero, so its lines line up with
      the content edge whatever the width of the screen. */
   container-type: inline-size;
-  color: var(--masthead-text);
-  /* The room above the eyebrow. The inner pages use the same value. */
-  --hero-top-offset: 72px;
 }
 
 .hero > .wrap {
@@ -102,19 +98,12 @@ body[data-page="home"] main {
   z-index: 1;
   min-width: 0;
   /* The intro starts at the same height as the title of every inner page. */
-  margin-top: var(--hero-top-offset);
+  margin-top: var(--page-top-gap);
 }
 
-/* The eyebrow has the colour, weight, dash, and tracking of the inner pages. Only
-   the gap below it is set here, and it matches the gap above an inner page title. */
+/* The gap below the eyebrow matches the gap above an inner page title. */
 .hero .eyebrow {
-  color: var(--masthead-metadata);
-  margin-bottom: 20px;
-}
-
-.hero .eyebrow::before {
-  width: 18px;
-  height: 2px;
+  margin-bottom: var(--title-gap);
 }
 
 /* The name is the h1, so it takes the size, tracking, and line height of every
@@ -248,13 +237,13 @@ body[data-page="home"] main {
   width: min(
     var(--globe-maximum-size),
     var(--globe-size),
-    max(260px, calc((100svh - var(--header-height) - var(--hero-top-offset) - var(--footer-reserve) - 2 * var(--globe-gap)) / var(--globe-box-aspect, .9013))),
+    max(260px, calc((100svh - var(--header-height) - var(--page-top-gap) - var(--footer-reserve) - 2 * var(--globe-gap)) / var(--globe-box-aspect, .9013))),
     calc((var(--globe-room) - var(--figure-inset) - var(--globe-caption-reach) - var(--fade)) / var(--globe-center-reach, .4162))
   );
   justify-self: start;
   /* The globe starts level with the eyebrow. Its bottom sits clear of the footer. */
   align-self: start;
-  margin-top: var(--hero-top-offset);
+  margin-top: var(--page-top-gap);
 }
 
 /* The grid fades out behind the sphere, so the lines of the sphere read
@@ -494,17 +483,6 @@ body[data-page="home"] main {
   /* The caption sits below the sphere, and the band crops it. */
   .lyra-globe__label--caption {
     display: none;
-  }
-}
-
-/* The inner pages use less head room on a phone, and so does the intro. */
-@media (max-width: 760px) {
-  .hero {
-    --hero-top-offset: 48px;
-  }
-
-  .hero .eyebrow {
-    margin-bottom: 16px;
   }
 }
 

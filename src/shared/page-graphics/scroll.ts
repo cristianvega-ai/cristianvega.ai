@@ -1,5 +1,6 @@
+import { MAXIMUM_FRAME_INTERVAL_MILLISECONDS } from "../motion/canvas-controller.ts";
 import { clamp } from "./math.ts";
-import type { CanvasHandle, FrameState } from "./mount.ts";
+import { showChange, type CanvasHandle, type FrameState } from "./mount.ts";
 
 /**
  * The reader's place on the page, for a graphic that follows the scroll.
@@ -24,12 +25,6 @@ export interface ScrollReader {
 }
 
 const SETTLE_DISTANCE = 0.0005;
-
-/** Draw a change. Reduced motion runs no frames, so the change draws at once. Otherwise a frame settles it. */
-function refresh(handle: CanvasHandle) {
-  if (handle.state.reduced) handle.redraw();
-  else handle.wake();
-}
 
 export function createScrollReader(container: HTMLElement): ScrollReader {
   let max = 1;
@@ -61,7 +56,7 @@ export function createScrollReader(container: HTMLElement): ScrollReader {
         settled = true;
         return 1;
       }
-      const elapsedMilliseconds = clamp(state.activeTime - last, 0, 64);
+      const elapsedMilliseconds = clamp(state.activeTime - last, 0, MAXIMUM_FRAME_INTERVAL_MILLISECONDS);
       last = state.activeTime;
       // A page that cannot scroll rests at the end, so its graphic shows the whole journey.
       const target = scrolls ? clamp(scrollY / max) : 1;
@@ -79,11 +74,11 @@ export function createScrollReader(container: HTMLElement): ScrollReader {
       // The page height changes when fonts load or the text wraps, and no scroll event follows.
       const observer = new ResizeObserver(() => {
         measure();
-        refresh(handle);
+        showChange(handle);
       });
       observer.observe(document.body);
       const onScroll = () => {
-        if (linked) refresh(handle);
+        if (linked) showChange(handle);
       };
       addEventListener("scroll", onScroll, { passive: true });
       return () => {

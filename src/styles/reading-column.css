@@ -1,0 +1,82 @@
+/* The head and the body text of the pages that use the reading column: about,
+   the 404, products, and articles. Each page stylesheet keeps its own parts. */
+.about__header,
+.product__header {
+  padding-top: var(--page-top-gap);
+}
+
+.about__title,
+.product__title,
+.article__title {
+  margin-top: var(--title-gap);
+  text-wrap: balance;
+}
+
+.about__lede,
+.product__lede,
+.article__description {
+  max-width: 56ch;
+  margin-top: var(--lede-gap);
+  font-size: var(--font-size-lede);
+  line-height: var(--line-height-lede);
+  color: var(--masthead-metadata);
+}
+
+.about__body,
+.product__body {
+  padding-block: 40px 72px;
+}
+
+.about__profile,
+.product__prose,
+.prose {
+  color: var(--masthead-prose);
+}
+
+.about__profile > * + *,
+.product__prose > * + *,
+.prose > * + * {
+  margin-top: 24px;
+}
+
+.about__profile p,
+.about__principles li,
+.product__prose p,
+.prose p,
+.prose li {
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+.about__profile p,
+.about__principles li,
+.product__prose p {
+  text-wrap: pretty;
+}
+
+/* A list of principles: hairline rules and a gradient tick. */
+.about__principles,
+.prose .principles {
+  list-style: none;
+  padding: 0;
+}
+
+.about__principles li,
+.principles li {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr);
+  align-items: baseline;
+}
+
+.about__principles li + li,
+.principles li + li {
+  border-top: 1px solid var(--masthead-line);
+}
+
+.about__principles li::before,
+.principles li::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  background: var(--brand-gradient);
+}

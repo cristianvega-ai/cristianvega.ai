@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import LyraGlobe from "../components/LyraGlobe.astro";
+import ProfileHeading from "../components/ProfileHeading.astro";
 import { globeProjectionAddress } from "../shared/lyra-globe/projection";
 import { getArticles } from "../shared/writing";
 import { getProducts } from "../shared/products";
@@ -23,8 +24,7 @@ const next = [
     <section class="hero" aria-labelledby="home-title">
       <div class="hero__stage wrap">
         <div class="hero__main">
-          <p class="eyebrow eyebrow--parts"><span class="eyebrow__part">AI Engineering Leader</span> <span class="eyebrow__part">Agentic&nbsp;Systems</span></p>
-          <h1 id="home-title" class="hero__name">Cristian <span class="highlight">Vega</span></h1>
+          <ProfileHeading titleIdentifier="home-title" titleClass="hero__name" />
           <p class="hero__lede">Ten years building software. The last five building production AI from the ground up.</p>
           <p class="hero__thesis">
             My work has a consistent shape: take AI from a promising demo to a governed system with contracts,

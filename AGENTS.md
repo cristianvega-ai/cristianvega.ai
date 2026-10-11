@@ -86,6 +86,8 @@ npm run generate:touch-icon
 - Use [the deploy skill](.claude/skills/deploy/SKILL.md) for deployment, live verification, rollback, or approved account and domain setup.
 - Use the [Linear website reference](https://linear.app/martinez-vega-inc/document/cristianvegaai-website-reference-90867b83f0f9) for authoring and image derivatives.
 - `src/styles/global.css` holds the site-wide design system and the responsive behavior.
+- `src/styles/reading-column.css` holds the page head and prose rules that about, products, articles, and the 404 share.
+- `src/shared/site.ts` holds the owner's name and job title. `ProfileHeading.astro` prints them on the homepage and the about page.
 - `src/shared/` holds content helpers, article interactions, and canvas modules.
 - `src/shared/lyra-globe/` holds the Lyra globe. `src/shared/lyra/` holds its star data.
 - `src/shared/page-graphics/` holds page graphics. Read its [guide](src/shared/page-graphics/README.md) for scene setup.

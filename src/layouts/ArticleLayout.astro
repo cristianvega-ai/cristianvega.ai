@@ -1,6 +1,8 @@
 ---
 import BaseLayout from "./BaseLayout.astro";
 import { articleDate, articleAddress, readingMinutes, type Article } from "../shared/writing";
+import { SITE_NAME } from "../shared/site";
+import "../styles/reading-column.css";
 import "../styles/writing.css";
 
 interface Props {
@@ -25,7 +27,7 @@ const shareAddress = new URL(articleAddress(article), Astro.site).href;
           <p class={article.data.series ? "eyebrow eyebrow--parts" : "eyebrow"}>{article.data.series ? <><span class="eyebrow__part">{article.data.topic}</span> <span class="eyebrow__part">{article.data.series}</span></> : article.data.topic}</p>
           <h1 id="article-title" class="article__title">{article.data.title}</h1>
           <p class="article__description">{article.data.description}</p>
-          <p class="article__metadata"><strong>Cristian Vega</strong><span aria-hidden="true">·</span><time datetime={article.data.date.toISOString().slice(0, 10)}>{articleDate(article)}</time><span aria-hidden="true">·</span><span>{readingMinutes(article)} min read</span></p>
+          <p class="article__metadata"><strong>{SITE_NAME}</strong><span aria-hidden="true">·</span><time datetime={article.data.date.toISOString().slice(0, 10)}>{articleDate(article)}</time><span aria-hidden="true">·</span><span>{readingMinutes(article)} min read</span></p>
         </div>
         <div class="article__header-rule wrap wrap--read" aria-hidden="true"><span></span><i></i><i></i><i></i></div>
       </header>

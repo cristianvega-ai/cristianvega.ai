@@ -1,7 +1,6 @@
-import { LYRA_LINKS } from "../../lyra/constellation.ts";
 import { around, placeLabel, type PlacedLabel, type Rectangle, type Segment } from "../labels.ts";
 import { FIGURE_INSET } from "../inset.ts";
-import { layoutLyra, type LyraPoint } from "../lyra.ts";
+import { boundsOf, layoutLyra, lyraLinkSegments, type LyraPoint } from "../lyra.ts";
 import { FULL_TURN_RADIANS, unit } from "../math.ts";
 
 // The layout of the Writing graphic, "Reading field". It has no DOM and no canvas,
@@ -138,16 +137,7 @@ export function buildField({ articleIdentifiers, labels, labelWidthsInPixels, st
 
   // The Lyra figure sits in the middle. Upright in a tall box, on its side in a wide one.
   const stars = layoutLyra(Math.min(width * 0.42, 220), Math.min(height * (tall ? 0.3 : 0.4), 260), { padding: 2, rotate: tall ? 0 : Math.PI / 2 });
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minY = Infinity;
-  let maxY = -Infinity;
-  for (const star of stars) {
-    minX = Math.min(minX, star.x);
-    maxX = Math.max(maxX, star.x);
-    minY = Math.min(minY, star.y);
-    maxY = Math.max(maxY, star.y);
-  }
+  const { x0: minX, x1: maxX, y0: minY, y1: maxY } = boundsOf(stars);
   const shiftX = cx - (minX + maxX) / 2;
   const shiftY = cy - (minY + maxY) / 2;
   for (const star of stars) {
@@ -201,7 +191,7 @@ export function buildField({ articleIdentifiers, labels, labelWidthsInPixels, st
 
   // Labels. Each takes the first side of its star that no synapse, figure link, or earlier label crosses.
   const synapses: Segment[] = links.map((link) => ({ ax: points[link.from].x, ay: points[link.from].y, bx: points[link.to].x, by: points[link.to].y }));
-  const figure: Segment[] = LYRA_LINKS.map(([a, b]) => ({ ax: stars[a].x, ay: stars[a].y, bx: stars[b].x, by: stars[b].y }));
+  const figure = lyraLinkSegments(stars);
   const segments = [...synapses, ...figure];
   const taken: Rectangle[] = [];
   for (const star of stars) taken.push(around(star.x, star.y, STAR_CLEARANCE));
@@ -222,6 +212,3 @@ export function buildField({ articleIdentifiers, labels, labelWidthsInPixels, st
 
   return { stars, points, links, articleLabels, starLabels };
 }
-
-/** The Lyra links as a list a route search can read. */
-export const LYRA_EDGES: readonly (readonly [number, number])[] = LYRA_LINKS;

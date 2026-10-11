@@ -1,15 +1,8 @@
-import { LYRA, LYRA_LINKS } from "../../lyra/constellation.ts";
+import { LYRA_LINKS } from "../../lyra/constellation.ts";
 import { entranceProgress, stagger } from "../../motion/clock.ts";
-import {
-  around,
-  labelBounds,
-  placeLabel,
-  type PlacedLabel,
-  type Rectangle,
-  type Segment,
-} from "../labels.ts";
+import { around, labelBounds, type PlacedLabel, type Rectangle } from "../labels.ts";
 import { FIGURE_INSET, reportFigureLeft } from "../inset.ts";
-import { layoutLyra, type LyraPoint } from "../lyra.ts";
+import { layoutLyra, lyraLinkSegments, placeStarNames, starNameWidths, type LyraPoint } from "../lyra.ts";
 import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
 import {
   drawComet,
@@ -18,6 +11,7 @@ import {
   drawNode,
   drawStarField,
   drawVegaBloom,
+  entranceBloom,
   makeRoute,
   makeStarField,
   type FieldStar,
@@ -73,25 +67,16 @@ function placeLabels(
   stars: readonly LyraPoint[],
   showNames: boolean,
   widthsInPixels: readonly number[],
-  lineHeightInPixels?: number,
+  lineHeightInPixels: number,
 ): PlacedLabel[] {
-  const segments: Segment[] = LYRA_LINKS.map(([a, b]) => ({ ax: stars[a].x, ay: stars[a].y, bx: stars[b].x, by: stars[b].y }));
-  const avoid: Rectangle[] = stars.map((star, i) => around(star.x, star.y, i === MISSING ? RING_RADIUS + 5 : 9));
-  const placed: PlacedLabel[] = [];
-  for (let i = 0; i < stars.length; i++) {
-    const name = stars[i].name;
-    if (name && (i === 0 || showNames)) {
-      placed.push(placeLabel(name, stars[i].x, stars[i].y, {
-        widthInPixels: widthsInPixels[i],
-        lineHeightInPixels,
-        bounds,
-        segments,
-        avoid,
-        gap: stars[i].vega ? 14 : 12,
-      }));
-    }
-  }
-  return placed;
+  return placeStarNames(stars, {
+    bounds,
+    showNames,
+    widthsInPixels,
+    lineHeightInPixels,
+    segments: lyraLinkSegments(stars),
+    avoid: stars.map((star, i) => around(star.x, star.y, i === MISSING ? RING_RADIUS + 5 : 9)),
+  });
 }
 
 /**
@@ -104,7 +89,7 @@ function layoutMissing(
   layout: MissingLayout,
   bounds: Rectangle,
   widthsInPixels: readonly number[],
-  lineHeightInPixels?: number,
+  lineHeightInPixels: number,
   outputStars: LyraPoint[] = [],
 ) {
   let stars = layoutLyra(width, height, { padding: layout.padding, rotate: layout.rotate, outputPoints: outputStars });
@@ -131,7 +116,7 @@ export function mountNotFound(container: HTMLElement): CanvasHandle | null {
     reach = layout.reach;
     reportFigureLeft(container);
     const bounds = labelBounds(container, state.width, state.height);
-    const widthsInPixels = LYRA.map((star) => star.name ? state.labelFont.widthInPixels(star.name) : 0);
+    const widthsInPixels = starNameWidths(state.labelFont);
     const placed = layoutMissing(state.width, state.height, layout, bounds, widthsInPixels, state.labelFont.lineHeightInPixels, stars);
     stars = placed.stars;
     labels = placed.labels;
@@ -224,7 +209,7 @@ export function mountNotFound(container: HTMLElement): CanvasHandle | null {
         state.glow,
         stars[0].x,
         stars[0].y,
-        smooth((progress - 0.62) / 0.22) * (1 - smooth((progress - 0.84) / 0.16)),
+        entranceBloom(progress),
       );
     }
 

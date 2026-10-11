@@ -1,65 +1,82 @@
 /* Ruled lists of articles and products, and the small pieces both share. */
-.entries {
+.entries,
+.article-list {
   padding: 0;
   list-style: none;
+}
+
+.entries {
   border-top: 1px solid var(--masthead-line);
 }
 
-.entries__item {
+.entries__item,
+.article-list__item {
   position: relative;
   display: grid;
+  border-bottom: 1px solid var(--masthead-line);
+}
+
+.entries__item {
   grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
   gap: 6px 40px;
   padding: 24px 0 26px;
-  border-bottom: 1px solid var(--masthead-line);
+}
+
+.entries__metadata,
+.article-list__metadata {
+  font: 500 var(--font-size-metadata) / var(--line-height-monospace) var(--font-monospace);
+  color: var(--masthead-metadata);
 }
 
 .entries__metadata {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font: 500 var(--font-size-metadata) / var(--line-height-monospace) var(--font-monospace);
-  color: var(--masthead-metadata);
 }
 
-.entries__title {
+.entries__title,
+.article-list__title {
   font-size: var(--font-size-lede);
   line-height: var(--line-height-title);
   letter-spacing: var(--letter-spacing-heading);
 }
 
 /* The whole row is the target, and the focus ring wraps the row. */
-.entries__link::after {
+.entries__link::after,
+.article-list__link::after {
   content: "";
   position: absolute;
   inset: 0;
 }
 
-.entries__link:focus-visible {
+.entries__link:focus-visible,
+.article-list__link:focus-visible {
   outline: none;
 }
 
-.entries__item:focus-within {
+.entries__item:focus-within,
+.article-list__item:focus-within {
   outline: 3px solid var(--sky);
   outline-offset: 4px;
   border-radius: 4px;
 }
 
-.entries__item:is(:hover, :focus-within) .entries__link {
+.entries__item:is(:hover, :focus-within) .entries__link,
+.article-list__item:is(:hover, :focus-within) .article-list__link {
   color: var(--sky);
+}
+
+.entries__excerpt,
+.article-list__excerpt {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  color: var(--masthead-metadata);
 }
 
 .entries__excerpt {
   max-width: 62ch;
   margin-top: 8px;
-  font-size: var(--font-size-small);
-  line-height: var(--line-height-small);
-  color: var(--masthead-metadata);
   text-wrap: pretty;
-}
-
-.draft-label {
-  color: var(--sky);
 }
 
 @media (max-width: 640px) {

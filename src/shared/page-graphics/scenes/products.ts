@@ -1,17 +1,9 @@
 import type { Point } from "../../motion/easing.ts";
-import { LYRA, LYRA_LINKS } from "../../lyra/constellation.ts";
+import { LYRA_LINKS } from "../../lyra/constellation.ts";
 import { stagger } from "../../motion/clock.ts";
-import {
-  around,
-  ellipseSegments,
-  labelBounds,
-  placeLabel,
-  type PlacedLabel,
-  type Rectangle,
-  type Segment,
-} from "../labels.ts";
+import { around, ellipseSegments, labelBounds, type PlacedLabel, type Rectangle, type Segment } from "../labels.ts";
 import { FIGURE_INSET, reportFigureLeft } from "../inset.ts";
-import { LYRA_MAXIMUM_SIZE } from "../lyra.ts";
+import { fitLyraAtVega, lyraLinkSegments, placeStarNames, starNameWidths } from "../lyra.ts";
 import { drawMesh, makeMesh, type Mesh } from "../mesh.ts";
 import {
   drawComet,
@@ -26,7 +18,7 @@ import {
   type FieldStar,
   type Route,
 } from "../marks.ts";
-import { easeOutCubic, smooth, FULL_TURN_RADIANS } from "../math.ts";
+import { easeOutCubic, riseAndFall, smooth, FULL_TURN_RADIANS } from "../math.ts";
 import { mountCanvas, type CanvasHandle, type FrameState } from "../mount.ts";
 import { MAXIMUM_SLOTS, SLOT_OFFSET, SLOT_RING } from "./product-slots.ts";
 
@@ -102,48 +94,6 @@ export function orbitSlot(
   const ring = RINGS[SLOT_RING[index]];
   output.x = cx + Math.cos(angle) * ring * halfWidth;
   output.y = cy + Math.sin(angle) * ring * halfHeight;
-  return output;
-}
-
-/**
- * Fit the Lyra figure with Vega at the centre (cx, cy) so the figure stays inside the
- * half box (rx, ry), with one uniform scale and a cap on its size. A wide box turns the figure a
- * quarter turn. Fills `output` and returns it.
- */
-export function fitLyraAtVega(
-  output: Point[],
-  cx: number,
-  cy: number,
-  rx: number,
-  ry: number,
-  wide: boolean,
-): Point[] {
-  const rotate = wide ? -Math.PI / 2 : 0;
-  const cos = Math.cos(rotate);
-  const sin = Math.sin(rotate);
-  let reachX = 0;
-  let reachY = 0;
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minY = Infinity;
-  let maxY = -Infinity;
-  for (const star of LYRA) {
-    const x = star.x * cos - star.y * sin;
-    const y = star.x * sin + star.y * cos;
-    reachX = Math.max(reachX, Math.abs(x));
-    reachY = Math.max(reachY, Math.abs(y));
-    minX = Math.min(minX, x);
-    maxX = Math.max(maxX, x);
-    minY = Math.min(minY, y);
-    maxY = Math.max(maxY, y);
-  }
-  // One uniform scale, and never bigger than the cap, so the figure has the same size and shape on every canvas.
-  const scale = Math.min(rx / reachX, ry / reachY, LYRA_MAXIMUM_SIZE / Math.max(maxX - minX, maxY - minY));
-  LYRA.forEach((star, i) => {
-    const point = output[i] ?? (output[i] = { x: 0, y: 0 });
-    point.x = cx + (star.x * cos - star.y * sin) * scale;
-    point.y = cy + (star.x * sin + star.y * cos) * scale;
-  });
   return output;
 }
 
@@ -224,44 +174,22 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
     for (let i = 0; i < Math.min(litProductCount, 3); i++) routes.push(makeRoute([spots[i], stars[0]]));
     field = makeStarField(state.width, state.height, Math.round((state.width * state.height) / 11_000), 11);
     mesh = makeMesh(state.width, state.height, 11);
-    const widthsInPixels = LYRA.map((star) => star.name ? state.labelFont.widthInPixels(star.name) : 0);
-    labels = placeLabels(
-      labelBounds(container, state.width, state.height),
-      state.height > 300,
-      widthsInPixels,
-      state.labelFont.lineHeightInPixels,
-    );
-  }
-
-  // Each name takes the side of its star that no link or product line crosses. The rings only break a tie.
-  function placeLabels(
-    bounds: Rectangle,
-    showNames: boolean,
-    widthsInPixels: readonly number[],
-    lineHeightInPixels: number,
-  ): PlacedLabel[] {
-    const segments: Segment[] = LYRA_LINKS.map(([a, b]) => ({ ax: stars[a].x, ay: stars[a].y, bx: stars[b].x, by: stars[b].y }));
+    // Each name takes the side of its star that no link or product line crosses. The rings only break a tie.
+    const segments: Segment[] = lyraLinkSegments(stars);
     for (let i = 0; i < litProductCount; i++) segments.push({ ax: spots[i].x, ay: spots[i].y, bx: stars[0].x, by: stars[0].y });
     const soft: Segment[] = [];
     for (const ring of RINGS) ellipseSegments(cx, cy, ring * halfWidth, ring * halfHeight, 48, soft);
     const avoid: Rectangle[] = stars.map((star) => around(star.x, star.y, 9));
     for (let i = 0; i < slotCount; i++) avoid.push(around(spots[i].x, spots[i].y, 12));
-    const placed: PlacedLabel[] = [];
-    for (const i of [0, 4, 5]) {
-      const name = LYRA[i].name;
-      if (name && (i === 0 || showNames)) {
-        placed.push(placeLabel(name, stars[i].x, stars[i].y, {
-          widthInPixels: widthsInPixels[i],
-          lineHeightInPixels,
-          bounds,
-          segments,
-          soft,
-          avoid,
-          gap: i ? 12 : 14,
-        }));
-      }
-    }
-    return placed;
+    labels = placeStarNames(stars, {
+      bounds: labelBounds(container, state.width, state.height),
+      showNames: state.height > 300,
+      widthsInPixels: starNameWidths(state.labelFont),
+      lineHeightInPixels: state.labelFont.lineHeightInPixels,
+      segments,
+      soft,
+      avoid,
+    });
   }
 
   function draw(drawingContext: CanvasRenderingContext2D, state: FrameState) {
@@ -412,7 +340,7 @@ export function mountProducts(container: HTMLElement): CanvasHandle | null {
         state.glow,
         stars[0].x,
         stars[0].y,
-        smooth((progress - 0.66) / 0.2) * (1 - smooth((progress - 0.86) / 0.14)),
+        riseAndFall(progress, 0.66, 0.2, 0.86, 0.14),
       );
     }
 

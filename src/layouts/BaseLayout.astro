@@ -3,6 +3,8 @@ import "../styles/global.css";
 import CloudflareAnalytics from "../components/CloudflareAnalytics.astro";
 import { getArticles } from "../shared/writing";
 import { getProducts } from "../shared/products";
+import { TOKEN_FALLBACKS } from "../shared/motion/palette";
+import { JOB_TITLE, SITE_NAME } from "../shared/site";
 import plexSans400 from "../assets/fonts/ibm-plex-sans-latin-400.woff2?url";
 import geist from "../assets/fonts/geist-latin-600.woff2?url";
 
@@ -15,7 +17,7 @@ interface Props {
 }
 
 const {
-  title = "Cristian Vega · AI Engineering Leader",
+  title = `${SITE_NAME} · ${JOB_TITLE}`,
   description = "AI engineering leader building agentic AI and multi-agent platforms for regulated domains, and the engineering organizations that ship them.",
   active = "home",
   noindex = false,
@@ -23,7 +25,7 @@ const {
 } = Astro.props;
 
 const buildYear = new Date().getFullYear();
-const pageTitle = title.includes("Cristian Vega") ? title : `${title} · Cristian Vega`;
+const pageTitle = title.includes(SITE_NAME) ? title : `${title} · ${SITE_NAME}`;
 const siteOrigin = Astro.site ?? new URL("https://cristianvega.ai");
 const canonicalAddress = new URL(Astro.url.pathname, siteOrigin).toString();
 // Writing shows when an article is visible. The writing pages keep their own link.
@@ -44,13 +46,12 @@ const profileLinks = [
   { label: "x", href: "https://x.com/cristianvega" },
   { label: "github", href: "https://github.com/cristianvega-ai" },
 ];
-const themeColor = "#14181F";
+const themeColor = TOKEN_FALLBACKS["--ink"];
 // Dedicated 1200×630 share card (see scripts/generate-social-preview.mjs); not the square master.
 const socialPreviewWidth = 1200;
 const socialPreviewHeight = 630;
 const socialPreviewAddress = new URL("/images/cristian-vega-social-preview.jpg", siteOrigin).toString();
-const socialPreviewDescription = "Portrait of Cristian Vega";
-const siteName = "Cristian Vega";
+const socialPreviewDescription = `Portrait of ${SITE_NAME}`;
 const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
@@ -58,16 +59,16 @@ const structuredData = {
       "@type": "WebSite",
       "@id": `${siteOrigin.origin}/#website`,
       url: `${siteOrigin.origin}/`,
-      name: siteName,
+      name: SITE_NAME,
       inLanguage: "en",
       publisher: { "@id": `${siteOrigin.origin}/#person` }
     },
     {
       "@type": "Person",
       "@id": `${siteOrigin.origin}/#person`,
-      name: siteName,
+      name: SITE_NAME,
       url: `${siteOrigin.origin}/`,
-      jobTitle: "AI Engineering Leader",
+      jobTitle: JOB_TITLE,
       worksFor: { "@type": "Organization", name: "Vertafore" },
       sameAs: profileLinks.map((link) => link.href)
     }
@@ -89,9 +90,9 @@ const structuredData = {
     <meta property="og:description" content={description} />
     <meta property="og:type" content={active === "article" ? "article" : "website"} />
     {published && <meta property="article:published_time" content={published} />}
-    {active === "article" && <meta name="author" content={siteName} />}
+    {active === "article" && <meta name="author" content={SITE_NAME} />}
     {!noindex && <meta property="og:url" content={canonicalAddress} />}
-    <meta property="og:site_name" content={siteName} />
+    <meta property="og:site_name" content={SITE_NAME} />
     <meta property="og:image" content={socialPreviewAddress} />
     <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content={String(socialPreviewWidth)} />
@@ -117,7 +118,7 @@ const structuredData = {
     <a class="skip-link" href="#main-content">Skip to content</a>
     <header class="site-header">
       <div class="site-header__inner">
-        <a class="brand" href="/" aria-label="Cristian Vega home">
+        <a class="brand" href="/" aria-label={`${SITE_NAME} home`}>
           <span class="brand__mark" aria-hidden="true"><i></i><i></i></span>
           <span class="brand__word"><i>Cristian</i>Vega</span>
         </a>
@@ -155,7 +156,7 @@ const structuredData = {
         <p class="site-footer__disclaimer">
           Disclaimer: The views and opinions expressed on this site are my own.
         </p>
-        <p class="site-footer__copyright">© Copyright {buildYear} Cristian Vega</p>
+        <p class="site-footer__copyright">© Copyright {buildYear} {SITE_NAME}</p>
       </div>
     </footer>
     <CloudflareAnalytics />
