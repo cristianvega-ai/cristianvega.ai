@@ -51,11 +51,12 @@ They exercise the current article styles and browser behavior.
 | Diagram | `figure.figure`, `.figure__panel`, `svg.pipeline`, and `figcaption` | Exercises a scrolling SVG panel and its caption. |
 | Code | `figure.code`, `figcaption`, `pre > code`, and `syntax-*` spans | Exercises file and language captions, preserved whitespace, wide lines, and code colors. |
 | Inline code | `code` within prose | Exercises inline code spacing and type. |
-| Quote | `blockquote.pull`, `p`, and `cite` | Exercises quote type and attribution. |
+| Quote | `blockquote`, `p`, and `cite` | Exercises quote type and attribution. |
 
 The diagram contains a branch, gate, model nodes, ordinary nodes, and a legend.
 The SVG keeps its `viewBox`, `pipeline-*` classes, and authored text.
-The code uses `syntax-keyword`, `syntax-string`, `syntax-number`, and `syntax-comment` spans.
+The code uses `syntax-keyword`, `syntax-number`, and `syntax-comment` spans.
+Strings keep the base code color, so they need no span.
 Keep code colors in external CSS.
 The build disables automatic syntax highlighting.
 
