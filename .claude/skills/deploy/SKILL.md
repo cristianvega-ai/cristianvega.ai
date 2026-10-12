@@ -31,7 +31,7 @@ The skill and its references work without Linear access.
    Run `npm audit` when dependency files changed.
 2. Open a pull request and wait for a green `Verify` check.
    Follow the owner's merge policy in `AGENTS.md`.
-3. After merge, watch the [Verify and deploy workflow](../../../.github/workflows/deploy.yml).
+3. After merge, watch the [Verify and deploy workflow](../../../.github/workflows/verify-and-deploy.yml).
    Confirm that its commit is the current `main` commit.
 4. Read the deployed address and commit from the workflow summary.
    Confirm that the live gate passes against the verified homepage on that address.
