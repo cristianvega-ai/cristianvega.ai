@@ -35,7 +35,7 @@ Do not assume Wrangler replaces them.
    In **Web Analytics > Manage site**, select **Enable with JS Snippet installation** for the configured apex.
    Keep automatic injection disabled because GitHub supplies the script.
    Preserve homepage `no-transform` so live HTML matches the verified build.
-5. Merge the approved domain change through a pull request and green `Verify` check.
+5. Merge the approved domain change through a pull request and green `Verify and package the site` check.
    If DNS records block connection, resolve that conflict below.
    Retry the current `main` commit through the GitHub workflow.
 6. Confirm both configured custom domains are active and have valid certificates.

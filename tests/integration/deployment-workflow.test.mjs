@@ -18,9 +18,9 @@ const hashVerificationStep = deploymentJob.steps.find((step) => step.env?.EXPECT
 const deploymentChecks = deploymentJob.steps.filter((step) => step.env?.EXPECTED_INDEX);
 const findNodeSetupSteps = (job) => job.steps.filter((step) => step.uses?.startsWith("actions/setup-node@"));
 
-test("the workflow defines the required Verify status and dependent production job", () => {
+test("the workflow defines the required verification status and dependent production job", () => {
   assert.deepEqual(Object.keys(workflow.jobs), ["verify", "deploy"]);
-  assert.equal(verificationJob.name, "Verify", "the branch rule requires this status check");
+  assert.equal(verificationJob.name, "Verify and package the site", "the branch rule requires this status check");
 });
 
 test("the workflow accepts pull requests, main pushes, and manual dispatch", () => {
@@ -40,7 +40,7 @@ test("the workflow token permits reading repository contents only", () => {
   for (const job of Object.values(workflow.jobs)) assert.equal(job.permissions, undefined, "jobs must not widen permissions");
 });
 
-test("the Verify job excludes secrets and the production environment", () => {
+test("the verify job excludes secrets and the production environment", () => {
   assert.doesNotMatch(JSON.stringify(verificationJob), /secrets\./);
   assert.doesNotMatch(JSON.stringify(workflow.env ?? {}), /secrets\./);
   assert.equal(verificationJob.environment, undefined);
@@ -48,14 +48,14 @@ test("the Verify job excludes secrets and the production environment", () => {
   assert.equal(checkoutStep?.with?.["persist-credentials"], false);
 });
 
-test("the Verify job installs locked dependencies and runs required audits and verification", () => {
+test("the verify job installs locked dependencies and runs required audits and verification", () => {
   const shellCommands = verificationJob.steps.map((step) => step.run);
   for (const command of ["npm ci", "npm audit --audit-level=high", "npm audit signatures", "npx playwright install --with-deps chromium", "npm run verify"]) {
-    assert.ok(shellCommands.includes(command), `Verify must run ${command}`);
+    assert.ok(shellCommands.includes(command), `the verify job must run ${command}`);
   }
 });
 
-test("the Verify job packages the site, verifier, tooling, and integrity hashes", () => {
+test("the verify job packages the site, verifier, tooling, and integrity hashes", () => {
   const shellCommands = packageStep.run;
   for (const requiredFilename of ["_headers", "_redirects", "index.html", "404.html", "robots.txt", "sitemap-index.xml"]) {
     assert.ok(shellCommands.includes(requiredFilename), `packaging must require dist/${requiredFilename}`);

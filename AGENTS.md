@@ -197,7 +197,7 @@ They do not establish ASD-STE100 conformance for code.
 
 - Never commit credentials, tokens, local environment files, personal browser state, or private machine configuration.
 - Store `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the GitHub `production` environment. Give the token only the required account access. Never write token values or private account details into tracked files, logs, or chat. Keep old host connection details private during the migration.
-- Deploy only the verified build through GitHub Actions. Keep secrets out of the `Verify` job. A change to the workflow, Cloudflare policy, or domain routes needs the owner's approval.
+- Deploy only the verified build through GitHub Actions. Keep secrets out of the `Verify and package the site` job. A change to the workflow, Cloudflare policy, or domain routes needs the owner's approval.
 - External links opened in a new tab must use `noopener` and `noreferrer` where appropriate.
 - Preserve the production security headers and content security policy unless a reviewed deployment change requires otherwise.
 - Run `npm audit` before production publication when dependencies changed.
@@ -243,14 +243,14 @@ Use the complete word. Do not use a short form such as `feat`, `docs`, or `perf`
 Every change to `main` must arrive through a pull request.
 The repository's initial publication is the only bootstrap exception unless the owner explicitly approves another.
 
-The `main` ruleset requires a pull request and a green `Verify` check.
+The `main` ruleset requires a pull request and a green `Verify and package the site` check.
 It has no bypass.
 GitHub refuses a push straight to `main`.
 
 The owner-authorized automated webmaster follows these gates.
 It can commit a small content or copy change to a branch.
 It can open a pull request and enable auto-merge with `gh pr merge --auto --squash`.
-The pull request merges when `Verify` passes, and GitHub Actions deploys it.
+The pull request merges when `Verify and package the site` passes, and GitHub Actions deploys it.
 "Small" means words on the site and nothing else.
 Every other change from that agent requires a pull request that waits for the owner.
 This includes code, tests, configuration, dependencies, layout, navigation, deployment behavior, and any change over about five files.
