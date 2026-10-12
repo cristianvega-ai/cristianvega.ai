@@ -67,13 +67,12 @@ Useful focused commands:
 npm run build
 npm run serve:production    # serves the current dist/ with local Wrangler, as Cloudflare does
 npm run check
-npm test                 # builds, then runs all Node tests
+npm test                 # builds, then runs every Node and browser test
 npm run test:unit        # fixed pure-function results; needs no build
 npm run test:property    # deterministic invariants; needs no build
 npm run test:integration # builds, fixtures, scripts, and contracts; requires a current dist/
 npm run test:end-to-end  # Playwright tests; requires a current dist/
-npm run test:run         # all Node tests; requires a current dist/ and starts Wrangler
-npm run test:browser     # compatibility command for test:end-to-end
+npm run test:node        # unit, property, and integration tests; requires a current dist/ and starts Wrangler
 npm run verify:deployment    # post-deploy: security headers on /, /about/, /writing/, and a real 404
 npm audit
 npm run generate:social-preview
