@@ -57,7 +57,7 @@ When you edit site copy, you are writing as the owner. When you explain that edi
 
 ```bash
 npm install
-npm run development
+npm run serve:development   # the Astro development server; shows drafts
 npm run verify           # the required gate: build, Astro diagnostics, and both test runners
 ```
 
@@ -65,6 +65,7 @@ Useful focused commands:
 
 ```bash
 npm run build
+npm run serve:production    # serves the current dist/ with local Wrangler, as Cloudflare does
 npm run check
 npm test                 # builds, then runs all Node tests
 npm run test:unit        # fixed pure-function results; needs no build
