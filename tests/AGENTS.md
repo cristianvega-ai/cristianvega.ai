@@ -94,7 +94,7 @@ Split a mixed suite when its cases need different types.
 | Integration | `tests/integration/build.test.mjs` | Static file safety, sitemap completeness, local font references, and private image exclusions. |
 | Integration | `tests/integration/pages.test.mjs` | Owner content, landmarks, metadata consistency, navigation state, safe outbound links, and local fonts. |
 | Integration | `tests/integration/publication.test.mjs` | Production routes, draft privacy, rendered publication, content order, escaped metadata, and product build capacity. |
-| Integration | `tests/integration/public-asset-guard.test.mjs` | The prebuild guard keeps operating system metadata out of public assets. |
+| Integration | `tests/integration/check-public-system-files.test.mjs` | The build check keeps operating-system files out of public assets. |
 | Integration | `tests/integration/security.test.mjs` | Cloudflare header and cache rules, the CSP, and `security.txt`. |
 | Integration | `tests/integration/deployment-gate.test.mjs` | Verified build acceptance, representative broken responses, unsafe script URLs, approved headers, and the local Cloudflare build. |
 | Integration | `tests/integration/deployment-workflow.test.mjs` | Parsed workflow triggers, action pins, token scope, secrets, freshness conditions, and artifact integrity. |

@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "development": "astro dev",
-    "prebuild": "node scripts/check-public-metadata.mjs",
-    "build": "astro build",
+    "build": "node scripts/check-public-system-files.mjs && astro build",
     "preview": "wrangler dev --local",
     "check": "astro check",
     "test:unit": "node --test tests/unit/*.test.mjs",

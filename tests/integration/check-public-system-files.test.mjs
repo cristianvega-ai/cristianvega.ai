@@ -14,7 +14,7 @@ async function createPublicAssetFixture(testContext) {
 
   await mkdir(join(fixtureDirectory, "scripts"));
   await copyFile(join(repositoryRoot, "package.json"), join(fixtureDirectory, "package.json"));
-  await copyFile(join(repositoryRoot, "scripts/check-public-metadata.mjs"), join(fixtureDirectory, "scripts/check-public-metadata.mjs"));
+  await copyFile(join(repositoryRoot, "scripts/check-public-system-files.mjs"), join(fixtureDirectory, "scripts/check-public-system-files.mjs"));
   await mkdir(join(fixtureDirectory, "node_modules/.bin"), { recursive: true });
   // Record when npm reaches Astro without running a second site build.
   await writeFile(join(fixtureDirectory, "node_modules/.bin/astro"),
@@ -37,7 +37,7 @@ function buildPublicAssetFixture(fixtureDirectory) {
   return { code: buildResult.status, output: buildResult.stdout + buildResult.stderr };
 }
 
-test("the public asset guard allows site files and preserves the security contact", async (testContext) => {
+test("the public system file check allows site files and preserves the security contact", async (testContext) => {
   const fixtureDirectory = await createPublicAssetFixture(testContext);
   const buildResult = buildPublicAssetFixture(fixtureDirectory);
   assert.equal(buildResult.code, 0, buildResult.output);
@@ -46,20 +46,20 @@ test("the public asset guard allows site files and preserves the security contac
     "Contact: https://example.invalid/security\n");
 });
 
-// Cover macOS metadata, Windows metadata, and nested AppleDouble files.
-for (const metadataFilename of [
+// Cover macOS, Windows, and nested AppleDouble system files.
+for (const systemFilename of [
   ".DS_Store", "images/Thumbs.db", "images/._portrait.jpg",
 ]) {
-  test(`the public asset guard stops Astro when ${metadataFilename} appears in public assets`, async (testContext) => {
+  test(`the public system file check stops Astro when ${systemFilename} appears in public assets`, async (testContext) => {
     const fixtureDirectory = await createPublicAssetFixture(testContext);
-    const metadataPath = join(fixtureDirectory, "public", metadataFilename);
-    await mkdir(dirname(metadataPath), { recursive: true });
-    await writeFile(metadataPath, "metadata fixture");
+    const systemFilePath = join(fixtureDirectory, "public", systemFilename);
+    await mkdir(dirname(systemFilePath), { recursive: true });
+    await writeFile(systemFilePath, "system file fixture");
 
     const buildResult = buildPublicAssetFixture(fixtureDirectory);
     assert.equal(buildResult.code, 1, buildResult.output);
-    assert.ok(buildResult.output.includes(join("public", metadataFilename)), "the guard must name the metadata file");
-    assert.equal(existsSync(join(fixtureDirectory, "astro-ran")), false, "the guard must stop Astro");
-    assert.equal(await readFile(metadataPath, "utf8"), "metadata fixture", "the guard must preserve the metadata file");
+    assert.ok(buildResult.output.includes(join("public", systemFilename)), "the check must name the system file");
+    assert.equal(existsSync(join(fixtureDirectory, "astro-ran")), false, "the check must stop Astro");
+    assert.equal(await readFile(systemFilePath, "utf8"), "system file fixture", "the check must preserve the system file");
   });
 }
