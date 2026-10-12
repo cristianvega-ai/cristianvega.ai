@@ -29,7 +29,7 @@ The skill and its references work without Linear access.
 1. Work on a focused branch.
    Run `npm run verify`.
    Run `npm audit` when dependency files changed.
-2. Open a pull request and wait for a green `Verify` check.
+2. Open a pull request and wait for a green `Verify and package the site` check.
    Follow the owner's merge policy in `AGENTS.md`.
 3. After merge, watch the [Verify and deploy workflow](../../../.github/workflows/verify-and-deploy.yml).
    Confirm that its commit is the current `main` commit.
@@ -52,13 +52,13 @@ Report any incomplete account or domain step.
 
 The workflow owns these requirements:
 
-- `Verify` installs Node.js from `.nvmrc` and locked dependencies.
+- `Verify and package the site` installs Node.js from `.nvmrc` and locked dependencies.
   It audits dependencies, checks package signatures, and runs `npm run verify`.
   Pull requests receive no deployment secrets.
 - The package includes `dist/`, the live verifier, Wrangler configuration, and dependency files.
   It includes a hashed `.nvmrc` copy named `node-version`.
-  `Verify` records the package and manifest hashes.
-- `Deploy production` requires the current `main` commit, `PRODUCTION_DEPLOY_ENABLED=true`, and the GitHub `production` environment.
+  `Verify and package the site` records the package and manifest hashes.
+- `Deploy the site to production` requires the current `main` commit, `PRODUCTION_DEPLOY_ENABLED=true`, and the GitHub `production` environment.
   It checks the manifest hash, every manifest entry, and the package hash.
   It installs Node.js from the packaged version file.
   It installs locked deployment tooling without install scripts.
