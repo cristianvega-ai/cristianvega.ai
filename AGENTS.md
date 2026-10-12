@@ -160,6 +160,10 @@ They do not establish ASD-STE100 conformance for code.
 - Use `writing` for the section and collection. Use `article` for an individual piece and its helpers.
 - Name test fixtures by the behavior they test.
 - Name test files by their tested module or behavior.
+- Name each npm script `action:object`, such as `test:unit` or `serve:production`. A name without a colon acts on the whole checkout.
+- Do not use npm `pre` or `post` hooks. List every step in the command that runs it.
+- Give each command one name. Do not keep a second name as an alias.
+- Name each file in `scripts/` as `action-object.mjs`, such as `verify-deployment.mjs`.
 - Use `YYYY-MM-DD` for dates in names.
 - Keep `src/`, `Lyra`, official brand and font names, and ordinary mathematical coordinates.
 - Preserve required tool names, filenames, file extensions, and package keys.
