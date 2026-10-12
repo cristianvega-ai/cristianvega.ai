@@ -58,22 +58,22 @@ When you edit site copy, you are writing as the owner. When you explain that edi
 ```bash
 npm install
 npm run serve:development   # the Astro development server; shows drafts
-npm run verify           # the required gate: build, Astro diagnostics, and both test runners
+npm run verify              # the required gate: build, Astro diagnostics, and both test runners
 ```
 
 Useful focused commands:
 
 ```bash
-npm run build
 npm run serve:production    # serves the current dist/ with local Wrangler, as Cloudflare does
-npm run check
-npm test                 # builds, then runs every Node and browser test
-npm run test:unit        # fixed pure-function results; needs no build
-npm run test:property    # deterministic invariants; needs no build
-npm run test:integration # builds, fixtures, scripts, and contracts; requires a current dist/
-npm run test:end-to-end  # Playwright tests; requires a current dist/
-npm run test:node        # unit, property, and integration tests; requires a current dist/ and starts Wrangler
-npm run verify:deployment    # post-deploy: security headers on /, /about/, /writing/, and a real 404
+npm run build               # checks public/ for system files, then builds dist/
+npm run check               # Astro diagnostics
+npm test                    # builds, then runs every Node and browser test
+npm run test:unit           # fixed pure-function results; needs no build
+npm run test:property       # deterministic invariants; needs no build
+npm run test:integration    # builds, fixtures, scripts, and contracts; requires a current dist/
+npm run test:node           # unit, property, and integration tests; requires a current dist/ and starts Wrangler
+npm run test:end-to-end     # Playwright tests; requires a current dist/
+npm run verify:deployment   # post-deploy: security headers on /, /about/, /writing/, and a real 404
 npm audit
 npm run generate:social-preview
 npm run generate:touch-icon
