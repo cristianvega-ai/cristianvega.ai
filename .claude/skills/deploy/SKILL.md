@@ -35,7 +35,7 @@ The skill and its references work without Linear access.
    Confirm that its commit is the current `main` commit.
 4. Read the deployed address and commit from the workflow summary.
    Confirm that the live gate passes against the verified homepage on that address.
-   When `CLOUDFLARE_PRODUCTION_READY=true`, also confirm production checks and canonical redirects pass.
+   When `PRODUCTION_DOMAIN_CHECK_ENABLED=true`, also confirm production checks and canonical redirects pass.
 5. Check the affected page and visible content on the deployed address.
 
 If `PRODUCTION_DEPLOY_ENABLED` is not `true`, report the skipped publication.
@@ -66,7 +66,7 @@ The workflow owns these requirements:
   It does not check out source or rebuild the site.
 - The live gate compares the deployed homepage with the packaged homepage.
   It checks approved headers, a real 404, retired-page redirects, gzip, and cache lifetimes.
-  `CLOUDFLARE_PRODUCTION_READY=true` also requires production checks and path-preserving, query-preserving canonical redirects.
+  `PRODUCTION_DOMAIN_CHECK_ENABLED=true` also requires production checks and path-preserving, query-preserving canonical redirects.
 
 Keep GitHub actions and the Wrangler version pinned.
 Dependabot updates action pins.

@@ -40,14 +40,14 @@ Do not assume Wrangler replaces them.
    Retry the current `main` commit through the GitHub workflow.
 6. Confirm both configured custom domains are active and have valid certificates.
    Run exact-build production verification with canonical checks as described in [Hosting checks](hosting-checks.md#check-the-deployed-build).
-   Set `CLOUDFLARE_PRODUCTION_READY=true` only after those checks pass.
+   Set `PRODUCTION_DOMAIN_CHECK_ENABLED=true` only after those checks pass.
    Run the GitHub workflow again.
    Both the Worker address and production domain must match the same verified homepage.
 7. After production passes, remove obsolete `DEPLOY_*` GitHub secrets and revoke the previous deployment key, when present and authorized.
    Retire the previous host only after the owner confirms it has no other required services.
 
 Before the switch, the previous host can serve a different build.
-Do not enable `CLOUDFLARE_PRODUCTION_READY` before the switch passes its live checks.
+Do not enable `PRODUCTION_DOMAIN_CHECK_ENABLED` before the switch passes its live checks.
 
 ## Resolve a DNS record conflict
 
