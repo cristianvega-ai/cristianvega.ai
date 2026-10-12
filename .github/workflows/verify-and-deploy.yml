@@ -255,7 +255,7 @@ jobs:
           exit 1
 
       - name: Verify the production domain
-        if: steps.current.outputs.deploy == 'true' && vars.CLOUDFLARE_PRODUCTION_READY == 'true'
+        if: steps.current.outputs.deploy == 'true' && vars.PRODUCTION_DOMAIN_CHECK_ENABLED == 'true'
         working-directory: ${{ runner.temp }}/site-package
         env:
           ORIGIN: https://cristianvega.ai

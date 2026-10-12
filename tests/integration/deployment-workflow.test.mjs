@@ -90,7 +90,7 @@ test("the deployment job requires verified current main, the owner repository, a
   assert.match(freshnessCheckStep.run, /"\$current_sha" == "\$EXPECTED_SHA"/);
   for (const step of deploymentJob.steps.filter((step) => step !== freshnessCheckStep)) {
     const expectedCondition = "steps.current.outputs.deploy == 'true'" +
-      (step.env?.ORIGIN === "https://cristianvega.ai" ? " && vars.CLOUDFLARE_PRODUCTION_READY == 'true'" : "");
+      (step.env?.ORIGIN === "https://cristianvega.ai" ? " && vars.PRODUCTION_DOMAIN_CHECK_ENABLED == 'true'" : "");
     assert.equal(step.if?.replace(/\s+/g, " ").trim(), expectedCondition, "each deployment step must require fresh main");
   }
 });
@@ -126,9 +126,9 @@ test("the publish step receives Cloudflare secrets while other deployment steps 
   assert.ok(deploymentChecks.some((step) => step.env.ORIGIN === "${{ steps.publish.outputs.origin }}"));
 });
 
-test("production domain checks run only after the Cloudflare cutover is complete", () => {
+test("the production domain check runs only when its switch is enabled", () => {
   const productionCheckStep = deploymentChecks.find((step) => step.env.ORIGIN === "https://cristianvega.ai");
-  assert.ok(productionCheckStep.if.includes("vars.CLOUDFLARE_PRODUCTION_READY == 'true'"));
+  assert.ok(productionCheckStep.if.includes("vars.PRODUCTION_DOMAIN_CHECK_ENABLED == 'true'"));
   assert.equal(productionCheckStep.env.CHECK_CANONICAL_REDIRECTS, "true");
   const cloudflareConfiguration = JSON.parse(readFileSync(join(repositoryRoot, "wrangler.jsonc"), "utf8"));
   assert.equal(cloudflareConfiguration.workers_dev, true);

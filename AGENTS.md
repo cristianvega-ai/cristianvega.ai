@@ -261,7 +261,7 @@ Report the merged commit hash and the workflow run.
 A manual GitHub workflow run must also build and verify the current `main` commit.
 Cloudflare domain routes live in `wrangler.jsonc`.
 Follow [the deploy skill's domain procedures](.claude/skills/deploy/references/domain-setup.md) before changing those routes.
-Enable `CLOUDFLARE_PRODUCTION_READY` only after that switch passes the live checks.
+Enable `PRODUCTION_DOMAIN_CHECK_ENABLED` only after that switch passes the live checks.
 
 #### Before you open a pull request
 
