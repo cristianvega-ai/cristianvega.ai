@@ -73,7 +73,7 @@ test("the verify job packages the site, verifier, tooling, and integrity hashes"
   });
   const uploadStep = verificationJob.steps.find((step) => step.uses?.startsWith("actions/upload-artifact@"));
   assert.equal(uploadStep?.if, "github.event_name != 'pull_request'");
-  assert.equal(uploadStep?.with?.name, "production-site-${{ github.sha }}");
+  assert.equal(uploadStep?.with?.name, "site-package-${{ github.sha }}");
 });
 
 test("the deployment job requires verified current main, the owner repository, and enabled production settings", () => {
@@ -103,7 +103,7 @@ test("the deployment job uses the verified package and checks its hashes before 
   assert.equal(hashVerificationStep.env.EXPECTED_MANIFEST_SHA256, "${{ needs.verify.outputs.manifest_sha256 }}");
   assert.match(hashVerificationStep.run, /"\$manifest" != "\$EXPECTED_MANIFEST_SHA256"/);
   const downloadStep = deploymentJob.steps.find((step) => step.uses?.startsWith("actions/download-artifact@"));
-  assert.equal(downloadStep?.with?.name, "production-site-${{ github.sha }}");
+  assert.equal(downloadStep?.with?.name, "site-package-${{ github.sha }}");
   assert.equal(deploymentChecks.length, 2, "both deployed origins must use the packaged verifier");
   for (const step of deploymentChecks) {
     assert.match(step.run, /node verify-deployment\.mjs/);
