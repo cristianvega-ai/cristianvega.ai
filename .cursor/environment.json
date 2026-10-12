@@ -3,8 +3,8 @@
   "install": "export NVM_DIR=\"$HOME/.nvm\"; . \"$NVM_DIR/nvm.sh\"; nvm install && nvm use && nvm alias default \"$(nvm current)\" && npm ci && npx playwright install chromium",
   "terminals": [
     {
-      "name": "development",
-      "command": "npm run development",
+      "name": "serve:development",
+      "command": "npm run serve:development",
       "description": "Astro development server on http://localhost:4321/. Live-reloads src/ on change."
     }
   ],

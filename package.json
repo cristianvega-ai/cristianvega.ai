@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "development": "astro dev",
+    "serve:development": "astro dev",
     "build": "node scripts/check-public-system-files.mjs && astro build",
-    "preview": "wrangler dev --local",
+    "serve:production": "wrangler dev --local",
     "check": "astro check",
     "test:unit": "node --test tests/unit/*.test.mjs",
     "test:property": "node --test tests/property/*.test.mjs",

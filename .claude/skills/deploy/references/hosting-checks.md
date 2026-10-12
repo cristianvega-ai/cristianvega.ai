@@ -28,11 +28,11 @@ Cloudflare documents [cache settings](https://developers.cloudflare.com/cache/ho
 
 ## Check locally
 
-Run `npm run build`, then `npm run preview` to serve the build with local Wrangler.
+Run `npm run build`, then `npm run serve:production` to serve the build with local Wrangler.
 Run `npm run verify` for the complete gate before publication.
 The browser suite checks headers, redirects, compression, caching, and page flows without account access.
 It selects the `test` environment, which clears domain routes and preserves request hostnames for host-specific checks.
-Local preview does not publish the site.
+The local server does not publish the site.
 
 ## Check the deployed build
 
