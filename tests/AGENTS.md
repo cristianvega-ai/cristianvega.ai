@@ -113,9 +113,8 @@ npm run test:end-to-end
 Unit and property commands need no build.
 Integration and end-to-end commands need a current `dist/`.
 The deployment integration suite starts Wrangler on `dist/`.
-`npm run test:run` runs all three Node types through explicit globs.
-`npm run test:browser` runs the same Playwright suite.
-`npm test` builds and runs all Node tests.
+`npm run test:node` runs all three Node types through explicit globs.
+`npm test` builds, then runs the Node and browser tests.
 `npm run verify` builds, checks Astro diagnostics, and runs both runners.
 
 ## End-to-end ownership
