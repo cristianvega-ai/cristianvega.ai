@@ -164,6 +164,9 @@ They do not establish ASD-STE100 conformance for code.
 - Do not use npm `pre` or `post` hooks. List every step in the command that runs it.
 - Give each command one name. Do not keep a second name as an alias.
 - Name each file in `scripts/` as `action-object.mjs`, such as `verify-deployment.mjs`.
+- Name a workflow file after its `name` value, such as `verify-and-deploy.yml` for `Verify and deploy`.
+- Name each workflow job and step with an imperative phrase and its object, such as `Package the site`.
+- Name a repository variable that turns a feature on as `AREA_FEATURE_ENABLED`, such as `PRODUCTION_DEPLOY_ENABLED`.
 - Use `YYYY-MM-DD` for dates in names.
 - Keep `src/`, `Lyra`, official brand and font names, and ordinary mathematical coordinates.
 - Preserve required tool names, filenames, file extensions, and package keys.
