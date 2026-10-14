@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
-    "@playwright/test": "^1.63.0",
+    "@playwright/test": "^1.64.0",
     "js-yaml": "^5.4.3",
     "sharp": "^0.35.5",
     "typescript": "^6.0.3",
