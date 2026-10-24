@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23223a6e'/%3E%3Cpath d='M9 26V14l3-2v-4l2 2 2-3 2 3 2-2v4l3 2v12z' fill='%23f1e7cf'/%3E%3Cpath d='M11 14l5-9 5 9z' fill='%232c5fb4'/%3E%3Crect x='14' y='19' width='4' height='7' rx='2' fill='%235a3a22'/%3E%3C/svg%3E">
+<title>Skyhold — a voxel castle in the clouds</title>
+<meta name="description" content="A procedurally generated voxel castle on a floating island, rendered in real time with custom WebGL2 shaders.">
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #0b1020; overflow: hidden; font-family: ui-sans-serif, -apple-system, "SF Pro Display", "Segoe UI", Roboto, sans-serif; }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
+  #loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    background: radial-gradient(120% 90% at 50% 30%, #25406e 0%, #101a38 60%, #070b18 100%); color: #e8efff; z-index: 10; transition: opacity 1.2s ease, visibility 1.2s; }
+  #loading.done { opacity: 0; visibility: hidden; pointer-events: none; }
+  #loading h1 { margin: 0; font-weight: 300; letter-spacing: 0.42em; font-size: clamp(22px, 4vw, 40px); text-transform: uppercase; padding-left: 0.42em; }
+  #loading .sub { font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.6; }
+  #bar { width: min(320px, 70vw); height: 2px; background: rgba(255,255,255,0.14); border-radius: 2px; overflow: hidden; }
+  #bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #8fc1ff, #ffd9a0); transition: width 0.25s ease; }
+  #status { font-size: 13px; opacity: 0.75; min-height: 1.2em; letter-spacing: 0.04em; }
+
+  #hud { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity 1.4s ease 0.4s; z-index: 5; }
+  #hud.show { opacity: 1; }
+  body.photo #hud .chrome { opacity: 0; transform: translateY(8px); pointer-events: none; }
+  #title { position: absolute; left: clamp(18px, 3vw, 44px); top: clamp(16px, 3vh, 36px); color: #fff; text-shadow: 0 1px 14px rgba(8,16,40,0.55); }
+  #title b { display: block; font-weight: 300; letter-spacing: 0.4em; font-size: clamp(15px, 1.6vw, 22px); text-transform: uppercase; }
+  #title span { display: block; margin-top: 6px; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.72; }
+  .chrome { transition: opacity 0.5s ease, transform 0.5s ease; }
+  #dock { position: absolute; left: 50%; bottom: clamp(14px, 3vh, 30px); transform: translateX(-50%); display: flex; align-items: center; gap: 14px;
+    padding: 10px 16px; border-radius: 999px; pointer-events: auto; color: #eaf1ff; font-size: 12px; letter-spacing: 0.06em;
+    background: linear-gradient(180deg, rgba(20,30,58,0.55), rgba(10,16,34,0.55)); backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3);
+    border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 10px 40px rgba(0,0,0,0.35); }
+  #dock button { all: unset; cursor: pointer; padding: 6px 12px; border-radius: 999px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #dfe9ff; transition: background 0.2s, color 0.2s; }
+  #dock button:hover { background: rgba(255,255,255,0.12); }
+  #dock button.on { background: rgba(255,255,255,0.2); color: #fff; }
+  #dock .sep { width: 1px; height: 18px; background: rgba(255,255,255,0.18); }
+  #dock label { display: flex; align-items: center; gap: 10px; opacity: 0.9; }
+  #tod { -webkit-appearance: none; appearance: none; width: clamp(110px, 18vw, 220px); height: 4px; border-radius: 4px; outline: none;
+    background: linear-gradient(90deg, #0b1230 0%, #3a2a6a 18%, #ff9a5a 26%, #9fd0ff 40%, #9fd0ff 60%, #ff8a4a 74%, #3a2a6a 82%, #0b1230 100%); }
+  #tod::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.25), 0 2px 8px rgba(0,0,0,0.4); cursor: pointer; }
+  #tod::-moz-range-thumb { width: 16px; height: 16px; border: 0; border-radius: 50%; background: #fff; cursor: pointer; }
+  #hint { position: absolute; right: clamp(18px, 3vw, 44px); bottom: clamp(18px, 3.4vh, 36px); color: rgba(255,255,255,0.7); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; text-align: right; line-height: 1.8; text-shadow: 0 1px 10px rgba(8,16,40,0.6); }
+  #hint kbd { font: inherit; padding: 1px 6px; border: 1px solid rgba(255,255,255,0.35); border-radius: 5px; margin: 0 1px; }
+  #fps { position: absolute; left: clamp(18px, 3vw, 44px); bottom: clamp(18px, 3.4vh, 36px); color: rgba(255,255,255,0.5); font: 11px ui-monospace, Menlo, monospace; letter-spacing: 0.05em; }
+  #about { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(6,10,24,0.45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; visibility: hidden; transition: opacity 0.35s ease, visibility 0.35s; pointer-events: none; }
+  #about.open { opacity: 1; visibility: visible; pointer-events: auto; }
+  #about .card { position: relative; width: min(640px, 92vw); max-height: 86vh; overflow: auto; padding: 28px 32px 24px; border-radius: 20px; color: #e8efff; background: linear-gradient(180deg, rgba(24,36,70,0.86), rgba(10,16,36,0.9)); border: 1px solid rgba(255,255,255,0.16); box-shadow: 0 30px 80px rgba(0,0,0,0.5); }
+  #about h2 { margin: 0 0 10px; font-weight: 300; letter-spacing: 0.4em; text-transform: uppercase; font-size: 22px; }
+  #about .lede { margin: 0 0 18px; line-height: 1.55; font-size: 14px; color: #cfe0ff; }
+  #about .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+  #about .stats div { padding: 12px 10px; border-radius: 12px; background: rgba(255,255,255,0.06); text-align: center; }
+  #about .stats b { display: block; font-size: 20px; font-weight: 500; color: #ffe2a8; font-variant-numeric: tabular-nums; }
+  #about .stats span { display: block; margin-top: 4px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.7; }
+  #about ul { margin: 0 0 16px; padding: 0 0 0 18px; font-size: 13px; line-height: 1.55; color: #c3d4f5; }
+  #about li { margin-bottom: 6px; }
+  #about li em { font-style: normal; color: #fff; letter-spacing: 0.06em; }
+  #about .keys { margin: 0; font-size: 11px; line-height: 2; color: #9fb4de; letter-spacing: 0.04em; }
+  #about kbd { font: inherit; padding: 1px 6px; border: 1px solid rgba(255,255,255,0.3); border-radius: 5px; color: #fff; }
+  #about-close { all: unset; position: absolute; top: 12px; right: 16px; font-size: 26px; line-height: 1; cursor: pointer; color: #b9c8ea; padding: 4px 8px; border-radius: 8px; }
+  #about-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  @media (max-width: 560px) { #about .stats { grid-template-columns: repeat(2, 1fr); } }
+  #toast { position: absolute; left: 50%; top: 13%; transform: translate(-50%, -6px); padding: 8px 18px; border-radius: 999px; color: #fff; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; background: rgba(10,16,34,0.42); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.16); opacity: 0; transition: opacity 0.4s ease, transform 0.4s ease; pointer-events: none; }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  @media (max-width: 760px) {
+    #hint, #fps { display: none; }
+    #dock { left: 10px; right: 10px; transform: none; width: auto; box-sizing: border-box; flex-wrap: wrap; justify-content: center; gap: 4px 6px; padding: 10px 12px; border-radius: 22px; bottom: max(10px, env(safe-area-inset-bottom)); }
+    #dock label { flex: 1 1 100%; justify-content: center; }
+    #tod { flex: 1; width: auto; max-width: 280px; }
+    #dock button { padding: 6px 10px; font-size: 11px; }
+    #dock .sep, #dock .opt { display: none; }
+    #title b { font-size: 14px; letter-spacing: 0.32em; }
+    #title span { font-size: 9px; letter-spacing: 0.12em; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0"></canvas>
+
+<div id="loading">
+  <h1>Skyhold</h1>
+  <div class="sub">a voxel castle in the clouds</div>
+  <div id="bar"><i></i></div>
+  <div id="status">Preparing…</div>
+</div>
+
+<div id="hud">
+  <div id="title" class="chrome"><b>Skyhold</b><span>procedural voxels · webgl2 · custom shaders</span></div>
+  <div id="dock" class="chrome">
+    <label title="Time of day">☀︎ <input id="tod" type="range" min="0" max="1" step="0.001" value="0.7"> ☾</label>
+    <button id="btn-play" title="Let the day pass (T)">Cycle</button>
+    <span class="sep"></span>
+    <button id="btn-orbit" class="on" title="Cinematic camera (Space)">Cinema</button>
+    <button id="btn-view" title="Next viewpoint (V)">Viewpoint</button>
+    <span class="sep opt"></span>
+    <button id="btn-sound" class="opt" title="Ambient sound (M)">Sound</button>
+    <button id="btn-photo" class="opt" title="Hide the interface (H)">Photo</button>
+    <button id="btn-info" title="About this scene (I)">About</button>
+  </div>
+  <div id="hint" class="chrome">Drag to orbit · Scroll to zoom · Right-drag to pan<br><kbd>Space</kbd> cinema <kbd>V</kbd> viewpoint <kbd>T</kbd> cycle day <kbd>H</kbd> hide ui</div>
+  <div id="fps"></div>
+  <div id="toast"></div>
+  <div id="about" class="chrome" aria-hidden="true">
+    <div class="card">
+      <button id="about-close" aria-label="Close">×</button>
+      <h2>Skyhold</h2>
+      <p class="lede">Everything you see is generated by code when the page loads — no models, no textures, no downloads. A castle, a forest, a valley, clouds and birds, all built from voxels and lit by hand-written shaders.</p>
+      <div class="stats">
+        <div><b id="st-quads">–</b><span>voxel faces meshed</span></div>
+        <div><b id="st-tris">–</b><span>triangles / frame</span></div>
+        <div><b id="st-calls">–</b><span>draw calls</span></div>
+        <div><b id="st-load">–</b><span>to generate the world</span></div>
+      </div>
+      <ul>
+        <li><em>World</em> · noise-carved rock island, rivers carved to the rim, voxel castle, village, ~1,000 trees, a lake, a lighthouse, a valley with pools where each waterfall lands</li>
+        <li><em>Voxel renderer</em> · custom mesher with vertex ambient occlusion, baked sky visibility, wind-swayed foliage and banners</li>
+        <li><em>Lighting</em> · soft PCSS sun shadows, moving cloud shadows, height-fog aerial perspective, a full day–night cycle</li>
+        <li><em>Water</em> · flowing moat and rivers, ballistic waterfalls that dissolve into mist, spray and plunge pools</li>
+        <li><em>Post</em> · HDR, MSAA, bloom, god rays, filmic grading</li>
+        <li><em>Life</em> · boids flocks and eagles, butterflies, fireflies, petals, smoke, lanterns, boats, a turning windmill, procedural sound</li>
+      </ul>
+      <p class="keys"><kbd>Space</kbd> cinematic tour · <kbd>V</kbd> next viewpoint (<kbd>1</kbd>–<kbd>9</kbd>) · <kbd>T</kbd> pass the day · <kbd>[</kbd> <kbd>]</kbd> nudge time · <kbd>M</kbd> sound · <kbd>H</kbd> hide UI · <kbd>P</kbd> save a screenshot · <kbd>F</kbd> fps</p>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
