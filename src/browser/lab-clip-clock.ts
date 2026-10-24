@@ -29,10 +29,26 @@ export function setupClipClock(): void {
     }
   };
 
+  const isLoadedAt = (clip: HTMLVideoElement, time: number) => {
+    for (let rangeIndex = 0; rangeIndex < clip.buffered.length; rangeIndex += 1) {
+      if (clip.buffered.start(rangeIndex) <= time && clip.buffered.end(rangeIndex) >= time) return true;
+    }
+    return false;
+  };
+
   const play = (clip: HTMLVideoElement) => {
     const start = () => {
       if (paused || !visibleClips.has(clip)) return;
-      clip.currentTime = clipClockTime((performance.now() - clockStart) / 1000, clip.duration);
+      // Cloudflare's static assets do not answer byte ranges, so a seek
+      // beyond the loaded part restarts the download and lags. The clip
+      // waits on its poster until its download covers the clock time. When
+      // the download stops short, the clip plays from where it is.
+      const target = clipClockTime((performance.now() - clockStart) / 1000, clip.duration);
+      if (!isLoadedAt(clip, target) && clip.networkState === HTMLMediaElement.NETWORK_LOADING) {
+        clip.addEventListener("progress", start, { once: true });
+        return;
+      }
+      if (isLoadedAt(clip, target)) clip.currentTime = target;
       clip.play().catch(() => {
         paused = true;
         for (const other of clips) other.pause();

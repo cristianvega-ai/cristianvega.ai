@@ -1,6 +1,8 @@
 ---
 // A muted clip with its poster. lab-clip-clock.ts plays it while it is on
 // screen. The clip is decoration: the link around it names what it shows.
+// The clip loads in full, because Cloudflare's static assets do not answer
+// byte ranges, and a clip can seek only inside the part it has loaded.
 import type { ClipSources } from "../../shared/lab/media-paths";
 import "../../styles/clip-video.css";
 
@@ -11,7 +13,7 @@ interface Props {
 const { clip } = Astro.props;
 ---
 
-<video class="clip-video" data-clip poster={clip.poster} muted loop playsinline preload="metadata" disablepictureinpicture aria-hidden="true">
+<video class="clip-video" data-clip poster={clip.poster} muted loop playsinline preload="auto" disablepictureinpicture aria-hidden="true">
   <source src={clip.av1} type='video/mp4; codecs="av01.0.04M.08"' />
   <source src={clip.h264} type="video/mp4" />
 </video>
