@@ -1,0 +1,23 @@
+/* The prompt of an experiment, word for word, on a soft ground. */
+.prompt-block {
+  margin-top: 40px;
+}
+
+.prompt-block__text {
+  padding: 14px 18px;
+  border-radius: var(--radius-medium);
+  background: var(--wash);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/* On a wide screen the ground hangs outside the column, so the prompt text
+   lines up with the paragraph text, as the code blocks do. */
+@media (min-width: 700px) {
+  .prompt-block__text {
+    margin-inline: -18px;
+  }
+}

@@ -1,0 +1,93 @@
+/* The Lab page: a grid of experiments. A group, one prompt that several
+   models answered, spans the column and shows all its results at once. A
+   single piece takes half the column. */
+.lab-index__head {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.lab-index {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: row dense;
+  gap: 36px 20px;
+  margin-top: 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.lab-index__group {
+  grid-column: 1 / -1;
+}
+
+.lab-card {
+  display: block;
+  color: var(--ink);
+}
+
+.lab-card__media {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  max-width: 100%;
+  aspect-ratio: 560 / 536;
+  border-radius: 10px;
+  background: var(--wash);
+}
+
+.lab-card__media--group {
+  aspect-ratio: 1156 / 544;
+}
+
+/* A hairline inside the edge keeps a pale sky from melting into the page. */
+.lab-card__media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(20, 24, 31, 0.08);
+  pointer-events: none;
+}
+
+.lab-card__caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 16px;
+  margin-top: 12px;
+}
+
+/* The card title has the proportions of the page heading, as a row title
+   does, so the page transition scales one into the other. */
+.lab-card__title {
+  display: inline-block;
+  line-height: 1.3;
+  letter-spacing: -0.012em;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.lab-card:hover .lab-card__title {
+  text-decoration-color: var(--underline);
+}
+
+.lab-card__meta,
+.lab-card__draft {
+  font-size: 14px;
+  color: var(--meta);
+}
+
+.lab-card__draft {
+  margin-left: 6px;
+}
+
+@media (max-width: 640px) {
+  .lab-index {
+    gap: 28px 14px;
+  }
+}

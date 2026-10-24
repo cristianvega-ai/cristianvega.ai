@@ -24,6 +24,34 @@
 /images/*
   Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 
+# Lab clips and posters keep stable names, so they get the image lifetime.
+/lab/media/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+# Rules merge in file order, and "! Name" drops a header that an earlier rule
+# set. Keep these three Lab rules after the global rule and in this order.
+# Lab pages may put the live scene stage in full screen.
+/lab/*
+  ! Permissions-Policy
+  Permissions-Policy: accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), screen-wake-lock=(), usb=(), xr-spatial-tracking=()
+
+# A model-built scene runs sandboxed in an opaque origin, even when a visitor
+# opens it directly. It cannot read this site's storage or cookies. Its own
+# policy allows the inline scripts and styles the models wrote. The opaque
+# origin loads its own module scripts and fonts through CORS.
+/lab/scenes/*
+  ! Content-Security-Policy
+  ! X-Frame-Options
+  ! Permissions-Policy
+  Content-Security-Policy: sandbox allow-scripts allow-pointer-lock allow-downloads; default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' data: blob:; connect-src 'self' data: blob:; worker-src 'self' blob:; frame-ancestors 'self'; base-uri 'none'; form-action 'none'; object-src 'none'
+  Permissions-Policy: accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), screen-wake-lock=(), usb=(), xr-spatial-tracking=()
+  Access-Control-Allow-Origin: *
+  X-Robots-Tag: noindex
+
+# A scene entry page must arrive as the build wrote it.
+/lab/scenes/:experiment/:result/
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
 # Test addresses must not appear in search results.
 https://:worker.:account.workers.dev/*
   X-Robots-Tag: noindex

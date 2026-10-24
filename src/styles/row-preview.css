@@ -1,0 +1,32 @@
+/* The homepage preview: a small clip that trails the pointer over a Lab row.
+   lab-row-preview.ts moves it. */
+.row-preview {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 30;
+  width: 224px;
+  aspect-ratio: 1156 / 544;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--wash);
+  box-shadow:
+    0 0 0 1px rgba(20, 24, 31, 0.08),
+    0 18px 40px -16px rgba(20, 24, 31, 0.35);
+  opacity: 0;
+  scale: 0.94;
+  pointer-events: none;
+  transition: opacity 0.2s ease, scale 0.35s var(--ease-travel);
+}
+
+.row-preview--visible {
+  opacity: 1;
+  scale: 1;
+}
+
+.row-preview video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

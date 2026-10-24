@@ -1,5 +1,6 @@
 // The data of one row in an entry list: the homepage sections, the index
 // pages and the more-writing list all print rows from it.
+import type { ClipSources } from "../lab/media-paths.ts";
 
 export type EntryRowData = {
   href: string;
@@ -11,4 +12,6 @@ export type EntryRowData = {
   /** A sentence after the title, such as what a product does. */
   description?: string;
   draft: boolean;
+  /** A clip that trails the pointer over the row on the homepage, for Lab rows. */
+  preview?: ClipSources;
 };

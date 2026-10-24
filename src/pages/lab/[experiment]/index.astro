@@ -1,0 +1,16 @@
+---
+import { render } from "astro:content";
+import ExperimentLayout from "../../../layouts/ExperimentLayout.astro";
+import { getExperiments } from "../../../shared/content/lab";
+
+export async function getStaticPaths() {
+  return (await getExperiments()).map((experiment) => ({ params: { experiment: experiment.id }, props: { experiment } }));
+}
+
+const { experiment } = Astro.props;
+const { Content } = await render(experiment);
+---
+
+<ExperimentLayout {experiment}>
+  <Content />
+</ExperimentLayout>

@@ -1,0 +1,53 @@
+---
+// The page of one Lab experiment: the detail frame, the prompt, every result
+// with its clip, and the note on how the clips were made.
+import DetailLayout from "./DetailLayout.astro";
+import ClipPauseButton from "../components/lab/ClipPauseButton.astro";
+import PromptBlock from "../components/lab/PromptBlock.astro";
+import ResultTile from "../components/lab/ResultTile.astro";
+import { experimentDate, experimentMeta, experimentMorphKey, isGroup, type Experiment } from "../shared/content/lab";
+import "../styles/prose.css";
+import "../styles/result-tile.css";
+
+interface Props {
+  experiment: Experiment;
+}
+
+const { experiment } = Astro.props;
+const { title, description, date, draft, prompt, note, results } = experiment.data;
+---
+
+<DetailLayout
+  {title}
+  {description}
+  lede={description}
+  active="experiment"
+  backHref="/lab/"
+  backLabel="Lab"
+  morphKey={experimentMorphKey(experiment)}
+  noindex={draft}
+  {draft}
+  landmark="article"
+>
+  {/* A return from a live scene scrolls to its result before the first render. */}
+  <link slot="head" rel="expect" href="#results" blocking="render" />
+  <Fragment slot="meta">
+    <time datetime={date.toISOString().slice(0, 10)}>{experimentDate(experiment)}</time>
+    <span>{experimentMeta(experiment)}</span>
+  </Fragment>
+
+  <PromptBlock {prompt} />
+
+  <section class="results" aria-labelledby="results-label">
+    <div class="results__head">
+      <h2 class="detail__section-label" id="results-label">{isGroup(experiment) ? "Results" : "Result"}</h2>
+      <ClipPauseButton />
+    </div>
+    <ul class:list={["results__grid", !isGroup(experiment) && "results__grid--single"]} id="results">
+      {results.map((result) => <li><ResultTile experiment={experiment.id} {result} /></li>)}
+    </ul>
+    {note && <p class="results__note">{note} Select a result to run it live.</p>}
+  </section>
+
+  <div class="prose"><slot /></div>
+</DetailLayout>

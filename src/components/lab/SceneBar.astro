@@ -1,0 +1,51 @@
+---
+// The bar under the live scene: the way back to the experiment, the model,
+// the steps to its neighbours, and full screen.
+import LyraMark from "../identity/LyraMark.astro";
+
+interface Props {
+  backHref: string;
+  backLabel: string;
+  name: string;
+  effort?: string;
+  /** The neighbouring results of a group. A single piece has none. */
+  previous?: { href: string; name: string };
+  next?: { href: string; name: string };
+  /** The position in the group, such as "6 of 8". */
+  position?: string;
+}
+
+const { backHref, backLabel, name, effort, previous, next, position } = Astro.props;
+---
+
+<nav class="scene-bar" aria-label="Scene">
+  <a class="scene-bar__back" href={backHref} data-scene-back>
+    <LyraMark class="scene-bar__mark" glowId="scene-bar-glow" />
+    <span class="scene-bar__back-label">{backLabel}</span>
+  </a>
+
+  <div class="scene-bar__switch">
+    {previous && (
+      <a class="scene-bar__step" href={previous.href} data-direction="previous" aria-label={`Previous: ${previous.name}`}>
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M10 3.5 5.5 8l4.5 4.5" /></svg>
+      </a>
+    )}
+    <h1 class="scene-bar__title">
+      <span class="scene-bar__status" aria-hidden="true"></span>
+      <span class="scene-bar__name">{name}</span>
+      {effort && <span class="scene-bar__effort">{effort}</span>}
+    </h1>
+    {next && (
+      <a class="scene-bar__step" href={next.href} data-direction="next" aria-label={`Next: ${next.name}`}>
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6 3.5 10.5 8 6 12.5" /></svg>
+      </a>
+    )}
+  </div>
+
+  <div class="scene-bar__tools">
+    {position && <span class="scene-bar__position">{position}</span>}
+    <button class="scene-bar__full-screen" type="button" aria-label="Full screen" data-scene-full-screen hidden>
+      <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" /></svg>
+    </button>
+  </div>
+</nav>

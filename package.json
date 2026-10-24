@@ -17,7 +17,8 @@
     "verify":"npm run build && npm run check && npm run test:node && npm run test:end-to-end",
     "verify:deployment": "node scripts/verify-deployment.mjs",
     "generate:social-preview": "node scripts/generate-social-preview.mjs",
-    "generate:touch-icon": "node scripts/generate-touch-icon.mjs"
+    "generate:touch-icon": "node scripts/generate-touch-icon.mjs",
+    "import:lab-experiment": "node scripts/import-lab-experiment.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",

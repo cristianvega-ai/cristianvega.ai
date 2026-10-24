@@ -1,0 +1,23 @@
+---
+// A muted clip with its poster. lab-clip-clock.ts plays it while it is on
+// screen. The clip is decoration: the link around it names what it shows.
+import type { ClipSources } from "../../shared/lab/media-paths";
+import "../../styles/clip-video.css";
+
+interface Props {
+  clip: ClipSources;
+}
+
+const { clip } = Astro.props;
+---
+
+<video class="clip-video" data-clip poster={clip.poster} muted loop playsinline preload="metadata" disablepictureinpicture aria-hidden="true">
+  <source src={clip.av1} type='video/mp4; codecs="av01.0.04M.08"' />
+  <source src={clip.h264} type="video/mp4" />
+</video>
+
+<script>
+  import { setupClipClock } from "../../browser/lab-clip-clock";
+
+  setupClipClock();
+</script>

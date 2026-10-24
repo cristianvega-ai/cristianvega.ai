@@ -1,0 +1,25 @@
+---
+import DetailLayout from "../../layouts/DetailLayout.astro";
+import ClipPauseButton from "../../components/lab/ClipPauseButton.astro";
+import ExperimentCard from "../../components/lab/ExperimentCard.astro";
+import { getExperiments, isGroup } from "../../shared/content/lab";
+import "../../styles/lab-card.css";
+
+// Build /lab/ only when an experiment is visible. With no visible experiment the route must not exist.
+export async function getStaticPaths() {
+  return (await getExperiments()).length > 0 ? [{ params: { index: undefined } }] : [];
+}
+
+const experiments = await getExperiments();
+const hasDrafts = experiments.some((experiment) => experiment.data.draft);
+const description = "Experiments: one prompt run by many models, and single pieces.";
+---
+
+<DetailLayout title="Lab" {description} active="lab" backHref="/" backLabel="Home" noindex={hasDrafts}>
+  <div class="lab-index__head"><ClipPauseButton /></div>
+  <ul class="lab-index">
+    {experiments.map((experiment) => (
+      <li class:list={[isGroup(experiment) && "lab-index__group"]}><ExperimentCard {experiment} /></li>
+    ))}
+  </ul>
+</DetailLayout>

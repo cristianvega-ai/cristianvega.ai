@@ -1,0 +1,25 @@
+---
+// One result of an experiment: its clip, its model and its effort. The clip
+// grows into the live scene in the page transition.
+import ClipVideo from "./ClipVideo.astro";
+import type { ExperimentResult } from "../../shared/content/lab";
+import { clipSources, resultAddress } from "../../shared/lab/media-paths";
+import "../../styles/result-tile.css";
+
+interface Props {
+  experiment: string;
+  result: ExperimentResult;
+}
+
+const { experiment, result } = Astro.props;
+---
+
+<a class="result-tile" href={resultAddress(experiment, result.slug)} data-stage-key={result.slug}>
+  <span class="result-tile__media" data-stage-media>
+    <ClipVideo clip={clipSources(experiment, result.slug)} />
+  </span>
+  <span class="result-tile__caption">
+    <span class="result-tile__name">{result.name}</span>
+    {result.effort && <span class="result-tile__effort">{result.effort}</span>}
+  </span>
+</a>
