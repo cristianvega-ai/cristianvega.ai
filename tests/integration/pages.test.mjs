@@ -92,7 +92,8 @@ test("home and missing pages load the two head scripts by address and add no inl
       assert.ok(scriptTag, `${pagePath} must load ${scriptName} from the head by address`);
       assert.doesNotMatch(scriptTag, /type="module"|\bdefer\b|\basync\b/, `${pagePath}: ${scriptName} must run as a classic script`);
     }
-    const inlineScripts = [...pageHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)]
+    // Match any letter case and an end tag with spaces, as an HTML parser does.
+    const inlineScripts = [...pageHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)]
       .filter(([, attributes, content]) => !/\bsrc=/.test(attributes) && content.trim());
     for (const [, attributes] of inlineScripts) {
       assert.match(attributes, /type="application\/ld\+json"/, `${pagePath}: the only inline script must be structured data`);
