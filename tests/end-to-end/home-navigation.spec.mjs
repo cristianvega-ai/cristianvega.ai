@@ -1,58 +1,63 @@
 import { expect, test } from "@playwright/test";
-import { currentContent, currentPublished, DRAFT_ORIGIN as draftOrigin, latestWork, navigationLink, pageProblems, settle, tabTo, useReducedMotion } from "../shared/browser-fixtures.mjs";
+import { homeSections, profileLinks } from "../shared/node-helpers.mjs";
+import { currentContent, currentPublished, DRAFT_ORIGIN as draftOrigin, pageProblems, settle, tabTo, useReducedMotion } from "../shared/browser-fixtures.mjs";
 
-test("Home opens About and returns through the brand link", async ({ page }) => {
-  await page.goto("/");
-  await navigationLink(page, "about").click();
-  await expect(page).toHaveURL(/\/about\/$/);
-  await expect(page.locator(".about__profile")).toBeVisible();
-  await page.getByRole("link", { name: "Cristian Vega home" }).click();
-  await expect(page.locator(".hero__name")).toBeVisible();
-});
-
-test("Home shows links only for published sections", async ({ page, request }) => {
+test("Home shows sections and index links only for published content", async ({ page, request }) => {
   await page.goto("/");
   await expect(page.locator("h1")).toHaveCount(1);
-  await expect(page.locator("main h2")).toHaveCount(0);
-  await expect(page.locator("[data-article-identifier], [data-product-identifier]")).toHaveCount(0);
   await expect(page.locator("a[href='#']")).toHaveCount(0);
-
-  const latestWorkItems = page.locator(".hero__next-item");
-  const publishedSections = latestWork.map((latestWorkLink) => currentPublished[latestWorkLink.section].length > 0);
-  await expect(latestWorkItems).toHaveText(latestWork.map((latestWorkLink, sectionIndex) => publishedSections[sectionIndex] ? `${latestWorkLink.label} →` : latestWorkLink.soon));
-  expect(await latestWorkItems.evaluateAll((nodes) => nodes.map((node) => node.dataset.state))).toEqual(publishedSections.map((isPublished) => isPublished ? "live" : "soon"));
-  const focusableControlCount = await page.locator(".hero__next").evaluate((list) => list.querySelectorAll("a, button, [tabindex]").length);
-  expect(focusableControlCount).toBe(publishedSections.filter(Boolean).length);
-  for (const [sectionIndex, latestWorkLink] of latestWork.entries()) {
-    await expect(page.locator(`.navigation__link[href='${latestWorkLink.href}'], .navigation-menu__link[href='${latestWorkLink.href}']`)).toHaveCount(publishedSections[sectionIndex] ? 2 : 0);
-    await expect(page.locator(`a[href^='/${latestWorkLink.section}']`)).toHaveCount(publishedSections[sectionIndex] ? 3 : 0);
-    await expect(latestWorkItems.nth(sectionIndex).locator("a")).toHaveCount(publishedSections[sectionIndex] ? 1 : 0);
-    if (publishedSections[sectionIndex]) await expect(latestWorkItems.nth(sectionIndex).locator("a")).toHaveAttribute("href", latestWorkLink.href);
-    expect((await request.get(latestWorkLink.href)).status()).toBe(publishedSections[sectionIndex] ? 200 : 404);
-    for (const draft of currentContent[latestWorkLink.section].filter((entry) => entry.data.draft)) {
-      expect((await request.get(draft.href)).status(), draft.href).toBe(404);
+  await expect(page.locator("nav, footer"), "Home: the page must have no menu or footer").toHaveCount(0);
+  const expectedSections = homeSections(currentContent);
+  await expect(page.locator("section.home-section")).toHaveCount(expectedSections.length);
+  for (const homeSection of [{ section: "products", allHref: "/products/", label: "Products" }, { section: "writing", allHref: "/writing/", label: "Writing" }]) {
+    const isPublished = currentPublished[homeSection.section].length > 0;
+    await expect(page.locator(`a[href='${homeSection.allHref}']`), `${homeSection.label}: the index link must follow publication`).toHaveCount(isPublished ? 1 : 0);
+    await expect(page.locator(`a[href^='/${homeSection.section}/']`), `${homeSection.label}: row and index links must follow publication`)
+      .toHaveCount(isPublished ? 1 + expectedSections.find((expectedSection) => expectedSection.section === homeSection.section).rows.length : 0);
+    expect((await request.get(homeSection.allHref)).status(), `${homeSection.allHref} must follow publication`).toBe(isPublished ? 200 : 404);
+    for (const draft of currentContent[homeSection.section].filter((entry) => entry.data.draft)) {
+      expect((await request.get(draft.href)).status(), `${draft.href} is a draft and must answer 404`).toBe(404);
+      await expect(page.locator(`a[href='${draft.href}']`)).toHaveCount(0);
     }
   }
+  await expect(page.locator("a[href^='/about']"), "Home: the page must not link to the retired About page").toHaveCount(0);
 });
 
-test("Home preview links accept keyboard focus and open writing and products", async ({ page }) => {
+test("Home rows and index links open their pages with Enter and a click", async ({ page }) => {
   const recordedPageProblems = pageProblems(page);
   await useReducedMotion(page);
   await page.goto(draftOrigin + "/");
   await settle(page);
-  const writingLink = page.getByRole("link", { name: "Read my latest writing", exact: true });
-  const productsLink = page.getByRole("link", { name: "See my latest products", exact: true });
-  await expect(writingLink).toHaveAttribute("href", "/writing/");
-  await expect(productsLink).toHaveAttribute("href", "/products/");
-  expect(await tabTo(page, ".hero__next a[href='/writing/']")).toBe(true);
-  expect(await writingLink.evaluate((link) => {
-    const linkStyle = getComputedStyle(link);
-    return link.matches(":focus-visible") && linkStyle.outlineStyle !== "none" && parseFloat(linkStyle.outlineWidth) >= 2;
-  }), "The writing link must show a visible keyboard focus ring").toBe(true);
+  const writingSection = homeSections(currentContent, { includeDrafts: true }).find((homeSection) => homeSection.section === "writing");
+  const productSection = homeSections(currentContent, { includeDrafts: true }).find((homeSection) => homeSection.section === "products");
+
+  const firstWritingRow = page.locator("section.home-section[aria-labelledby='writing-label'] a.entry-row").first();
+  expect(await tabTo(page, "section.home-section[aria-labelledby='writing-label'] a.entry-row >> nth=0")).toBe(true);
+  await expect(firstWritingRow).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(page.locator("#writing-title")).toBeVisible();
+  await expect(page).toHaveURL(draftOrigin + writingSection.rows[0].href);
+  await expect(page.locator("main h1")).toHaveText(writingSection.rows[0].data.title);
+
   await page.goto(draftOrigin + "/");
-  await productsLink.click();
-  await expect(page.locator("#products-title")).toBeVisible();
+  await page.getByRole("link", { name: productSection.rows[0].data.title }).click();
+  await expect(page).toHaveURL(draftOrigin + productSection.rows[0].href);
+
+  await page.goto(draftOrigin + "/");
+  await page.getByRole("link", { name: "All writing", exact: true }).click();
+  await expect(page).toHaveURL(draftOrigin + "/writing/");
+  await page.goto(draftOrigin + "/");
+  await page.getByRole("link", { name: "All products", exact: true }).click();
+  await expect(page).toHaveURL(draftOrigin + "/products/");
   expect(recordedPageProblems).toEqual([]);
+});
+
+test("Home profile links open the owner's profiles in new tabs that protect the opener", async ({ page }) => {
+  await page.goto("/");
+  for (const profile of profileLinks) {
+    const profileLink = page.getByRole("link", { name: profile.name, exact: true });
+    await expect(profileLink).toHaveAttribute("href", profile.href);
+    await expect(profileLink).toHaveAttribute("target", "_blank");
+    const relationship = await profileLink.getAttribute("rel");
+    expect(relationship.split(/\s+/), `${profile.name}: the link must protect the opener`).toEqual(expect.arrayContaining(["noopener", "noreferrer"]));
+  }
 });

@@ -1,0 +1,25 @@
+---
+// A homepage section: its label, its newest rows, and a link to its own page.
+import EntryList from "./EntryList.astro";
+import type { EntryRowData } from "../../shared/content/entry-row";
+import "../../styles/home-section.css";
+
+interface Props {
+  label: string;
+  /** The heading id. The section names itself with it. */
+  id: string;
+  rows: EntryRowData[];
+  allHref: string;
+  allLabel: string;
+  /** The entrance step of the section. */
+  step: number;
+}
+
+const { label, id, rows, allHref, allLabel, step } = Astro.props;
+---
+
+<section class="home-section enter" data-step={step} aria-labelledby={id}>
+  <h2 class="home-section__label" id={id}>{label}</h2>
+  <EntryList rows={rows} />
+  <a class="home-section__all" href={allHref}>{allLabel}</a>
+</section>

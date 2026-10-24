@@ -1,0 +1,88 @@
+---
+// The head elements of every page: the title, the description, the share card, the fonts, the
+// scripts that must run before the first render, and the structured data. The page title gains the
+// site name unless it already holds it.
+import { JOB_TITLE, PROFILE_LINKS, SITE_NAME, type PageKind } from "../../shared/site";
+import plexSans400 from "../../assets/fonts/ibm-plex-sans-latin-400.woff2?url";
+import plexSans500 from "../../assets/fonts/ibm-plex-sans-latin-500.woff2?url";
+// These two load by address as classic scripts, so they run before the first render. Astro's own
+// scripts are deferred modules, which can run too late for the sky angle and for pagereveal.
+import lyraMarkAddress from "../../browser/lyra-mark.js?url";
+import pageTransitionsAddress from "../../browser/page-transitions.js?url";
+
+interface Props {
+  title: string;
+  description: string;
+  active: PageKind;
+  noindex: boolean;
+  published?: string;
+}
+
+const { title, description, active, noindex, published } = Astro.props;
+
+const pageTitle = title.includes(SITE_NAME) ? title : `${title} · ${SITE_NAME}`;
+const siteOrigin = Astro.site!;
+const canonicalAddress = new URL(Astro.url.pathname, siteOrigin).toString();
+const themeColor = "#FFFFFF";
+// Dedicated 1200×630 share card (see scripts/generate-social-preview.mjs); not the square master.
+const socialPreviewWidth = 1200;
+const socialPreviewHeight = 630;
+const socialPreviewAddress = new URL("/images/cristian-vega-social-preview.jpg", siteOrigin).toString();
+const socialPreviewDescription = `Portrait of ${SITE_NAME}`;
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${siteOrigin.origin}/#website`,
+      url: `${siteOrigin.origin}/`,
+      name: SITE_NAME,
+      inLanguage: "en",
+      publisher: { "@id": `${siteOrigin.origin}/#person` }
+    },
+    {
+      "@type": "Person",
+      "@id": `${siteOrigin.origin}/#person`,
+      name: SITE_NAME,
+      url: `${siteOrigin.origin}/`,
+      jobTitle: JOB_TITLE,
+      worksFor: { "@type": "Organization", name: "Vertafore" },
+      sameAs: PROFILE_LINKS.map((link) => link.href)
+    }
+  ]
+};
+---
+
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light" />
+<meta name="theme-color" content={themeColor} />
+<title>{pageTitle}</title>
+<meta name="description" content={description} />{noindex && <meta name="robots" content="noindex, follow" />}
+<link rel="canonical" href={canonicalAddress} />
+<meta property="og:title" content={pageTitle} />
+<meta property="og:description" content={description} />
+<meta property="og:type" content={active === "article" ? "article" : "website"} />
+{published && <meta property="article:published_time" content={published} />}
+{active === "article" && <meta name="author" content={SITE_NAME} />}
+{!noindex && <meta property="og:url" content={canonicalAddress} />}
+<meta property="og:site_name" content={SITE_NAME} />
+<meta property="og:image" content={socialPreviewAddress} />
+<meta property="og:image:type" content="image/jpeg" />
+<meta property="og:image:width" content={String(socialPreviewWidth)} />
+<meta property="og:image:height" content={String(socialPreviewHeight)} />
+<meta property="og:image:alt" content={socialPreviewDescription} />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content={socialPreviewAddress} />
+<meta name="twitter:image:alt" content={socialPreviewDescription} />
+{/* Preload the two faces on the critical path: Plex Sans 400 sets the bio
+    and the rows, and 500 sets the name and the page titles. Plex Sans 400
+    italic and Mono 400 paint later and are left to CSS discovery.
+    crossorigin is required for font preloads. */}
+<link rel="preload" href={plexSans400} as="font" type="font/woff2" crossorigin />
+<link rel="preload" href={plexSans500} as="font" type="font/woff2" crossorigin />
+<script is:inline src={lyraMarkAddress}></script>
+<script is:inline src={pageTransitionsAddress}></script>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
+<script type="application/ld+json" is:inline set:html={JSON.stringify(structuredData)} />

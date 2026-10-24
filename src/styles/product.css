@@ -1,0 +1,16 @@
+/* The product page link out to the product itself. */
+.product__links {
+  margin-top: 32px;
+}
+
+.product__link {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--underline);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.product__link:hover {
+  text-decoration-color: var(--azure);
+}

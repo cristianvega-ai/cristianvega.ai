@@ -15,9 +15,6 @@ import { load, dump } from "js-yaml";
 export const root = fileURLToPath(new URL("../..", import.meta.url));
 export const dist = join(root, "dist");
 
-// Keep the reference star widths in CSS pixels.
-export const starWidthsInPixels = [66, 0, 0, 0, 42, 42];
-
 // Read Markdown independently from the application content helpers.
 export function readContentInventory(projectRoot = root) {
   const inventory = {};
@@ -29,16 +26,15 @@ export function readContentInventory(projectRoot = root) {
       assert.ok(frontmatterMatch, `${contentFilename} must have YAML frontmatter`);
       const frontmatterData = load(frontmatterMatch[1]);
       frontmatterData.draft ??= true;
-      if (section === "writing") frontmatterData.date = new Date(frontmatterData.date);
-      else {
-        frontmatterData.order ??= 0;
-        frontmatterData.status ??= "Product";
-      }
+      frontmatterData.date = new Date(frontmatterData.date);
+      if (section === "products") frontmatterData.status ??= "Product";
       return { id: contentFilename.slice(0, -3), data: frontmatterData, body: markdownSource.slice(frontmatterMatch[0].length), href: `/${section}/${contentFilename.slice(0, -3)}/` };
     });
   }
-  inventory.writing.sort((firstEntry, secondEntry) => secondEntry.data.date - firstEntry.data.date || firstEntry.id.localeCompare(secondEntry.id));
-  inventory.products.sort((firstEntry, secondEntry) => firstEntry.data.order - secondEntry.data.order || firstEntry.data.title.localeCompare(secondEntry.data.title));
+  // Both collections list the newest entry first and break date ties by id.
+  for (const entries of Object.values(inventory)) {
+    entries.sort((firstEntry, secondEntry) => secondEntry.data.date - firstEntry.data.date || firstEntry.id.localeCompare(secondEntry.id));
+  }
   return inventory;
 }
 
@@ -46,21 +42,34 @@ export function publishedContent(inventory = readContentInventory()) {
   return Object.fromEntries(Object.entries(inventory).map(([section, entries]) => [section, entries.filter((entry) => !entry.data.draft)]));
 }
 
-export const latestWork = [
-  { section: "writing", href: "/writing/", label: "Read my latest writing", soon: "Latest writing · coming soon" },
-  { section: "products", href: "/products/", label: "See my latest products", soon: "Latest products · coming soon" },
+// The owner's profiles, in the order the homepage prints them.
+export const profileLinks = [
+  { label: "linkedin", name: "LinkedIn", href: "https://www.linkedin.com/in/cristianvega-ai" },
+  { label: "x", name: "X", href: "https://x.com/cristianvega" },
+  { label: "github", name: "GitHub", href: "https://github.com/cristianvega-ai" },
 ];
 
-// Return header links in site order. Include each section that contains published entries.
-export function headerLinks(inventory = readContentInventory()) {
-  const publishedEntries = publishedContent(inventory);
-  return [
-    { label: "about", href: "/about/" },
-    ...latestWork.filter((sectionLink) => publishedEntries[sectionLink.section].length > 0).map((sectionLink) => ({ label: sectionLink.section, href: sectionLink.href })),
-    { label: "linkedin", href: "https://www.linkedin.com/in/cristianvega-ai" },
-    { label: "x", href: "https://x.com/cristianvega" },
-    { label: "github", href: "https://github.com/cristianvega-ai" },
-  ];
+// Each homepage section shows this many rows. The unit test of the selection owns the number.
+export const homeSectionSize = 4;
+
+// The homepage sections, in page order.
+const homeSectionDefinitions = [
+  { section: "products", label: "Products", headingId: "products-label", allHref: "/products/", allLabel: "All products" },
+  { section: "writing", label: "Writing", headingId: "writing-label", allHref: "/writing/", allLabel: "All writing" },
+];
+
+/**
+ * Return the homepage sections that must render, in page order.
+ * Each section holds the newest entries, at most four, and the entries come from the visible content.
+ * A section with no visible entry is absent. Pass `includeDrafts` for the development server.
+ */
+export function homeSections(inventory = readContentInventory(), { includeDrafts = false } = {}) {
+  return homeSectionDefinitions
+    .map((definition) => ({
+      ...definition,
+      rows: inventory[definition.section].filter((entry) => includeDrafts || !entry.data.draft).slice(0, homeSectionSize),
+    }))
+    .filter((homeSection) => homeSection.rows.length > 0);
 }
 
 export function listBuiltRoutes(buildDirectory = dist, prefix = "/") {
@@ -100,12 +109,18 @@ const publicationEntries = {
     { id: "newer-writing", title: "Newer's \"quoted\" & writing", date: "2026-09-29", draft: false, series: "Publication fixtures" },
   ],
   products: [
-    { id: "zulu-product", title: "Zulu's \"quoted\" & product", draft: false, order: 4 },
-    { id: "explicit-draft", title: "Unreleased product", draft: true, order: -2 },
-    { id: "alpha-product", title: "Alpha product", draft: false, order: 4, status: "Available", url: "https://example.com/alpha?owner=owner's&state=ready" },
-    { id: "default-draft", title: "Default draft product", order: -3 },
-    { id: "default-order", title: "Default order product", draft: false },
+    { id: "zulu-product", title: "Zulu's \"quoted\" & product", date: "2026-09-28", draft: false },
+    { id: "explicit-draft", title: "Unreleased product", date: "2026-09-30", draft: true },
+    { id: "alpha-product", title: "Alpha product", date: "2026-09-28", draft: false, status: "Available", url: "https://example.com/alpha?owner=owner's&state=ready" },
+    { id: "default-draft", title: "Default draft product", date: "2026-10-01" },
+    { id: "newer-product", title: "Newer product", date: "2026-09-29", draft: false },
   ],
+};
+
+// The crowded fixture adds published entries, so each homepage section has more than four rows to cut.
+const crowdedEntries = {
+  writing: [1, 2, 3].map((number) => ({ id: `extra-writing-${number}`, title: `Extra writing ${number}`, date: `2026-08-0${number}`, draft: false })),
+  products: [1, 2, 3].map((number) => ({ id: `extra-product-${number}`, title: `Extra product ${number}`, date: `2026-08-0${number}`, draft: false })),
 };
 
 /**
@@ -154,13 +169,14 @@ export async function createIsolatedBuild({ prefix = "cristianai-build-", edits 
 
 // Build fixture content in a temporary project. Keep source content and caches separate.
 export async function createContentBuild(fixtureKind) {
-  assert.ok(["all-draft", "mixed"].includes(fixtureKind), "the publication fixture must be all-draft or mixed");
+  assert.ok(["all-draft", "mixed", "crowded"].includes(fixtureKind), "the publication fixture must be all-draft, mixed, or crowded");
   let inventory;
   const isolatedBuild = await createIsolatedBuild({
     prefix: "cristianai-publication-",
     async prepare(projectRoot) {
       await rm(join(projectRoot, "src", "content"), { recursive: true });
-      for (const [collection, entries] of Object.entries(publicationEntries)) {
+      for (const [collection, baseEntries] of Object.entries(publicationEntries)) {
+        const entries = fixtureKind === "crowded" ? [...baseEntries, ...crowdedEntries[collection]] : baseEntries;
         const contentDirectory = join(projectRoot, "src", "content", collection);
         await mkdir(contentDirectory, { recursive: true });
         for (const entry of entries) {

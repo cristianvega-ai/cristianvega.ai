@@ -42,8 +42,22 @@ test("the build includes required hosting files and omits Apache configuration",
   assert.match(robotsRecord, /Sitemap:\s*https:\/\/cristianvega\.ai\/sitemap-index\.xml/);
 
   const notFoundHtml = readDistFile("404.html");
-  assertPageBasics(notFoundHtml, { titleFragment: "Page not found" });
+  assertPageBasics(notFoundHtml, { titleFragment: "This page doesn&#39;t exist\\." });
   assert.match(notFoundHtml, /href="\/"/);
+});
+
+// The About page moved to the homepage. The build must not emit it, and Cloudflare must send its old addresses home.
+test("the build redirects the retired About addresses to the homepage and emits no About page", () => {
+  assert.equal(existsSync(join(buildDirectory, "about")), false, "the build must not emit /about/");
+  assert.equal(existsSync(join(buildDirectory, "about.html")), false, "the build must not emit about.html");
+  const redirectRules = readDistFile("_redirects").split("\n").map((line) => line.trim().split(/\s+/)).filter((fields) => fields.length === 3);
+  for (const oldAddress of ["/about", "/about/"]) {
+    assert.ok(
+      redirectRules.some(([from, to, status]) => from === oldAddress && to === "/" && status === "301"),
+      `_redirects must send ${oldAddress} to / with status 301`,
+    );
+  }
+  assert.ok(!listBuiltRoutes().includes("/about/"), "the built routes must not include /about/");
 });
 
 test("the build includes font data and references each font through a local asset URL", () => {
@@ -64,6 +78,12 @@ test("the build includes font data and references each font through a local asse
     assertBuildPathExists(fontPath.slice(1));
   }
   assert.doesNotMatch(compiledStylesheet, /fonts\.googleapis\.com|fonts\.gstatic\.com/);
+  // The site sets IBM Plex Sans in three faces and IBM Plex Mono in one. The old faces must not ship.
+  assert.deepEqual(
+    fontFilenames.map((filename) => filename.replace(/\.[\w-]{8}\.woff2$/, "")).sort(),
+    ["ibm-plex-mono-latin-400", "ibm-plex-sans-latin-400", "ibm-plex-sans-latin-400-italic", "ibm-plex-sans-latin-500"],
+    "the build must ship only the four IBM Plex faces",
+  );
 });
 
 // Keep the portrait master outside public/.

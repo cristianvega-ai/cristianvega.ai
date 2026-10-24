@@ -1,0 +1,78 @@
+/* The design tokens and the fonts. One white ground, one typeface, two text
+   tones and one accent. Every other stylesheet reads these names. */
+
+/* Self-hosted latin subsets. IBM Plex Sans carries all text at 400, 400
+   italic and 500. IBM Plex Mono 400 is for code only. The licenses live next
+   to the woff2 files in src/assets/fonts/. */
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/ibm-plex-sans-latin-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/ibm-plex-sans-latin-400-italic.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../assets/fonts/ibm-plex-sans-latin-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/ibm-plex-mono-latin-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  /* grounds */
+  --paper: #FFFFFF;
+  /* A soft ground for code, quotes and panels. */
+  --wash: #F5F6F7;
+  /* text. Ink is for titles and links, prose for reading, meta for dates and
+     labels. Meta is 5.5:1 on paper. */
+  --ink: #14181F;
+  --prose: #3A3F47;
+  --meta: #5F697B;
+  /* lines */
+  --line: rgba(20, 24, 31, 0.1);
+  --underline: rgba(20, 24, 31, 0.22);
+  /* brand. Azure is the one accent on paper. Sky is its glow. */
+  --azure: #0369A1;
+  --sky: #38BDF8;
+  /* An unlit star: Vega before the reader reaches the end of a page. */
+  --star-unlit: #A8B0BD;
+  /* faces */
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-monospace: "IBM Plex Mono", ui-monospace, monospace;
+  /* layout: one centred column on every page */
+  --column: 576px;
+  --gutter: 24px;
+  --radius-medium: 8px;
+  /* motion: one ease for anything that travels */
+  --ease-travel: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-arrive: cubic-bezier(0.2, 0.7, 0.2, 1);
+  color-scheme: light;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --gutter: 20px;
+  }
+}

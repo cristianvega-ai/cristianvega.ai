@@ -1,10 +1,11 @@
 ---
-// The frame of every page: the head, the header, the main content, and the footer.
-import "../styles/global.css";
-import CloudflareAnalytics from "../components/CloudflareAnalytics.astro";
-import SiteFooter from "../components/SiteFooter.astro";
-import SiteHead from "../components/SiteHead.astro";
-import SiteHeader from "../components/SiteHeader.astro";
+// The frame of every page: the head, the skip link, the one reading column,
+// and the analytics beacon. The html element names the page kind and, on a
+// detail page, its transition key.
+import "../styles/tokens.css";
+import "../styles/base.css";
+import CloudflareAnalytics from "../components/site/CloudflareAnalytics.astro";
+import SiteHead from "../components/site/SiteHead.astro";
 import { JOB_TITLE, SITE_NAME, type PageKind } from "../shared/site";
 
 interface Props {
@@ -13,6 +14,8 @@ interface Props {
   active: PageKind;
   noindex?: boolean;
   published?: string;
+  /** The key that pairs this page's heading with its row on a list page. */
+  morphKey?: string;
 }
 
 const {
@@ -21,25 +24,21 @@ const {
   active,
   noindex = false,
   published,
+  morphKey,
 } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" data-page={active} data-morph-key={morphKey}>
   <head>
     <SiteHead {title} {description} {active} {noindex} {published} />
-    {/* A page adds its own head elements here, such as the generated globe stylesheet. */}
     <slot name="head" />
   </head>
-  <body data-page={active}>
+  <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
-    <SiteHeader {active} />
-
-    <div id="main-content" tabindex="-1">
+    <main id="main-content" class="page" tabindex="-1">
       <slot />
-    </div>
-
-    <SiteFooter />
+    </main>
     <CloudflareAnalytics />
   </body>
 </html>

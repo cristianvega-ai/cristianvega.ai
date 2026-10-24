@@ -1,0 +1,44 @@
+---
+// The Lyra mark: the constellation drawn as a star atlas draws it, from the
+// star data in src/shared/lyra/. The homepage draws it in an entrance; the
+// reading star shows it at rest. lyra-mark.js turns it to the sky angle.
+import { MARK_EXTENT, MARK_LINES, MARK_STARS, VEGA_HALO_RADIUS } from "../../shared/lyra/mark-geometry";
+import "../../styles/lyra-mark.css";
+
+interface Props {
+  /** A class for the placement, such as the reading star's size. */
+  class?: string;
+  /** The glow gradient id. It must be unique on the page. */
+  glowId: string;
+  /** Draw the figure in with the entrance. */
+  drawing?: boolean;
+}
+
+const { class: className, glowId, drawing = false } = Astro.props;
+const [vega] = MARK_STARS;
+// The stars appear from the foot of the figure up, in the entrance order.
+const stars = [5, 4, 3, 2, 1].map((starIndex) => MARK_STARS[starIndex]);
+const viewBox = `${-MARK_EXTENT} ${-MARK_EXTENT} ${MARK_EXTENT * 2} ${MARK_EXTENT * 2}`;
+---
+
+<svg class:list={["mark", drawing && "mark--draw", className]} viewBox={viewBox} aria-hidden="true" focusable="false">
+  <defs>
+    <radialGradient id={glowId}>
+      <stop offset="0" stop-color="#38BDF8" stop-opacity="0.55" />
+      <stop offset="0.5" stop-color="#38BDF8" stop-opacity="0.16" />
+      <stop offset="1" stop-color="#38BDF8" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <g class="mark__sky">
+    <g class="mark__turn">
+      <g class="mark__lines">
+        {MARK_LINES.map((line) => <path class="mark__line" pathLength="1" d={`M${line.x1} ${line.y1} L${line.x2} ${line.y2}`} />)}
+      </g>
+      <g class="mark__stars">
+        {stars.map((star) => <circle class="mark__star" cx={star.x} cy={star.y} r={star.radius} />)}
+      </g>
+      <circle class="mark__halo" cx={vega.x} cy={vega.y} r={VEGA_HALO_RADIUS} fill={`url(#${glowId})`} />
+      <circle class="mark__vega" cx={vega.x} cy={vega.y} r={vega.radius} />
+    </g>
+  </g>
+</svg>

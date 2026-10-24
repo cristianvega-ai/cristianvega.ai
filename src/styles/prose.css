@@ -1,0 +1,303 @@
+/* Long-form text: articles and product pages. The class names are the
+   authoring contract in src/content/article-fixture-guide.md, so they stay
+   stable when the look changes. */
+.prose {
+  line-height: 1.75;
+  overflow-wrap: break-word;
+}
+
+.prose > * + * {
+  margin-top: 16px;
+}
+
+.prose p,
+.prose li {
+  text-wrap: pretty;
+}
+
+.prose h2 {
+  margin-top: 40px;
+  font: 500 17px/1.4 var(--font-body);
+  color: var(--ink);
+  scroll-margin-top: 32px;
+}
+
+.prose h3 {
+  margin-top: 28px;
+  font: 500 16px/1.4 var(--font-body);
+  color: var(--ink);
+}
+
+.prose h2 + *,
+.prose h3 + * {
+  margin-top: 10px;
+}
+
+/* The decorative section number above a heading. */
+.prose .section-heading-number {
+  margin-top: 48px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--meta);
+  font-variant-numeric: tabular-nums;
+}
+
+.prose .section-heading-number + h2 {
+  margin-top: 2px;
+}
+
+.prose a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--underline);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.prose a:hover {
+  text-decoration-color: var(--azure);
+}
+
+.prose strong {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 22px;
+}
+
+.prose ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.prose ul > li {
+  position: relative;
+  padding-left: 22px;
+}
+
+.prose li + li {
+  margin-top: 4px;
+}
+
+/* A short dash marks each item of a plain list. */
+.prose ul:not(.principles) > li::before {
+  content: "";
+  position: absolute;
+  top: 0.85em;
+  left: 3px;
+  width: 9px;
+  height: 1px;
+  background: var(--meta);
+}
+
+/* A list of principles: hairline rules and a small azure tick. */
+.prose .principles > li {
+  display: grid;
+  grid-template-columns: 6px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 14px;
+  padding: 10px 0;
+  margin: 0;
+}
+
+.prose .principles > li + li {
+  border-top: 1px solid var(--line);
+}
+
+.prose .principles > li::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: var(--azure);
+  transform: translateY(-1px) rotate(45deg);
+}
+
+.prose :not(pre) > code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--wash);
+  font-family: var(--font-monospace);
+  font-size: 0.86em;
+  color: var(--ink);
+}
+
+.prose blockquote {
+  margin-block: 28px;
+  padding-left: 18px;
+  border-left: 2px solid var(--azure);
+}
+
+.prose blockquote p {
+  font: 500 18px/1.45 var(--font-body);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.prose blockquote cite {
+  display: block;
+  margin-top: 8px;
+  font-size: 14px;
+  font-style: normal;
+  color: var(--meta);
+}
+
+/* A fade at the right edge shows that more content waits there. The local
+   layer covers the fade once the reader reaches the end, or when nothing
+   overflows. Both layers are plain gradients, so the CSP is not affected. */
+.prose pre,
+.figure__panel {
+  --scroll-cue: linear-gradient(270deg, rgba(3, 105, 161, 0.14), transparent);
+  --scroll-cover: linear-gradient(var(--wash), var(--wash));
+}
+
+.prose pre {
+  padding: 16px 18px;
+  overflow-x: auto;
+  border-radius: var(--radius-medium);
+  font: 400 12.5px/1.7 var(--font-monospace);
+  color: var(--ink);
+  tab-size: 2;
+  background-color: var(--wash);
+  background-image: var(--scroll-cover), var(--scroll-cue);
+  background-position: 100% 0, 100% 0;
+  background-repeat: no-repeat;
+  background-size: 32px 100%, 28px 100%;
+  background-attachment: local, scroll;
+}
+
+.prose pre code {
+  font: inherit;
+}
+
+/* A code figure: the file and the language above the code. */
+.code {
+  margin-block: 24px;
+  overflow: hidden;
+  border-radius: var(--radius-medium);
+  background: var(--wash);
+}
+
+.code figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--meta);
+}
+
+.code pre {
+  border-radius: 0;
+}
+
+/* On a wide screen the code ground hangs outside the column, so the code
+   lines up with the paragraph text. */
+@media (min-width: 700px) {
+  .prose > pre,
+  .prose .code {
+    margin-inline: -18px;
+  }
+}
+
+.syntax-keyword,
+.syntax-number {
+  color: var(--azure);
+}
+
+.syntax-comment {
+  color: var(--meta);
+}
+
+.figure {
+  margin-block: 32px;
+}
+
+.figure__panel {
+  padding: 24px 18px 18px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-medium);
+  background-image:
+    var(--scroll-cover),
+    var(--scroll-cue);
+  background-color: var(--wash);
+  background-position: 100% 0, 100% 0;
+  background-repeat: no-repeat;
+  background-size: 32px 100%, 28px 100%;
+  background-attachment: local, scroll;
+}
+
+.figure figcaption {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--meta);
+}
+
+/* Wide code and diagrams scroll inside the column. Their focus ring sits
+   inside the box, so the clipped corners cannot hide it. */
+.prose pre:focus-visible,
+.figure__panel:focus-visible {
+  outline: 2px solid var(--azure);
+  outline-offset: -3px;
+}
+
+/* The pipeline diagram. */
+.pipeline {
+  display: block;
+  width: 100%;
+  min-width: 500px;
+  height: auto;
+}
+
+.pipeline-line {
+  fill: none;
+  stroke: rgba(20, 24, 31, 0.35);
+  stroke-width: 1.2;
+}
+
+.pipeline-dashed-line {
+  stroke-dasharray: 4 4;
+}
+
+.pipeline-arrowhead {
+  fill: rgba(20, 24, 31, 0.45);
+}
+
+.pipeline-node,
+.pipeline-gate {
+  fill: var(--paper);
+  stroke: rgba(20, 24, 31, 0.25);
+  stroke-width: 1.2;
+}
+
+.pipeline-gate {
+  stroke: var(--azure);
+}
+
+.pipeline-model {
+  fill: var(--azure);
+  stroke: var(--azure);
+}
+
+.pipeline-label {
+  fill: var(--ink);
+  font: 400 10.5px var(--font-monospace);
+  letter-spacing: 1.3px;
+}
+
+.pipeline-label--model {
+  fill: #fff;
+}
+
+.pipeline-metadata {
+  fill: var(--meta);
+  font: 400 9.5px var(--font-monospace);
+}

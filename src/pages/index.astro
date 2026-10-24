@@ -1,49 +1,32 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import LyraGlobe from "../components/LyraGlobe.astro";
-import ProfileHeading from "../components/ProfileHeading.astro";
-import { globeProjectionAddress } from "../shared/lyra-globe/projection";
-import { getArticles } from "../shared/content/writing";
-import { getProducts } from "../shared/content/products";
+import Identity from "../components/identity/Identity.astro";
+import ProfileLinks from "../components/identity/ProfileLinks.astro";
+import HomeSection from "../components/sections/HomeSection.astro";
+import { selectLatestEntries } from "../shared/content/latest-entries";
+import { getProducts, productRow } from "../shared/content/products";
+import { articleRow, getArticles } from "../shared/content/writing";
 import "../styles/home.css";
 
-// A call to action links to its section only when the section has something
-// to show. Until then it is plain, muted text, so the page never points at a
-// route the build does not emit. Both states share one box, so the layout
-// does not shift when a section goes live.
-const latestWork = [
-  { href: "/writing/", live: (await getArticles()).length > 0, label: "Read my latest writing", soon: "Latest writing · coming soon" },
-  { href: "/products/", live: (await getProducts()).length > 0, label: "See my latest products", soon: "Latest products · coming soon" },
-];
+// Each section shows its newest entries and links to its own page. A section
+// with nothing visible does not render, so the page never points at a route
+// the build does not emit.
+const products = selectLatestEntries(await getProducts()).map(productRow);
+const articles = selectLatestEntries(await getArticles()).map((article) => articleRow(article));
 ---
 
 <BaseLayout active="home">
-  {/* The globe reads its model measurements from this stylesheet. It loads in the head, so it does not block the body. */}
-  <link slot="head" rel="stylesheet" href={globeProjectionAddress} />
-  <main>
-    <section class="hero" aria-labelledby="home-title">
-      <div class="hero__stage wrap">
-        <div class="hero__main">
-          <ProfileHeading titleIdentifier="home-title" titleClass="hero__name" />
-          <p class="hero__lede">Ten years building software. The last five building production AI from the ground up.</p>
-          <p class="hero__thesis">
-            My work has a consistent shape: take AI from a promising demo to a governed system with contracts,
-            evaluation, and a unit cost.
-          </p>
-          <ul class="hero__next" aria-label="Latest work">
-            {latestWork.map((item) => (
-              <li class="hero__next-item" data-state={item.live ? "live" : "soon"}>
-                {item.live ? (
-                  <a class="hero__next-link" href={item.href}>{item.label} <span class="hero__next-arrow" aria-hidden="true">→</span></a>
-                ) : (
-                  <span class="hero__next-soon">{item.soon}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div class="hero__globe"><LyraGlobe /></div>
-      </div>
-    </section>
-  </main>
+  <Identity />
+
+  <p class="bio enter" data-step="2">
+    <em>I build production AI and the teams behind it.</em> I’m an AI engineering leader at Vertafore, with
+    ten years in software and the last five focused on production AI. Previously, I founded the AI
+    Engineering function at Patra and grew it to a peak of ~50 people. Nearly all of my career has been in
+    regulated industries, so I treat compliance as part of the architecture.
+  </p>
+
+  <ProfileLinks step={3} />
+
+  {products.length > 0 && <HomeSection label="Products" id="products-label" rows={products} allHref="/products/" allLabel="All products" step={4} />}
+  {articles.length > 0 && <HomeSection label="Writing" id="writing-label" rows={articles} allHref="/writing/" allLabel="All writing" step={5} />}
 </BaseLayout>

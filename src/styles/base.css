@@ -1,0 +1,178 @@
+/* The base elements, the page column, the entrance and the page transitions.
+   Every page loads this sheet through BaseLayout. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--paper);
+  color: var(--prose);
+  font: 400 16px/1.7 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  /* Linux Chromium rounds each glyph advance to a whole pixel at 1x unless it
+     is told to place glyphs by their exact metrics. Exact metrics give the
+     same line breaks on every platform. */
+  text-rendering: geometricPrecision;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--azure);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--azure);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.skip-link {
+  position: absolute;
+  top: 8px;
+  left: 16px;
+  z-index: 100;
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 14px;
+  transform: translateY(-150%);
+  transition: transform 0.15s ease;
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+/* Text that a screen reader reads and the page does not show. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The one column every page reads in. */
+.page {
+  max-width: calc(var(--column) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding: 112px var(--gutter) 128px;
+}
+
+/* The skip link focuses the column, so the browser draws no ring around it. */
+.page:focus {
+  outline: none;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding-block: 64px 96px;
+  }
+}
+
+/* Page transitions. The browser's cross-document view transitions do the
+   motion. The old page dims out, and the new page rises into place. Named
+   elements travel between the two: page-transitions.js names them. */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-group(*) {
+  animation-duration: 0.5s;
+  animation-timing-function: var(--ease-travel);
+}
+
+/* The old page is almost gone before the new one starts, so the two never
+   smear together. */
+::view-transition-old(root) {
+  animation: page-out 0.16s ease-in both;
+}
+
+::view-transition-new(root) {
+  animation: page-in 0.42s var(--ease-arrive) 0.12s both;
+}
+
+@keyframes page-out {
+  to {
+    opacity: 0;
+    filter: blur(3px);
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+    filter: blur(4px);
+  }
+}
+
+/* One page-load moment: the text arrives in a soft cascade. A page that
+   opens through a transition skips it, because the transition already
+   moved it. */
+@media (prefers-reduced-motion: no-preference) {
+  .enter {
+    animation: enter 0.56s var(--ease-arrive) both;
+  }
+
+  .enter[data-step="1"] { animation-delay: 80ms; }
+  .enter[data-step="2"] { animation-delay: 150ms; }
+  .enter[data-step="3"] { animation-delay: 220ms; }
+  .enter[data-step="4"] { animation-delay: 290ms; }
+  .enter[data-step="5"] { animation-delay: 360ms; }
+  .enter[data-step="6"] { animation-delay: 430ms; }
+
+  .arrived .enter {
+    animation: none;
+  }
+
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

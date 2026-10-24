@@ -1,0 +1,48 @@
+---
+// The frame of every page under the homepage: the reading star, the title,
+// one meta line, the lede and the body. Articles, products, the index pages
+// and the 404 use it.
+import BaseLayout from "./BaseLayout.astro";
+import ReadingStar from "../components/navigation/ReadingStar.astro";
+import type { PageKind } from "../shared/site";
+import "../styles/detail.css";
+
+interface Props {
+  title: string;
+  /** The search and share description. */
+  description: string;
+  /** The italic line under the title. A page with a link in it uses the lede slot. */
+  lede?: string;
+  active: PageKind;
+  /** The page one level up, and its name on the reading star. */
+  backHref: string;
+  backLabel: string;
+  morphKey?: string;
+  noindex?: boolean;
+  published?: string;
+  /** A draft shows the preview notice. */
+  draft?: boolean;
+  /** An article or a product is an article landmark; a list page is a section. */
+  landmark?: "article" | "section";
+  /** A class for the landmark, such as the article page's own parts. */
+  class?: string;
+}
+
+const { title, description, lede, active, backHref, backLabel, morphKey, noindex, published, draft = false, landmark = "section", class: className } = Astro.props;
+const Landmark = landmark;
+---
+
+<BaseLayout {title} {description} {active} {noindex} {published} {morphKey}>
+  {/* The first render waits for the heading, so a page transition has its target. */}
+  <link slot="head" rel="expect" href="#page-title" blocking="render" />
+  <ReadingStar href={backHref} label={backLabel} />
+  <Landmark class:list={["detail", className]} aria-labelledby="page-title">
+    <h1 class="detail__title" id="page-title" data-morph-title>{title}</h1>
+    {Astro.slots.has("meta") && <p class="detail__meta"><slot name="meta" /></p>}
+    {draft && <p class="detail__draft">Draft preview · not published</p>}
+    {Astro.slots.has("lede") ? <p class="detail__lede"><slot name="lede" /></p> : lede && <p class="detail__lede">{lede}</p>}
+    <div class="detail__body">
+      <slot />
+    </div>
+  </Landmark>
+</BaseLayout>

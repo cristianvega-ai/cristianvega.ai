@@ -16,7 +16,7 @@ async function loadArticle(page, articleMarkup, outsideMarkup = "") {
     element.insertAdjacentHTML("beforebegin", outsideMarkup);
   }, { content: articleMarkup, outside: outsideMarkup });
   await page.evaluate(async () => {
-    const { setupArticle } = await import("/src/shared/article-interactions.ts");
+    const { setupArticle } = await import("/src/browser/article-interactions.ts");
     setupArticle();
   });
   return recordedPageProblems;

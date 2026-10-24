@@ -1,0 +1,15 @@
+---
+// A list of entry rows. A pointer on one row quiets the others.
+import EntryRow from "./EntryRow.astro";
+import type { EntryRowData } from "../../shared/content/entry-row";
+
+interface Props {
+  rows: EntryRowData[];
+}
+
+const { rows } = Astro.props;
+---
+
+<ul class="entry-list">
+  {rows.map((row) => <li><EntryRow row={row} /></li>)}
+</ul>

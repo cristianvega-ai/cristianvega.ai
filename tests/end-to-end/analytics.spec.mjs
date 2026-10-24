@@ -82,7 +82,7 @@ for (const pageOrigin of ["http://localhost:4323", "https://cristianvega-ai.prev
   });
 }
 
-test("Home preserves content and keyboard navigation when the analytics script is blocked", async ({ page, baseURL: baseAddress }) => {
+test("Home preserves content and the skip link when the analytics script is blocked", async ({ page, baseURL: baseAddress }) => {
   await serveAtOrigin(page, baseAddress, productionOrigin);
   await page.route(beaconScript, (route) => route.abort());
   await useReducedMotion(page);
@@ -90,9 +90,10 @@ test("Home preserves content and keyboard navigation when the analytics script i
   await page.goto(productionOrigin);
   await beaconRequestFailed;
   await settle(page);
-  await expect(page.locator(".hero__name")).toHaveText("Cristian Vega");
-  await expect(page.locator(".hero__name")).toBeVisible();
-  await expect(page.locator("[data-lyra-globe]")).toHaveAttribute("data-ready", "true");
+  await expect(page.locator("h1.identity__name")).toHaveText("Cristian Vega");
+  await expect(page.locator("h1.identity__name")).toBeVisible();
+  await expect(page.locator("header.identity svg.mark")).toBeVisible();
+  await expect(page.locator("ul.profile-links a")).toHaveCount(3);
   await page.keyboard.press("Tab");
   await expect(page.locator(".skip-link")).toBeFocused();
   await page.keyboard.press("Enter");

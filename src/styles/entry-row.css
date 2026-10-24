@@ -1,0 +1,76 @@
+/* Entry rows: a title and a date, or a title and a description. A pointer on
+   one row quiets the others. */
+.entry-list {
+  padding: 0;
+  list-style: none;
+}
+
+.entry-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  padding-block: 8px;
+  color: var(--ink);
+  transition: color 0.2s ease;
+}
+
+.entry-list:hover .entry-row {
+  color: var(--meta);
+}
+
+.entry-list .entry-row:hover,
+.entry-list .entry-row:focus-visible {
+  color: var(--ink);
+}
+
+/* The title keeps the proportions of the page heading: the same line height
+   and tracking at two thirds of the size. The page transition then scales
+   one into the other without a stretch. */
+.entry-row__title {
+  display: inline-block;
+  line-height: 1.3;
+  letter-spacing: -0.012em;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.entry-row:hover .entry-row__title {
+  text-decoration-color: var(--underline);
+}
+
+.entry-row__meta {
+  flex: none;
+  font-size: 14px;
+  color: var(--meta);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A product row reads as one sentence: the name, then what it does. */
+.entry-row--described {
+  display: block;
+}
+
+.entry-row__description {
+  color: var(--meta);
+}
+
+.entry-row__description::before {
+  content: " ";
+}
+
+/* Only the local preview lists drafts. */
+.entry-row__draft {
+  margin-left: 6px;
+  font-size: 14px;
+  color: var(--meta);
+}
+
+@media (max-width: 640px) {
+  .entry-row {
+    gap: 16px;
+  }
+}

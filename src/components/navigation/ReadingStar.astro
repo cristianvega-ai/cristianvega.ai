@@ -1,0 +1,28 @@
+---
+// The reading star: the way back from a detail page. See
+// src/browser/reading-star-progress.ts for its behavior.
+import LyraMark from "../identity/LyraMark.astro";
+import "../../styles/reading-star.css";
+
+interface Props {
+  /** The page one level up. */
+  href: string;
+  /** The name of that page. */
+  label: string;
+}
+
+const { href, label } = Astro.props;
+---
+
+<div class="reading-star" data-reading-star>
+  <a class="reading-star__link" href={href}>
+    <LyraMark class="reading-star__mark" glowId="reading-star-glow" />
+    <span class="reading-star__label">{label}</span>
+  </a>
+</div>
+
+<script>
+  import { setupReadingStar } from "../../browser/reading-star-progress";
+
+  setupReadingStar();
+</script>
