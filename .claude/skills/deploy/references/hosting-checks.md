@@ -9,13 +9,11 @@ Read public domains from [wrangler.jsonc](../../../../wrangler.jsonc) and the de
 
 [public/_headers](../../../../public/_headers) owns the six approved security headers and CSP.
 Hashed `/_astro/` assets use a one-year immutable cache.
-The versioned `/globe-projection/*` stylesheet also uses a one-year immutable cache.
 Stable images use one week; HTML revalidates.
 HSTS applies only to the current host.
 Do not add `includeSubDomains` until every subdomain supports valid HTTPS.
 
-[public/_redirects](../../../../public/_redirects) redirects `/contact` and `/contact/` to the homepage.
-`/about/` is a real page.
+[public/_redirects](../../../../public/_redirects) redirects `/contact`, `/contact/`, `/about`, and `/about/` to the homepage.
 Cloudflare domain rules handle HTTPS and `www`.
 `wrangler.jsonc` enforces trailing slashes and serves `404.html` with HTTP 404 for missing paths.
 Cloudflare does not apply Apache `.htaccess` files.
@@ -49,7 +47,7 @@ The GitHub live gates use the verified packaged homepage automatically.
 The [live verifier](../../../../scripts/verify-deployment.mjs) reads same-origin script URLs from the verified homepage when `EXPECTED_INDEX` is set.
 Otherwise, it reads the live homepage and cannot prove exact-build identity.
 It checks each same-origin script once without relying on component filenames.
-The gate checks security headers on `/`, `/about/`, `/writing/`, and the 404 response.
+The gate checks security headers on `/`, `/writing/`, and the 404 response.
 `/writing/` can return 200 or 404 because production omits the section while every article is a draft.
 It also checks retired-page redirects, script gzip, and immutable cache lifetimes.
 Canonical checks require one-step HTTPS apex redirects with path and query intact.
