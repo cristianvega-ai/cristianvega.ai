@@ -77,6 +77,7 @@ npm run verify:deployment   # post-deploy: security headers on /, /writing/, and
 npm audit
 npm run generate:social-preview
 npm run generate:touch-icon
+npm run import:lab-experiment -- <experiment> <experiment folder>   # copies a Lab experiment's scenes and cuts its clips; needs ffmpeg
 ```
 
 ## Where to look
@@ -92,15 +93,24 @@ npm run generate:touch-icon
   - `identity/`: the homepage identity, the profile links, and `LyraMark`.
   - `navigation/`: the reading star.
   - `sections/`: the homepage sections and the entry rows that the homepage and the index pages share.
+  - `lab/`: the Lab clips, cards, result tiles, prompt, and the stage and bar of a live scene.
 - `src/browser/` holds the code that runs in the page.
   - `lyra-mark.js` and `page-transitions.js` are plain JavaScript. `SiteHead` loads them by address as classic scripts in the head, so they run before the first render. Keep them plain JavaScript.
-  - `reading-star-progress.ts` and `article-interactions.ts` load as Astro module scripts from their components.
+  - `reading-star-progress.ts`, `article-interactions.ts`, and the Lab modules load as Astro module scripts from their components. `lab-clip-clock.ts` plays the clips on one clock, `lab-row-preview.ts` shows the homepage preview, and `scene-viewer.ts` runs the live viewer.
 - `src/shared/` holds pure helpers that tests import. It has no DOM code.
   - `site.ts` holds the owner's name, job title, profile links, and page kinds.
   - `content/` holds the `writing.ts` and `products.ts` content helpers, the entry row data, and `latest-entries.ts`. The homepage shows the newest four entries of each section.
   - `lyra/` holds the star data and the geometry of the Lyra mark.
+  - `lab/` holds the Lab media addresses and the clip clock.
 - `src/styles/` holds one stylesheet for each component, layout, or page. Each one imports its own sheet, for example `LyraMark.astro` imports `lyra-mark.css`. `tokens.css` holds the design tokens and the fonts. `base.css` holds the base elements, the page column, the entrance, and the page transitions. `prose.css` holds the article and product prose. The class names in it are the authoring contract in `src/content/article-fixture-guide.md`.
-- `src/content/` holds the Markdown for the `writing` and `products` collections. Both collections hide drafts in production.
+- `src/content/` holds the Markdown for the `writing`, `products`, and `lab` collections. All three hide drafts in production.
+- The Lab:
+  - A Lab experiment is one prompt and its results. One result makes a single piece, and two or more make a group, one result for each model.
+  - Its routes are `/lab/`, `/lab/<experiment>/`, and `/lab/<experiment>/<result>/`.
+  - `assets/lab/<experiment>/` holds its `import.json` manifest, its clips, its posters, and each model's scene. They are build-time sources, and nothing there copies into the site as it is.
+  - `src/integrations/lab-media.ts` serves that media in development. After a build, it copies only published experiments into `dist/lab/media/` and `dist/lab/scenes/`, so a draft never reaches the live site.
+  - To add an experiment, write its manifest and run `npm run import:lab-experiment`. Then add its Markdown with `draft: true`. Publish only after the owner confirms the prompt and the model names.
+  - The repository is public, so a committed draft is readable on GitHub.
 - The `writing` collection publishes at `/writing/`.
 - `public/` copies into the build, including `_headers`, `_redirects`, and `robots.txt`.
 - `assets/` holds build-time source files that must not copy into the static site.
@@ -206,6 +216,7 @@ They do not establish ASD-STE100 conformance for code.
 - Deploy only the verified build through GitHub Actions. Keep secrets out of the `Verify and package the site` job. A change to the workflow, Cloudflare policy, or domain routes needs the owner's approval.
 - External links opened in a new tab must use `noopener` and `noreferrer` where appropriate.
 - Preserve the production security headers and content security policy unless a reviewed deployment change requires otherwise.
+- The Lab scenes are code that models wrote. The `/lab/scenes/*` rule in `public/_headers` gives them a sandboxed, opaque origin with their own policy. The live viewer also frames them with `sandbox`. Never loosen the site policy to make a scene work, and never serve a scene outside `/lab/scenes/`.
 - Run `npm audit` before production publication when dependencies changed.
 
 ## Git
