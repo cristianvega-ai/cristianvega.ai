@@ -1,0 +1,79 @@
+/* A detail page: the reading star, the title, one meta line, the lede and the
+   body. Articles, products, the index pages and the 404 share it. */
+
+/* The heading box fits its text, so it has the shape of the row title it
+   grows from in the page transition. */
+.detail__title {
+  width: fit-content;
+  max-width: 100%;
+  font: 500 24px/1.3 var(--font-body);
+  letter-spacing: -0.012em;
+  color: var(--ink);
+  text-wrap: balance;
+  view-transition-name: title;
+}
+
+.detail__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--meta);
+}
+
+/* Each item after the first opens with its dot, so a line break carries the
+   dot with its item. A screen reader skips the dot. */
+.detail__meta > * + *::before {
+  content: "·";
+  content: "·" / "";
+  margin-right: 8px;
+}
+
+.detail__draft {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--meta);
+}
+
+/* The italic line is the one-sentence summary of the page. */
+.detail__lede {
+  margin-top: 32px;
+  font-style: italic;
+  color: var(--ink);
+}
+
+.detail__lede a {
+  text-decoration: underline;
+  text-decoration-color: var(--underline);
+  text-underline-offset: 3px;
+}
+
+.detail__lede a:hover {
+  text-decoration-color: var(--azure);
+}
+
+.detail__body {
+  margin-top: 16px;
+}
+
+/* A titled part of a detail page, such as the year groups or more writing. */
+.detail__section {
+  margin-top: 56px;
+}
+
+.detail__section-label {
+  margin-bottom: 10px;
+  font: 400 16px/1.5 var(--font-body);
+  color: var(--meta);
+}
+
+@media (max-width: 640px) {
+  .detail__lede {
+    margin-top: 28px;
+  }
+
+  .detail__section {
+    margin-top: 48px;
+  }
+}

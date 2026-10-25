@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Post-deploy gate: prove the live origin emits security headers and a real 404.
-// Check the headers on the homepage, /about/, /writing/, and the 404 response.
+// Check the headers on the homepage, /writing/, and the 404 response, and the /about/ redirect.
 // Check the Cloudflare response and, when supplied, the exact build output.
 //
 // Usage:
@@ -325,17 +325,6 @@ async function main() {
     }
   }
 
-  const about = await fetch(`${origin}/about/`, {
-    redirect: "manual",
-    signal: AbortSignal.timeout(15_000),
-    headers: { "user-agent": USER_AGENT },
-  });
-  if (about.status !== 200 || !/^text\/html(?:;|$)/.test(about.headers.get("content-type") ?? "")) {
-    fail("/about/ must return HTTP 200 as HTML");
-  }
-  checkSecurityHeaders(about.headers, "/about/");
-  await about.body?.cancel();
-
   // The build omits /writing/ until an article is published. Both responses
   // must carry the approved headers.
   const writing = await fetch(`${origin}/writing/`, {
@@ -349,7 +338,8 @@ async function main() {
   checkSecurityHeaders(writing.headers, "/writing/");
   await writing.body?.cancel();
 
-  for (const path of ["/contact", "/contact/"]) {
+  // The contact and about pages moved to the homepage.
+  for (const path of ["/contact", "/contact/", "/about", "/about/"]) {
     const response = await fetch(`${origin}${path}`, {
       redirect: "manual",
       signal: AbortSignal.timeout(15_000),

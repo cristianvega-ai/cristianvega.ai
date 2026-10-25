@@ -73,7 +73,7 @@ npm run test:property       # deterministic invariants; needs no build
 npm run test:integration    # builds, fixtures, scripts, and contracts; requires a current dist/
 npm run test:node           # unit, property, and integration tests; requires a current dist/ and starts Wrangler
 npm run test:end-to-end     # Playwright tests; requires a current dist/
-npm run verify:deployment   # post-deploy: security headers on /, /about/, /writing/, and a real 404
+npm run verify:deployment   # post-deploy: security headers on /, /writing/, and a real 404, and the old-address redirects
 npm audit
 npm run generate:social-preview
 npm run generate:touch-icon
@@ -85,18 +85,21 @@ npm run generate:touch-icon
 - Use the pull request checklist below before you open a pull request.
 - Use [the deploy skill](.claude/skills/deploy/SKILL.md) for deployment, live verification, rollback, or approved account and domain setup.
 - Use the [Linear website reference](https://linear.app/martinez-vega-inc/document/cristianvegaai-website-reference-90867b83f0f9) for authoring and image derivatives.
-- `src/styles/global.css` holds the design tokens, the base elements, and the small parts that many pages share.
-- Each component, layout, and page imports its own stylesheet from `src/styles/`, for example `SiteHeader.astro` imports `site-header.css`.
-- `src/styles/reading-column.css` holds the page head and prose rules that about, products, articles, and the 404 share.
-- `src/styles/entries.css` holds the list rows that `ArticleList.astro` and `ProductList.astro` share.
-- `src/layouts/BaseLayout.astro` is the page frame. `SiteHead`, `SiteHeader`, and `SiteFooter` in `src/components/` fill it.
-- `ArticleLayout.astro` and `ProductLayout.astro` hold the article and product detail pages. Their `[slug].astro` routes only load content.
-- `src/shared/site.ts` holds the owner's name, job title, profile links, and page kinds. `ProfileHeading.astro` prints the name and title on the homepage and the about page.
-- `src/shared/` holds content helpers, article interactions, and canvas modules.
-- `src/shared/lyra-globe/` holds the Lyra globe. `src/shared/lyra/` holds its star data.
-- `src/shared/page-graphics/` holds page graphics. Read its [guide](src/shared/page-graphics/README.md) for scene setup.
-- `src/shared/canvas/` holds the shared canvas layer: easing, geometry, the entrance clock, the palette, marks, comets, star fields, and the canvas controller.
-- `src/shared/article-interactions.ts` holds article behavior. `src/shared/content/` holds the `writing.ts` and `products.ts` content helpers.
+- `src/pages/` holds the routes only. Each route loads content and picks a layout.
+- `src/layouts/BaseLayout.astro` is the page frame: the head, the skip link, the one reading column, and the analytics beacon. `DetailLayout.astro` adds the reading star and the title block to every page under the homepage. `ArticleLayout.astro` and `ProductLayout.astro` build on it, and their `[slug].astro` routes only load content.
+- `src/components/` holds the parts, one folder for each feature:
+  - `site/`: `SiteHead` and `CloudflareAnalytics`.
+  - `identity/`: the homepage identity, the profile links, and `LyraMark`.
+  - `navigation/`: the reading star.
+  - `sections/`: the homepage sections and the entry rows that the homepage and the index pages share.
+- `src/browser/` holds the code that runs in the page.
+  - `lyra-mark.js` and `page-transitions.js` are plain JavaScript. `SiteHead` loads them by address as classic scripts in the head, so they run before the first render. Keep them plain JavaScript.
+  - `reading-star-progress.ts` and `article-interactions.ts` load as Astro module scripts from their components.
+- `src/shared/` holds pure helpers that tests import. It has no DOM code.
+  - `site.ts` holds the owner's name, job title, profile links, and page kinds.
+  - `content/` holds the `writing.ts` and `products.ts` content helpers, the entry row data, and `latest-entries.ts`. The homepage shows the newest four entries of each section.
+  - `lyra/` holds the star data and the geometry of the Lyra mark.
+- `src/styles/` holds one stylesheet for each component, layout, or page. Each one imports its own sheet, for example `LyraMark.astro` imports `lyra-mark.css`. `tokens.css` holds the design tokens and the fonts. `base.css` holds the base elements, the page column, the entrance, and the page transitions. `prose.css` holds the article and product prose. The class names in it are the authoring contract in `src/content/article-fixture-guide.md`.
 - `src/content/` holds the Markdown for the `writing` and `products` collections. Both collections hide drafts in production.
 - The `writing` collection publishes at `/writing/`.
 - `public/` copies into the build, including `_headers`, `_redirects`, and `robots.txt`.
@@ -183,7 +186,7 @@ They do not establish ASD-STE100 conformance for code.
 
 - Semantic HTML is the source of truth. Canvas and decorative layers must remain `aria-hidden` and non-interactive.
 - Preserve keyboard access, visible focus states, heading hierarchy, skip navigation, link destinations, and reduced-motion behavior.
-- Real content must remain visible when JavaScript, fonts, canvas, or storage fail.
+- Real content must remain visible when JavaScript, fonts, or storage fail.
 - Keep animation clocks coordinated, cancel animation frames and timers during teardown, and avoid per-frame DOM measurement or allocation.
 - Motion must adapt to measured layout rather than duplicating CSS breakpoints in TypeScript.
 - Test changed interfaces at desktop, tablet, and mobile widths and check the browser console.

@@ -67,12 +67,11 @@ async function checkDeployment(testContext, {
   redirectStatus = 301,
   redirectLocation = "/",
   missingStatus = 404,
-  aboutStatus = 200,
+  aboutStatus = 301,
   writingStatus = 404,
   scriptResponses = {},
   headers: responseHeaderOverrides = {},
   notFoundHeaders: notFoundHeaderOverrides = {},
-  aboutHeaders: aboutHeaderOverrides = {},
   writingHeaders: writingHeaderOverrides = {},
   postStatus = 405,
   securityStatus = 200,
@@ -87,7 +86,6 @@ async function checkDeployment(testContext, {
   const requestedAddresses = [];
   const routeHeaders = new Map([
     ["/__deploy-gate-missing-path__/", notFoundHeaderOverrides],
-    ["/about/", aboutHeaderOverrides],
     ["/writing/", writingHeaderOverrides],
   ]);
 
@@ -106,9 +104,10 @@ async function checkDeployment(testContext, {
     } else if (request.url === "/") {
       response.setHeader("Content-Type", "text/html; charset=utf-8");
       response.end(responseHtml);
-    } else if (request.url === "/about/") {
-      response.writeHead(aboutStatus, { "Content-Type": "text/html; charset=utf-8" });
-      response.end("<!doctype html><title>About</title>");
+    } else if (["/about", "/about/"].includes(request.url)) {
+      // The About page moved to the homepage. A status of 200 stands for a page that stayed.
+      response.writeHead(aboutStatus, aboutStatus === 301 ? { Location: "/" } : { "Content-Type": "text/html; charset=utf-8" });
+      response.end(aboutStatus === 301 ? undefined : "<!doctype html><title>About</title>");
     } else if (request.url === "/writing/") {
       response.writeHead(writingStatus, { "Content-Type": "text/html; charset=utf-8" });
       response.end("<!doctype html><title>Writing</title>");
@@ -215,7 +214,7 @@ test("the deployment gate accepts the security headers of the local Cloudflare b
   const serverOrigin = await startLocalCloudflare(testContext);
   const deploymentResult = await runDeploymentGate({ ORIGIN: serverOrigin, EXPECTED_INDEX: "" }, 30_000);
   assert.equal(deploymentResult.code, 0, deploymentResult.output);
-  for (const responseLabel of ["homepage", "404 response", "/about/", "/writing/"]) {
+  for (const responseLabel of ["homepage", "404 response", "/writing/"]) {
     assert.ok(deploymentResult.output.includes(`verify-deployment: ${responseLabel} security headers match the approved policy`), deploymentResult.output);
   }
 });
@@ -331,11 +330,10 @@ test("the deployment gate accepts published Writing with HTTP 200", async (testC
 
 // Check one policy failure on each additional response path and publication state.
 for (const [pageCondition, route, deploymentOptions, responseHeaderOverrides, expectedMessage] of [
-  ["/about/", "/about/", {}, { "Content-Security-Policy": contentSecurityPolicyWithSources("script-src", "'self' *") }, "content-security-policy must match the approved _headers policy"],
   ["/writing/ with HTTP 404", "/writing/", {}, { "Content-Security-Policy": null }, "missing content-security-policy"],
   ["/writing/ with HTTP 200", "/writing/", { writingStatus: 200 }, { "Referrer-Policy": "unsafe-url" }, "referrer-policy must match the approved _headers policy"],
 ]) {
-  const headerOption = route === "/about/" ? "aboutHeaders" : "writingHeaders";
+  const headerOption = "writingHeaders";
   test(`the deployment gate rejects an unsafe policy on ${pageCondition}`, async (testContext) => {
     const deploymentResult = await checkDeployment(testContext, { ...deploymentOptions, [headerOption]: responseHeaderOverrides });
     assert.equal(deploymentResult.code, 1, deploymentResult.output);
@@ -358,8 +356,8 @@ for (const [conditionName, deploymentOptions, expectedMessage] of [
     /must redirect to the homepage with HTTP 301/],
   ["a redirect to another host", { redirectLocation: "https://example.invalid/" },
     /must redirect to the homepage with HTTP 301/],
-  ["an about page that is missing", { aboutStatus: 404 },
-    /\/about\/ must return HTTP 200 as HTML/],
+  ["an About page that answers instead of redirecting", { aboutStatus: 200 },
+    /\/about\/? must redirect to the homepage with HTTP 301/],
   ["a missing page served with HTTP 200", { missingStatus: 200 },
     /expected 404/],
   ["a homepage without built scripts", { html: "<!doctype html>", expectedHtml: "<!doctype html>" },

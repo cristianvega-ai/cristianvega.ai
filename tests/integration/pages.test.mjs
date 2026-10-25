@@ -1,108 +1,71 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { assertPageBasics, escapeHtml, publishedContent, readContentInventory, readDistFile } from "../shared/node-helpers.mjs";
+import { assertPageBasics, escapeHtml, profileLinks, readDistFile } from "../shared/node-helpers.mjs";
 
-// Check rendered landmarks, metadata, navigation, and asset delivery.
+// Check rendered landmarks, metadata, home content, and the detail frame of the missing page.
 // Publication fixtures live in publication.test.mjs. Browsers check runtime behavior.
 
 const hasVisibleText = (pageHtml = "") => [...pageHtml.matchAll(/<[^>]*>|([^<]+)/g)]
   .some(([, text]) => text !== undefined && !/^(?:\s|&nbsp;)*$/.test(text));
 
-test("the About page renders readable profile content and marks its current navigation link", () => {
-  const pageHtml = readDistFile("about", "index.html");
-  assertPageBasics(pageHtml, { titleFragment: "About · Cristian Vega" });
-  assert.match(pageHtml, /rel="canonical" href="https:\/\/cristianvega\.ai\/about\/"/);
-  assert.match(pageHtml, /href="\/about\/" aria-current="page"/);
-  assert.match(pageHtml, /class="skip-link"[^>]*href="#main-content"/);
-  assert.match(pageHtml, /data-graphic="about" aria-hidden="true"/, "the About graphic must be decorative");
-  assert.doesNotMatch(pageHtml, /name="robots" content="noindex/);
+const readStructuredData = (pageHtml) => {
+  const structuredDataJson = pageHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(structuredDataJson, "the homepage must include JSON-LD structured data");
+  return JSON.parse(structuredDataJson)["@graph"];
+};
 
-  assert.match(pageHtml, /<article\b[^>]*aria-labelledby="about-title"/);
-  assert.match(pageHtml, /<h1\b[^>]*id="about-title"[^>]*>Cristian <span[^>]*>Vega<\/span><\/h1>/);
-  const introduction = pageHtml.match(/<p class="about__lede">([\s\S]*?)<\/p>/)?.[1];
-  assert.ok(hasVisibleText(introduction), "about must show its introduction");
-  const profileHtml = pageHtml.match(/<div class="about__profile">([\s\S]*?)<\/div>/)?.[1];
-  assert.ok(profileHtml, "about must render the profile");
-  const profileParagraphs = [...profileHtml.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)];
-  assert.ok(profileParagraphs.length > 0 && profileParagraphs.every(([, content]) => hasVisibleText(content)), "the profile must contain readable paragraphs");
-  const principlesHtml = profileHtml.match(/<ul class="about__principles">([\s\S]*?)<\/ul>/)?.[1];
-  const principleItems = [...(principlesHtml ?? "").matchAll(/<li>([\s\S]*?)<\/li>/g)];
-  assert.ok(principleItems.length > 0 && principleItems.every(([, content]) => hasVisibleText(content)), "the profile must list nonempty principles");
-});
-
-test("the homepage renders introduction text and marks its globe as decorative", () => {
+test("the homepage renders the identity, the bio, and the profile links", () => {
   const pageHtml = readDistFile("index.html");
-  const normalizedHtml = pageHtml.replace(/\s+/g, " ");
-
   assertPageBasics(pageHtml, { titleFragment: "Cristian Vega" });
-  assert.match(pageHtml, /<h1 id="home-title" class="hero__name">Cristian <span class="highlight">Vega<\/span><\/h1>/);
-  for (const paragraphName of ["lede", "thesis"]) {
-    const paragraph = normalizedHtml.match(new RegExp(`<p class="hero__${paragraphName}">([\\s\\S]*?)</p>`))?.[1];
-    assert.ok(hasVisibleText(paragraph), `the homepage must show its ${paragraphName}`);
-  }
+  assert.match(pageHtml, /<html\b[^>]*data-page="home"/, "the home page must name its kind in data-page");
 
-  const globeElement = pageHtml.match(/<div class="lyra-globe"[^>]*>/)?.[0];
-  assert.ok(globeElement, "the homepage must contain its globe");
-  assert.match(globeElement, /aria-hidden="true"/, "the globe must be decorative");
-});
+  const identityHtml = pageHtml.match(/<header class="identity[^"]*"[^>]*>([\s\S]*?)<\/header>/)?.[1];
+  assert.ok(identityHtml, "the homepage must render its identity header");
+  assert.match(identityHtml, /<svg class="mark mark--draw"[^>]*aria-hidden="true"/, "the identity mark must draw itself and stay decorative");
+  assert.match(identityHtml, /<h1 class="identity__name">Cristian Vega<\/h1>/);
+  assert.ok(hasVisibleText(identityHtml.match(/<p class="identity__role">([\s\S]*?)<\/p>/)?.[1]), "the identity must show the role");
 
-test("primary navigation includes published sections and preserves all profile links", () => {
-  const publishedEntries = publishedContent(readContentInventory());
-  const homepageHtml = readDistFile("index.html");
-  const navigationHtml = homepageHtml.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
-  assert.ok(navigationHtml, "the homepage must contain primary navigation");
+  assert.ok(hasVisibleText(pageHtml.match(/<p class="bio[^"]*"[^>]*>([\s\S]*?)<\/p>/)?.[1]), "the homepage must show its bio");
 
-  const navigationAnchors = [...navigationHtml.matchAll(/<a\b[^>]*>/gi)].map(([anchorTag]) => anchorTag);
-  const publishedSections = Object.keys(publishedEntries).filter((section) => publishedEntries[section].length > 0);
-  assert.equal(navigationAnchors.length, 4 + publishedSections.length, `navigation must match published sections: ${navigationHtml}`);
-  const aboutLinks = navigationAnchors.filter((anchorTag) => /href="\/about\/"/.test(anchorTag));
-  assert.equal(aboutLinks.length, 1, "navigation must link to About exactly once");
-  assert.doesNotMatch(aboutLinks[0], /target=/, "the About link must open in the current tab");
-  for (const section of Object.keys(publishedEntries)) {
-    const sectionLinks = navigationAnchors.filter((anchorTag) => anchorTag.includes(`href="/${section}/"`));
-    assert.equal(sectionLinks.length, publishedEntries[section].length > 0 ? 1 : 0, `${section} navigation must match publication`);
-    for (const anchorTag of sectionLinks) assert.doesNotMatch(anchorTag, /target=/, `${section} must open in the current tab`);
-  }
-  const outboundLinks = navigationAnchors.filter((anchorTag) => /href="https:\/\//.test(anchorTag));
-  assert.equal(outboundLinks.length, 3, "navigation must keep all three profile links");
-
-  for (const profileHost of ["linkedin.com", "x.com", "github.com"]) {
-    assert.ok(
-      navigationAnchors.some((anchorTag) => anchorTag.includes(profileHost)),
-      `navigation must link ${profileHost}`,
-    );
-  }
-
-});
-
-test("each page header renders one primary navigation and a menu with matching links", () => {
-  const navigationLinkAddresses = (navigationHtml) => [...navigationHtml.matchAll(/<a\b[^>]*href="([^"]+)"/gi)].map(([, linkAddress]) => linkAddress);
-  for (const pathSegments of [["index.html"], ["about", "index.html"], ["404.html"]]) {
-    const pageHtml = readDistFile(...pathSegments);
-    assert.equal((pageHtml.match(/<nav\b[^>]*aria-label="Primary"/g) ?? []).length, 1);
-    assert.equal((pageHtml.match(/<details class="navigation-menu">/g) ?? []).length, 1);
-    assert.match(pageHtml, /<nav class="navigation-menu__panel" aria-label="Menu">/);
-    const primaryNavigationHtml = pageHtml.match(/<nav\b[^>]*aria-label="Primary"[\s\S]*?<\/nav>/i)?.[0];
-    const menuHtml = pageHtml.match(/<details class="navigation-menu">[\s\S]*?<\/details>/i)?.[0];
-    assert.ok(primaryNavigationHtml && menuHtml, "each page header must contain primary navigation and the menu");
-    assert.match(menuHtml, /<summary class="navigation-menu__toggle">menu<\/summary>/);
-    assert.deepEqual(navigationLinkAddresses(menuHtml), navigationLinkAddresses(primaryNavigationHtml), "the menu must reach every primary navigation link");
+  const profileListHtml = pageHtml.match(/<ul class="profile-links[^"]*"[^>]*aria-label="Profiles"[^>]*>([\s\S]*?)<\/ul>/)?.[1];
+  assert.ok(profileListHtml, "the homepage must list the profiles");
+  const profileAnchors = [...profileListHtml.matchAll(/<a\b[^>]*>/g)].map(([anchorTag]) => anchorTag);
+  assert.equal(profileAnchors.length, profileLinks.length, "the profile list must keep one link for each profile");
+  for (const [profileIndex, profile] of profileLinks.entries()) {
+    const anchorTag = profileAnchors[profileIndex];
+    assert.ok(anchorTag.includes(`href="${profile.href}"`), `profile ${profile.name} must keep its address and its place`);
+    assert.ok(anchorTag.includes(`aria-label="${profile.name}"`), `profile ${profile.name} must have an accessible name`);
+    assert.match(anchorTag, /target="_blank"/, `profile ${profile.name} must open in a new tab`);
   }
 });
 
-test("home, About, and missing pages include accessibility landmarks, metadata, and safe outbound links", () => {
-  const pagePaths = [
-    ["index.html"],
-    ["about", "index.html"],
-    ["404.html"],
-  ];
+test("the homepage has no header navigation, footer, or About link", () => {
+  const pageHtml = readDistFile("index.html");
+  assert.doesNotMatch(pageHtml, /<nav\b/, "the homepage must have no navigation menu");
+  assert.doesNotMatch(pageHtml, /<footer\b/, "the homepage must have no footer");
+  assert.equal((pageHtml.match(/<header\b/g) ?? []).length, 1, "the identity must be the only header");
+  assert.doesNotMatch(pageHtml, /href="\/about\/?"/, "the homepage must not link to the retired About page");
+  assert.doesNotMatch(pageHtml, /<canvas\b/, "the homepage must contain no canvas");
+});
 
-  for (const pathSegments of pagePaths) {
+test("the missing page renders the detail frame, its reading star, and a link home", () => {
+  const pageHtml = readDistFile("404.html");
+  assertPageBasics(pageHtml, { titleFragment: "This page doesn&#39;t exist\\." });
+  assert.match(pageHtml, /<html\b[^>]*data-page="error"/, "the missing page must name its kind in data-page");
+  assert.match(pageHtml, /name="robots" content="noindex/, "the missing page must stay out of search results");
+  assert.match(pageHtml, /<h1 class="detail__title" id="page-title"[^>]*>This page doesn&#39;t exist\.<\/h1>/);
+  assert.match(pageHtml, /<a class="reading-star__link" href="\/">[\s\S]*?<span class="reading-star__label">Home<\/span>/, "the star must lead home and say so");
+  const ledeHtml = pageHtml.match(/<p class="detail__lede">([\s\S]*?)<\/p>/)?.[1] ?? "";
+  assert.match(ledeHtml, /<a href="\/">home page<\/a>/, "the lede must link the home page");
+});
+
+test("home and missing pages include the skip link, the focus target, metadata, and safe outbound links", () => {
+  for (const pathSegments of [["index.html"], ["404.html"]]) {
     const pageHtml = readDistFile(...pathSegments);
     assertPageBasics(pageHtml);
-    assert.match(pageHtml, /class="skip-link"[^>]*href="#main-content"/i, "each page must include a skip link");
-    assert.match(pageHtml, /id="main-content"/i, "each page must include the skip-link target");
+    assert.match(pageHtml, /<body>\s*<a class="skip-link" href="#main-content">/, "the skip link must come first in the body");
+    assert.match(pageHtml, /<main id="main-content" class="page" tabindex="-1">/, "the skip link target must accept programmatic focus");
     assert.match(
       pageHtml,
       /property="og:image"[^>]*content="https:\/\/cristianvega\.ai\/images\/cristian-vega-social-preview\.jpg"/i,
@@ -118,14 +81,28 @@ test("home, About, and missing pages include accessibility landmarks, metadata, 
   }
 });
 
-test("home, About, and missing pages omit Google Fonts requests and font preconnections", () => {
-  const pagePaths = [
-    ["index.html"],
-    ["about", "index.html"],
-    ["404.html"],
-  ];
+test("home and missing pages load the two head scripts by address and add no inline script", () => {
+  for (const pathSegments of [["index.html"], ["404.html"]]) {
+    const pageHtml = readDistFile(...pathSegments);
+    const pagePath = pathSegments.join("/");
+    const headHtml = pageHtml.match(/<head>([\s\S]*?)<\/head>/)?.[1] ?? "";
+    // A classic script in the head runs before the first render. A module script would run too late.
+    for (const scriptName of ["lyra-mark", "page-transitions"]) {
+      const scriptTag = headHtml.match(new RegExp(`<script\\b[^>]*src="/_astro/${scriptName}\\.[\\w-]+\\.js"[^>]*>`))?.[0];
+      assert.ok(scriptTag, `${pagePath} must load ${scriptName} from the head by address`);
+      assert.doesNotMatch(scriptTag, /type="module"|\bdefer\b|\basync\b/, `${pagePath}: ${scriptName} must run as a classic script`);
+    }
+    // Match any letter case and an end tag with spaces, as an HTML parser does.
+    const inlineScripts = [...pageHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)]
+      .filter(([, attributes, content]) => !/\bsrc=/.test(attributes) && content.trim());
+    for (const [, attributes] of inlineScripts) {
+      assert.match(attributes, /type="application\/ld\+json"/, `${pagePath}: the only inline script must be structured data`);
+    }
+  }
+});
 
-  for (const pathSegments of pagePaths) {
+test("home and missing pages omit Google Fonts requests and font preconnections", () => {
+  for (const pathSegments of [["index.html"], ["404.html"]]) {
     const pageHtml = readDistFile(...pathSegments);
     const pagePath = pathSegments.join("/");
     assert.doesNotMatch(
@@ -144,15 +121,13 @@ test("home, About, and missing pages omit Google Fonts requests and font preconn
 // Keep the homepage title and structured data consistent with the rendered role.
 test("the homepage title and structured data name the current role", () => {
   const pageHtml = readDistFile("index.html");
-
-  const structuredDataJson = pageHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1];
-  assert.ok(structuredDataJson, "the homepage must include JSON-LD structured data");
-  const personRecord = JSON.parse(structuredDataJson)["@graph"].find((node) => node["@type"] === "Person");
+  const personRecord = readStructuredData(pageHtml).find((node) => node["@type"] === "Person");
   assert.ok(personRecord, "the structured data must describe a person");
   assert.equal(personRecord.name, "Cristian Vega", "the structured data must name the owner");
   assert.ok(typeof personRecord.jobTitle === "string" && personRecord.jobTitle.trim(), "the structured data must name the role");
   assert.ok(pageHtml.includes(`<title>${escapeHtml(personRecord.name)} · ${escapeHtml(personRecord.jobTitle)}</title>`));
-  assert.ok(pageHtml.includes(`<span class="eyebrow__part">${escapeHtml(personRecord.jobTitle)}</span>`));
+  assert.ok(pageHtml.includes(`<p class="identity__role">${escapeHtml(personRecord.jobTitle)}</p>`), "the identity role must match the structured data");
+  assert.deepEqual(personRecord.sameAs, profileLinks.map((profile) => profile.href), "the structured data must name the same profiles the page links");
   assert.equal(personRecord.worksFor?.["@type"], "Organization");
   assert.ok(typeof personRecord.worksFor.name === "string" && personRecord.worksFor.name.trim());
 });

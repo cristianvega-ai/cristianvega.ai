@@ -1,0 +1,19 @@
+---
+// One entry row: a title with a date on the right, or a title followed by a
+// sentence. The title carries the transition key of its page heading.
+import type { EntryRowData } from "../../shared/content/entry-row";
+import "../../styles/entry-row.css";
+
+interface Props {
+  row: EntryRowData;
+}
+
+const { row } = Astro.props;
+---
+
+<a class:list={["entry-row", row.description && "entry-row--described"]} href={row.href} data-morph-key={row.morphKey}>
+  <span>
+    <span class="entry-row__title">{row.title}</span>{row.description && <span class="entry-row__description">{row.description}</span>}{row.draft && <span class="entry-row__draft">Draft</span>}
+  </span>
+  {row.meta && <span class="entry-row__meta">{row.meta}</span>}
+</a>

@@ -20,9 +20,9 @@ const products = defineCollection({
   schema: z.object({
     title: z.string().min(1),
     description: z.string().min(1),
+    // The release date. The homepage and the products page show the newest first.
+    date: z.coerce.date(),
     draft: z.boolean().default(true),
-    // Ascending. Products with the same order sort by title.
-    order: z.number().int().default(0),
     url: z.url({ protocol: /^https$/ }).optional(),
     status: z.string().min(1).optional(),
   }),

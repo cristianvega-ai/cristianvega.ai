@@ -1,0 +1,14 @@
+---
+// The homepage identity: the Lyra mark, the owner's name and the role.
+import LyraMark from "./LyraMark.astro";
+import { JOB_TITLE, SITE_NAME } from "../../shared/site";
+import "../../styles/identity.css";
+---
+
+<header class="identity enter" data-step="1">
+  <LyraMark glowId="identity-glow" drawing />
+  <div>
+    <h1 class="identity__name">{SITE_NAME}</h1>
+    <p class="identity__role">{JOB_TITLE}</p>
+  </div>
+</header>

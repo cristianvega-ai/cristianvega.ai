@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
-import { permissionsPolicy, publishedContent } from "../shared/node-helpers.mjs";
-import { contentSecurityPolicyViolations, latestWork, navigationLink, pageProblems, publicationTest as test, recordContentSecurityPolicyViolations, settle, tabTo, useReducedMotion, VIEWPORTS as viewports } from "../shared/browser-fixtures.mjs";
+import { homeSections, permissionsPolicy, publishedContent } from "../shared/node-helpers.mjs";
+import { contentSecurityPolicyViolations, pageProblems, publicationTest as test, readingStar, recordContentSecurityPolicyViolations, settle, tabTo, useReducedMotion, VIEWPORTS as viewports } from "../shared/browser-fixtures.mjs";
 
 function expectProductionHeaders(headers) {
   expect(headers["x-content-type-options"]).toBe("nosniff");
@@ -32,71 +32,73 @@ test.describe("Mixed published content in the production runtime", () => {
       expect(response.status()).toBe(200);
       expectProductionHeaders(response.headers());
       await settle(page);
-      await expect(page.locator(".hero__next-item")).toHaveText(latestWork.map((item) => `${item.label} →`));
-      await expect(page.locator(".hero__next a")).toHaveCount(2);
-      await expect(page.locator(".hero__next-soon, [data-article-identifier], [data-product-identifier]")).toHaveCount(0);
-      await expect(page.locator("[data-lyra-globe]")).toHaveAttribute("data-ready", "true");
-
       const publishedInventory = publishedContent(publication.inventory);
-      await navigationLink(page, "writing").click();
-      await expect(page.locator(".navigation__link[href='/writing/']")).toHaveAttribute("aria-current", "page");
-      await expect(page.locator("meta[name='robots'], .draft-label")).toHaveCount(0);
-      await expect(page.locator("[data-graphic='writing']")).toHaveAttribute("data-ready", "true");
-      expect(await page.locator(".article-list__item").evaluateAll((rows) => rows.map((row) => row.dataset.articleIdentifier)))
-        .toEqual(publishedInventory.writing.map((entry) => entry.id));
-      expect(await page.locator(".article-list__link").evaluateAll((links) => links.map((link) => link.getAttribute("href"))))
+
+      // The homepage lists the published entries of each section, products first, and no draft.
+      const expectedSections = homeSections(publication.inventory);
+      expect(expectedSections.map((homeSection) => homeSection.section), "Both sections must be published in this fixture").toEqual(["products", "writing"]);
+      await expect(page.locator("section.home-section")).toHaveCount(expectedSections.length);
+      for (const expectedSection of expectedSections) {
+        const sectionRows = page.locator(`section.home-section[aria-labelledby='${expectedSection.headingId}'] a.entry-row`);
+        expect(await sectionRows.evaluateAll((links) => links.map((link) => link.getAttribute("href"))), `${expectedSection.label}: the homepage rows must list the published entries`)
+          .toEqual(expectedSection.rows.map((entry) => entry.href));
+      }
+      await expect(page.locator(".entry-row__draft, meta[name='robots']")).toHaveCount(0);
+      await expect(page.locator("nav, footer")).toHaveCount(0);
+
+      await page.getByRole("link", { name: "All writing", exact: true }).click();
+      await expect(page).toHaveURL(publication.origin + "/writing/");
+      await expect(page.locator("main h1")).toHaveText("Writing");
+      await expect(page.locator("meta[name='robots'], .entry-row__draft")).toHaveCount(0);
+      expect(await page.locator("a.entry-row").evaluateAll((links) => links.map((link) => link.getAttribute("href"))))
         .toEqual(publishedInventory.writing.map((entry) => entry.href));
-      expect(await tabTo(page, ".article-list__link >> nth=1")).toBe(true);
-      await expect(page.locator("[data-graphic='writing']")).toHaveAttribute("data-active-article", "alpha-tied");
+      expect(await tabTo(page, "a.entry-row >> nth=1")).toBe(true);
       await page.keyboard.press("Enter");
       const publishedArticle = publishedInventory.writing[1];
       await expect(page).toHaveURL(publication.origin + publishedArticle.href);
-      await expect(page.locator("#article-title")).toHaveText(publishedArticle.data.title);
-      await expect(page.locator(".article__description")).toHaveText(publishedArticle.data.description);
-      await expect(page.locator(".article__draft, .draft-label, meta[name='robots']")).toHaveCount(0);
-      await expect(page.locator(".navigation__link[href='/writing/']")).toHaveAttribute("aria-current", "location");
+      await expect(page.locator("h1#page-title")).toHaveText(publishedArticle.data.title);
+      await expect(page.locator(".detail__lede")).toHaveText(publishedArticle.data.description);
+      await expect(page.locator(".detail__draft, .entry-row__draft, meta[name='robots']")).toHaveCount(0);
       await expect(page.locator("link[rel='canonical']")).toHaveAttribute("href", `https://cristianvega.ai${publishedArticle.href}`);
       await expect(page.locator("meta[property='article:published_time']")).toHaveAttribute("content", publishedArticle.data.date.toISOString());
       await expect(page.locator(".prose")).toContainText(`Body for ${publishedArticle.id}.`);
       await expect(page.locator(".prose pre")).toHaveAttribute("aria-label", "Code example");
       await expect(page.locator(".figure__panel")).toHaveAttribute("aria-label", "Fixture signal path");
       await expect(page.locator(".figure__panel")).toHaveAttribute("role", "img");
-      await expect(page.locator(".author__share a")).toHaveCount(2);
-      for (const link of await page.locator(".author__share a").all()) {
+      await expect(page.locator(".article__share a")).toHaveCount(2);
+      for (const link of await page.locator(".article__share a").all()) {
         await expect(link).toHaveAttribute("rel", "noopener noreferrer");
       }
-      await page.getByRole("button", { name: "copy link" }).click();
+      await page.getByRole("button", { name: "Copy link" }).click();
       await expect(page.locator(".share-status")).toHaveText("Link copied.");
       expect(await page.evaluate(() => window.__publicationCopies)).toEqual([`https://cristianvega.ai${publishedArticle.href}`]);
-      expect(await page.locator(".read-next a").evaluateAll((links) => links.map((link) => link.getAttribute("href"))))
-        .toEqual([publishedInventory.writing[2].href, publishedInventory.writing[0].href]);
-      await page.getByRole("link", { name: /Older/ }).click();
-      await expect(page.locator("#article-title")).toHaveText(publishedInventory.writing[2].data.title);
+      expect(await page.locator("nav[aria-labelledby='more-writing'] a.entry-row").evaluateAll((links) => links.map((link) => link.getAttribute("href"))), "More writing must list the newer article, then the older one")
+        .toEqual([publishedInventory.writing[0].href, publishedInventory.writing[2].href]);
+      await page.locator(`nav[aria-labelledby='more-writing'] a.entry-row[href='${publishedInventory.writing[2].href}']`).click();
+      await expect(page.locator("h1#page-title")).toHaveText(publishedInventory.writing[2].data.title);
+      await expect(readingStar(page).label).toHaveText("Writing");
 
-      await navigationLink(page, "products").click();
-      await expect(page.locator(".navigation__link[href='/products/']")).toHaveAttribute("aria-current", "page");
-      await expect(page.locator("meta[name='robots'], .draft-label")).toHaveCount(0);
-      await expect(page.locator("[data-graphic='products']")).toHaveAttribute("data-ready", "true");
-      expect(await page.locator(".entries__item").evaluateAll((rows) => rows.map((row) => row.dataset.productIdentifier)))
-        .toEqual(publishedInventory.products.map((entry) => entry.id));
-      for (const product of [publishedInventory.products.find((entry) => entry.id === "alpha-product")]) {
-        await page.getByRole("link", { name: product.data.title, exact: true }).click();
-        await expect(page.locator("#product-title")).toHaveText(product.data.title);
-        await expect(page.locator(".product__lede")).toHaveText(product.data.description);
-        await expect(page.locator(".product__header .eyebrow")).toHaveText(product.data.status);
-        await expect(page.locator(".product__prose")).toContainText(`Body for ${product.id}.`);
-        await expect(page.locator(".navigation__link[href='/products/']")).toHaveAttribute("aria-current", "location");
-        await expect(page.locator("meta[name='robots'], .draft-label")).toHaveCount(0);
-        await expect(page.locator("link[rel='canonical']")).toHaveAttribute("href", `https://cristianvega.ai${product.href}`);
-        await expect(page.locator("[data-graphic='products']")).toHaveAttribute("data-ready", "true");
-        const outboundLink = page.locator(".product__link[target='_blank']");
-        if (product.data.url) {
-          await expect(outboundLink).toHaveAttribute("href", product.data.url);
-          await expect(outboundLink).toHaveAttribute("rel", "noopener noreferrer");
-        } else await expect(outboundLink).toHaveCount(0);
-        expect(await contentSecurityPolicyViolations(page)).toEqual([]);
-        await page.getByRole("link", { name: "All products →" }).click();
-      }
+      await page.goto(publication.origin + "/");
+      await page.getByRole("link", { name: "All products", exact: true }).click();
+      await expect(page).toHaveURL(publication.origin + "/products/");
+      await expect(page.locator("meta[name='robots'], .entry-row__draft")).toHaveCount(0);
+      expect(await page.locator("a.entry-row").evaluateAll((links) => links.map((link) => link.getAttribute("href"))))
+        .toEqual(publishedInventory.products.map((entry) => entry.href));
+      const product = publishedInventory.products.find((entry) => entry.id === "alpha-product");
+      await page.locator(`a.entry-row[href='${product.href}']`).click();
+      await expect(page.locator("h1#page-title")).toHaveText(product.data.title);
+      await expect(page.locator(".detail__lede")).toHaveText(product.data.description);
+      await expect(page.locator(".detail__meta")).toHaveText(product.data.status);
+      await expect(page.locator(".prose")).toContainText(`Body for ${product.id}.`);
+      await expect(page.locator("meta[name='robots'], .detail__draft")).toHaveCount(0);
+      await expect(page.locator("link[rel='canonical']")).toHaveAttribute("href", `https://cristianvega.ai${product.href}`);
+      const outboundLink = page.locator("a.product__link[target='_blank']");
+      await expect(outboundLink).toHaveText(`Visit ${product.data.title} ↗`);
+      await expect(outboundLink).toHaveAttribute("href", product.data.url);
+      await expect(outboundLink).toHaveAttribute("rel", "noopener noreferrer");
+      expect(await contentSecurityPolicyViolations(page)).toEqual([]);
+      await readingStar(page).link.click();
+      await expect(page.locator("main h1")).toHaveText("Products");
       expect(await contentSecurityPolicyViolations(page)).toEqual([]);
       expect(recordedPageProblems).toEqual([]);
     });
@@ -104,7 +106,7 @@ test.describe("Mixed published content in the production runtime", () => {
 
   test("Production routes and sitemap exclude explicit and default drafts", async ({ request, publication }) => {
     const publishedInventory = publishedContent(publication.inventory);
-    const expectedPaths = ["/", "/about/", "/writing/", "/products/", ...Object.values(publishedInventory).flat().map((entry) => entry.href)].sort();
+    const expectedPaths = ["/", "/writing/", "/products/", ...Object.values(publishedInventory).flat().map((entry) => entry.href)].sort();
     const sitemapResponse = await request.get(`${publication.origin}/sitemap-0.xml`);
     expect(sitemapResponse.status()).toBe(200);
     const publishedPaths = [...(await sitemapResponse.text()).matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, sitemapAddress]) => new URL(sitemapAddress).pathname).sort();
@@ -114,7 +116,7 @@ test.describe("Mixed published content in the production runtime", () => {
         const response = await request.get(publication.origin + draft.href);
         expect(response.status(), draft.href).toBe(404);
         expectProductionHeaders(response.headers());
-        expect(await response.text()).toContain("Page not found");
+        expect(await response.text()).toContain("This page doesn&#39;t exist.");
         expect(publishedPaths).not.toContain(draft.href);
       }
     }
@@ -153,7 +155,7 @@ test.describe("Mixed published content in the production runtime", () => {
       // The copy result must update only the article status.
       await page.locator(".article").evaluate((articleElement) => articleElement.insertAdjacentHTML("beforebegin",
         '<span id="outside-status" class="share-status" role="status">Outside status</span>'));
-      const copyButton = page.getByRole("button", { name: "copy link" });
+      const copyButton = page.getByRole("button", { name: "Copy link" });
       await expect(copyButton).toBeVisible();
       await copyButton.click();
       await expect(page.locator(".article .share-status")).toHaveText(clipboardFails
@@ -173,27 +175,31 @@ test.describe("Mixed published content in the production runtime", () => {
     const publishedArticle = publishedContent(publication.inventory).writing[0];
     await page.goto(publication.origin + publishedArticle.href);
     await expect(page.getByRole("link", { name: "Share on LinkedIn" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "copy link", includeHidden: true })).toBeHidden();
+    await expect(page.getByRole("button", { name: "Copy link", includeHidden: true })).toBeHidden();
     await expect(page.locator(".article .share-status")).toBeEmpty();
     expect(recordedPageProblems).toEqual([]);
   });
 
-  test("Published articles, products, and navigation remain available without JavaScript", async ({ browser, publication }) => {
-    const browserContext = await browser.newContext({ javaScriptEnabled: false, viewport: viewports.mobile });
+  test("Published articles, products, and the star remain available without JavaScript", async ({ browser, publication }) => {
+    // Reduced motion turns page transitions off. A running transition makes the page ignore clicks in headless Chromium.
+    const browserContext = await browser.newContext({ javaScriptEnabled: false, reducedMotion: "reduce", viewport: viewports.mobile });
     try {
       const page = await browserContext.newPage();
       await page.goto(publication.origin);
-      await page.getByRole("link", { name: "Read my latest writing", exact: true }).click();
-      await expect(page.locator("[data-graphic='writing']")).toBeHidden();
-      await page.getByRole("link", { name: "Alpha tied writing", exact: true }).click();
+      await page.getByRole("link", { name: "All writing", exact: true }).click();
+      // A writing row also reads its date, so the name match is not exact.
+      await page.getByRole("link", { name: "Alpha tied writing" }).click();
       await expect(page.locator(".prose")).toContainText("Body for alpha-tied.");
-      await expect(page.getByRole("button", { name: "copy link" })).toBeHidden();
+      await expect(page.getByRole("button", { name: "Copy link" })).toBeHidden();
       await expect(page.getByRole("link", { name: "Share on LinkedIn" })).toBeVisible();
-      await navigationLink(page, "products").click();
-      await page.getByRole("link", { name: "Alpha product", exact: true }).click();
-      await expect(page.locator(".product__prose")).toContainText("Body for alpha-product.");
+      await readingStar(page).link.click();
+      await expect(page.locator("main h1")).toHaveText("Writing");
+      await page.goto(publication.origin + "/products/");
+      // A product row also reads its description, so the name match is not exact.
+      await page.getByRole("link", { name: "Alpha product" }).click();
+      await expect(page.locator(".prose")).toContainText("Body for alpha-product.");
       const product = publishedContent(publication.inventory).products.find((entry) => entry.id === "alpha-product");
-      await expect(page.locator(".product__link[target='_blank']")).toHaveAttribute("href", product.data.url);
+      await expect(page.locator("a.product__link[target='_blank']")).toHaveAttribute("href", product.data.url);
     } finally {
       await browserContext.close();
     }

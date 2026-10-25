@@ -18,14 +18,15 @@ for (const [requestPath, expectedStatus] of [["/", 200], ["/missing-hosting-chec
     expect(headers["cache-control"]).toContain("max-age=0");
     expect(headers["cache-control"]).toContain("must-revalidate");
     if (expectedStatus === 404) {
-      expect(await response.text()).toContain("Page not found");
+      expect(await response.text()).toContain("This page doesn&#39;t exist.");
     } else {
       expect(headers["cache-control"]).toContain("no-transform");
     }
   });
 }
 
-for (const requestPath of ["/contact", "/contact/"]) {
+// The contact and About pages moved to the homepage. Cloudflare must send their old addresses there.
+for (const requestPath of ["/contact", "/contact/", "/about", "/about/"]) {
   test(`${requestPath} redirects to home and preserves the query string`, async ({ request }) => {
     const response = await request.get(`${requestPath}?from=hosting-check`, { maxRedirects: 0 });
     expect(response.status()).toBe(301);
@@ -51,20 +52,16 @@ test("Cloudflare compresses built scripts and sets immutable caching", async ({ 
   const homeResponse = await request.get("/");
   const pageMarkup = await homeResponse.text();
   const scriptAddresses = [...pageMarkup.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map(([, scriptAddress]) => scriptAddress);
-  const globeScriptAddress = scriptAddresses.find((scriptAddress) => scriptAddress.includes("LyraGlobe"));
-  const analyticsScriptAddress = scriptAddresses.find((scriptAddress) => scriptAddress.includes("CloudflareAnalytics"));
-  expect(globeScriptAddress).toBeTruthy();
-  expect(analyticsScriptAddress).toBeTruthy();
-  const scriptCacheExpectations = [
-    [globeScriptAddress, "public, max-age=31536000, immutable"],
-    [analyticsScriptAddress, "public, max-age=31536000, immutable"],
-  ];
-  for (const [requestPath, expectedCacheHeader] of scriptCacheExpectations) {
-    const response = await request.get(requestPath, { headers: { "accept-encoding": "gzip" } });
-    expect(response.status()).toBe(200);
-    expect(response.headers()["content-type"]).toMatch(/javascript/);
-    expect(response.headers()["content-encoding"]).toBe("gzip");
-    expect(response.headers()["cache-control"]).toBe(expectedCacheHeader);
+  // The mark script and the transition script load from the head as classic scripts. The analytics script is a module.
+  const expectedScripts = ["lyra-mark", "page-transitions", "CloudflareAnalytics"];
+  for (const scriptName of expectedScripts) {
+    const scriptAddress = scriptAddresses.find((address) => address.startsWith(`/_astro/${scriptName}`));
+    expect(scriptAddress, `The homepage must load ${scriptName} from /_astro/`).toBeTruthy();
+    const response = await request.get(scriptAddress, { headers: { "accept-encoding": "gzip" } });
+    expect(response.status(), scriptAddress).toBe(200);
+    expect(response.headers()["content-type"], scriptAddress).toMatch(/javascript/);
+    expect(response.headers()["content-encoding"], scriptAddress).toBe("gzip");
+    expect(response.headers()["cache-control"], scriptAddress).toBe("public, max-age=31536000, immutable");
   }
   const portraitResponse = await request.get("/images/cristian-vega-social-preview.jpg");
   expect(portraitResponse.status()).toBe(200);
@@ -75,7 +72,7 @@ test("Cloudflare does not serve configuration files or directory listings", asyn
   for (const requestPath of ["/_headers", "/_redirects", "/.htaccess", "/.env", "/.well-known/.env", "/_astro/", "/images/"]) {
     const response = await request.get(requestPath, { maxRedirects: 0 });
     expect(response.status(), requestPath).toBe(404);
-    expect(await response.text(), requestPath).toContain("Page not found");
+    expect(await response.text(), requestPath).toContain("This page doesn&#39;t exist.");
   }
 });
 

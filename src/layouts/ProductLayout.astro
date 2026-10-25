@@ -1,36 +1,35 @@
 ---
-// The page of one product: its head, its prose, and its links.
-import BaseLayout from "./BaseLayout.astro";
-import PageGraphic from "../components/PageGraphic.astro";
-import type { Product } from "../shared/content/products";
-import "../styles/reading-column.css";
-import "../styles/products.css";
+// The page of one product: the detail frame, its prose, and its link out.
+import DetailLayout from "./DetailLayout.astro";
+import { productMorphKey, type Product } from "../shared/content/products";
+import "../styles/prose.css";
+import "../styles/product.css";
 
 interface Props {
   product: Product;
-  /** Every visible product, so the graphic can show this product among them. */
-  products: Product[];
 }
 
-const { product, products } = Astro.props;
+const { product } = Astro.props;
+const { title, description, status, url, draft } = product.data;
 ---
 
-<BaseLayout title={product.data.title} description={product.data.description} active="product" noindex={product.data.draft}>
-  <main>
-    <PageGraphic page="products" productCount={products.length} currentProductIndex={products.findIndex((entry) => entry.id === product.id)} />
-    <article class="product" aria-labelledby="product-title">
-      <header class="product__header wrap wrap--read">
-        <p class="eyebrow">{product.data.status ?? "Product"}{product.data.draft && <span class="draft-label"> · Draft</span>}</p>
-        <h1 id="product-title" class="product__title">{product.data.title}</h1>
-        <p class="product__lede">{product.data.description}</p>
-      </header>
-      <div class="product__body wrap wrap--read">
-        <div class="product__prose"><slot /></div>
-        <p class="product__links">
-          {product.data.url && <a class="product__link" href={product.data.url} target="_blank" rel="noopener noreferrer">Visit {product.data.title} ↗</a>}
-          <a class="product__link" href="/products/">All products →</a>
-        </p>
-      </div>
-    </article>
-  </main>
-</BaseLayout>
+<DetailLayout
+  {title}
+  {description}
+  lede={description}
+  active="product"
+  backHref="/products/"
+  backLabel="Products"
+  morphKey={productMorphKey(product)}
+  noindex={draft}
+  {draft}
+  landmark="article"
+>
+  <Fragment slot="meta">{status ?? "Product"}</Fragment>
+  <div class="prose"><slot /></div>
+  {url && (
+    <p class="product__links">
+      <a class="product__link" href={url} target="_blank" rel="noopener noreferrer">Visit {title} ↗</a>
+    </p>
+  )}
+</DetailLayout>

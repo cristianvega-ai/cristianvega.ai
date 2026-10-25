@@ -1,0 +1,33 @@
+/* A homepage section: a quiet label, the newest entries, and a link to the
+   section's own page under them. */
+.home-section {
+  margin-top: 64px;
+}
+
+.home-section__label {
+  margin-bottom: 10px;
+  font: 400 16px/1.5 var(--font-body);
+  color: var(--meta);
+}
+
+.home-section__all {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--meta);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+.home-section__all:hover {
+  color: var(--ink);
+  text-decoration-color: var(--underline);
+}
+
+@media (max-width: 640px) {
+  .home-section {
+    margin-top: 52px;
+  }
+}

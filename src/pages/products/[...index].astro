@@ -1,34 +1,18 @@
 ---
-import BaseLayout from "../../layouts/BaseLayout.astro";
-import PageGraphic from "../../components/PageGraphic.astro";
-import ProductList from "../../components/ProductList.astro";
-import { getProducts } from "../../shared/content/products";
-import { assertProductCapacity } from "../../shared/page-graphics/scenes/product-slots";
-import "../../styles/reading-column.css";
-import "../../styles/products.css";
+import DetailLayout from "../../layouts/DetailLayout.astro";
+import EntryList from "../../components/sections/EntryList.astro";
+import { getProducts, productRow } from "../../shared/content/products";
 
 // Build /products/ only when a product is visible. With no visible product the route must not exist.
 export async function getStaticPaths() {
-  const products = await getProducts();
-  assertProductCapacity(products.filter(({ data }) => !data.draft).length);
-  return products.length > 0 ? [{ params: { index: undefined } }] : [];
+  return (await getProducts()).length > 0 ? [{ params: { index: undefined } }] : [];
 }
 
 const products = await getProducts();
-const hasDrafts = products.some((entry) => entry.data.draft);
+const hasDrafts = products.some((product) => product.data.draft);
+const description = "Products I have built.";
 ---
 
-<BaseLayout title="Products" description="Products I have built." active="products" noindex={hasDrafts}>
-  <main>
-    <PageGraphic page="products" productCount={products.length} currentProductIndex={null} />
-    <section class="product product--index" aria-labelledby="products-title">
-      <header class="product__header wrap wrap--read">
-        <p class="eyebrow">Products{hasDrafts && <span class="draft-label"> · Local preview</span>}</p>
-        <h1 id="products-title" class="product__title">Products</h1>
-      </header>
-      <div class="product__body wrap wrap--read">
-        <ProductList products={products} />
-      </div>
-    </section>
-  </main>
-</BaseLayout>
+<DetailLayout title="Products" {description} lede={description} active="products" backHref="/" backLabel="Home" noindex={hasDrafts}>
+  <EntryList rows={products.map(productRow)} />
+</DetailLayout>

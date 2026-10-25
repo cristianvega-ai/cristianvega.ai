@@ -19,10 +19,10 @@ Treat code and filename naming as a repository adaptation of STE technical termi
 
 | Item | Example |
 | --- | --- |
-| Description | The article menu restores button focus when Escape closes it. |
-| Assertion message | Article menu: Escape must restore button focus. |
+| Description | The reading star lights Vega when the page scrolls to its end. |
+| Assertion message | Reading star: Vega must light at the end of the page. |
 | Local identifier | `viewportWidth` or `articleIndex` |
-| Node filename | `graphics-geometry.test.mjs` |
+| Node filename | `lyra-mark-geometry.test.mjs` |
 | Browser filename | `writing-navigation.spec.mjs` |
 | Comment | `// The entrance animation must finish before geometry measurements.` |
 
@@ -39,7 +39,7 @@ These terms adapt the [official STE terminology guidance](https://www.asd-ste100
 
 Use one behavior word for each shared browser concern.
 Use a word from this table when it matches the concern.
-Name a concern that only one subject has directly, for example `reading-progress` or `article-highlight`.
+Name a concern that only one subject has directly, for example `reading-progress`, `sky-angle`, or `title-name`.
 
 | Behavior | Meaning |
 | --- | --- |
@@ -48,7 +48,7 @@ Name a concern that only one subject has directly, for example `reading-progress
 | `keyboard` | Keyboard focus, focus rings, and keyboard scrolling. |
 | `motion` | Frames, entrances, and motion preferences. |
 | `lifecycle` | Teardown on pagehide and restoration on pageshow. |
-| `fallbacks` | Readable content when JavaScript, canvas, fonts, storage, stylesheets, or observers fail. |
+| `fallbacks` | Readable content when JavaScript, fonts, storage, or the Navigation API fail. |
 
 ## Testing strategy
 
@@ -74,32 +74,17 @@ Split a mixed suite when its cases need different types.
 
 | Type | File | Owns |
 | --- | --- | --- |
-| Unit | `tests/unit/easing.test.mjs` | Clamping results. |
-| Unit | `tests/unit/geometry.test.mjs` | Cubic-point endpoint results and output reuse. |
-| Unit | `tests/unit/label-font.test.mjs` | Measured width caching, refreshed metrics, supplied font families, and size fallback. |
-| Unit | `tests/unit/route-lengths.test.mjs` | Cumulative route lengths for fixed points. |
-| Unit | `tests/unit/graphics-math.test.mjs` | Fixed staggering, smoothing, and interpolation results. |
-| Unit | `tests/unit/labels.test.mjs` | Label placement, rectangle overlap, and segment intersections. |
-| Unit | `tests/unit/palette.test.mjs` | Glow stops from a resolved color, with the color alpha. |
-| Unit | `tests/unit/product-orbit-capacity.test.mjs` | Empty content, slot capacity, and overflow rejection. |
-| Property | `tests/property/about-layout.test.mjs` | Path shape and ring bounds in columns and bands. |
-| Property | `tests/property/easing.test.mjs` | Cubic easing endpoints and monotonic samples. |
-| Property | `tests/property/globe-model.test.mjs` | Node bounds, route connections, Vega endpoints, and cumulative route lengths. |
-| Property | `tests/property/entrance-clock.test.mjs` | Entrance endpoints and monotonic clock samples. |
-| Property | `tests/property/graphics-geometry.test.mjs` | Valid star indices, padded Lyra layout, and mesh bounds. |
-| Property | `tests/property/missing-page-layout.test.mjs` | Missing star geometry in columns and bands. |
-| Property | `tests/property/product-orbit.test.mjs` | Progress endpoints and ordering, distinct orbit slots, and Lyra bounds. |
-| Property | `tests/property/random.test.mjs` | Stable numeric samples in the unit interval. |
-| Property | `tests/property/writing-layout.test.mjs` | Article point counts, physical bounds, connected paths, and unique valid links. |
-| Integration | `tests/integration/build.test.mjs` | Static file safety, sitemap completeness, local font references, and private image exclusions. |
-| Integration | `tests/integration/pages.test.mjs` | Owner content, landmarks, metadata consistency, navigation state, safe outbound links, and local fonts. |
-| Integration | `tests/integration/publication.test.mjs` | Production routes, draft privacy, rendered publication, content order, escaped metadata, and product build capacity. |
+| Unit | `tests/unit/latest-entries.test.mjs` | The four newest entries of a collection, newest first, with date ties broken by id. |
+| Property | `tests/property/lyra-mark-geometry.test.mjs` | Valid star indices, links between stars, and the padded Lyra mark extent. |
+| Integration | `tests/integration/build.test.mjs` | Static file safety, sitemap completeness, the `/about/` redirect and absent route, the four IBM Plex font faces, and private image exclusions. |
+| Integration | `tests/integration/pages.test.mjs` | The home identity, bio, and profile links, the missing page frame, landmarks, metadata, head scripts, and safe outbound links. |
+| Integration | `tests/integration/publication.test.mjs` | Production routes, draft privacy, homepage sections with their newest four rows and index links, detail frames, content order, and escaped metadata. |
 | Integration | `tests/integration/check-public-system-files.test.mjs` | The build check keeps operating-system files out of public assets. |
 | Integration | `tests/integration/security.test.mjs` | Cloudflare header and cache rules, the CSP, and `security.txt`. |
-| Integration | `tests/integration/deployment-gate.test.mjs` | Verified build acceptance, representative broken responses, unsafe script URLs, approved headers, and the local Cloudflare build. |
+| Integration | `tests/integration/deployment-gate.test.mjs` | Verified build acceptance, representative broken responses, the `/about/` redirect, unsafe script URLs, approved headers, and the local Cloudflare build. |
 | Integration | `tests/integration/deployment-workflow.test.mjs` | Parsed workflow triggers, action pins, token scope, secrets, freshness conditions, and artifact integrity. |
 | Integration | `tests/integration/node-version.test.mjs` | Exact .nvmrc format and the actual test runtime. |
-| Integration | `tests/integration/motion-styles.test.mjs` | Reduced motion reset and compiled CSS entrance preferences. |
+| Integration | `tests/integration/motion-styles.test.mjs` | The reduced motion reset, the page transition switch, and the entrance preference in compiled CSS. |
 
 ## Focused commands
 
@@ -121,37 +106,29 @@ The deployment integration suite starts Wrangler on `dist/`.
 
 | File | Owns |
 | --- | --- |
-| `tests/end-to-end/home-layout.spec.mjs` | Readable home content and a visible decorative globe at desktop, mobile, and short viewports. |
-| `tests/end-to-end/home-navigation.spec.mjs` | The About and brand links, links for published sections only, and keyboard access to preview links. |
-| `tests/end-to-end/globe-motion.spec.mjs` | Globe frame completion after the entrance and drawing without frames under reduced motion. |
-| `tests/end-to-end/globe-labels.spec.mjs` | Globe label clocks, hidden tabs, restored entrances, motion preferences, and stylesheet failure. |
-| `tests/end-to-end/globe-fallbacks.spec.mjs` | The globe fallback, readable content, and resource cleanup after canvas, observer, setup, and restore failures. |
-| `tests/end-to-end/about-reading-progress.spec.mjs` | Reader tracking, pages without scrolling, reduced motion, and scroll listener cleanup and restoration. |
-| `tests/end-to-end/writing-navigation.spec.mjs` | Article navigation from the list and back, adjacent article links, and draft privacy. |
-| `tests/end-to-end/writing-article-highlight.spec.mjs` | Article highlights from keyboard focus and the pointer, reduced motion, and frame and listener cleanup. |
-| `tests/end-to-end/article-keyboard.spec.mjs` | Keyboard scrolling and focus rings on wide code and diagrams, and focus rings clear of the header and footer. |
+| `tests/end-to-end/home-layout.spec.mjs` | The identity, bio, profiles, and sections in order, with at most four rows each, at 1440, 900, and 390 pixels. |
+| `tests/end-to-end/home-keyboard.spec.mjs` | The skip link, the tab order through the profiles, rows, and index links, and their focus rings. |
+| `tests/end-to-end/home-navigation.spec.mjs` | Sections and index links for published content only, row and index navigation, and profile links. |
+| `tests/end-to-end/home-motion.spec.mjs` | The mark entrance that ends ready, and the skipped mark and text entrances under reduced motion. |
+| `tests/end-to-end/home-sky-angle.spec.mjs` | The `--sky-angle` value at the transit of Vega and three hours either side, set before the body renders. |
+| `tests/end-to-end/page-transitions-title-name.spec.mjs` | Exactly one element holds the view transition name `title` after a click on a home row or a More writing row. |
+| `tests/end-to-end/reading-star-layout.spec.mjs` | The star level with the title in the margin from 900 pixels, pinned on scroll, and a bottom pill below 900 pixels. |
+| `tests/end-to-end/reading-star-navigation.spec.mjs` | The parent link, the history return with its scroll position, the Home label, new-tab clicks, and Escape. |
+| `tests/end-to-end/reading-star-reading-progress.spec.mjs` | Figure lines that draw with scroll, Vega at the end of the page, and a complete star on a short page. |
+| `tests/end-to-end/reading-star-lifecycle.spec.mjs` | Listeners and frames that stop on pagehide and return on pageshow from the cache. |
+| `tests/end-to-end/writing-navigation.spec.mjs` | Article navigation from the home page and the list, year groups, More writing neighbours, Enter, and draft privacy. |
+| `tests/end-to-end/article-keyboard.spec.mjs` | Keyboard scrolling and focus rings on wide code and diagrams, the star in the tab order, and a pill that leaves the last control uncovered. |
 | `tests/end-to-end/article-interactions.spec.mjs` | Article code and diagram names, roles, focus order, and the scope of the article setup. |
-| `tests/end-to-end/article-menu.spec.mjs` | The article menu at minimum width: text contrast, focus rings, and the current link. |
-| `tests/end-to-end/products-navigation.spec.mjs` | Basic product list and detail navigation, responsive reading, and production draft privacy. |
-| `tests/end-to-end/products-motion.spec.mjs` | Product drift after reduced motion ends and frame completion after the entrance. |
-| `tests/end-to-end/missing-page-navigation.spec.mjs` | Real 404 status and return navigation to home. |
-| `tests/end-to-end/page-fallbacks.spec.mjs` | Readable home, About, writing, and missing pages without JavaScript, and readable writing when canvas, fonts, and storage fail. |
-| `tests/end-to-end/page-shell-layout.spec.mjs` | Readable content and footer in the shared page shell, and article anchors below the sticky header. |
-| `tests/end-to-end/header-navigation.spec.mjs` | Header links at each layout width, the compact menu, the skip link, and the menu without JavaScript. |
-| `tests/end-to-end/page-graphics-layout.spec.mjs` | Decorative page scenes clear of page text, with readable content and no frames under reduced motion. |
-| `tests/end-to-end/graphic-font.spec.mjs` | Missing and delayed fonts, measured labels, resizing, pending motion preferences, and font callback lifetimes. |
-| `tests/end-to-end/canvas-clocks.spec.mjs` | Controller frame interval caps, pixel ratio policies, hidden and offscreen time, and idle scenes. |
-| `tests/end-to-end/canvas-motion.spec.mjs` | Controller reduced motion changes and pending motion preferences during a rebuild. |
-| `tests/end-to-end/canvas-lifecycle.spec.mjs` | Controller restoration, resource cleanup, and callbacks from previous observers. |
-| `tests/end-to-end/canvas-pixel-ratio.spec.mjs` | Complete canvas paint at higher device pixel ratios. |
+| `tests/end-to-end/products-navigation.spec.mjs` | Product list and detail navigation, newest first, responsive reading, and production draft privacy. |
+| `tests/end-to-end/missing-page-navigation.spec.mjs` | Real 404 status, the home page link in the lede, and the star back home. |
+| `tests/end-to-end/page-fallbacks.spec.mjs` | Readable home, article, and missing pages without JavaScript, and navigation when fonts, storage, or the Navigation API fail. |
 | `tests/end-to-end/publication.spec.mjs` | Published content in an isolated production build: routes, sitemap, robots, navigation, scripts, and the copy link. |
-| `tests/end-to-end/hosting.spec.mjs` | Local Cloudflare headers, redirects, preview indexing, compression, caching, security contact, and refused requests. |
+| `tests/end-to-end/hosting.spec.mjs` | Local Cloudflare headers, redirects including `/about/`, preview indexing, compression, caching, security contact, and refused requests. |
 | `tests/end-to-end/security.spec.mjs` | The browser enforces the CSP and the permissions policy. |
 | `tests/end-to-end/analytics.spec.mjs` | The Cloudflare beacon loads on the production origin only, and pages work when it is blocked. |
 
 Keep page selectors and expectations in their owning suite.
-Share identical navigation, settlement, frame, pixel, and canvas controller mechanisms through `tests/shared/browser-fixtures.mjs`.
-Pass page selectors and alpha thresholds to the pixel helpers.
+Share identical navigation, settlement, and frame mechanisms through `tests/shared/browser-fixtures.mjs`.
 
 To choose a layer, ask what the test must look at:
 
@@ -180,12 +157,11 @@ Do not use case counts as coverage targets.
 - Use the smallest matrix that exposes those boundaries.
 - Record the reason for each matrix dimension near its definition.
 - Avoid full Cartesian products unless their combinations expose important faults.
-- Use coarse device pixel ratio checks when bitmap scaling can clip a scene.
 - Keep basic draft navigation, implemented interactions, and production privacy.
 - Require an explicit owner requirement before adding exhaustive checks for draft visuals.
 - Share each isolated build when its fixture and production inputs match.
 - Keep route and rendered publication assertions together in `tests/integration/publication.test.mjs`.
-- Use physical bounds for graphics. Use exact decorative values only for an explicit owner requirement.
+- Use physical bounds for geometry. Use exact decorative values only for an explicit owner requirement.
 - Keep owner branding fixed.
 - Compare changing profile text with rendered metadata.
 - Require nonempty inputs before looping over expected elements.
@@ -207,8 +183,9 @@ Do not use case counts as coverage targets.
 - Do not change the source of the repository in a test.
 - Browser specs must be deterministic. Use Playwright's auto-waiting or `expect.poll`. Never use a fixed sleep.
 - Wait for the page entrance animation before you measure geometry. Use `settle(page)` from the fixtures. Geometry read during the animation is the animation's, not the layout's.
+- A page transition can make the page ignore clicks in headless Chromium. Set reduced motion in a context without JavaScript when a test clicks twice in a row.
 - The site scrolls smoothly. Scroll with `behavior: "instant"` before you measure, or poll for the scroll result.
-- A test must pass with drafts and with published entries. Derive expected content from `tests/shared/node-helpers.mjs`, including `publishedContent` and `headerLinks`.
+- A test must pass with drafts and with published entries. Derive expected content from `tests/shared/node-helpers.mjs`, including `publishedContent`, `homeSections`, and `profileLinks`.
 - The draft server runs with `tests/shared/development-server.config.mjs`.
 - That configuration disables HMR, so the server never reloads a page under test.
 - Use `DRAFT_ORIGIN` from the browser fixtures for its address.

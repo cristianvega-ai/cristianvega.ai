@@ -1,0 +1,134 @@
+/* The Lyra mark, drawn as a star atlas draws it. Each dot has the size of the
+   star's brightness, the figure lines stop short of the stars, and Vega is
+   the one point of color. lyra-sky-rotation.ts turns the figure to the angle
+   Lyra has in the sky now. */
+.mark {
+  display: block;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  overflow: visible;
+}
+
+.mark__line {
+  fill: none;
+  stroke: rgba(20, 24, 31, 0.32);
+  stroke-width: 0.75;
+  stroke-linecap: round;
+  transition: stroke 0.3s ease;
+}
+
+.mark__star {
+  fill: var(--ink);
+}
+
+.mark__vega {
+  fill: var(--azure);
+  transition: transform 0.4s var(--ease-arrive);
+}
+
+.mark__star,
+.mark__vega,
+.mark__halo {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* The figure stands as Lyra stands in the sky now. lyra-mark.js sets the
+   angle before the first render. Without it the figure stays upright. */
+.mark__sky {
+  transform: rotate(var(--sky-angle, 0deg));
+}
+
+/* Both turns pivot on the centre of the figure, the origin of the view box. */
+.mark__sky,
+.mark__turn {
+  transform-box: view-box;
+  transform-origin: 0 0;
+}
+
+/* The entrance. The stars appear, each line runs toward Vega from the foot of
+   the figure up, the figure settles into its sky angle, and Vega lights last.
+   CSS alone runs it, so the full figure shows without JavaScript too. */
+@media (prefers-reduced-motion: no-preference) {
+  .mark--draw .mark__turn {
+    animation: mark-settle 1.9s var(--ease-arrive) both;
+  }
+
+  .mark--draw .mark__star {
+    animation: mark-star 0.4s var(--ease-arrive) both;
+  }
+
+  .mark--draw .mark__star:nth-of-type(1) { animation-delay: 220ms; }
+  .mark--draw .mark__star:nth-of-type(2) { animation-delay: 300ms; }
+  .mark--draw .mark__star:nth-of-type(3) { animation-delay: 380ms; }
+  .mark--draw .mark__star:nth-of-type(4) { animation-delay: 460ms; }
+  .mark--draw .mark__star:nth-of-type(5) { animation-delay: 540ms; }
+
+  .mark--draw .mark__line {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: mark-draw 0.45s ease-out forwards;
+  }
+
+  .mark--draw .mark__line:nth-of-type(1) { animation-delay: 420ms; }
+  .mark--draw .mark__line:nth-of-type(2) { animation-delay: 500ms; }
+  .mark--draw .mark__line:nth-of-type(3) { animation-delay: 540ms; }
+  .mark--draw .mark__line:nth-of-type(4) { animation-delay: 640ms; }
+  .mark--draw .mark__line:nth-of-type(5) { animation-delay: 740ms; }
+  .mark--draw .mark__line:nth-of-type(6) { animation-delay: 780ms; }
+
+  /* Vega lights when the last line reaches it. */
+  .mark--draw .mark__vega {
+    animation: mark-star 0.5s var(--ease-arrive) 1.12s both;
+  }
+
+  .mark--draw .mark__halo {
+    animation: mark-bloom 0.9s var(--ease-arrive) 1.12s both;
+  }
+
+  /* After the entrance, Vega glows slowly. The breath starts where the bloom
+     ends, so the hand-over does not jump. */
+  .mark--ready .mark__halo {
+    animation: mark-breathe 6s ease-in-out infinite;
+  }
+
+  @keyframes mark-settle {
+    from {
+      transform: rotate(-30deg);
+    }
+  }
+
+  @keyframes mark-star {
+    from {
+      opacity: 0;
+      transform: scale(0.3);
+    }
+  }
+
+  @keyframes mark-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes mark-bloom {
+    from {
+      opacity: 0;
+      transform: scale(2.4);
+    }
+  }
+
+  @keyframes mark-breathe {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    50% {
+      opacity: 0.6;
+      transform: scale(0.85);
+    }
+  }
+}

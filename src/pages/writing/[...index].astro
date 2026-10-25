@@ -1,9 +1,7 @@
 ---
-import BaseLayout from "../../layouts/BaseLayout.astro";
-import ArticleList from "../../components/ArticleList.astro";
-import PageGraphic from "../../components/PageGraphic.astro";
-import { getArticles } from "../../shared/content/writing";
-import "../../styles/writing-index.css";
+import DetailLayout from "../../layouts/DetailLayout.astro";
+import EntryList from "../../components/sections/EntryList.astro";
+import { articleDayAndMonth, articleRow, articleYear, getArticles } from "../../shared/content/writing";
 
 // Build /writing/ only when an article is visible. Production has no published
 // article yet, so the route must not exist. Dev shows drafts and builds the route.
@@ -13,19 +11,19 @@ export async function getStaticPaths() {
 
 const articles = await getArticles();
 const hasDrafts = articles.some((article) => article.data.draft);
+// Newest year first. getArticles already sorts the articles newest first.
+const years = [...new Set(articles.map(articleYear))].map((year) => ({
+  year,
+  rows: articles.filter((article) => articleYear(article) === year).map((article) => articleRow(article, articleDayAndMonth(article))),
+}));
+const description = "Notes on production AI, engineering, and the systems around them.";
 ---
 
-<BaseLayout title="Writing" description="Notes on production AI, engineering, and the systems around them." active="writing" noindex={hasDrafts}>
-  <main class="writing-index" data-writing-page>
-    <PageGraphic page="writing" />
-    <div class="writing-index__introduction">
-      <p class="eyebrow">Notes · Essays</p>
-      <h1 id="writing-title">Writing</h1>
-      <p class="writing-index__count">{String(articles.length).padStart(2, "0")} {articles.length === 1 ? "article" : "articles"}{hasDrafts && " · local preview"}</p>
-    </div>
-    <section class="writing-index__list" data-writing-list aria-labelledby="writing-title">
-      <ArticleList {articles} />
+<DetailLayout title="Writing" {description} lede={description} active="writing" backHref="/" backLabel="Home" noindex={hasDrafts}>
+  {years.map(({ year, rows }) => (
+    <section class="detail__section" aria-labelledby={`writing-${year}`}>
+      <h2 class="detail__section-label" id={`writing-${year}`}>{year}</h2>
+      <EntryList rows={rows} />
     </section>
-  </main>
-</BaseLayout>
-
+  ))}
+</DetailLayout>

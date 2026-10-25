@@ -17,9 +17,10 @@ The maintainer who changes article presentation owns fixture maintenance and the
 | --- | --- |
 | [Fixture Markdown](writing/full-article-layout-fixture.md) | Owns content, code text, SVG geometry, captions, and accessibility semantics. |
 | [ArticleLayout.astro](../layouts/ArticleLayout.astro) | Owns the article shell, metadata, draft label, sharing controls, and adjacent navigation. |
-| [reading-column.css](../styles/reading-column.css) | Owns the article title, description, prose color, prose rhythm, and principle lists. The about and product pages share it. |
-| [article.css](../styles/article.css) | Owns the rest of the article appearance, code colors, diagram styles, panel scrolling, and visible focus. |
-| [article-interactions.ts](../shared/article-interactions.ts) | Adds missing accessibility defaults and controls the copy-link action. |
+| [detail.css](../styles/detail.css) | Owns the article title, the meta line, the draft label, and the description. The product, index, and missing pages share it. |
+| [prose.css](../styles/prose.css) | Owns the prose rhythm, principle lists, code colors, diagram styles, panel scrolling, and visible focus. The product page shares it. |
+| [article.css](../styles/article.css) | Owns the sharing controls. |
+| [article-interactions.ts](../browser/article-interactions.ts) | Adds missing accessibility defaults and controls the copy-link action. |
 
 Keep the fixture representative when these files change.
 Preserve the owner's prose unless the owner requests a content change.
