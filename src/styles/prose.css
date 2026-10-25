@@ -249,6 +249,38 @@
   outline-offset: -3px;
 }
 
+/* A table of facts, such as a comparison. It stays inside the column: the
+   cells wrap instead of scrolling, so keep tables to a few short columns. */
+.prose table {
+  width: 100%;
+  margin-block: 24px;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.prose th,
+.prose td {
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose th {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.prose td:first-child {
+  color: var(--ink);
+}
+
+.prose th:last-child,
+.prose td:last-child {
+  padding-right: 0;
+}
+
 /* The pipeline diagram. */
 .pipeline {
   display: block;
