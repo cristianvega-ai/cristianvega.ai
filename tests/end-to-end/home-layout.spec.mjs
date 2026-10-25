@@ -32,7 +32,7 @@ for (const [viewportName, viewport] of Object.entries({ desktop: viewports.deskt
     }
 
     // The sections follow the content: the heading, at most four rows, and the link to the index.
-    expect(expectedSections.length, "The draft fixtures must fill both homepage sections").toBe(2);
+    expect(expectedSections.map((expectedSection) => expectedSection.section), "The draft fixtures must fill the three homepage sections").toEqual(["products", "lab", "writing"]);
     const sections = page.locator("section.home-section");
     await expect(sections).toHaveCount(expectedSections.length);
     for (const [sectionIndex, expectedSection] of expectedSections.entries()) {
@@ -52,8 +52,9 @@ for (const [viewportName, viewport] of Object.entries({ desktop: viewports.deskt
         expect(rowBox.x, `${expectedSection.label}: a row must start inside the viewport`).toBeGreaterThanOrEqual(0);
         expect(rowBox.x + rowBox.width, `${expectedSection.label}: a row must end inside the viewport`).toBeLessThanOrEqual(viewport.width);
       }
-      if (expectedSection.section === "writing") await expect(rows.locator(".entry-row__meta")).toHaveCount(expectedSection.rows.length);
-      else await expect(rows.locator(".entry-row__description")).toHaveCount(expectedSection.rows.length);
+      // A writing row ends with its date, a Lab row ends with its model count, and a product row holds a description.
+      if (expectedSection.section === "products") await expect(rows.locator(".entry-row__description")).toHaveCount(expectedSection.rows.length);
+      else await expect(rows.locator(".entry-row__meta")).toHaveCount(expectedSection.rows.length);
       await expect(rows.locator(".entry-row__draft")).toHaveCount(expectedSection.rows.filter((entry) => entry.data.draft).length);
       const allLink = section.locator("a.home-section__all");
       await expect(allLink).toHaveText(expectedSection.allLabel);
@@ -61,7 +62,7 @@ for (const [viewportName, viewport] of Object.entries({ desktop: viewports.deskt
     }
 
     // The parts must read in order: the identity, the bio, the profiles, then each section.
-    const partTops = await page.evaluate(() => ["header.identity", "p.bio", "ul.profile-links", "#products-label", "#writing-label"]
+    const partTops = await page.evaluate(() => ["header.identity", "p.bio", "ul.profile-links", "#products-label", "#lab-label", "#writing-label"]
       .map((selector) => document.querySelector(selector).getBoundingClientRect().top));
     expect(partTops, `Home at ${viewportName}: the parts must stack from the identity down to the last section`).toEqual([...partTops].sort((first, second) => first - second));
     expect(new Set(partTops).size, `Home at ${viewportName}: no two parts may share a top edge`).toBe(partTops.length);

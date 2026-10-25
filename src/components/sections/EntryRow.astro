@@ -11,7 +11,14 @@ interface Props {
 const { row } = Astro.props;
 ---
 
-<a class:list={["entry-row", row.description && "entry-row--described"]} href={row.href} data-morph-key={row.morphKey}>
+<a
+  class:list={["entry-row", row.description && "entry-row--described"]}
+  href={row.href}
+  data-morph-key={row.morphKey}
+  data-preview-av1={row.preview?.av1}
+  data-preview-h264={row.preview?.h264}
+  data-preview-poster={row.preview?.poster}
+>
   <span>
     <span class="entry-row__title">{row.title}</span>{row.description && <span class="entry-row__description">{row.description}</span>}{row.draft && <span class="entry-row__draft">Draft</span>}
   </span>

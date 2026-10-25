@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Post-deploy gate: prove the live origin emits security headers and a real 404.
 // Check the headers on the homepage, /writing/, and the 404 response, and the /about/ redirect.
+// When /lab/ answers 200, follow its pages to one scene and check the scene headers.
 // Check the Cloudflare response and, when supplied, the exact build output.
 //
 // Usage:
@@ -63,12 +64,13 @@ function parseContentSecurityPolicy(value) {
   return directives;
 }
 
+// A feature allows nothing "()" or this origin "(self)". The Lab pages allow full screen for this origin.
 function parsePermissionsPolicy(value) {
   const directives = new Map();
   for (const part of value.split(",")) {
-    const match = part.trim().match(/^([a-z][a-z0-9-]*)=\( *\)$/);
+    const match = part.trim().match(/^([a-z][a-z0-9-]*)=\( *(self)? *\)$/);
     if (!match || directives.has(match[1])) return null;
-    directives.set(match[1], new Set());
+    directives.set(match[1], new Set(match[2] ? [match[2]] : []));
   }
   return directives;
 }
@@ -99,14 +101,17 @@ function sameDirectives(actual, expected) {
   return true;
 }
 
-function checkSecurityHeaders(headers, label) {
+// The Lab pages differ from the global rule in one value: this origin may use full screen.
+const LAB_PERMISSIONS_POLICY = APPROVED_SECURITY_HEADERS.get("permissions-policy").replace("fullscreen=()", "fullscreen=(self)");
+
+function checkSecurityHeaders(headers, label, approvedHeaders = APPROVED_SECURITY_HEADERS) {
   const parsers = {
     "content-security-policy": parseContentSecurityPolicy,
     "permissions-policy": parsePermissionsPolicy,
     "strict-transport-security": parseStrictTransportSecurity,
   };
   let valid = true;
-  for (const [name, expected] of APPROVED_SECURITY_HEADERS) {
+  for (const [name, expected] of approvedHeaders) {
     const rawValue = headers.get(name);
     const value = rawValue?.trim();
     if (!value) {
@@ -126,6 +131,90 @@ function checkSecurityHeaders(headers, label) {
     }
   }
   if (valid) console.log(`verify-deployment: ${label} security headers match the approved policy`);
+}
+
+// Follow the pages of the Lab to one scene, then check the headers of the scene.
+// A scene runs the model's own page in a sandbox, so its policy differs from the global one.
+async function checkLab() {
+  const read = (path) => fetch(`${origin}${path}`, {
+    redirect: "manual",
+    signal: AbortSignal.timeout(15_000),
+    headers: { "user-agent": USER_AGENT },
+  });
+  const labResponse = await read("/lab/");
+  if (labResponse.status === 404) {
+    console.log("verify-deployment: /lab/ is not published; the scene check is skipped");
+    await labResponse.body?.cancel();
+    return;
+  }
+  if (labResponse.status !== 200) {
+    fail(`GET ${origin}/lab/ returned HTTP ${labResponse.status}, expected 200 or 404`);
+    await labResponse.body?.cancel();
+    return;
+  }
+  const labApproved = new Map(APPROVED_SECURITY_HEADERS).set("permissions-policy", LAB_PERMISSIONS_POLICY);
+  checkSecurityHeaders(labResponse.headers, "/lab/", labApproved);
+
+  // Pick the first experiment, its first result, and the scene frame of that result.
+  const firstAddress = (markup, pattern) => markup.match(pattern)?.[1];
+  const experimentPath = firstAddress(await labResponse.text(), /<a\b[^>]*\bclass="lab-card"[^>]*\bhref="(\/lab\/[^"/]+\/)"/);
+  if (!experimentPath) {
+    fail("/lab/ does not link to an experiment");
+    return;
+  }
+  const experimentResponse = await read(experimentPath);
+  if (experimentResponse.status !== 200) {
+    fail(`GET ${origin}${experimentPath} returned HTTP ${experimentResponse.status}, expected 200`);
+    await experimentResponse.body?.cancel();
+    return;
+  }
+  checkSecurityHeaders(experimentResponse.headers, experimentPath, labApproved);
+  const resultPath = firstAddress(await experimentResponse.text(), /<a\b[^>]*\bhref="(\/lab\/[^"/]+\/[^"/]+\/)"[^>]*data-stage-key=/);
+  if (!resultPath) {
+    fail(`${experimentPath} does not link to a result`);
+    return;
+  }
+  const resultResponse = await read(resultPath);
+  if (resultResponse.status !== 200) {
+    fail(`GET ${origin}${resultPath} returned HTTP ${resultResponse.status}, expected 200`);
+    await resultResponse.body?.cancel();
+    return;
+  }
+  checkSecurityHeaders(resultResponse.headers, resultPath, labApproved);
+  const scenePath = firstAddress(await resultResponse.text(), /<iframe\b[^>]*\bsrc="(\/lab\/scenes\/[^"]+)"/);
+  if (!scenePath) {
+    fail(`${resultPath} does not load a scene frame`);
+    return;
+  }
+  const scene = await read(scenePath);
+  await scene.body?.cancel();
+  if (scene.status !== 200) {
+    fail(`GET ${origin}${scenePath} returned HTTP ${scene.status}, expected 200`);
+    return;
+  }
+  let sceneIsValid = true;
+  const policy = scene.headers.get("content-security-policy") ?? "";
+  const sandbox = policy.match(/^sandbox ([^;]*);/)?.[1].trim().split(/\s+/).sort().join(" ");
+  if (sandbox !== "allow-downloads allow-pointer-lock allow-scripts") {
+    fail(`scene ${scenePath} content-security-policy must start with the sandbox allow-scripts allow-pointer-lock allow-downloads`);
+    sceneIsValid = false;
+  } else if (!/(?:^|;)\s*frame-ancestors 'self'(?:;|$)/.test(policy)) {
+    fail(`scene ${scenePath} content-security-policy must allow framing by this site only`);
+    sceneIsValid = false;
+  }
+  if (scene.headers.has("x-frame-options")) {
+    fail(`scene ${scenePath} must not send x-frame-options`);
+    sceneIsValid = false;
+  }
+  if (scene.headers.get("access-control-allow-origin") !== "*") {
+    fail(`scene ${scenePath} access-control-allow-origin must be *`);
+    sceneIsValid = false;
+  }
+  if (scene.headers.get("permissions-policy") !== APPROVED_SECURITY_HEADERS.get("permissions-policy")) {
+    fail(`scene ${scenePath} permissions-policy must block every feature`);
+    sceneIsValid = false;
+  }
+  if (sceneIsValid) console.log(`verify-deployment: scene ${scenePath} headers match the approved policy`);
 }
 
 function fail(message) {
@@ -337,6 +426,9 @@ async function main() {
   }
   checkSecurityHeaders(writing.headers, "/writing/");
   await writing.body?.cancel();
+
+  // The build omits /lab/ until an experiment is published.
+  await checkLab();
 
   // The contact and about pages moved to the homepage.
   for (const path of ["/contact", "/contact/", "/about", "/about/"]) {

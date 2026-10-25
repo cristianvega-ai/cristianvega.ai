@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#789fae">
+  <meta name="description" content="Aetheria, the Verdant Citadel — a living, shader-driven voxel world.">
+  <title>Aetheria — The Verdant Citadel</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #789fae;
+      color: #f7f4e8;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body { position: relative; }
+    #world { position: absolute; inset: 0; }
+    #world canvas { display: block; width: 100%; height: 100%; outline: none; }
+    .atmosphere {
+      position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(180deg, rgba(15, 38, 51, 0.17), transparent 25%, transparent 72%, rgba(9, 30, 35, 0.19));
+    }
+    .interface { position: absolute; inset: 0; pointer-events: none; transition: opacity 500ms ease; }
+    .brand { position: absolute; top: clamp(24px, 4.6vw, 72px); left: clamp(24px, 5vw, 84px); }
+    .eyebrow {
+      display: flex; align-items: center; gap: 12px; margin: 0 0 15px;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.34em; text-transform: uppercase;
+      color: rgba(244, 239, 215, 0.79);
+    }
+    .eyebrow::before { content: ""; width: 28px; height: 1px; background: #e6c477; }
+    h1 {
+      margin: 0; font-family: Georgia, "Times New Roman", serif; font-weight: 400;
+      font-size: clamp(38px, 4.25vw, 76px); line-height: 0.98; letter-spacing: -0.035em;
+      text-shadow: 0 3px 30px rgba(21, 46, 53, 0.26);
+    }
+    .subtitle {
+      margin: 15px 0 0 3px; font-size: clamp(9px, 0.72vw, 13px); font-weight: 500;
+      letter-spacing: 0.38em; text-transform: uppercase; color: rgba(248, 244, 225, 0.86);
+    }
+    .edition {
+      position: absolute; top: clamp(28px, 4.8vw, 75px); right: clamp(24px, 4.8vw, 80px);
+      display: flex; align-items: center; gap: 9px; font-size: 9px; letter-spacing: 0.24em;
+      text-transform: uppercase; color: rgba(247, 244, 229, 0.72);
+    }
+    .edition::before {
+      content: ""; width: 5px; height: 5px; border-radius: 50%; background: #d9e9c1;
+      box-shadow: 0 0 10px rgba(217, 233, 193, 0.8);
+    }
+    .bottom {
+      position: absolute; left: clamp(24px, 5vw, 84px); right: clamp(24px, 5vw, 84px);
+      bottom: clamp(22px, 3.5vw, 54px); display: flex; align-items: flex-end; justify-content: space-between;
+    }
+    .caption { max-width: 300px; margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 13px; line-height: 1.55; font-style: italic; color: rgba(246, 244, 227, 0.77); }
+    .controls { display: flex; align-items: center; gap: 9px; pointer-events: auto; }
+    .hint { margin-right: 12px; font-size: 9px; letter-spacing: 0.17em; text-transform: uppercase; color: rgba(247, 244, 229, 0.64); }
+    button {
+      display: grid; place-items: center; width: 38px; height: 38px; padding: 0;
+      border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 50%;
+      background: rgba(20, 46, 53, 0.18); color: #fff9e9; cursor: pointer;
+      backdrop-filter: blur(8px); transition: background 180ms, border-color 180ms, transform 180ms;
+    }
+    button:hover { background: rgba(20, 46, 53, 0.38); border-color: rgba(255,255,255,.5); transform: translateY(-1px); }
+    button:focus-visible { outline: 2px solid #f0cf7b; outline-offset: 3px; }
+    button svg { width: 14px; height: 14px; fill: currentColor; }
+    #pause .play { display: none; }
+    #pause.is-paused .pause { display: none; }
+    #pause.is-paused .play { display: block; }
+    #loading {
+      position: absolute; inset: 0; z-index: 10; display: grid; place-items: center;
+      background: #789fae; transition: opacity 700ms ease, visibility 700ms;
+    }
+    #loading.loaded { opacity: 0; visibility: hidden; }
+    .loader { display: grid; justify-items: center; gap: 18px; }
+    .loader-mark { width: 28px; height: 28px; border: 1px solid rgba(255,255,255,.28); border-top-color: #fff4ce; transform: rotate(45deg); animation: turn 2.4s linear infinite; }
+    .loader-text { font-size: 9px; letter-spacing: .35em; text-transform: uppercase; color: rgba(255,255,255,.7); }
+    .hide-interface .interface, .hide-interface .atmosphere { opacity: 0; }
+    .still-mode .controls { display: none; }
+    @keyframes turn { to { transform: rotate(405deg); } }
+    @media (max-width: 700px) {
+      .caption, .edition { display: none; }
+      .bottom { justify-content: flex-end; }
+      .hint { display: none; }
+      .brand { top: 28px; }
+      h1 { font-size: 44px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .loader-mark { animation: none; }
+      .interface, #loading { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <main id="world"></main>
+  <div class="atmosphere"></div>
+  <div class="interface">
+    <header class="brand">
+      <p class="eyebrow">A world above the world</p>
+      <h1>Aetheria</h1>
+      <p class="subtitle">The Verdant Citadel</p>
+    </header>
+    <div class="edition">Real-time voxel world</div>
+    <div class="bottom">
+      <p class="caption">Where stone learns to float,<br>and rivers fall through the sky.</p>
+      <div class="controls">
+        <span class="hint">Drag to orbit · Scroll to explore</span>
+        <button id="pause" type="button" aria-label="Pause animation" title="Pause animation">
+          <svg class="pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2h4v12H3zm6 0h4v12H9z"/></svg>
+          <svg class="play" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg>
+        </button>
+        <button id="reset" type="button" aria-label="Reset camera" title="Reset camera">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.65 5.35A6 6 0 1 0 14 9h-1.8a4.2 4.2 0 1 1-.3-2.05L9 10h6V4l-1.35 1.35z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div id="loading"><div class="loader"><div class="loader-mark"></div><div class="loader-text">Raising Aetheria</div></div></div>
+  <script defer src="./app.js"></script>
+</body>
+</html>

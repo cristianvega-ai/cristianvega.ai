@@ -1,0 +1,17 @@
+---
+// The stage of the live viewer. The model's own page runs in a sandboxed
+// frame with an opaque origin, so it cannot reach this site's storage. The
+// poster holds the stage until the scene loads.
+interface Props {
+  scene: string;
+  poster: string;
+  name: string;
+}
+
+const { scene, poster, name } = Astro.props;
+---
+
+<div class="scene-stage" data-scene-stage>
+  <img class="scene-stage__poster" src={poster} alt="" />
+  <iframe class="scene-stage__frame" src={scene} title={`${name}: live scene`} sandbox="allow-scripts allow-pointer-lock allow-downloads" allow="fullscreen" referrerpolicy="no-referrer"></iframe>
+</div>

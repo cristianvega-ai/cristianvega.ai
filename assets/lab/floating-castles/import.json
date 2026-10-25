@@ -1,0 +1,27 @@
+{
+  "video": {
+    "file": "castles-8-models-4k.mp4",
+    "grid": { "columns": 4, "rows": 2 },
+    "trim": { "start": 0.8, "end": 29.2 }
+  },
+  "results": [
+    { "slug": "gpt-6-astra", "folder": "astra/output", "entry": "Aether.html", "files": ["Aether.html"] },
+    { "slug": "deepseek-v4-1-flash-1017", "folder": "deepseek/output", "entry": "index.html", "files": ["index.html", "bundle.js", "style.css", "fonts"] },
+    { "slug": "haiku-5-5", "folder": "haiku/output", "entry": "index.html", "files": ["index.html"] },
+    { "slug": "kimi-k3-1-pro", "folder": "kimi/output", "entry": "index.html", "files": ["index.html", "app.js"] },
+    {
+      "slug": "muse-wonder-full",
+      "folder": "muse/output",
+      "entry": "index.html",
+      "files": ["index.html"],
+      "vendor": [
+        { "url": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "path": "vendor/three/build/three.module.js" },
+        { "url": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js", "path": "vendor/three/examples/jsm/controls/OrbitControls.js" }
+      ],
+      "rewrite": [["https://cdn.jsdelivr.net/npm/three@0.160.0/", "./vendor/three/"]]
+    },
+    { "slug": "opus-5-5", "folder": "opus/output", "entry": "index.html", "files": ["index.html"] },
+    { "slug": "gpt-6-1-sol", "folder": "sol/output", "entry": "aether.html", "files": ["aether.html"] },
+    { "slug": "sonnet-5-5", "folder": "sonnet/output", "entry": "index.html", "files": ["index.html", "app.js"] }
+  ]
+}

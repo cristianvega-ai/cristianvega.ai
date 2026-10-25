@@ -1,0 +1,1060 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sky Citadel</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #070a12; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+  #hint { position: fixed; left: 16px; bottom: 12px; font: 13px/1.4 system-ui, sans-serif;
+          color: rgba(255,255,255,.6); pointer-events: none; text-shadow: 0 1px 2px #000; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint">Drag to look around &middot; R to reset</div>
+<script>
+'use strict';
+
+/* ==========================================================================
+   Sky Citadel: a floating voxel island with a castle, forests, waterfalls,
+   clouds and birds. The world is a 320x200x320 voxel grid that the fragment
+   shader walks with an exact DDA. Volumetric clouds, waterfall sheets, mist
+   and birds are analytic and composited along each ray.
+   ========================================================================== */
+
+const params = new URLSearchParams(location.search);
+const STILL = params.has('still');
+const STILL_W = +(params.get('w') || 2560);
+const STILL_H = +(params.get('h') || 1440);
+const SPP = +(params.get('spp') || 64);
+const FIXED_T = +(params.get('t') || 0);
+const QUALITY = +(params.get('q') || 0.75);
+
+/* ---------- deterministic helpers ---------- */
+let RS = 20261024;
+function rand() { RS = (Math.imul(RS, 1664525) + 1013904223) >>> 0; return RS / 4294967296; }
+function h3(x, y, z) {
+  let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(z | 0, 2147483629);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+function vnoise2(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = h3(xi, yi, 7), b = h3(xi + 1, yi, 7), c = h3(xi, yi + 1, 7), d = h3(xi + 1, yi + 1, 7);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm2(x, y) {
+  let s = 0, a = 0.5, n = 0;
+  for (let i = 0; i < 4; i++) { s += a * vnoise2(x, y); n += a; x = x * 2.03 + 17.1; y = y * 2.03 + 9.7; a *= 0.5; }
+  return s / n;
+}
+const clamp01 = v => Math.min(1, Math.max(0, v));
+const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm3 = a => { const l = Math.hypot(a[0], a[1], a[2]); return [a[0] / l, a[1] / l, a[2] / l]; };
+
+/* ---------- voxel world ---------- */
+const GX = 320, GY = 200, GZ = 320;
+const WL = 8;                                  // water surface height
+const ISL = { x: 160, z: 200, R: 42, top: 150 };
+const MAT = {
+  GRASS: 1, DIRT: 2, STONE: 3, WOOD: 5, LEAF_DARK: 6, LEAF: 7, CASTLE: 8, CASTLE_DARK: 9,
+  ROOF_RED: 10, WATER: 11, GLOW: 12, BANNER: 13, ROCK_DARK: 14, ROCK_LIGHT: 15, SAND: 16,
+  BLOSSOM: 17, ROOF_BLUE: 18, MOSS: 19, PLANK: 20
+};
+const vox = new Uint8Array(GX * GY * GZ);
+const vIdx = (x, y, z) => x + GX * (y + GY * z);
+function put(x, y, z, m) { if (x >= 0 && y >= 0 && z >= 0 && x < GX && y < GY && z < GZ) vox[vIdx(x, y, z)] = m; }
+function at(x, y, z) { return (x >= 0 && y >= 0 && z >= 0 && x < GX && y < GY && z < GZ) ? vox[vIdx(x, y, z)] : 0; }
+function putAir(x, y, z, m) { if (at(x, y, z) === 0) put(x, y, z, m); }
+
+// Terrain heightmap (floating point surface height, in voxel units)
+const HT = new Float32Array(GX * GZ);
+const riverX = z => 120 + 14 * Math.sin(z * 0.028 + 0.6);
+for (let z = 0; z < GZ; z++) for (let x = 0; x < GX; x++) {
+  let h = 9 + 6 * fbm2(x * 0.011, z * 0.011) + 2.0 * fbm2(x * 0.05, z * 0.05)
+        + 5 * Math.pow(fbm2(x * 0.02 + 50, z * 0.02), 2);
+  const river = 1 - smooth(3.5, 7.0, Math.abs(x - riverX(z)));
+  h += (5.0 - h) * river;
+  HT[x + GX * z] = h;
+}
+
+// Island outline and surface
+function islandEdge(ang) {
+  return ISL.R * (1 + 0.16 * (fbm2(Math.cos(ang) * 1.3 + 5, Math.sin(ang) * 1.3 + 5) * 2 - 1));
+}
+function islandCol(x, z) {
+  const dx = x - ISL.x, dz = z - ISL.z, r = Math.hypot(dx, dz);
+  const edge = islandEdge(Math.atan2(dz, dx));
+  const f = r / edge;
+  const flat = 1 - smooth(18, 26, r);
+  let top = ISL.top + 2.4 * (fbm2(x * 0.06 + 9, z * 0.06) - 0.5) * smooth(20, 30, r) - 5 * smooth(0.55, 1, f) * f;
+  top = Math.round(top * (1 - flat) + ISL.top * flat);
+  return { r, edge, f, top };
+}
+function islandBottom(x, z, top, f) {
+  const depth = 40 * Math.pow(Math.max(0, 1 - f), 0.85) + 2 + 5 * (vnoise2(x * 0.12, z * 0.12) - 0.5);
+  return Math.round(top - depth);
+}
+
+// Waterfalls leave the island lip and fall to pools on the valley floor
+const FALL_ANGLES = [-150, -112, -72, -30].map(d => d * Math.PI / 180);
+const FALLS = FALL_ANGLES.map((ang, i) => {
+  const dx = Math.cos(ang), dz = Math.sin(ang);
+  const edge = islandEdge(ang);
+  const ex = ISL.x + dx * (edge + 0.2), ez = ISL.z + dz * (edge + 0.2);
+  const lip = islandCol(ex, ez);
+  return { ex, ez, dx, dz, w: 5.2 + 0.9 * (i % 2), ey: lip.top + 1.0, yb: WL + 0.25 };
+});
+function carve(cx, cz, rad, floorH) {
+  for (let z = Math.floor(cz - rad - 1); z <= Math.ceil(cz + rad + 1); z++)
+    for (let x = Math.floor(cx - rad - 1); x <= Math.ceil(cx + rad + 1); x++) {
+      if (x < 0 || z < 0 || x >= GX || z >= GZ) continue;
+      const d = Math.hypot(x - cx, z - cz);
+      const w = 1 - smooth(rad * 0.6, rad, d);
+      const i = x + GX * z;
+      HT[i] += (floorH - HT[i]) * w;
+    }
+}
+for (const F of FALLS) {
+  const tx = -F.dz, tz = F.dx;
+  for (let s = -F.w - 3; s <= F.w + 3; s += 1) carve(F.ex + tx * s, F.ez + tz * s, 4.0, 4.6);
+  carve(F.ex + F.dx * 4.5, F.ez + F.dz * 4.5, 7.5, 4.6);       // plunge pool
+}
+
+// Terrain voxels and water
+for (let z = 0; z < GZ; z++) for (let x = 0; x < GX; x++) {
+  const h = HT[x + GX * z];
+  const top = Math.floor(h);
+  const nearRiver = Math.abs(x - riverX(z)) < 9;
+  for (let y = 0; y <= top; y++) {
+    let m;
+    if (y === top) m = (h < WL + 0.6 || nearRiver) ? MAT.SAND : (rand() < 0.1 ? MAT.MOSS : MAT.GRASS);
+    else if (y >= top - 3) m = MAT.DIRT;
+    else m = MAT.STONE;
+    put(x, y, z, m);
+  }
+  if (h < WL) for (let y = top + 1; y < WL; y++) put(x, y, z, MAT.WATER);
+}
+
+// Floating island
+const ISL_TOP = new Int16Array(GX * GZ).fill(-1);
+const ISL_BOT = new Int16Array(GX * GZ);
+for (let z = ISL.z - 50; z <= ISL.z + 50; z++) for (let x = ISL.x - 50; x <= ISL.x + 50; x++) {
+  const c = islandCol(x, z);
+  if (c.r > c.edge) continue;
+  const bot = islandBottom(x, z, c.top, c.f);
+  const ci = x + GX * z;
+  ISL_TOP[ci] = c.top; ISL_BOT[ci] = bot;
+  for (let y = bot; y <= c.top; y++) {
+    let m;
+    if (y === c.top) m = (Math.max(Math.abs(x - ISL.x), Math.abs(z - ISL.z)) < 12) ? MAT.CASTLE : (rand() < 0.08 ? MAT.MOSS : MAT.GRASS);
+    else if (y >= c.top - 3) m = MAT.DIRT;
+    else {
+      const band = Math.floor((y + 2.5 * vnoise2(x * 0.09, z * 0.09)) / 3);
+      m = (band & 1) ? MAT.ROCK_LIGHT : MAT.ROCK_DARK;
+    }
+    put(x, y, z, m);
+  }
+  // Hanging vines and moss from the underside rim
+  if (c.f > 0.8 && rand() < 0.45) {
+    const len = 2 + Math.floor(rand() * 11);
+    for (let k = 1; k <= len; k++) putAir(x, bot - k, z, rand() < 0.7 ? MAT.LEAF_DARK : MAT.MOSS);
+  }
+}
+
+// Castle
+function tower(tx, tz, r, h, roofMat, flag) {
+  const B = ISL.top + 1;
+  const R = Math.ceil(r);
+  for (let y = B; y < B + h; y++) for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
+    const d = Math.hypot(dx, dz);
+    if (d > r) continue;
+    const shell = d > r - 1.2;
+    let m = MAT.CASTLE;
+    if (y < B + 3) m = MAT.CASTLE_DARK;
+    else if (shell && (y - B) % 5 === 3 && (dx === 0 || dz === 0)) m = MAT.GLOW;
+    put(tx + dx, y, tz + dz, m);
+  }
+  const top = B + h;
+  for (let k = 0; k < 9; k++) {
+    const rr = (r + 1.4) * (1 - k / 9);
+    const RR = Math.ceil(rr) + 1;
+    for (let dz = -RR; dz <= RR; dz++) for (let dx = -RR; dx <= RR; dx++) {
+      if (Math.hypot(dx, dz) <= rr - 0.2) put(tx + dx, top + k, tz + dz, roofMat);
+    }
+  }
+  if (flag) {
+    for (let y = top + 9; y < top + 15; y++) put(tx, y, tz, MAT.PLANK);
+    for (let dx = 1; dx <= 4; dx++) for (let dy = 0; dy < 2; dy++) put(tx + dx, top + 14 - dy, tz, MAT.BANNER);
+  }
+}
+function buildCastle() {
+  const cx = ISL.x, cz = ISL.z, B = ISL.top + 1, H = 9, hw = 12;
+  // Courtyard paving
+  for (let dz = -hw + 1; dz < hw; dz++) for (let dx = -hw + 1; dx < hw; dx++)
+    put(cx + dx, ISL.top, cz + dz, ((dx + dz) & 1) ? MAT.CASTLE : MAT.CASTLE_DARK);
+  // Curtain wall with merlons
+  for (let dz = -hw; dz <= hw; dz++) for (let dx = -hw; dx <= hw; dx++) {
+    const ring = Math.max(Math.abs(dx), Math.abs(dz));
+    if (ring < hw - 1) continue;
+    const along = Math.abs(dx) >= Math.abs(dz) ? dz : dx;
+    for (let y = B; y < B + H; y++) put(cx + dx, y, cz + dz, MAT.CASTLE);
+    if ((along & 1) === 0) put(cx + dx, B + H, cz + dz, MAT.CASTLE);
+  }
+  // Gate opening on the south wall, with a stone arch
+  for (let dz = -hw; dz <= -hw + 1; dz++) {
+    for (let dx = -2; dx <= 2; dx++) for (let y = B; y <= B + 3; y++) put(cx + dx, y, cz + dz, 0);
+    for (let dx = -2; dx <= 2; dx++) put(cx + dx, B + 4, cz + dz, MAT.CASTLE);
+  }
+  // Corner towers, keep and roofs
+  for (const [ox, oz] of [[-hw, -hw], [hw, -hw], [-hw, hw], [hw, hw]]) tower(cx + ox, cz + oz, 3.6, 28, MAT.ROOF_RED, true);
+  tower(cx, cz, 5.2, 36, MAT.ROOF_BLUE, true);
+  // Great hall with a ridged roof
+  for (let dz = 3; dz <= 10; dz++) for (let dx = -10; dx <= -4; dx++) for (let y = B; y < B + 7; y++) {
+    const win = dx === -4 && (y - B) % 4 === 2 && dz % 3 === 0;
+    put(cx + dx, y, cz + dz, win ? MAT.GLOW : MAT.CASTLE);
+  }
+  for (let k = 0; k < 4; k++) for (let dx = -11; dx <= -3; dx++) for (let dz = 3 + k; dz <= 10 - k; dz++)
+    put(cx + dx, B + 7 + k, cz + dz, MAT.ROOF_RED);
+  // Sand path from the gate to the rim
+  for (let z = cz - hw - 1; z >= cz - ISL.R; z--) for (let dx = -1; dx <= 1; dx++) {
+    const t = at(cx + dx, ISL.top, z);
+    if (t === MAT.GRASS || t === MAT.MOSS) put(cx + dx, ISL.top, z, MAT.SAND);
+  }
+}
+buildCastle();
+
+// Trees
+function tree(x, y0, z, kind) {
+  if (kind === 'pine') {
+    const H = 10 + Math.floor(rand() * 7), R0 = 3.4 + rand() * 1.6;
+    const leaf = rand() < 0.7 ? MAT.LEAF_DARK : MAT.LEAF;
+    for (let j = 0; j < H * 0.6; j++) put(x, y0 + j, z, MAT.WOOD);
+    for (let j = 1; j < H; j++) {
+      const rr = Math.max(0, R0 * (1 - j / H)) * (j % 3 === 2 ? 0.65 : 1);
+      const RR = Math.ceil(rr);
+      for (let dz = -RR; dz <= RR; dz++) for (let dx = -RR; dx <= RR; dx++) {
+        if (dx * dx + dz * dz > rr * rr + 0.5 || rand() < 0.06) continue;
+        putAir(x + dx, y0 + j, z + dz, leaf);
+      }
+    }
+    return;
+  }
+  const th = 4 + Math.floor(rand() * 3);
+  for (let j = 0; j < th; j++) put(x, y0 + j, z, MAT.WOOD);
+  const R = 2.6 + rand() * 1.8, cy = Math.round(y0 + th + R * 0.55);
+  const m = rand() < 0.12 ? MAT.BLOSSOM : (rand() < 0.55 ? MAT.LEAF_DARK : MAT.LEAF);
+  const RR = Math.ceil(R + 1);
+  for (let dy = -RR; dy <= RR; dy++) for (let dz = -RR; dz <= RR; dz++) for (let dx = -RR; dx <= RR; dx++) {
+    const d2 = dx * dx + dy * dy * 1.2 + dz * dz;
+    if (d2 > R * R + (rand() - 0.5) * R || rand() < 0.08) continue;
+    putAir(x + dx, cy + dy, z + dz, m);
+  }
+}
+const vec3Param = (k, d) => params.has(k) ? params.get(k).split(',').map(Number) : d;
+const camPos = vec3Param('cam', [40, 180, 70]);
+const TGT = vec3Param('tgt', [174, 145, 215]);
+const FOV = +(params.get('fov') || 70);
+const APERTURE = +(params.get('ap') || 0.35);
+// Keep the camera's sightline to the waterfall pools clear of trees
+const FALL_BASE = FALLS.map(F => [F.ex + F.dx * 4.5, F.ez + F.dz * 4.5]);
+function distToSegment(px, pz, ax, az, bx, bz) {
+  const vx = bx - ax, vz = bz - az;
+  const t = clamp01(((px - ax) * vx + (pz - az) * vz) / (vx * vx + vz * vz));
+  return Math.hypot(px - (ax + vx * t), pz - (az + vz * t));
+}
+function treeClear(x, z) {
+  if (Math.hypot(x - camPos[0], z - camPos[2]) < 40) return false;
+  for (const [bx, bz] of FALL_BASE) {
+    if (Math.hypot(x - bx, z - bz) < 30) return false;
+    if (distToSegment(x, z, camPos[0], camPos[2], bx, bz) < 10) return false;
+  }
+  return true;
+}
+for (let n = 0; n < 1400; n++) {
+  const x = 3 + Math.floor(rand() * (GX - 6)), z = 3 + Math.floor(rand() * (GZ - 6));
+  const h = HT[x + GX * z];
+  if (h < WL + 0.8) continue;
+  if ((x - ISL.x) ** 2 + (z - ISL.z) ** 2 < 26 * 26) continue;
+  if (!treeClear(x, z)) continue;
+  if (rand() < 0.3) bush(x, Math.floor(h), z, 1.7 + rand() * 0.8);
+  else tree(x, Math.floor(h) + 1, z, rand() < 0.4 ? 'pine' : 'broad');
+}
+// Grass tufts and flowers across the valley floor
+for (let n = 0; n < 9000; n++) {
+  const x = Math.floor(rand() * GX), z = Math.floor(rand() * GZ);
+  const h = HT[x + GX * z];
+  if (h < WL + 0.5) continue;
+  const top = Math.floor(h);
+  const flower = rand() < 0.06;
+  putAir(x, top + 1, z, flower ? MAT.BLOSSOM : (rand() < 0.5 ? MAT.LEAF : MAT.MOSS));
+  if (rand() < 0.4) putAir(x, top + 2, z, MAT.LEAF_DARK);
+}
+// Island greenery: trees on the outer ring, bushes around the castle
+for (let z = ISL.z - 50; z <= ISL.z + 50; z++) for (let x = ISL.x - 50; x <= ISL.x + 50; x++) {
+  const ci = x + GX * z;
+  if (ISL_TOP[ci] < 0) continue;
+  const c = islandCol(x, z);
+  if (Math.abs(x - ISL.x) <= 3 && z < ISL.z - 10) continue;
+  if (c.r >= 22 && c.r < c.edge - 4 && rand() < 0.03) tree(x, c.top + 1, z, rand() < 0.5 ? 'pine' : 'broad');
+  else if (c.r >= 14 && c.r < 22 && rand() < 0.07) bush(x, c.top - 1, z, 1.6 + rand() * 0.8);
+}
+
+function bush(x, y0, z, br) {
+  for (let dy = -2; dy <= 2; dy++) for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+    if (dx * dx + dy * dy * 1.5 + dz * dz > br * br + 0.5 || rand() < 0.1) continue;
+    putAir(x + dx, y0 + 2 + dy, z + dz, rand() < 0.2 ? MAT.BLOSSOM : MAT.LEAF);
+  }
+}
+
+/* ---------- noise texture (tileable value noise in four octaves) ---------- */
+function buildNoiseTex(N) {
+  const data = new Uint8Array(N * N * N * 4);
+  const periods = [4, 8, 16, 32];
+  const wrap = (v, P) => ((v % P) + P) % P;
+  for (let ch = 0; ch < 4; ch++) {
+    const P = periods[ch];
+    const lat = new Float32Array(P * P * P);
+    for (let i = 0; i < lat.length; i++) lat[i] = h3(i, ch * 97 + 1, 13);
+    const L = (a, b, c) => lat[wrap(a, P) + P * (wrap(b, P) + P * wrap(c, P))];
+    for (let z = 0; z < N; z++) for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const fx = x / N * P, fy = y / N * P, fz = z / N * P;
+      const ix = Math.floor(fx), iy = Math.floor(fy), iz = Math.floor(fz);
+      const tx = smooth(0, 1, fx - ix), ty = smooth(0, 1, fy - iy), tz = smooth(0, 1, fz - iz);
+      const c00 = L(ix, iy, iz) + (L(ix + 1, iy, iz) - L(ix, iy, iz)) * tx;
+      const c10 = L(ix, iy + 1, iz) + (L(ix + 1, iy + 1, iz) - L(ix, iy + 1, iz)) * tx;
+      const c01 = L(ix, iy, iz + 1) + (L(ix + 1, iy, iz + 1) - L(ix, iy, iz + 1)) * tx;
+      const c11 = L(ix, iy + 1, iz + 1) + (L(ix + 1, iy + 1, iz + 1) - L(ix, iy + 1, iz + 1)) * tx;
+      const v = (c00 + (c10 - c00) * ty) * (1 - tz) + (c01 + (c11 - c01) * ty) * tz;
+      data[((z * N + y) * N + x) * 4 + ch] = Math.round(v * 255);
+    }
+  }
+  return data;
+}
+
+/* ---------- birds ---------- */
+const NB = 16;
+const BIRDS = Array.from({ length: NB }, () => ({
+  a0: rand() * 6.283, w: (0.03 + rand() * 0.045) * (rand() < 0.5 ? -1 : 1),
+  rx: 56 + rand() * 80, rz: 56 + rand() * 80, y: 120 + rand() * 60,
+  bob: 3 + rand() * 6, ph: rand() * 6.283, flapRate: 7 + rand() * 3
+}));
+function birdState(b, t) {
+  const a = b.a0 + b.w * t;
+  const pos = [ISL.x + Math.cos(a) * b.rx, b.y + Math.sin(2 * a + b.ph) * b.bob, ISL.z + Math.sin(a) * b.rz];
+  const vel = [-Math.sin(a) * b.rx * b.w, 2 * Math.cos(2 * a + b.ph) * b.bob * b.w, Math.cos(a) * b.rz * b.w];
+  const f = norm3(vel);
+  const r = norm3([f[2], 0, -f[0]]);
+  const u = cross3(f, r);
+  return { pos, m: [r[0], r[1], r[2], u[0], u[1], u[2], f[0], f[1], f[2]], flap: t * b.flapRate + b.ph };
+}
+
+/* ---------- WebGL2 setup ---------- */
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
+if (!gl) throw new Error('WebGL2 is not available in this browser.');
+if (!gl.getExtension('EXT_color_buffer_float')) throw new Error('EXT_color_buffer_float is required.');
+const vao = gl.createVertexArray();
+gl.bindVertexArray(vao);
+
+const VS = `#version 300 es
+void main() {
+  vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}`;
+
+const SCENE_FS = `#version 300 es
+precision highp float;
+precision highp int;
+precision highp usampler3D;
+precision highp sampler3D;
+out vec4 fragColor;
+
+uniform vec2 uRes;
+uniform float uTime, uFrame;
+uniform vec3 uCamPos, uCamR, uCamU, uCamF;
+uniform float uTanHalfFov, uFocus, uAperture;
+uniform vec3 uSun;
+uniform usampler3D uVox;
+uniform sampler3D uNoise;
+uniform int uNumFalls, uNumBirds;
+uniform vec4 uFallE[4];
+uniform vec4 uFallD[4];
+uniform mat3 uBirdM[16];
+uniform vec4 uBirdP[16];
+
+const vec3 GRIDF = vec3(320.0, 200.0, 320.0);
+const ivec3 GRIDI = ivec3(320, 200, 320);
+const float PI = 3.14159265;
+const vec3 SUN_COL = vec3(1.0, 0.76, 0.50) * 3.0;
+const float CLOUD_LO = 34.0;
+const float CLOUD_HI = 70.0;
+
+const uint M_GRASS = 1u, M_DIRT = 2u, M_STONE = 3u, M_WOOD = 5u, M_LEAF_DARK = 6u, M_LEAF = 7u;
+const uint M_CASTLE = 8u, M_CASTLE_DARK = 9u, M_ROOF_RED = 10u, M_WATER = 11u, M_GLOW = 12u;
+const uint M_BANNER = 13u, M_ROCK_DARK = 14u, M_ROCK_LIGHT = 15u, M_SAND = 16u, M_BLOSSOM = 17u;
+const uint M_ROOF_BLUE = 18u, M_MOSS = 19u, M_PLANK = 20u;
+
+float hash12(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+float hash13(vec3 p3) {
+  p3 = fract(p3 * 0.1031);
+  p3 += dot(p3, p3.zyx + 31.32);
+  return fract((p3.x + p3.y) * p3.z);
+}
+float fbmN(vec3 p) {
+  vec4 n = textureLod(uNoise, p, 0.0);
+  return dot(n, vec4(0.5, 0.25, 0.125, 0.0625)) / 0.9375;
+}
+
+vec3 skyColor(vec3 rd) {
+  float y = rd.y;
+  vec3 hor = vec3(1.0, 0.60, 0.40);
+  vec3 mid = vec3(0.28, 0.45, 0.80);
+  vec3 zen = vec3(0.04, 0.10, 0.32);
+  vec3 c = mix(hor, mid, smoothstep(0.0, 0.32, y));
+  c = mix(c, zen, smoothstep(0.32, 0.9, y));
+  float s = max(dot(rd, uSun), 0.0);
+  c += vec3(1.0, 0.55, 0.25) * pow(s, 10.0) * 0.4;
+  c += vec3(1.0, 0.92, 0.78) * pow(s, 700.0) * 9.0;
+  return c;
+}
+vec3 aerial(vec3 c, float t, vec3 rd) {
+  float f = 1.0 - exp(-t * 0.0011);
+  vec3 hz = skyColor(normalize(vec3(rd.x, max(rd.y, 0.03), rd.z)));
+  return mix(c, hz, f);
+}
+
+vec3 sunSample(vec2 u) {
+  vec3 s = uSun;
+  vec3 a = normalize(cross(s, vec3(0.0, 1.0, 0.0)));
+  vec3 b = cross(s, a);
+  float r = sqrt(u.x) * 0.035;
+  float th = 2.0 * PI * u.y;
+  return normalize(s + (a * cos(th) + b * sin(th)) * r);
+}
+
+/* ---- exact voxel DDA ---- */
+bool castGrid(vec3 ro, vec3 rd, float tMax, out float tHit, out ivec3 cell, out vec3 nrm, out uint mat) {
+  vec3 rs = vec3(abs(rd.x) < 1e-5 ? 1e-5 : rd.x, abs(rd.y) < 1e-5 ? 1e-5 : rd.y, abs(rd.z) < 1e-5 ? 1e-5 : rd.z);
+  vec3 inv = 1.0 / rs;
+  vec3 ta = -ro * inv;
+  vec3 tb = (GRIDF - ro) * inv;
+  vec3 tmn = min(ta, tb), tmx = max(ta, tb);
+  float tE = max(max(tmn.x, tmn.y), max(tmn.z, 0.0));
+  float tX = min(min(tmx.x, tmx.y), tmx.z);
+  tHit = tE;
+  if (tE > tX || tE > tMax) return false;
+  cell = clamp(ivec3(floor(ro + rd * (tE + 1e-3))), ivec3(0), GRIDI - 1);
+  ivec3 st = ivec3(sign(rs));
+  vec3 tD = abs(inv);
+  vec3 tM = (vec3(cell + max(st, 0)) - ro) * inv;
+  vec3 mask = step(vec3(tE - 1e-4), tmn);
+  float t = tE;
+  for (int i = 0; i < 800; i++) {
+    uint m = texelFetch(uVox, cell, 0).r;
+    if (m != 0u) { tHit = t; nrm = -vec3(st) * mask; mat = m; return true; }
+    if (tM.x < tM.y && tM.x < tM.z) { t = tM.x; tM.x += tD.x; cell.x += st.x; mask = vec3(1.0, 0.0, 0.0); }
+    else if (tM.y < tM.z) { t = tM.y; tM.y += tD.y; cell.y += st.y; mask = vec3(0.0, 1.0, 0.0); }
+    else { t = tM.z; tM.z += tD.z; cell.z += st.z; mask = vec3(0.0, 0.0, 1.0); }
+    if (t > tMax || t > tX) break;
+    if (cell.x < 0 || cell.y < 0 || cell.z < 0 || cell.x >= GRIDI.x || cell.y >= GRIDI.y || cell.z >= GRIDI.z) break;
+  }
+  return false;
+}
+bool occluded(vec3 p, vec3 L) {
+  float t; ivec3 c; vec3 n; uint m;
+  return castGrid(p, L, 400.0, t, c, n, m);
+}
+bool solidAt(ivec3 c) {
+  if (c.x < 0 || c.y < 0 || c.z < 0 || c.x >= GRIDI.x || c.y >= GRIDI.y || c.z >= GRIDI.z) return false;
+  return texelFetch(uVox, c, 0).r != 0u;
+}
+float cornerOcc(ivec3 a, ivec3 du, ivec3 dv) {
+  float s1 = solidAt(a + du) ? 1.0 : 0.0;
+  float s2 = solidAt(a + dv) ? 1.0 : 0.0;
+  float c = solidAt(a + du + dv) ? 1.0 : 0.0;
+  float occ = (s1 * s2 > 0.5) ? 3.0 : s1 + s2 + c;
+  return occ / 3.0;
+}
+void faceAxes(vec3 n, out vec3 tu, out vec3 tv) {
+  if (abs(n.y) > 0.5) { tu = vec3(1.0, 0.0, 0.0); tv = vec3(0.0, 0.0, 1.0); }
+  else if (abs(n.x) > 0.5) { tu = vec3(0.0, 1.0, 0.0); tv = vec3(0.0, 0.0, 1.0); }
+  else { tu = vec3(1.0, 0.0, 0.0); tv = vec3(0.0, 1.0, 0.0); }
+}
+float voxelAO(ivec3 cell, vec3 n, vec3 p) {
+  ivec3 a = cell + ivec3(round(n));
+  vec3 tu, tv;
+  faceAxes(n, tu, tv);
+  ivec3 iu = ivec3(tu), iv = ivec3(tv);
+  float fu = fract(dot(p, tu)), fv = fract(dot(p, tv));
+  float o00 = cornerOcc(a, -iu, -iv);
+  float o10 = cornerOcc(a, iu, -iv);
+  float o01 = cornerOcc(a, -iu, iv);
+  float o11 = cornerOcc(a, iu, iv);
+  float occ = mix(mix(o00, o10, fu), mix(o01, o11, fu), fv);
+  return 1.0 - 0.6 * occ;
+}
+
+vec3 matAlbedo(uint m, ivec3 c, vec3 n) {
+  float r = hash13(vec3(c));
+  float r2 = hash13(vec3(c) + 17.0);
+  float v = 0.88 + 0.24 * r;
+  if (m == M_GRASS) {
+    if (n.y < 0.5) return vec3(0.23, 0.13, 0.07) * v;
+    return mix(vec3(0.06, 0.20, 0.03), vec3(0.15, 0.34, 0.05), r2) * v;
+  }
+  if (m == M_DIRT) return vec3(0.23, 0.14, 0.07) * v;
+  if (m == M_STONE) return mix(vec3(0.30, 0.28, 0.25), vec3(0.40, 0.38, 0.34), r2) * v;
+  if (m == M_WOOD) return vec3(0.20, 0.11, 0.05) * v;
+  if (m == M_LEAF_DARK) return mix(vec3(0.03, 0.16, 0.03), vec3(0.07, 0.24, 0.04), r2) * v;
+  if (m == M_LEAF) return mix(vec3(0.12, 0.36, 0.04), vec3(0.22, 0.52, 0.08), r2) * v;
+  if (m == M_CASTLE) return mix(vec3(0.55, 0.52, 0.47), vec3(0.62, 0.58, 0.50), r2) * v;
+  if (m == M_CASTLE_DARK) return vec3(0.30, 0.28, 0.26) * v;
+  if (m == M_ROOF_RED) return mix(vec3(0.45, 0.08, 0.04), vec3(0.55, 0.14, 0.07), r2) * v;
+  if (m == M_ROOF_BLUE) return mix(vec3(0.06, 0.18, 0.42), vec3(0.10, 0.26, 0.50), r2) * v;
+  if (m == M_BANNER) return vec3(0.70, 0.04, 0.07) * v;
+  if (m == M_ROCK_DARK) return vec3(0.16, 0.11, 0.08) * v;
+  if (m == M_ROCK_LIGHT) return mix(vec3(0.46, 0.36, 0.26), vec3(0.58, 0.46, 0.34), r2) * v;
+  if (m == M_SAND) return vec3(0.52, 0.42, 0.24) * v;
+  if (m == M_BLOSSOM) return mix(vec3(0.75, 0.35, 0.52), vec3(0.90, 0.50, 0.62), r2) * v;
+  if (m == M_MOSS) return vec3(0.09, 0.22, 0.06) * v;
+  if (m == M_PLANK) return vec3(0.30, 0.18, 0.09) * v;
+  return vec3(0.5) * v;
+}
+
+vec3 shadeWater(vec3 rd, vec3 n, vec3 p, float t, vec3 sunDir) {
+  vec3 nw = n;
+  if (n.y > 0.5) {
+    nw = normalize(vec3(0.06 * sin(p.x * 1.9 + uTime * 1.4) + 0.04 * sin(p.z * 2.7 - uTime * 1.1),
+                        1.0,
+                        0.06 * cos(p.z * 1.5 + uTime * 1.2) + 0.03 * sin(p.x * 3.1 + uTime * 1.7)));
+  }
+  vec3 R = reflect(rd, nw);
+  float cosI = clamp(dot(-rd, nw), 0.0, 1.0);
+  float fres = 0.04 + 0.96 * pow(1.0 - cosI, 5.0);
+  vec3 refl = skyColor(R);
+  vec3 deep = vec3(0.02, 0.12, 0.16) * (0.5 + 0.7 * max(dot(nw, sunDir), 0.0));
+  vec3 col = mix(deep, refl, clamp(fres * 1.2, 0.0, 1.0));
+  col += SUN_COL * pow(max(dot(R, sunDir), 0.0), 400.0) * 3.0;
+  return aerial(col, t, rd);
+}
+
+vec3 shadeVoxel(vec3 ro, vec3 rd, float t, ivec3 cell, vec3 n, uint m, vec4 rnd) {
+  vec3 p = ro + rd * t;
+  if (m == M_WATER) return shadeWater(rd, n, p, t, uSun);
+  if (m == M_GLOW) return aerial(vec3(1.0, 0.66, 0.30) * 3.0, t, rd);
+  vec3 tu, tv;
+  faceAxes(n, tu, tv);
+  float fu = fract(dot(p, tu)), fv = fract(dot(p, tv));
+  float edge = min(min(fu, 1.0 - fu), min(fv, 1.0 - fv));
+  float edgeK = mix(0.72, 1.0, smoothstep(0.0, 0.07, edge));
+  vec3 alb = matAlbedo(m, cell, n) * edgeK;
+  float ao = voxelAO(cell, n, p);
+  vec3 L = sunSample(rnd.xy);
+  float sh = occluded(p + n * 0.02, L) ? 0.0 : 1.0;
+  float ndl = max(dot(n, L), 0.0);
+  vec3 sky = vec3(0.30, 0.42, 0.68) * 0.9;
+  vec3 bounce = vec3(0.45, 0.30, 0.18) * 0.35;
+  vec3 amb = mix(bounce, sky, 0.5 + 0.5 * n.y) * ao;
+  vec3 col = alb * (SUN_COL * ndl * sh + amb);
+  return aerial(col, t, rd);
+}
+
+/* ---- clouds ---- */
+float cloudDensity(vec3 p) {
+  float h = (p.y - CLOUD_LO) / (CLOUD_HI - CLOUD_LO);
+  float prof = smoothstep(0.0, 0.2, h) * (1.0 - smoothstep(0.6, 1.0, h));
+  if (prof <= 0.0) return 0.0;
+  float reach = smoothstep(120.0, 260.0, length(p.xz - uCamPos.xz));
+  if (reach <= 0.0) return 0.0;
+  vec3 q = p * 0.0042;
+  q.xz = mat2(0.8, -0.6, 0.6, 0.8) * q.xz;
+  q += (textureLod(uNoise, q * 0.7 + 0.31, 0.0).rgb - 0.5) * 0.12;
+  q += vec3(uTime * 0.004, 0.0, uTime * 0.0015);
+  vec4 nb = textureLod(uNoise, q, 0.0);
+  float base = nb.r * 0.4 + nb.g * 0.35 + nb.b * 0.25;
+  float det = fbmN(q * 3.7 + 0.5);
+  float field = (base - 0.5) * 3.2 + 0.5 + (det - 0.5) * 0.5;
+  return smoothstep(0.70, 0.92, field) * prof * reach;
+}
+float hg(float c, float g) {
+  float g2 = g * g;
+  return (1.0 - g2) / pow(1.0 + g2 - 2.0 * g * c, 1.5);
+}
+void cloudsIntegrate(vec3 ro, vec3 rd, float t0, float t1, float rnd, inout vec3 L, inout float T) {
+  if (abs(rd.y) < 1e-5) return;
+  float ta = (CLOUD_LO - ro.y) / rd.y;
+  float tb = (CLOUD_HI - ro.y) / rd.y;
+  float a = max(min(ta, tb), t0);
+  float b = min(max(ta, tb), t1);
+  if (b <= a) return;
+  int N = int(clamp((b - a) / 1.0, 6.0, 110.0));
+  float dt = (b - a) / float(N);
+  float t = a + dt * rnd;
+  float cosT = dot(rd, uSun);
+  float phase = mix(1.0, hg(cosT, 0.45), 0.6);
+  for (int i = 0; i < 110; i++) {
+    if (i >= N) break;
+    vec3 p = ro + rd * t;
+    float d = cloudDensity(p);
+    if (d > 0.001) {
+      float ld = cloudDensity(p + uSun * 6.0) + cloudDensity(p + uSun * 14.0);
+      float h = clamp((p.y - CLOUD_LO) / (CLOUD_HI - CLOUD_LO), 0.0, 1.0);
+      float powder = 1.0 - 0.6 * exp(-d * 4.0);
+      vec3 sunL = SUN_COL * exp(-ld * 1.6) * phase * 0.9 * powder;
+      vec3 ambL = mix(vec3(0.42, 0.45, 0.58), vec3(0.62, 0.74, 0.98), h) * 0.45;
+      float sigma = d * 0.09;
+      L += T * (sunL + ambL) * sigma * dt;
+      T *= exp(-sigma * dt);
+      if (T < 0.02) break;
+    }
+    t += dt;
+  }
+}
+
+/* ---- birds (opaque silhouettes with flapping wings) ---- */
+bool birdHit(int i, vec3 ro, vec3 rd, float tMax, out float tOut, out vec3 nOut) {
+  vec3 c = uBirdP[i].xyz;
+  vec3 oc = ro - c;
+  float b = dot(oc, rd);
+  float cc = dot(oc, oc) - 4.0;
+  float disc0 = b * b - cc;
+  if (disc0 < 0.0 || -b - sqrt(disc0) > tMax) return false;
+  mat3 M = uBirdM[i];
+  mat3 Mt = transpose(M);
+  vec3 ol = Mt * oc, dl = Mt * rd;
+  float best = tMax;
+  bool hit = false;
+  vec3 rad = vec3(0.38, 0.33, 1.20);
+  vec3 o2 = ol / rad, d2 = dl / rad;
+  float A = dot(d2, d2), B = dot(o2, d2), C = dot(o2, o2) - 1.0;
+  float disc = B * B - A * C;
+  if (disc > 0.0) {
+    float tt = (-B - sqrt(disc)) / A;
+    if (tt > 0.0 && tt < best) {
+      best = tt; hit = true;
+      vec3 q = ol + dl * tt;
+      nOut = M * normalize(q / (rad * rad));
+    }
+  }
+  float flapS = sin(uBirdP[i].w) * 0.9;
+  for (int k = 0; k < 2; k++) {
+    float side = k == 0 ? 1.0 : -1.0;
+    vec3 wd = normalize(vec3(side, flapS, 0.0));
+    vec3 nW = vec3(-wd.y, wd.x, 0.0);
+    float den = dot(dl, nW);
+    if (abs(den) < 1e-6) continue;
+    float tw = -dot(ol, nW) / den;
+    if (tw <= 0.0 || tw >= best) continue;
+    vec3 q = ol + dl * tw;
+    float a = dot(q, wd);
+    if (a < 0.2 || a > 3.2) continue;
+    float halfChord = 0.6 * (1.0 - (a - 0.2) / 3.2) + 0.1;
+    if (abs(q.z + 0.12 * a) > halfChord) continue;
+    best = tw; hit = true;
+    nOut = M * (nW * sign(-den));
+  }
+  tOut = best;
+  return hit;
+}
+vec3 shadeBird(vec3 n, vec3 rd, float t) {
+  float ndl = max(dot(n, uSun), 0.0);
+  vec3 col = vec3(0.10, 0.085, 0.09) * (0.45 + 0.9 * ndl) * vec3(1.0, 0.9, 0.85);
+  return aerial(col, t, rd);
+}
+
+/* ---- waterfall sheets and mist (alpha events along the ray) ---- */
+vec4 sheetHit(int i, vec3 ro, vec3 rd, float tMax, out float tOut) {
+  vec4 E = uFallE[i], D = uFallD[i];
+  vec3 dir = normalize(vec3(D.x, 0.0, D.y));
+  vec3 tn = vec3(-dir.z, 0.0, dir.x);
+  vec3 P0 = vec3(E.x, 0.0, E.z);
+  float den = dot(rd, dir);
+  tOut = tMax;
+  if (abs(den) < 1e-5) return vec4(0.0);
+  float t = dot(P0 - ro, dir) / den;
+  if (t <= 0.0 || t >= tMax) return vec4(0.0);
+  vec3 h = ro + rd * t;
+  float s = dot(h - P0, tn);
+  if (abs(s) > E.w || h.y < D.z || h.y > E.y + 0.5) return vec4(0.0);
+  float y = h.y;
+  float fid = float(i);
+  vec4 nz = textureLod(uNoise, vec3(s * 0.07 + fid * 0.13, y * 0.018 + uTime * 0.45, fid * 0.31 + 0.2), 0.0);
+  float streak = smoothstep(0.30, 0.72, 0.6 * nz.b + 0.4 * nz.g);
+  float edgeF = 1.0 - smoothstep(E.w * 0.55, E.w, abs(s));
+  float foam = (1.0 - smoothstep(D.z + 0.8, D.z + 10.0, y)) * (0.6 + 0.4 * nz.r);
+  float alpha = (0.32 + 0.6 * streak) * edgeF;
+  alpha = max(alpha, foam * 0.85 * edgeF);
+  float lit = 0.45 + 0.55 * clamp(dot(dir, uSun) * 0.6 + 0.4, 0.0, 1.0);
+  vec3 water = vec3(0.62, 0.78, 0.92) * lit;
+  vec3 col = mix(water, vec3(0.95, 0.98, 1.0) * (0.7 + 0.5 * lit), clamp(foam, 0.0, 1.0));
+  tOut = t;
+  return vec4(aerial(col, t, rd), clamp(alpha, 0.0, 0.95));
+}
+vec4 mistHit(int i, vec3 ro, vec3 rd, float tMax, out float tEn) {
+  vec4 E = uFallE[i], D = uFallD[i];
+  vec3 c = vec3(E.x + D.x * 3.5, D.z + 2.5, E.z + D.y * 3.5);
+  vec3 rad = vec3(7.5, 5.0, 7.5);
+  vec3 oc = (ro - c) / rad, dd = rd / rad;
+  float A = dot(dd, dd), B = dot(oc, dd), C = dot(oc, oc) - 1.0;
+  float disc = B * B - A * C;
+  tEn = tMax;
+  if (disc <= 0.0) return vec4(0.0);
+  float sq = sqrt(disc);
+  float t1 = (-B - sq) / A, t2 = (-B + sq) / A;
+  if (t2 <= 0.0 || t1 >= tMax) return vec4(0.0);
+  tEn = max(t1, 0.0);
+  float chord = min(t2, tMax) - tEn;
+  vec3 q = ro + rd * tEn;
+  float n = fbmN(q * 0.06 + vec3(0.0, -uTime * 0.05, float(i) * 0.37));
+  float dens = 0.14 + 0.2 * n;
+  float alpha = 1.0 - exp(-chord * dens);
+  vec3 col = SUN_COL * 0.12 + vec3(0.60, 0.70, 0.85) * 0.30;
+  return vec4(aerial(col, tEn, rd), min(alpha, 0.9));
+}
+
+/* ---- full ray: volumes and surfaces composited in depth order ---- */
+vec3 renderRay(vec3 ro, vec3 rd, vec4 rnd, vec4 rnd2) {
+  float tV = 1e5; ivec3 cell = ivec3(0); vec3 nV = vec3(0.0); uint mV = 0u;
+  bool vHit = castGrid(ro, rd, 1e5, tV, cell, nV, mV);
+
+  float tB = 1e5; vec3 nB = vec3(0.0); bool bHit = false;
+  for (int i = 0; i < 16; i++) {
+    if (i >= uNumBirds) break;
+    float tb; vec3 nb;
+    if (birdHit(i, ro, rd, tB, tb, nb)) { tB = tb; nB = nb; bHit = true; }
+  }
+
+  bool opaque = vHit || bHit;
+  bool birdFirst = bHit && (!vHit || tB < tV);
+  float tOp = 1e5;
+  if (vHit) tOp = tV;
+  if (bHit) tOp = min(tOp, tB);
+
+  float eT[10];
+  vec4 eC[10];
+  int nE = 0;
+  for (int i = 0; i < 4; i++) {
+    if (i >= uNumFalls) break;
+    float ts;
+    vec4 cs = sheetHit(i, ro, rd, tOp, ts);
+    if (cs.a > 0.0 && nE < 10) { eT[nE] = ts; eC[nE] = cs; nE++; }
+    float tm;
+    vec4 cm = mistHit(i, ro, rd, tOp, tm);
+    if (cm.a > 0.0 && nE < 10) { eT[nE] = tm; eC[nE] = cm; nE++; }
+  }
+  for (int i = 1; i < 10; i++) {
+    if (i >= nE) break;
+    float kt = eT[i];
+    vec4 kc = eC[i];
+    int j = i - 1;
+    for (int q = 0; q < 10; q++) {
+      if (j < 0 || eT[j] <= kt) break;
+      eT[j + 1] = eT[j];
+      eC[j + 1] = eC[j];
+      j--;
+    }
+    eT[j + 1] = kt;
+    eC[j + 1] = kc;
+  }
+
+  vec3 L = vec3(0.0);
+  float T = 1.0;
+  float tp = 0.0;
+  for (int i = 0; i < 10; i++) {
+    if (i >= nE) break;
+    cloudsIntegrate(ro, rd, tp, eT[i], rnd.x, L, T);
+    L += T * eC[i].rgb * eC[i].a;
+    T *= 1.0 - eC[i].a;
+    tp = eT[i];
+  }
+  float tEnd = opaque ? tOp : 4000.0;
+  cloudsIntegrate(ro, rd, tp, tEnd, rnd.x, L, T);
+
+  vec3 surf;
+  if (birdFirst) surf = shadeBird(nB, rd, tB);
+  else if (vHit) surf = shadeVoxel(ro, rd, tV, cell, nV, mV, rnd2);
+  else surf = skyColor(rd);
+  L += T * surf;
+  return L;
+}
+
+void main() {
+  vec2 fc = gl_FragCoord.xy;
+  vec2 sd = fc + fract(uFrame * 0.618034) * vec2(173.0, 91.0);
+  vec4 rnd = vec4(hash12(sd), hash12(sd + 19.19), hash12(sd + 53.53), hash12(sd + 97.31));
+  vec4 rnd2 = vec4(hash12(sd + 7.7), hash12(sd + 29.1), hash12(sd + 61.3), hash12(sd + 11.9));
+  vec2 jit = rnd.xy - 0.5;
+  vec2 uv = ((fc + jit) * 2.0 - uRes) / uRes.y;
+  vec3 dirC = normalize(vec3(uv * uTanHalfFov, 1.0));
+  vec3 rd0 = normalize(uCamR * dirC.x + uCamU * dirC.y + uCamF * dirC.z);
+  float rr = sqrt(rnd2.x), th = 6.2831853 * rnd2.y;
+  vec3 lens = (uCamR * cos(th) + uCamU * sin(th)) * (rr * uAperture);
+  vec3 focusP = uCamPos + rd0 * uFocus;
+  vec3 ro = uCamPos + lens;
+  vec3 rd = normalize(focusP - ro);
+  fragColor = vec4(renderRay(ro, rd, rnd, rnd2), 1.0);
+}`;
+
+const ACCUM_FS = `#version 300 es
+precision highp float;
+precision highp sampler2D;
+uniform sampler2D uCur, uHist;
+uniform float uBlend;
+out vec4 o;
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy);
+  o = mix(texelFetch(uHist, p, 0), texelFetch(uCur, p, 0), uBlend);
+}`;
+
+const DISPLAY_FS = `#version 300 es
+precision highp float;
+precision highp sampler2D;
+uniform sampler2D uAcc;
+uniform vec2 uRes;
+out vec4 o;
+vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
+void main() {
+  vec2 uv = gl_FragCoord.xy / uRes;
+  vec3 c = texelFetch(uAcc, ivec2(gl_FragCoord.xy), 0).rgb;
+  c = aces(c * 0.98);
+  c = pow(c, vec3(1.0 / 2.2));
+  vec2 q = uv - 0.5;
+  c *= mix(1.0, 0.70, smoothstep(0.30, 0.95, length(q) * 1.25));
+  float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+  c += (n - 0.5) / 255.0;
+  o = vec4(c, 1.0);
+}`;
+
+function compile(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('Shader: ' + gl.getShaderInfoLog(s));
+  return s;
+}
+function program(fsSrc) {
+  const p = gl.createProgram();
+  gl.attachShader(p, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsSrc));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('Link: ' + gl.getProgramInfoLog(p));
+  return p;
+}
+function uniforms(p, names) {
+  const u = {};
+  for (const n of names) u[n] = gl.getUniformLocation(p, n);
+  return u;
+}
+
+const progScene = program(SCENE_FS);
+const uS = uniforms(progScene, ['uRes', 'uTime', 'uFrame', 'uCamPos', 'uCamR', 'uCamU', 'uCamF', 'uTanHalfFov',
+  'uFocus', 'uAperture', 'uSun', 'uVox', 'uNoise', 'uNumFalls', 'uNumBirds', 'uFallE', 'uFallD', 'uBirdM', 'uBirdP']);
+const progAccum = program(ACCUM_FS);
+const uA = uniforms(progAccum, ['uCur', 'uHist', 'uBlend']);
+const progDisplay = program(DISPLAY_FS);
+const uD = uniforms(progDisplay, ['uAcc', 'uRes']);
+
+// Voxel grid as an integer 3D texture
+const voxTex = gl.createTexture();
+gl.activeTexture(gl.TEXTURE0);
+gl.bindTexture(gl.TEXTURE_3D, voxTex);
+gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+gl.texImage3D(gl.TEXTURE_3D, 0, gl.R8UI, GX, GY, GZ, 0, gl.RED_INTEGER, gl.UNSIGNED_BYTE, vox);
+gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+
+// Tileable noise texture
+const NN = 64;
+const noiseTex = gl.createTexture();
+gl.activeTexture(gl.TEXTURE1);
+gl.bindTexture(gl.TEXTURE_3D, noiseTex);
+gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA8, NN, NN, NN, 0, gl.RGBA, gl.UNSIGNED_BYTE, buildNoiseTex(NN));
+gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.REPEAT);
+
+gl.useProgram(progScene);
+gl.uniform1i(uS.uVox, 0);
+gl.uniform1i(uS.uNoise, 1);
+
+// Waterfall uniforms
+const fallE = new Float32Array(16), fallD = new Float32Array(16);
+FALLS.forEach((F, i) => {
+  fallE.set([F.ex, F.ey, F.ez, F.w], i * 4);
+  fallD.set([F.dx, F.dz, F.yb, 0], i * 4);
+});
+gl.uniform1i(uS.uNumFalls, FALLS.length);
+gl.uniform4fv(uS.uFallE, fallE);
+gl.uniform4fv(uS.uFallD, fallD);
+gl.uniform1i(uS.uNumBirds, NB);
+
+// Camera
+const sunDir = norm3(vec3Param('sun', [0.933, 0.21, 0.292]));
+const TAN_HALF_FOV = Math.tan(FOV * Math.PI / 360);
+const base = norm3([TGT[0] - camPos[0], TGT[1] - camPos[1], TGT[2] - camPos[2]]);
+const baseYaw = Math.atan2(base[0], base[2]);
+const basePitch = Math.asin(base[1]);
+const view = { yaw: 0, pitch: 0 };
+const FOCUS = Math.hypot(ISL.x - camPos[0], 150 - camPos[1], ISL.z - camPos[2]);
+
+function cameraBasis() {
+  const yaw = baseYaw + view.yaw, pitch = basePitch + view.pitch;
+  const f = [Math.cos(pitch) * Math.sin(yaw), Math.sin(pitch), Math.cos(pitch) * Math.cos(yaw)];
+  const r = norm3(cross3(f, [0, 1, 0]));
+  const u = cross3(r, f);
+  return { r, u, f };
+}
+
+// Render targets (float, for accumulation)
+function makeTarget(w, h) {
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, w, h, 0, gl.RGBA, gl.FLOAT, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const fb = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  return { tex, fb };
+}
+let W = 0, H = 0, cur = null, hist = [null, null], histIdx = 0;
+function allocTargets(w, h) {
+  W = w; H = h;
+  canvas.width = w; canvas.height = h;
+  cur = makeTarget(w, h);
+  hist = [makeTarget(w, h), makeTarget(w, h)];
+  histIdx = 0;
+}
+
+const birdM = new Float32Array(NB * 9);
+const birdP = new Float32Array(NB * 4);
+function drawFrame(time, frameNo, blend) {
+  for (let i = 0; i < NB; i++) {
+    const s = birdState(BIRDS[i], time);
+    birdM.set(s.m, i * 9);
+    birdP.set([s.pos[0], s.pos[1], s.pos[2], s.flap], i * 4);
+  }
+  const cb = cameraBasis();
+  // Pass 1: trace the scene
+  gl.bindFramebuffer(gl.FRAMEBUFFER, cur.fb);
+  gl.viewport(0, 0, W, H);
+  gl.useProgram(progScene);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_3D, voxTex);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D, noiseTex);
+  gl.uniform2f(uS.uRes, W, H);
+  gl.uniform1f(uS.uTime, time);
+  gl.uniform1f(uS.uFrame, frameNo);
+  gl.uniform3f(uS.uCamPos, camPos[0], camPos[1], camPos[2]);
+  gl.uniform3f(uS.uCamR, cb.r[0], cb.r[1], cb.r[2]);
+  gl.uniform3f(uS.uCamU, cb.u[0], cb.u[1], cb.u[2]);
+  gl.uniform3f(uS.uCamF, cb.f[0], cb.f[1], cb.f[2]);
+  gl.uniform1f(uS.uTanHalfFov, TAN_HALF_FOV);
+  gl.uniform1f(uS.uFocus, FOCUS);
+  gl.uniform1f(uS.uAperture, APERTURE);
+  gl.uniform3f(uS.uSun, sunDir[0], sunDir[1], sunDir[2]);
+  gl.uniformMatrix3fv(uS.uBirdM, false, birdM);
+  gl.uniform4fv(uS.uBirdP, birdP);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  // Pass 2: accumulate into the history buffer
+  const src = hist[histIdx], dst = hist[1 - histIdx];
+  gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
+  gl.useProgram(progAccum);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, cur.tex);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, src.tex);
+  gl.uniform1i(uA.uCur, 0);
+  gl.uniform1i(uA.uHist, 1);
+  gl.uniform1f(uA.uBlend, blend);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  histIdx = 1 - histIdx;
+
+  // Pass 3: tone map to the canvas
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, W, H);
+  gl.useProgram(progDisplay);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, hist[histIdx].tex);
+  gl.uniform1i(uD.uAcc, 0);
+  gl.uniform2f(uD.uRes, W, H);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+/* ---------- modes ---------- */
+if (STILL) {
+  allocTargets(STILL_W, STILL_H);
+  document.getElementById('hint').remove();
+  window.__done = false;
+  (async () => {
+    try {
+      for (let i = 0; i < SPP; i++) {
+        drawFrame(FIXED_T, i, 1 / (i + 1));
+        gl.finish();
+        window.__progress = i + 1;
+        await new Promise(r => setTimeout(r, 0));
+      }
+    } catch (e) {
+      window.__error = String(e && e.stack || e);
+    }
+    window.__done = true;
+  })();
+} else {
+  let dirty = true, dragging = null, frame = 0;
+  const dpr = window.devicePixelRatio || 1;
+  function fit() {
+    const w = Math.max(160, Math.floor(innerWidth * dpr * QUALITY));
+    const h = Math.max(90, Math.floor(innerHeight * dpr * QUALITY));
+    if (w !== W || h !== H) { allocTargets(w, h); dirty = true; }
+  }
+  window.addEventListener('resize', fit);
+  canvas.addEventListener('pointerdown', e => {
+    dragging = { x: e.clientX, y: e.clientY };
+    canvas.classList.add('dragging');
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    view.yaw -= (e.clientX - dragging.x) * 0.003;
+    view.pitch = Math.min(0.5, Math.max(-0.3, view.pitch - (e.clientY - dragging.y) * 0.002));
+    dragging = { x: e.clientX, y: e.clientY };
+    dirty = true;
+  });
+  const endDrag = () => { dragging = null; canvas.classList.remove('dragging'); };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  window.addEventListener('keydown', e => {
+    if (e.key === 'r' || e.key === 'R') { view.yaw = 0; view.pitch = 0; dirty = true; }
+  });
+  const t0 = performance.now();
+  fit();
+  function loop(now) {
+    fit();
+    const t = (now - t0) / 1000;
+    drawFrame(t, frame++, dirty ? 1 : 0.15);
+    dirty = false;
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>

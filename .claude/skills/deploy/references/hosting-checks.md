@@ -10,6 +10,12 @@ Read public domains from [wrangler.jsonc](../../../../wrangler.jsonc) and the de
 [public/_headers](../../../../public/_headers) owns the six approved security headers and CSP.
 Hashed `/_astro/` assets use a one-year immutable cache.
 Stable images use one week; HTML revalidates.
+The Lab adds three rules after the global one, in a fixed order.
+`/lab/*` allows full screen for the live scene stage.
+`/lab/scenes/*` replaces the CSP, `X-Frame-Options`, and the permissions policy for model-written scenes.
+That policy gives each scene a sandboxed, opaque origin, and the scene allows framing by this site only.
+Rules merge in file order, so keep that order.
+Cloudflare static assets answer byte-range requests with the whole file, so the Lab clips load in full.
 HSTS applies only to the current host.
 Do not add `includeSubDomains` until every subdomain supports valid HTTPS.
 

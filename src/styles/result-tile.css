@@ -1,0 +1,96 @@
+/* The results of an experiment: a clip for each model, two to a row. */
+.results {
+  margin-top: 48px;
+}
+
+.results__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.results__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px 16px;
+  padding: 0;
+  list-style: none;
+}
+
+/* A single piece takes the whole column. */
+.results__grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.results__note {
+  margin-top: 32px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--meta);
+}
+
+.result-tile {
+  display: block;
+  color: var(--ink);
+}
+
+.result-tile__media {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  max-width: 100%;
+  aspect-ratio: 560 / 536;
+  border-radius: 8px;
+  background: var(--wash);
+}
+
+.result-tile__media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(20, 24, 31, 0.08);
+  pointer-events: none;
+}
+
+.result-tile__caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 16px;
+  margin-top: 10px;
+}
+
+.result-tile__name {
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.result-tile:hover .result-tile__name {
+  text-decoration-color: var(--underline);
+}
+
+.result-tile__effort {
+  font-size: 14px;
+  color: var(--meta);
+}
+
+@media (max-width: 640px) {
+  .results__grid {
+    gap: 22px 12px;
+  }
+
+  /* A narrow tile wraps some names and not others, so every caption stacks
+     the effort under the name. */
+  .result-tile__caption {
+    flex-direction: column;
+    gap: 0;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+}

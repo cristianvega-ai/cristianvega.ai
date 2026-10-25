@@ -75,13 +75,14 @@ Split a mixed suite when its cases need different types.
 | Type | File | Owns |
 | --- | --- | --- |
 | Unit | `tests/unit/latest-entries.test.mjs` | The four newest entries of a collection, newest first, with date ties broken by id. |
+| Unit | `tests/unit/lab-media-paths.test.mjs` | The Lab experiment, result, scene, and clip addresses, and the rejected reserved slugs `media` and `scenes`. |
 | Property | `tests/property/lyra-mark-geometry.test.mjs` | Valid star indices, links between stars, and the padded Lyra mark extent. |
-| Integration | `tests/integration/build.test.mjs` | Static file safety, sitemap completeness, the `/about/` redirect and absent route, the four IBM Plex font faces, and private image exclusions. |
+| Integration | `tests/integration/build.test.mjs` | Static file safety, sitemap completeness, the `/about/` redirect and absent route, the four IBM Plex font faces, and private image exclusions. Lab clips and posters pass only under `/lab/media/`. Scene files skip the path-length and sitemap equality checks and keep every other check. |
 | Integration | `tests/integration/pages.test.mjs` | The home identity, bio, and profile links, the missing page frame, landmarks, metadata, head scripts, and safe outbound links. |
-| Integration | `tests/integration/publication.test.mjs` | Production routes, draft privacy, homepage sections with their newest four rows and index links, detail frames, content order, and escaped metadata. |
+| Integration | `tests/integration/publication.test.mjs` | Production routes, draft privacy, homepage sections with their newest four rows and index links, detail frames, content order, and escaped metadata. Lab routes, media, scenes, and pages exist for a published experiment only. A draft leaves nothing in `dist/lab/`. The build stops for a reserved or repeated slug. |
 | Integration | `tests/integration/check-public-system-files.test.mjs` | The build check keeps operating-system files out of public assets. |
-| Integration | `tests/integration/security.test.mjs` | Cloudflare header and cache rules, the CSP, and `security.txt`. |
-| Integration | `tests/integration/deployment-gate.test.mjs` | Verified build acceptance, representative broken responses, the `/about/` redirect, unsafe script URLs, approved headers, and the local Cloudflare build. |
+| Integration | `tests/integration/security.test.mjs` | Cloudflare header and cache rules, the CSP of the `/*` block, the Lab rule order, the scene sandbox block, the inline code scan that exempts only the folders of the scene rule, and `security.txt`. |
+| Integration | `tests/integration/deployment-gate.test.mjs` | Verified build acceptance, representative broken responses, the `/about/` redirect, unsafe script URLs, approved headers, the local Cloudflare build, and the Lab walk: skipped on 404, and on 200 the scene sandbox headers, with a local Cloudflare build that publishes the Lab. |
 | Integration | `tests/integration/deployment-workflow.test.mjs` | Parsed workflow triggers, action pins, token scope, secrets, freshness conditions, and artifact integrity. |
 | Integration | `tests/integration/node-version.test.mjs` | Exact .nvmrc format and the actual test runtime. |
 | Integration | `tests/integration/motion-styles.test.mjs` | The reduced motion reset, the page transition switch, and the entrance preference in compiled CSS. |
@@ -106,7 +107,8 @@ The deployment integration suite starts Wrangler on `dist/`.
 
 | File | Owns |
 | --- | --- |
-| `tests/end-to-end/home-layout.spec.mjs` | The identity, bio, profiles, and sections in order, with at most four rows each, at 1440, 900, and 390 pixels. |
+| `tests/end-to-end/home-layout.spec.mjs` | The identity, bio, profiles, and the Products, Lab, and Writing sections in order, with at most four rows each, at 1440, 900, and 390 pixels. |
+| `tests/end-to-end/home-row-preview.spec.mjs` | The Lab row preview that shows for a fine pointer with allowed motion and stays away for reduced motion, touch, and other rows. |
 | `tests/end-to-end/home-keyboard.spec.mjs` | The skip link, the tab order through the profiles, rows, and index links, and their focus rings. |
 | `tests/end-to-end/home-navigation.spec.mjs` | Sections and index links for published content only, row and index navigation, and profile links. |
 | `tests/end-to-end/home-motion.spec.mjs` | The mark entrance that ends ready, and the skipped mark and text entrances under reduced motion. |
@@ -123,9 +125,16 @@ The deployment integration suite starts Wrangler on `dist/`.
 | `tests/end-to-end/missing-page-navigation.spec.mjs` | Real 404 status, the home page link in the lede, and the star back home. |
 | `tests/end-to-end/page-fallbacks.spec.mjs` | Readable home, article, and missing pages without JavaScript, and navigation when fonts, storage, or the Navigation API fail. |
 | `tests/end-to-end/publication.spec.mjs` | Published content in an isolated production build: routes, sitemap, robots, navigation, scripts, and the copy link. |
-| `tests/end-to-end/hosting.spec.mjs` | Local Cloudflare headers, redirects including `/about/`, preview indexing, compression, caching, security contact, and refused requests. |
+| `tests/end-to-end/hosting.spec.mjs` | Local Cloudflare headers, redirects including `/about/`, preview indexing, compression, caching, security contact, and refused requests. The `/lab/*` headers, the media cache, the scene sandbox headers on every scene file, and missing Lab paths. |
 | `tests/end-to-end/security.spec.mjs` | The browser enforces the CSP and the permissions policy. |
 | `tests/end-to-end/analytics.spec.mjs` | The Cloudflare beacon loads on the production origin only, and pages work when it is blocked. |
+| `tests/end-to-end/lab-navigation.spec.mjs` | The grid, experiment, and scene pages, the way back, arrows that replace history, arrow keys, Escape, the homepage Lab section, and draft privacy. |
+| `tests/end-to-end/lab-transitions.spec.mjs` | The transition names on a clicked clip and card, the stored arrow direction, and the scroll to the returning clip. |
+| `tests/end-to-end/lab-motion.spec.mjs` | Clips that start together, play while one clip is on screen and pause together when none is, stay within 0.25 seconds of each other, stop with the pause control, and hold posters under reduced motion. |
+| `tests/end-to-end/lab-lifecycle.spec.mjs` | Clips that pause on pagehide, stay paused, and play again on a pageshow from the cache. |
+| `tests/end-to-end/lab-fallbacks.spec.mjs` | Readable Lab pages without JavaScript, posters when playback is refused, and the full screen button gate. |
+| `tests/end-to-end/scene-isolation.spec.mjs` | The scene frame origin `null`, storage and document that the scene cannot read, the page that keeps the site CSP, and framing limits. |
+| `tests/end-to-end/scene-loading.spec.mjs` | Every scene file loads from an opaque origin under the scene policy with no violation. |
 
 Keep page selectors and expectations in their owning suite.
 Share identical navigation, settlement, and frame mechanisms through `tests/shared/browser-fixtures.mjs`.
@@ -186,6 +195,10 @@ Do not use case counts as coverage targets.
 - A page transition can make the page ignore clicks in headless Chromium. Set reduced motion in a context without JavaScript when a test clicks twice in a row.
 - The site scrolls smoothly. Scroll with `behavior: "instant"` before you measure, or poll for the scroll result.
 - A test must pass with drafts and with published entries. Derive expected content from `tests/shared/node-helpers.mjs`, including `publishedContent`, `homeSections`, and `profileLinks`.
+- The Lab experiment `floating-castles` stays a draft in the repository. Test a published Lab in an isolated build: pass `lab: { state: "published" }` to `createContentBuild`, and use the `labTest` fixture for the browser. The build links the real `assets/` folder.
+- A scene is a real-time 3D app that keeps the processor busy and starves the page. Replace its page with `stubSceneBodies(page)`, which keeps the real response headers. Run a real scene only when the test needs its code.
+- A scene reads `window.origin`, not `location.origin`. `location.origin` ignores the sandbox.
+- Chromium blocks requests from an opaque origin to a loopback address. A test that loads scene files in the browser must turn off `LocalNetworkAccessChecks` for its own launch.
 - The draft server runs with `tests/shared/development-server.config.mjs`.
 - That configuration disables HMR, so the server never reloads a page under test.
 - Use `DRAFT_ORIGIN` from the browser fixtures for its address.

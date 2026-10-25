@@ -1,0 +1,14 @@
+---
+import SceneLayout from "../../../layouts/SceneLayout.astro";
+import { getExperiments } from "../../../shared/content/lab";
+
+export async function getStaticPaths() {
+  return (await getExperiments()).flatMap((experiment) =>
+    experiment.data.results.map((result) => ({ params: { experiment: experiment.id, result: result.slug }, props: { experiment, result } })),
+  );
+}
+
+const { experiment, result } = Astro.props;
+---
+
+<SceneLayout {experiment} {result} />

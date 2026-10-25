@@ -1,0 +1,50 @@
+---
+// The live viewer of one Lab result: the full-bleed stage with the model's
+// own page, and the bar under it.
+import BaseLayout from "./BaseLayout.astro";
+import SceneBar from "../components/lab/SceneBar.astro";
+import SceneStage from "../components/lab/SceneStage.astro";
+import type { Experiment, ExperimentResult } from "../shared/content/lab";
+import { clipSources, experimentAddress, resultAddress, sceneAddress } from "../shared/lab/media-paths";
+import "../styles/scene.css";
+
+interface Props {
+  experiment: Experiment;
+  result: ExperimentResult;
+}
+
+const { experiment, result } = Astro.props;
+const { results, label, draft } = experiment.data;
+const resultIndex = results.findIndex((candidate) => candidate.slug === result.slug);
+const neighbour = (step: number) => {
+  const target = results[(resultIndex + step + results.length) % results.length];
+  return { href: resultAddress(experiment.id, target.slug), name: target.name };
+};
+const group = results.length > 1;
+---
+
+<BaseLayout
+  title={`${result.name} · ${label}`}
+  description={`${result.name}: a live result of the ${label} experiment.`}
+  active="scene"
+  frame="stage"
+  stageKey={result.slug}
+  noindex={draft}
+>
+  <SceneStage scene={sceneAddress(experiment.id, result.slug)} poster={clipSources(experiment.id, result.slug).poster} name={result.name} />
+  <SceneBar
+    backHref={experimentAddress(experiment.id)}
+    backLabel={label}
+    name={result.name}
+    effort={result.effort}
+    previous={group ? neighbour(-1) : undefined}
+    next={group ? neighbour(1) : undefined}
+    position={group ? `${resultIndex + 1} of ${results.length}` : undefined}
+  />
+</BaseLayout>
+
+<script>
+  import { setupSceneViewer } from "../browser/scene-viewer";
+
+  setupSceneViewer();
+</script>

@@ -9,7 +9,7 @@ test("Home shows sections and index links only for published content", async ({ 
   await expect(page.locator("nav, footer"), "Home: the page must have no menu or footer").toHaveCount(0);
   const expectedSections = homeSections(currentContent);
   await expect(page.locator("section.home-section")).toHaveCount(expectedSections.length);
-  for (const homeSection of [{ section: "products", allHref: "/products/", label: "Products" }, { section: "writing", allHref: "/writing/", label: "Writing" }]) {
+  for (const homeSection of [{ section: "products", allHref: "/products/", label: "Products" }, { section: "lab", allHref: "/lab/", label: "Lab" }, { section: "writing", allHref: "/writing/", label: "Writing" }]) {
     const isPublished = currentPublished[homeSection.section].length > 0;
     await expect(page.locator(`a[href='${homeSection.allHref}']`), `${homeSection.label}: the index link must follow publication`).toHaveCount(isPublished ? 1 : 0);
     await expect(page.locator(`a[href^='/${homeSection.section}/']`), `${homeSection.label}: row and index links must follow publication`)

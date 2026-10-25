@@ -1,0 +1,246 @@
+/* The live viewer of a Lab result. The model's own page fills a rounded
+   stage, and the bar under the stage holds the way back, the model, the
+   steps to its neighbours and full screen. Nothing overlays the scene, so
+   the scene keeps its own controls. */
+.stage-page {
+  position: fixed;
+  inset: 0;
+}
+
+.stage-page:focus {
+  outline: none;
+}
+
+.scene-stage {
+  position: absolute;
+  inset: 12px 12px 76px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--ink);
+  view-transition-name: stage;
+}
+
+.scene-stage:fullscreen {
+  border-radius: 0;
+}
+
+.scene-stage__poster,
+.scene-stage__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.scene-stage__poster {
+  object-fit: cover;
+}
+
+/* The scene fades in over the poster once it loads. Without JavaScript the
+   scene shows at once. */
+@media (scripting: enabled) {
+  .scene-stage__frame {
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+
+  .scene-stage--live .scene-stage__frame {
+    opacity: 1;
+  }
+}
+
+.scene-bar {
+  position: absolute;
+  right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  left: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+}
+
+.scene-bar__back {
+  display: flex;
+  align-items: center;
+  justify-self: start;
+  min-width: 0;
+  height: 44px;
+  padding: 0 14px 0 4px;
+  border-radius: 999px;
+  color: var(--ink);
+  transition: background 0.15s ease;
+}
+
+.scene-bar__back:hover {
+  background: var(--wash);
+}
+
+.scene-bar__back-label {
+  overflow: hidden;
+  margin-left: 6px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The figure travels here from the reading star of the experiment page. */
+.scene-bar__mark {
+  width: 36px;
+  height: 36px;
+  view-transition-name: lyra;
+}
+
+.scene-bar__mark .mark__line {
+  stroke-width: 1.3;
+}
+
+.scene-bar__mark .mark__star {
+  stroke: var(--ink);
+  stroke-width: 0.8;
+}
+
+.scene-bar__switch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.scene-bar__step,
+.scene-bar__full-screen {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--meta);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.scene-bar__full-screen[hidden] {
+  display: none;
+}
+
+.scene-bar__step:hover,
+.scene-bar__full-screen:hover {
+  background: var(--wash);
+  color: var(--ink);
+}
+
+.scene-bar__step svg,
+.scene-bar__full-screen svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.scene-bar__title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  padding-inline: 8px;
+  font: 400 16px/1.3 var(--font-body);
+}
+
+.scene-bar__name {
+  overflow: hidden;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.scene-bar__effort {
+  flex: none;
+  font-size: 14px;
+  color: var(--meta);
+}
+
+/* The dot is grey while the scene loads and turns azure when it runs. */
+.scene-bar__status {
+  flex: none;
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--star-unlit);
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+
+.scene-bar--live .scene-bar__status {
+  background: var(--azure);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+}
+
+.scene-bar__tools {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: 8px;
+}
+
+.scene-bar__position {
+  font-size: 14px;
+  color: var(--meta);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .scene-bar__status {
+    animation: scene-loading 1.2s ease-in-out infinite;
+  }
+
+  .scene-bar--live .scene-bar__status {
+    animation: none;
+  }
+
+  @keyframes scene-loading {
+    50% {
+      opacity: 0.35;
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .scene-stage {
+    inset: 8px 8px 68px;
+    border-radius: 12px;
+  }
+
+  .scene-bar {
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: 8px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 4px;
+  }
+
+  .scene-bar__back {
+    padding-right: 4px;
+  }
+
+  .scene-bar__back-label,
+  .scene-bar__position {
+    display: none;
+  }
+
+  .scene-bar__switch {
+    justify-content: center;
+  }
+
+  .scene-bar__title {
+    padding-inline: 4px;
+  }
+}

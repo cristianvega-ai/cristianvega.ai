@@ -1,0 +1,24 @@
+---
+// One experiment on the Lab page. A group shows the mosaic of its results
+// and spans the column; a single piece shows its own clip at half width.
+import ClipVideo from "./ClipVideo.astro";
+import { experimentClip, experimentMeta, experimentMorphKey, isGroup, type Experiment } from "../../shared/content/lab";
+import { experimentAddress } from "../../shared/lab/media-paths";
+import "../../styles/lab-card.css";
+
+interface Props {
+  experiment: Experiment;
+}
+
+const { experiment } = Astro.props;
+---
+
+<a class="lab-card" href={experimentAddress(experiment.id)} data-morph-key={experimentMorphKey(experiment)}>
+  <span class:list={["lab-card__media", isGroup(experiment) && "lab-card__media--group"]}>
+    <ClipVideo clip={experimentClip(experiment)} />
+  </span>
+  <span class="lab-card__caption">
+    <span><span class="lab-card__title">{experiment.data.title}</span>{experiment.data.draft && <span class="lab-card__draft">Draft</span>}</span>
+    <span class="lab-card__meta">{experimentMeta(experiment)}</span>
+  </span>
+</a>

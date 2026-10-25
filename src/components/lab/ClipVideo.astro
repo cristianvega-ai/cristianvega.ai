@@ -1,0 +1,26 @@
+---
+// A muted clip over its poster. lab-clip-playback.ts plays every clip on the
+// page together. The clip is decoration: the link around it names what it
+// shows. Without JavaScript the browser would draw video controls that catch
+// the click, so the clip hides and the poster image under it shows instead.
+import type { ClipSources } from "../../shared/lab/media-paths";
+import "../../styles/clip-video.css";
+
+interface Props {
+  clip: ClipSources;
+}
+
+const { clip } = Astro.props;
+---
+
+<img class="clip-video__poster" src={clip.poster} alt="" loading="lazy" decoding="async" />
+<video class="clip-video" data-clip poster={clip.poster} muted loop playsinline preload="auto" disablepictureinpicture aria-hidden="true">
+  <source src={clip.av1} type='video/mp4; codecs="av01.0.04M.08"' />
+  <source src={clip.h264} type="video/mp4" />
+</video>
+
+<script>
+  import { setupClipPlayback } from "../../browser/lab-clip-playback";
+
+  setupClipPlayback();
+</script>

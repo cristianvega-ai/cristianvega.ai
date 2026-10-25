@@ -1,7 +1,8 @@
 ---
-// The frame of every page: the head, the skip link, the one reading column,
-// and the analytics beacon. The html element names the page kind and, on a
-// detail page, its transition key.
+// The frame of every page: the head, the skip link, the main area, and the
+// analytics beacon. The main area is the one reading column, or the full-bleed
+// stage of a live Lab scene. The html element names the page kind and the
+// transition keys of the page.
 import "../styles/tokens.css";
 import "../styles/base.css";
 import CloudflareAnalytics from "../components/site/CloudflareAnalytics.astro";
@@ -16,6 +17,10 @@ interface Props {
   published?: string;
   /** The key that pairs this page's heading with its row on a list page. */
   morphKey?: string;
+  /** The Lab result a live scene shows. Its clip on the experiment page grows into the stage. */
+  stageKey?: string;
+  /** "column" for reading pages, "stage" for a live Lab scene. */
+  frame?: "column" | "stage";
 }
 
 const {
@@ -25,18 +30,20 @@ const {
   noindex = false,
   published,
   morphKey,
+  stageKey,
+  frame = "column",
 } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en" data-page={active} data-morph-key={morphKey}>
+<html lang="en" data-page={active} data-morph-key={morphKey} data-stage-key={stageKey}>
   <head>
     <SiteHead {title} {description} {active} {noindex} {published} />
     <slot name="head" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
-    <main id="main-content" class="page" tabindex="-1">
+    <main id="main-content" class={frame === "stage" ? "stage-page" : "page"} tabindex="-1">
       <slot />
     </main>
     <CloudflareAnalytics />
