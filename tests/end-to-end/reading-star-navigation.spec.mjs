@@ -86,8 +86,8 @@ test("The star on a page opened from the homepage reads Home and returns there t
   const newTabOpened = context.waitForEvent("page");
   await link.click({ modifiers: ["ControlOrMeta"] });
   const newTab = await newTabOpened;
-  await newTab.waitForLoadState();
-  expect(new URL(newTab.url()).pathname, "Star: a new-tab click must open what the label says").toBe("/");
+  // A new tab starts on about:blank, so poll until it reaches its address.
+  await expect.poll(() => new URL(newTab.url()).pathname, { message: "Star: a new-tab click must open what the label says" }).toBe("/");
   await newTab.close();
   expect(await historyIndex(page), "Star: a new-tab click must leave this page in place").toBe(indexBefore);
 
@@ -122,6 +122,8 @@ test("Escape returns through history like the star after the homepage", async ({
   await page.locator("section.home-section[aria-labelledby='writing-label'] a.entry-row").first().click();
   await expect(page.locator("main h1")).not.toHaveText("Cristian Vega");
   await settle(page);
+  // The star script names the homepage only once it runs, so the label shows that Escape has its listener.
+  await expect(readingStar(page).label, "Escape: the star must be ready before the key press").toHaveText("Home");
   const indexBefore = await historyIndex(page);
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(draftOrigin + "/");
