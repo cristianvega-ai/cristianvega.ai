@@ -1,9 +1,23 @@
-/* A Lab clip fills its frame. The frame sets the shape. */
-.clip-video {
+/* A Lab clip fills its frame over its poster. The frame sets the shape. */
+.clip-video,
+.clip-video__poster {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.clip-video {
+  position: absolute;
+  inset: 0;
+}
+
+/* Without JavaScript the browser draws video controls that would catch the
+   click meant for the link, so only the poster shows. */
+@media (scripting: none) {
+  .clip-video {
+    display: none;
+  }
 }
 
 /* The control that stops and starts every clip on the page. */

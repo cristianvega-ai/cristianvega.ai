@@ -96,12 +96,12 @@ npm run import:lab-experiment -- <experiment> <experiment folder>   # copies a L
   - `lab/`: the Lab clips, cards, result tiles, prompt, and the stage and bar of a live scene.
 - `src/browser/` holds the code that runs in the page.
   - `lyra-mark.js` and `page-transitions.js` are plain JavaScript. `SiteHead` loads them by address as classic scripts in the head, so they run before the first render. Keep them plain JavaScript.
-  - `reading-star-progress.ts`, `article-interactions.ts`, and the Lab modules load as Astro module scripts from their components. `lab-clip-clock.ts` plays the clips on one clock, `lab-row-preview.ts` shows the homepage preview, and `scene-viewer.ts` runs the live viewer.
+  - `reading-star-progress.ts`, `article-interactions.ts`, and the Lab modules load as Astro module scripts from their components. `lab-clip-playback.ts` plays the clips together, `lab-row-preview.ts` shows the homepage preview, and `scene-viewer.ts` runs the live viewer.
 - `src/shared/` holds pure helpers that tests import. It has no DOM code.
   - `site.ts` holds the owner's name, job title, profile links, and page kinds.
   - `content/` holds the `writing.ts` and `products.ts` content helpers, the entry row data, and `latest-entries.ts`. The homepage shows the newest four entries of each section.
   - `lyra/` holds the star data and the geometry of the Lyra mark.
-  - `lab/` holds the Lab media addresses and the clip clock.
+  - `lab/` holds the Lab media addresses.
 - `src/styles/` holds one stylesheet for each component, layout, or page. Each one imports its own sheet, for example `LyraMark.astro` imports `lyra-mark.css`. `tokens.css` holds the design tokens and the fonts. `base.css` holds the base elements, the page column, the entrance, and the page transitions. `prose.css` holds the article and product prose. The class names in it are the authoring contract in `src/content/article-fixture-guide.md`.
 - `src/content/` holds the Markdown for the `writing`, `products`, and `lab` collections. All three hide drafts in production.
 - The Lab:
