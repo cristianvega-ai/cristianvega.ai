@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,7 +9,7 @@ import { test } from "node:test";
 import { promisify } from "node:util";
 import { gzipSync } from "node:zlib";
 
-import { permissionsPolicy, root as repositoryRoot } from "../shared/node-helpers.mjs";
+import { createContentBuild, permissionsPolicy, root as repositoryRoot } from "../shared/node-helpers.mjs";
 
 const runCommand = promisify(execFile);
 const scriptPaths = [
@@ -45,6 +45,17 @@ const approvedHeaders = {
   "Content-Security-Policy": approvedContentSecurityPolicy.join("; "),
 };
 
+// The Lab pages allow full screen for this origin. A scene has its own sandbox policy and blocks every feature.
+const labPermissionsPolicy = permissionsPolicy.replace("fullscreen=()", "fullscreen=(self)");
+const approvedSceneHeaders = {
+  "Content-Security-Policy": "sandbox allow-scripts allow-pointer-lock allow-downloads; default-src 'self'; script-src 'self' 'unsafe-inline'; frame-ancestors 'self'; base-uri 'none'",
+  "Permissions-Policy": permissionsPolicy,
+  "Access-Control-Allow-Origin": "*",
+  "X-Robots-Tag": "noindex",
+  "X-Frame-Options": null,
+};
+const labPagePaths = { lab: "/lab/", experiment: "/lab/castles/", result: "/lab/castles/opus/", scene: "/lab/scenes/castles/opus/" };
+
 function contentSecurityPolicyWithSources(directiveName, directiveSources) {
   return approvedContentSecurityPolicy.map((directive) =>
     directive.startsWith(`${directiveName} `) ? `${directiveName} ${directiveSources}` : directive,
@@ -74,6 +85,12 @@ async function checkDeployment(testContext, {
   notFoundHeaders: notFoundHeaderOverrides = {},
   writingHeaders: writingHeaderOverrides = {},
   postStatus = 405,
+  // A published Lab answers its pages with 200. An unpublished one answers 404.
+  labStatus = 404,
+  labHeaders: labHeaderOverrides = {},
+  sceneStatus = 200,
+  sceneHeaders: sceneHeaderOverrides = {},
+  labMarkup: labMarkupOverrides = {},
   securityStatus = 200,
   securityExpires = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
 } = {}) {
@@ -84,10 +101,22 @@ async function checkDeployment(testContext, {
   const scriptResources = new Map(scriptPaths.map((scriptPath) => [scriptPath, {}]));
   for (const [scriptPath, response] of Object.entries(scriptResponses)) scriptResources.set(scriptPath, response);
   const requestedAddresses = [];
+  const labPageHeaders = { "Permissions-Policy": labPermissionsPolicy, ...labHeaderOverrides };
   const routeHeaders = new Map([
     ["/__deploy-gate-missing-path__/", notFoundHeaderOverrides],
     ["/writing/", writingHeaderOverrides],
+    [labPagePaths.lab, labPageHeaders],
+    [labPagePaths.experiment, labPageHeaders],
+    [labPagePaths.result, labPageHeaders],
+    [labPagePaths.scene, { ...approvedSceneHeaders, ...sceneHeaderOverrides }],
   ]);
+  const labMarkup = {
+    [labPagePaths.lab]: `<a class="lab-card" href="${labPagePaths.experiment}" data-morph-key="lab/castles">Castles</a>`,
+    [labPagePaths.experiment]: `<a class="result-tile" href="${labPagePaths.result}" data-stage-key="opus">Opus</a>`,
+    [labPagePaths.result]: `<iframe class="scene-stage__frame" src="${labPagePaths.scene}"></iframe>`,
+    [labPagePaths.scene]: "<!doctype html><title>Scene</title>",
+    ...labMarkupOverrides,
+  };
 
   const fixtureServer = createServer((request, response) => {
     requestedAddresses.push(request.url);
@@ -108,6 +137,11 @@ async function checkDeployment(testContext, {
       // The About page moved to the homepage. A status of 200 stands for a page that stayed.
       response.writeHead(aboutStatus, aboutStatus === 301 ? { Location: "/" } : { "Content-Type": "text/html; charset=utf-8" });
       response.end(aboutStatus === 301 ? undefined : "<!doctype html><title>About</title>");
+    } else if (request.url in labMarkup) {
+      // The Lab status decides the Lab page. The pages below it follow the walk that the gate makes after a 200.
+      const pageStatus = request.url === labPagePaths.lab ? labStatus : request.url === labPagePaths.scene ? sceneStatus : 200;
+      response.writeHead(pageStatus, { "Content-Type": "text/html; charset=utf-8" });
+      response.end(labMarkup[request.url]);
     } else if (request.url === "/writing/") {
       response.writeHead(writingStatus, { "Content-Type": "text/html; charset=utf-8" });
       response.end("<!doctype html><title>Writing</title>");
@@ -151,13 +185,13 @@ async function runDeploymentGate(environment, timeoutMilliseconds = 10_000) {
 
 // Serve dist/ with the local Cloudflare runtime on a free port.
 // Wrangler applies dist/_headers with the same rules as Cloudflare.
-async function startLocalCloudflare(testContext) {
+async function startLocalCloudflare(testContext, projectRoot = repositoryRoot) {
   const wranglerProcess = spawn(process.execPath, [
     join(repositoryRoot, "node_modules/wrangler/bin/wrangler.js"), "dev", "--local", "--env", "test",
     "--ip", "127.0.0.1", "--port", "0", "--inspector-port", "0",
     "--show-interactive-dev-session", "false",
   ], {
-    cwd: repositoryRoot,
+    cwd: projectRoot,
     detached: true,
     env: { ...process.env, WRANGLER_SEND_METRICS: "false" },
     stdio: ["ignore", "pipe", "pipe"],
@@ -376,3 +410,63 @@ for (const [conditionName, deploymentOptions, expectedMessage] of [
     assert.doesNotMatch(deploymentResult.output, /verify-deployment: OK/);
   });
 }
+
+// The Lab pages answer 404 until an experiment is published. The gate must then skip the scene check.
+test("the deployment gate skips the scene check while the Lab is unpublished", async (testContext) => {
+  const deploymentResult = await checkDeployment(testContext);
+  assert.equal(deploymentResult.code, 0, deploymentResult.output);
+  assert.match(deploymentResult.output, /\/lab\/ is not published; the scene check is skipped/);
+  assert.deepEqual(deploymentResult.requests.filter((request) => request.startsWith("/lab/")), ["/lab/"], "the gate must request nothing else under /lab/");
+});
+
+test("the deployment gate follows the Lab pages to a scene and accepts its sandbox headers", async (testContext) => {
+  const deploymentResult = await checkDeployment(testContext, { labStatus: 200 });
+  assert.equal(deploymentResult.code, 0, deploymentResult.output);
+  assert.deepEqual(deploymentResult.requests.filter((request) => request.startsWith("/lab/")), Object.values(labPagePaths), "the gate must visit the Lab, the experiment, the result, then the scene");
+  for (const checkedPath of Object.values(labPagePaths).slice(0, 3)) {
+    assert.ok(deploymentResult.output.includes(`verify-deployment: ${checkedPath} security headers match the approved policy`), deploymentResult.output);
+  }
+  assert.match(deploymentResult.output, /scene \/lab\/scenes\/castles\/opus\/ headers match the approved policy/);
+  assert.match(deploymentResult.output, /verify-deployment: OK/);
+});
+
+// Each case breaks one header of the scene or one step of the walk through the Lab.
+for (const [conditionName, deploymentOptions, expectedMessage] of [
+  ["a scene without the sandbox", { sceneHeaders: { "Content-Security-Policy": "default-src 'self'; frame-ancestors 'self'" } }, /content-security-policy must start with the sandbox/],
+  ["a sandbox that keeps the site origin", { sceneHeaders: { "Content-Security-Policy": "sandbox allow-scripts allow-same-origin; frame-ancestors 'self'" } }, /content-security-policy must start with the sandbox/],
+  ["a scene that any site can frame", { sceneHeaders: { "Content-Security-Policy": "sandbox allow-scripts allow-pointer-lock allow-downloads; frame-ancestors *" } }, /allow framing by this site only/],
+  ["a scene with a frame option", { sceneHeaders: { "X-Frame-Options": "DENY" } }, /must not send x-frame-options/],
+  ["a scene without the CORS header", { sceneHeaders: { "Access-Control-Allow-Origin": null } }, /access-control-allow-origin must be \*/],
+  ["a scene that may use full screen", { sceneHeaders: { "Permissions-Policy": labPermissionsPolicy } }, /permissions-policy must block every feature/],
+  ["a scene that answers 404", { sceneStatus: 404 }, /returned HTTP 404, expected 200/],
+  ["a Lab page that blocks full screen", { labHeaders: { "Permissions-Policy": permissionsPolicy } }, /\/lab\/ permissions-policy must match the approved _headers policy/],
+  ["a Lab page without a security header", { labHeaders: { "Referrer-Policy": null } }, /\/lab\/ missing referrer-policy/],
+  ["a Lab with no experiment link", { labMarkup: { [labPagePaths.lab]: "<p>Empty</p>" } }, /\/lab\/ does not link to an experiment/],
+  ["an experiment with no result link", { labMarkup: { [labPagePaths.experiment]: "<p>Empty</p>" } }, /does not link to a result/],
+  ["a result with no scene frame", { labMarkup: { [labPagePaths.result]: "<p>Empty</p>" } }, /does not load a scene frame/],
+]) {
+  test(`the deployment gate rejects ${conditionName}`, async (testContext) => {
+    const deploymentResult = await checkDeployment(testContext, { labStatus: 200, ...deploymentOptions });
+    assert.equal(deploymentResult.code, 1, deploymentResult.output);
+    assert.match(deploymentResult.output, expectedMessage);
+    assert.doesNotMatch(deploymentResult.output, /verify-deployment: OK/);
+  });
+}
+
+test("the deployment gate rejects a Lab that answers HTTP 500", async (testContext) => {
+  const deploymentResult = await checkDeployment(testContext, { labStatus: 500 });
+  assert.equal(deploymentResult.code, 1, deploymentResult.output);
+  assert.match(deploymentResult.output, /\/lab\/ returned HTTP 500, expected 200 or 404/);
+});
+
+// A published Lab in the local Cloudflare runtime proves the real _headers file passes the gate.
+test("the deployment gate accepts the Lab and scene headers of a local Cloudflare build with a published Lab", { timeout: 120_000 }, async (testContext) => {
+  const labBuild = await createContentBuild("mixed", { lab: { state: "published" } });
+  testContext.after(() => labBuild.cleanup());
+  await copyFile(join(repositoryRoot, "wrangler.jsonc"), join(labBuild.root, "wrangler.jsonc"));
+  const serverOrigin = await startLocalCloudflare(testContext, labBuild.root);
+  const deploymentResult = await runDeploymentGate({ ORIGIN: serverOrigin, EXPECTED_INDEX: "" }, 60_000);
+  assert.equal(deploymentResult.code, 0, deploymentResult.output);
+  assert.match(deploymentResult.output, /scene \/lab\/scenes\/floating-castles\/[a-z0-9-]+\/ headers match the approved policy/);
+  assert.doesNotMatch(deploymentResult.output, /not published/);
+});
