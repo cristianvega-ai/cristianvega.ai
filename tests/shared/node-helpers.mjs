@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -18,7 +18,9 @@ export const dist = join(root, "dist");
 // Read Markdown independently from the application content helpers.
 export function readContentInventory(projectRoot = root) {
   const inventory = {};
-  for (const [section, collection] of [["writing", "writing"], ["products", "products"]]) {
+  // The Lab entries are included only when the project holds a Lab collection. The publication fixtures hold none.
+  const collections = ["writing", "products", ...(existsSync(join(projectRoot, "src", "content", "lab")) ? ["lab"] : [])];
+  for (const [section, collection] of collections.map((name) => [name, name])) {
     const contentDirectory = join(projectRoot, "src", "content", collection);
     inventory[section] = readdirSync(contentDirectory).filter((contentFilename) => contentFilename.endsWith(".md")).map((contentFilename) => {
       const markdownSource = readFileSync(join(contentDirectory, contentFilename), "utf8");
@@ -31,7 +33,7 @@ export function readContentInventory(projectRoot = root) {
       return { id: contentFilename.slice(0, -3), data: frontmatterData, body: markdownSource.slice(frontmatterMatch[0].length), href: `/${section}/${contentFilename.slice(0, -3)}/` };
     });
   }
-  // Both collections list the newest entry first and break date ties by id.
+  // Every collection lists the newest entry first and breaks date ties by id.
   for (const entries of Object.values(inventory)) {
     entries.sort((firstEntry, secondEntry) => secondEntry.data.date - firstEntry.data.date || firstEntry.id.localeCompare(secondEntry.id));
   }
@@ -55,6 +57,7 @@ export const homeSectionSize = 4;
 // The homepage sections, in page order.
 const homeSectionDefinitions = [
   { section: "products", label: "Products", headingId: "products-label", allHref: "/products/", allLabel: "All products" },
+  { section: "lab", label: "Lab", headingId: "lab-label", allHref: "/lab/", allLabel: "All experiments" },
   { section: "writing", label: "Writing", headingId: "writing-label", allHref: "/writing/", allLabel: "All writing" },
 ];
 
@@ -67,10 +70,13 @@ export function homeSections(inventory = readContentInventory(), { includeDrafts
   return homeSectionDefinitions
     .map((definition) => ({
       ...definition,
-      rows: inventory[definition.section].filter((entry) => includeDrafts || !entry.data.draft).slice(0, homeSectionSize),
+      rows: (inventory[definition.section] ?? []).filter((entry) => includeDrafts || !entry.data.draft).slice(0, homeSectionSize),
     }))
     .filter((homeSection) => homeSection.rows.length > 0);
 }
+
+// A published scene folder holds the model's own files, not an Astro page. Its routes are not site pages.
+export const sceneRoutePrefix = "/lab/scenes/";
 
 export function listBuiltRoutes(buildDirectory = dist, prefix = "/") {
   const routes = [];
@@ -82,14 +88,20 @@ export function listBuiltRoutes(buildDirectory = dist, prefix = "/") {
   return routes.sort();
 }
 
+/** List the routes of the Astro pages. A scene folder is not an Astro page. */
+export function listPageRoutes(buildDirectory = dist) {
+  return listBuiltRoutes(buildDirectory).filter((route) => !route.startsWith(sceneRoutePrefix));
+}
+
 export function sitemapPaths(buildDirectory = dist) {
   return [...readFileSync(join(buildDirectory, "sitemap-0.xml"), "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)]
     .map(([, location]) => new URL(location).pathname).sort();
 }
 
+// A Lab experiment also builds one live viewer route for each of its results.
 export function contentRoutes(inventory) {
   return Object.entries(publishedContent(inventory)).flatMap(([section, entries]) =>
-    entries.length ? [`/${section}/`, ...entries.map((entry) => entry.href)] : []).sort();
+    entries.length ? [`/${section}/`, ...entries.flatMap((entry) => [entry.href, ...(section === "lab" ? entry.data.results.map((result) => `${entry.href}${result.slug}/`) : [])])] : []).sort();
 }
 
 export function escapeHtml(inputValue) {
@@ -168,8 +180,12 @@ export async function createIsolatedBuild({ prefix = "cristianai-build-", edits 
 }
 
 // Build fixture content in a temporary project. Keep source content and caches separate.
-export async function createContentBuild(fixtureKind) {
+// Pass `lab` to add the real Lab experiment, with its media linked.
+// - `state` is "published" or "draft".
+// - `id` renames the experiment, and `resultIndexes` picks its results by position, in order. An index can repeat.
+export async function createContentBuild(fixtureKind, { lab } = {}) {
   assert.ok(["all-draft", "mixed", "crowded"].includes(fixtureKind), "the publication fixture must be all-draft, mixed, or crowded");
+  assert.ok(lab === undefined || ["published", "draft"].includes(lab.state), "the Lab fixture must be published or draft");
   let inventory;
   const isolatedBuild = await createIsolatedBuild({
     prefix: "cristianai-publication-",
@@ -190,14 +206,51 @@ export async function createContentBuild(fixtureKind) {
           await writeFile(join(contentDirectory, `${entryIdentifier}.md`), `---\n${dump(frontmatterData)}---\n\n${fixtureBody}`);
         }
       }
+      if (lab) {
+        const labContentDirectory = join(projectRoot, "src", "content", "lab");
+        await cp(join(root, "src", "content", "lab"), labContentDirectory, { recursive: true });
+        const originalPath = join(labContentDirectory, `${labFixture.experiment}.md`);
+        const experimentSource = await readFile(originalPath, "utf8");
+        const frontmatterMatch = experimentSource.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+        assert.ok(frontmatterMatch, "the repository Lab experiment must have YAML frontmatter");
+        const frontmatterData = load(frontmatterMatch[1]);
+        frontmatterData.draft = lab.state === "draft";
+        if (lab.resultIndexes) {
+          frontmatterData.results = lab.resultIndexes.map((resultIndex) => {
+            const result = frontmatterData.results[resultIndex];
+            assert.ok(result, `the repository Lab experiment must hold a result at position ${resultIndex}`);
+            return result;
+          });
+        }
+        await rm(originalPath);
+        await writeFile(join(labContentDirectory, `${lab.id ?? labFixture.experiment}.md`), `---\n${dump(frontmatterData)}---\n\n${experimentSource.slice(frontmatterMatch[0].length)}`);
+        // The media integration reads assets/lab from the project root.
+        await symlink(join(root, "assets"), join(projectRoot, "assets"), "dir");
+      }
       inventory = readContentInventory(projectRoot);
     },
   });
   return { ...isolatedBuild, inventory };
 }
 
-export async function withContentBuild(fixtureKind, useFixture) {
-  const fixture = await createContentBuild(fixtureKind);
+// The first Lab experiment holds real media, so the Lab fixtures build it from the repository.
+export const labFixture = {
+  experiment: "floating-castles",
+  resultCount: 8,
+};
+
+/** List every file below a folder as a sorted list of paths relative to it. */
+export function listFiles(folder, prefix = "") {
+  const filePaths = [];
+  for (const entry of readdirSync(folder, { withFileTypes: true })) {
+    if (entry.isDirectory()) filePaths.push(...listFiles(join(folder, entry.name), `${prefix}${entry.name}/`));
+    else filePaths.push(`${prefix}${entry.name}`);
+  }
+  return filePaths.sort();
+}
+
+export async function withContentBuild(fixtureKind, useFixture, options) {
+  const fixture = await createContentBuild(fixtureKind, options);
   try {
     return await useFixture(fixture);
   } finally {

@@ -8,54 +8,90 @@ import { createContentBuild, publishedContent, readContentInventory, root as pro
 export const currentContent = readContentInventory();
 export const currentPublished = publishedContent(currentContent);
 
-// Serve the isolated build through the same local Cloudflare runtime.
+/**
+ * Serve an isolated build through the same local Cloudflare runtime.
+ * Return its origin and a function that stops the server.
+ */
+async function serveBuild(buildFixture) {
+  let server;
+  let serverClosed;
+  const stop = async () => {
+    if (server && server.exitCode === null) {
+      server.kill("SIGTERM");
+      const shutdownTimeout = setTimeout(() => server.kill("SIGKILL"), 5000);
+      await serverClosed;
+      clearTimeout(shutdownTimeout);
+    }
+  };
+  try {
+    await copyFile(join(projectRoot, "wrangler.jsonc"), join(buildFixture.root, "wrangler.jsonc"));
+    const serverPort = await new Promise((resolve, reject) => {
+      const portProbe = createServer();
+      portProbe.once("error", reject);
+      portProbe.listen(0, "127.0.0.1", () => {
+        const serverAddress = portProbe.address();
+        portProbe.close((error) => error ? reject(error) : resolve(serverAddress.port));
+      });
+    });
+    const serverOrigin = `http://127.0.0.1:${serverPort}`;
+    server = spawn(process.execPath, [join(projectRoot, "node_modules", "wrangler", "bin", "wrangler.js"),
+      "dev", "--local", "--env", "test", "--port", String(serverPort), "--ip", "127.0.0.1",
+      "--inspector-port", "0", "--show-interactive-dev-session", "false",
+      "--persist-to", join(buildFixture.root, ".wrangler", "state")], {
+      cwd: buildFixture.root,
+      env: { ...process.env, WRANGLER_SEND_METRICS: "false" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    serverClosed = new Promise((resolve) => server.once("close", resolve));
+    let serverOutput = "";
+    const recordServerOutput = (outputChunk) => { serverOutput = `${serverOutput}${outputChunk}`.slice(-6000); };
+    server.stdout.on("data", recordServerOutput);
+    server.stderr.on("data", recordServerOutput);
+    server.on("error", (error) => recordServerOutput(error.message));
+    await expect.poll(async () => {
+      if (server.exitCode !== null) throw new Error(`Publication runtime stopped: ${serverOutput}`);
+      try {
+        return (await fetch(serverOrigin, { signal: AbortSignal.timeout(1000) })).status;
+      } catch {
+        return 0;
+      }
+    }, { timeout: 60_000, message: "The publication runtime must serve the isolated build" }).toBe(200);
+    return { origin: serverOrigin, stop };
+  } catch (error) {
+    await stop();
+    throw error;
+  }
+}
+
 export const publicationTest = browserTest.extend({
   publication: [async ({}, use) => {
     const publicationFixture = await createContentBuild("mixed");
-    let publicationServer;
-    let serverClosed;
+    let runtime;
     try {
-      await copyFile(join(projectRoot, "wrangler.jsonc"), join(publicationFixture.root, "wrangler.jsonc"));
-      const serverPort = await new Promise((resolve, reject) => {
-        const portProbe = createServer();
-        portProbe.once("error", reject);
-        portProbe.listen(0, "127.0.0.1", () => {
-          const serverAddress = portProbe.address();
-          portProbe.close((error) => error ? reject(error) : resolve(serverAddress.port));
-        });
-      });
-      const publicationOrigin = `http://127.0.0.1:${serverPort}`;
-      publicationServer = spawn(process.execPath, [join(projectRoot, "node_modules", "wrangler", "bin", "wrangler.js"),
-        "dev", "--local", "--env", "test", "--port", String(serverPort), "--ip", "127.0.0.1",
-        "--inspector-port", "0", "--show-interactive-dev-session", "false",
-        "--persist-to", join(publicationFixture.root, ".wrangler", "state")], {
-        cwd: publicationFixture.root,
-        env: { ...process.env, WRANGLER_SEND_METRICS: "false" },
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      serverClosed = new Promise((resolve) => publicationServer.once("close", resolve));
-      let serverOutput = "";
-      const recordServerOutput = (outputChunk) => { serverOutput = `${serverOutput}${outputChunk}`.slice(-6000); };
-      publicationServer.stdout.on("data", recordServerOutput);
-      publicationServer.stderr.on("data", recordServerOutput);
-      publicationServer.on("error", (error) => recordServerOutput(error.message));
-      await expect.poll(async () => {
-        if (publicationServer.exitCode !== null) throw new Error(`Publication runtime stopped: ${serverOutput}`);
-        try {
-          return (await fetch(publicationOrigin, { signal: AbortSignal.timeout(1000) })).status;
-        } catch {
-          return 0;
-        }
-      }, { timeout: 60_000, message: "The publication runtime must serve the isolated build" }).toBe(200);
-      await use({ ...publicationFixture, origin: publicationOrigin });
+      runtime = await serveBuild(publicationFixture);
+      await use({ ...publicationFixture, origin: runtime.origin });
     } finally {
-      if (publicationServer && publicationServer.exitCode === null) {
-        publicationServer.kill("SIGTERM");
-        const shutdownTimeout = setTimeout(() => publicationServer.kill("SIGKILL"), 5000);
-        await serverClosed;
-        clearTimeout(shutdownTimeout);
-      }
+      await runtime?.stop();
       await publicationFixture.cleanup();
+    }
+  }, { scope: "worker", timeout: 90_000 }],
+});
+
+/**
+ * Serve the repository content with the first Lab experiment published.
+ * The build links the real media, so the clips, posters, and scenes load as in production.
+ */
+export const labTest = browserTest.extend({
+  lab: [async ({}, use) => {
+    const labFixture = await createContentBuild("mixed", { lab: { state: "published" } });
+    let runtime;
+    try {
+      runtime = await serveBuild(labFixture);
+      const experiment = labFixture.inventory.lab[0];
+      await use({ ...labFixture, origin: runtime.origin, experiment, results: experiment.data.results });
+    } finally {
+      await runtime?.stop();
+      await labFixture.cleanup();
     }
   }, { scope: "worker", timeout: 90_000 }],
 });
@@ -123,6 +159,20 @@ export async function settle(page) {
  */
 export async function useReducedMotion(page, reducedMotion = "reduce") {
   await page.emulateMedia({ reducedMotion });
+}
+
+/**
+ * Replace the page of each Lab scene with a small stub and keep the real response headers.
+ * The scenes are real-time 3D apps that load the processor for as long as they run.
+ * Use this helper in tests that check the way to a scene, not the scene itself.
+ */
+export async function stubSceneBodies(page) {
+  const stubBody = "<!doctype html><title>Scene stub</title><p>Scene stub</p>";
+  await page.route("**/lab/scenes/**", async (route) => {
+    const response = await route.fetch();
+    if (!(response.headers()["content-type"] ?? "").includes("text/html")) return route.fulfill({ response });
+    return route.fulfill({ response, body: stubBody, headers: { ...response.headers(), "content-length": String(Buffer.byteLength(stubBody)) } });
+  });
 }
 
 /** Press Tab until the target has keyboard focus and can match :focus-visible. */
