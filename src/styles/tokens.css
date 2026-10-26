@@ -58,6 +58,8 @@
   --sky: #38BDF8;
   /* An unlit star: Vega before the reader reaches the end of a page. */
   --star-unlit: #A8B0BD;
+  /* The glow of a lit principle star. */
+  --star-glow: 0 0 0 3px rgba(56, 189, 248, 0.2), 0 0 14px 3px rgba(56, 189, 248, 0.45);
   /* faces */
   --font-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-monospace: "IBM Plex Mono", ui-monospace, monospace;

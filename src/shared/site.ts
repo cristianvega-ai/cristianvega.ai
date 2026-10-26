@@ -12,4 +12,4 @@ export const PROFILE_LINKS = [
 ] as const;
 
 /** The kind of each page. The html element names it in data-page, and the page transitions read it. */
-export type PageKind = "home" | "writing" | "article" | "products" | "product" | "lab" | "experiment" | "scene" | "error";
+export type PageKind = "home" | "principles" | "writing" | "article" | "products" | "product" | "lab" | "experiment" | "scene" | "error";

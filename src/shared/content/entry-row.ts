@@ -14,4 +14,6 @@ export type EntryRowData = {
   draft: boolean;
   /** A clip that trails the pointer over the row on the homepage, for Lab rows. */
   preview?: ClipSources;
+  /** A star in the margin, for principle rows. */
+  star?: boolean;
 };

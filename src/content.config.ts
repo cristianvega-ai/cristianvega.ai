@@ -1,6 +1,30 @@
-import { defineCollection } from "astro:content";
+import { defineCollection, reference } from "astro:content";
 import { z } from "astro/zod";
 import { glob } from "astro/loaders";
+import { PRINCIPLE_GROUP_IDS } from "./shared/content/principle-groups.ts";
+
+// A principle is one short statement and the reason behind it. The principles
+// page lists them by group and order. Its id is the anchor that links to it,
+// such as /principles/#less-is-more, so keep an id once it is published.
+const principles = defineCollection({
+  loader: glob({ pattern: "*.md", base: "./src/content/principles" }),
+  schema: z.object({
+    /** The statement, such as "Less is more". */
+    title: z.string().min(1),
+    group: z.enum(PRINCIPLE_GROUP_IDS),
+    /** The position in the group. */
+    order: z.number().int(),
+    /** The day the principle last changed. The principles page shows the newest of these days. */
+    updated: z.coerce.date(),
+    /** The homepage lists the featured principles, at most four. */
+    featured: z.boolean().default(false),
+    draft: z.boolean().default(true),
+  }),
+});
+
+// An article or an experiment names the principles it follows. The build
+// fails when a name has no principle.
+const principleNames = z.array(reference("principles")).default([]);
 
 const writing = defineCollection({
   loader: glob({ pattern: "*.md", base: "./src/content/writing" }),
@@ -11,6 +35,7 @@ const writing = defineCollection({
     topic: z.string().min(1),
     draft: z.boolean().default(true),
     series: z.string().optional(),
+    principles: principleNames,
   }),
 });
 
@@ -51,7 +76,8 @@ const lab = defineCollection({
       /** The reasoning effort the model ran at, when the run set one. */
       effort: z.string().min(1).optional(),
     })).min(1),
+    principles: principleNames,
   }),
 });
 
-export const collections = { writing, products, lab };
+export const collections = { principles, writing, products, lab };
