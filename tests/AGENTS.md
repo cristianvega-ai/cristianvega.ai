@@ -75,11 +75,12 @@ Split a mixed suite when its cases need different types.
 | Type | File | Owns |
 | --- | --- | --- |
 | Unit | `tests/unit/latest-entries.test.mjs` | The four newest entries of a collection, newest first, with date ties broken by id. |
+| Unit | `tests/unit/principle-groups.test.mjs` | The page order of the principles, their groups, and the four principles the homepage lists. |
 | Unit | `tests/unit/lab-media-paths.test.mjs` | The Lab experiment, result, scene, and clip addresses, and the rejected reserved slugs `media` and `scenes`. |
 | Property | `tests/property/lyra-mark-geometry.test.mjs` | Valid star indices, links between stars, and the padded Lyra mark extent. |
 | Integration | `tests/integration/build.test.mjs` | Static file safety, sitemap completeness, the `/about/` redirect and absent route, the four IBM Plex font faces, and private image exclusions. Lab clips and posters pass only under `/lab/media/`. Scene files skip the path-length and sitemap equality checks and keep every other check. |
 | Integration | `tests/integration/pages.test.mjs` | The home identity, bio, and profile links, the missing page frame, landmarks, metadata, head scripts, and safe outbound links. |
-| Integration | `tests/integration/publication.test.mjs` | Production routes, draft privacy, homepage sections with their newest four rows and index links, detail frames, content order, and escaped metadata. Lab routes, media, scenes, and pages exist for a published experiment only. A draft leaves nothing in `dist/lab/`. The build stops for a reserved or repeated slug. |
+| Integration | `tests/integration/publication.test.mjs` | Production routes, draft privacy, homepage sections with their newest four rows and index links, detail frames, content order, and escaped metadata. Lab routes, media, scenes, and pages exist for a published experiment only. A draft leaves nothing in `dist/lab/`. The build stops for a reserved or repeated slug. The principles page, its groups and explorations, and the principle rows of articles and experiments hold published principles only. |
 | Integration | `tests/integration/check-public-system-files.test.mjs` | The build check keeps operating-system files out of public assets. |
 | Integration | `tests/integration/security.test.mjs` | Cloudflare header and cache rules, the CSP of the `/*` block, the Lab rule order, the scene sandbox block, the inline code scan that exempts only the folders of the scene rule, and `security.txt`. |
 | Integration | `tests/integration/deployment-gate.test.mjs` | Verified build acceptance, representative broken responses, the `/about/` redirect, unsafe script URLs, approved headers, the local Cloudflare build, and the Lab walk: skipped on 404, and on 200 the scene sandbox headers, with a local Cloudflare build that publishes the Lab. |
@@ -107,13 +108,13 @@ The deployment integration suite starts Wrangler on `dist/`.
 
 | File | Owns |
 | --- | --- |
-| `tests/end-to-end/home-layout.spec.mjs` | The identity, bio, profiles, and the Products, Lab, and Writing sections in order, with at most four rows each, at 1440, 900, and 390 pixels. |
+| `tests/end-to-end/home-layout.spec.mjs` | The identity, bio, profiles, the Principles section, and the Products, Lab, and Writing sections in order, with at most four rows each, at 1440, 900, and 390 pixels. The last three sections share one row from 860 pixels up. |
 | `tests/end-to-end/home-row-preview.spec.mjs` | The Lab row preview that shows for a fine pointer with allowed motion and stays away for reduced motion, touch, and other rows. |
 | `tests/end-to-end/home-keyboard.spec.mjs` | The skip link, the tab order through the profiles, rows, and index links, and their focus rings. |
 | `tests/end-to-end/home-navigation.spec.mjs` | Sections and index links for published content only, row and index navigation, and profile links. |
 | `tests/end-to-end/home-motion.spec.mjs` | The mark entrance that ends ready, and the skipped mark and text entrances under reduced motion. |
 | `tests/end-to-end/home-sky-angle.spec.mjs` | The `--sky-angle` value at the transit of Vega and three hours either side, set before the body renders. |
-| `tests/end-to-end/page-transitions-title-name.spec.mjs` | Exactly one element holds the view transition name `title` after a click on a home row or a More writing row. |
+| `tests/end-to-end/page-transitions-title-name.spec.mjs` | Exactly one element holds the view transition name `title` after a click on a home row or a More writing row, and a principle statement takes and returns the name. |
 | `tests/end-to-end/reading-star-layout.spec.mjs` | The star level with the title in the margin from 900 pixels, pinned on scroll, and a bottom pill below 900 pixels. |
 | `tests/end-to-end/reading-star-navigation.spec.mjs` | The parent link, the history return with its scroll position, the Home label, new-tab clicks, and Escape. |
 | `tests/end-to-end/reading-star-reading-progress.spec.mjs` | Figure lines that draw with scroll, Vega at the end of the page, and a complete star on a short page. |
@@ -122,6 +123,8 @@ The deployment integration suite starts Wrangler on `dist/`.
 | `tests/end-to-end/article-keyboard.spec.mjs` | Keyboard scrolling and focus rings on wide code and diagrams, the star in the tab order, and a pill that leaves the last control uncovered. |
 | `tests/end-to-end/article-interactions.spec.mjs` | Article code and diagram names, roles, focus order, and the scope of the article setup. |
 | `tests/end-to-end/products-navigation.spec.mjs` | Product list and detail navigation, newest first, responsive reading, and production draft privacy. |
+| `tests/end-to-end/principles-navigation.spec.mjs` | The principles page in page order with star links and draft marks, the home and article rows that open a principle, and the star that lights for the address. |
+| `tests/end-to-end/principles-layout.spec.mjs` | Each principle star in the margin, inside the viewport and level with its statement, at 1440, 900, and 390 pixels. |
 | `tests/end-to-end/missing-page-navigation.spec.mjs` | Real 404 status, the home page link in the lede, and the star back home. |
 | `tests/end-to-end/page-fallbacks.spec.mjs` | Readable home, article, and missing pages without JavaScript, and navigation when fonts, storage, or the Navigation API fail. |
 | `tests/end-to-end/publication.spec.mjs` | Published content in an isolated production build: routes, sitemap, robots, navigation, scripts, and the copy link. |
