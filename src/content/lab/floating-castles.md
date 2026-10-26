@@ -33,6 +33,9 @@ results:
   - name: "Muse Wonder Full"
     slug: muse-wonder-full
     effort: xHigh
+principles:
+  - match-the-model-to-the-job
+  - measure-quality-and-know-the-cost
 ---
 
 I can afford to run every frontier model on the same task. Most people can't, so this is what I learned.

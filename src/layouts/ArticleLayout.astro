@@ -1,8 +1,9 @@
 ---
-// The page of one article: the detail frame, the prose, the share links, and
-// the neighbouring articles as two quiet rows.
+// The page of one article: the detail frame, the prose, the share links, the
+// principles it names, and the neighbouring articles as two quiet rows.
 import DetailLayout from "./DetailLayout.astro";
 import EntryList from "../components/sections/EntryList.astro";
+import { getPrinciples, namedPrinciples, principleRow } from "../shared/content/principles";
 import { articleAddress, articleDate, articleMorphKey, articleRow, readingMinutes, type Article } from "../shared/content/writing";
 import "../styles/prose.css";
 import "../styles/article.css";
@@ -16,6 +17,7 @@ interface Props {
 const { article, older, newer } = Astro.props;
 const { title, description, date, topic, series, draft } = article.data;
 const shareAddress = new URL(articleAddress(article), Astro.site).href;
+const principleRows = namedPrinciples(article.data.principles, await getPrinciples()).map(principleRow);
 const neighbours = [newer, older].filter((neighbour): neighbour is Article => Boolean(neighbour)).map((neighbour) => articleRow(neighbour));
 ---
 
@@ -50,6 +52,13 @@ const neighbours = [newer, older].filter((neighbour): neighbour is Article => Bo
       <button type="button" data-copy-link={shareAddress} hidden>Copy link</button>
       <span class="share-status" role="status"></span>
     </div>
+  )}
+
+  {principleRows.length > 0 && (
+    <section class="detail__section" aria-labelledby="article-principles">
+      <h2 class="detail__section-label" id="article-principles">Principles in this piece</h2>
+      <EntryList rows={principleRows} />
+    </section>
   )}
 
   {neighbours.length > 0 && (

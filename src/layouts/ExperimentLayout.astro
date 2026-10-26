@@ -1,12 +1,14 @@
 ---
 // The page of one Lab experiment: the detail frame, the write-up, then the
 // prompt and every result with its clip, so the reader meets the findings
-// first and the evidence after.
+// first and the evidence after. The principles it names close the page.
 import DetailLayout from "./DetailLayout.astro";
 import ClipPauseButton from "../components/lab/ClipPauseButton.astro";
+import EntryList from "../components/sections/EntryList.astro";
 import PromptBlock from "../components/lab/PromptBlock.astro";
 import ResultTile from "../components/lab/ResultTile.astro";
 import { experimentDate, experimentMeta, experimentMorphKey, isGroup, type Experiment } from "../shared/content/lab";
+import { getPrinciples, namedPrinciples, principleRow } from "../shared/content/principles";
 import "../styles/prose.css";
 import "../styles/result-tile.css";
 
@@ -15,7 +17,8 @@ interface Props {
 }
 
 const { experiment } = Astro.props;
-const { title, description, date, draft, prompt, note, results } = experiment.data;
+const { title, description, date, draft, prompt, note, results, principles } = experiment.data;
+const principleRows = namedPrinciples(principles, await getPrinciples()).map(principleRow);
 ---
 
 <DetailLayout
@@ -51,4 +54,11 @@ const { title, description, date, draft, prompt, note, results } = experiment.da
     </ul>
     {note && <p class="results__note">{note} Select a result to run it live.</p>}
   </section>
+
+  {principleRows.length > 0 && (
+    <section class="detail__section" aria-labelledby="experiment-principles">
+      <h2 class="detail__section-label" id="experiment-principles">Principles in this experiment</h2>
+      <EntryList rows={principleRows} />
+    </section>
+  )}
 </DetailLayout>
