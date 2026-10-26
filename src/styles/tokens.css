@@ -63,8 +63,10 @@
   /* faces */
   --font-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-monospace: "IBM Plex Mono", ui-monospace, monospace;
-  /* layout: one centred column on every page */
+  /* layout: one centred column on every page. The homepage widens to put
+     three sections side by side. */
   --column: 576px;
+  --wide: 912px;
   --gutter: 24px;
   --radius-medium: 8px;
   /* motion: one ease for anything that travels */

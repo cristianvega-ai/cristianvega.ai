@@ -84,6 +84,11 @@ a {
   padding: 112px var(--gutter) 128px;
 }
 
+/* The homepage is wider, so three sections can sit side by side. */
+.page--wide {
+  max-width: calc(var(--wide) + 2 * var(--gutter));
+}
+
 /* The skip link focuses the column, so the browser draws no ring around it. */
 .page:focus {
   outline: none;
@@ -205,6 +210,7 @@ a {
   .enter[data-step="4"] { animation-delay: 290ms; }
   .enter[data-step="5"] { animation-delay: 360ms; }
   .enter[data-step="6"] { animation-delay: 430ms; }
+  .enter[data-step="7"] { animation-delay: 500ms; }
 
   .arrived .enter {
     animation: none;
