@@ -1,0 +1,29 @@
+---
+// One principle on the principles page: the statement, the reason behind it,
+// and the articles and experiments that explore it. The star in the margin is
+// the link to the principle, and it lights when the address points to it.
+import { render } from "astro:content";
+import type { Principle } from "../../shared/content/principles";
+import "../../styles/principle.css";
+
+interface Props {
+  principle: Principle;
+  /** The visible articles and experiments that name the principle. */
+  explorations: { title: string; href: string }[];
+}
+
+const { principle, explorations } = Astro.props;
+const { title, draft } = principle.data;
+const { Content } = await render(principle);
+---
+
+<div class="principle" id={principle.id}>
+  <h3 class="principle__statement"><span class="principle__text">{title}</span>{draft && <span class="principle__draft">Draft</span>}</h3>
+  <a class="principle__star" href={`#${principle.id}`} aria-label={`Link to this principle: ${title}`}></a>
+  <div class="principle__reason prose"><Content /></div>
+  {explorations.length > 0 && (
+    <p class="principle__explored">Explored in {explorations.map((exploration, explorationIndex) => (
+      <>{explorationIndex > 0 && ", "}<a href={exploration.href}>{exploration.title}</a></>
+    ))}</p>
+  )}
+</div>

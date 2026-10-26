@@ -87,23 +87,30 @@ npm run import:lab-experiment -- <experiment> <experiment folder>   # copies a L
 - Use [the deploy skill](.claude/skills/deploy/SKILL.md) for deployment, live verification, rollback, or approved account and domain setup.
 - Use the [Linear website reference](https://linear.app/martinez-vega-inc/document/cristianvegaai-website-reference-90867b83f0f9) for authoring and image derivatives.
 - `src/pages/` holds the routes only. Each route loads content and picks a layout.
-- `src/layouts/BaseLayout.astro` is the page frame: the head, the skip link, the one reading column, and the analytics beacon. `DetailLayout.astro` adds the reading star and the title block to every page under the homepage. `ArticleLayout.astro` and `ProductLayout.astro` build on it, and their `[slug].astro` routes only load content.
+- `src/layouts/BaseLayout.astro` is the page frame: the head, the skip link, the reading column, and the analytics beacon. The homepage asks for the wider frame, so Products, Lab, and Writing can sit side by side. `DetailLayout.astro` adds the reading star and the title block to every page under the homepage. `ArticleLayout.astro` and `ProductLayout.astro` build on it, and their `[slug].astro` routes only load content.
 - `src/components/` holds the parts, one folder for each feature:
   - `site/`: `SiteHead` and `CloudflareAnalytics`.
   - `identity/`: the homepage identity, the profile links, and `LyraMark`.
   - `navigation/`: the reading star.
   - `sections/`: the homepage sections and the entry rows that the homepage and the index pages share.
+  - `principles/`: one principle on the principles page.
   - `lab/`: the Lab clips, cards, result tiles, prompt, and the stage and bar of a live scene.
 - `src/browser/` holds the code that runs in the page.
   - `lyra-mark.js` and `page-transitions.js` are plain JavaScript. `SiteHead` loads them by address as classic scripts in the head, so they run before the first render. Keep them plain JavaScript.
   - `reading-star-progress.ts`, `article-interactions.ts`, and the Lab modules load as Astro module scripts from their components. `lab-clip-playback.ts` plays the clips together, `lab-row-preview.ts` shows the homepage preview, and `scene-viewer.ts` runs the live viewer.
 - `src/shared/` holds pure helpers that tests import. It has no DOM code.
   - `site.ts` holds the owner's name, job title, profile links, and page kinds.
-  - `content/` holds the `writing.ts` and `products.ts` content helpers, the entry row data, and `latest-entries.ts`. The homepage shows the newest four entries of each section.
+  - `content/` holds the `writing.ts`, `products.ts`, and `principles.ts` content helpers, the entry row data, and `latest-entries.ts`. The homepage shows the newest four entries of each section. `principle-groups.ts` holds the principle groups, the page order, and the four principles the homepage lists.
   - `lyra/` holds the star data and the geometry of the Lyra mark.
   - `lab/` holds the Lab media addresses.
 - `src/styles/` holds one stylesheet for each component, layout, or page. Each one imports its own sheet, for example `LyraMark.astro` imports `lyra-mark.css`. `tokens.css` holds the design tokens and the fonts. `base.css` holds the base elements, the page column, the entrance, and the page transitions. `prose.css` holds the article and product prose. The class names in it are the authoring contract in `src/content/article-fixture-guide.md`.
-- `src/content/` holds the Markdown for the `writing`, `products`, and `lab` collections. All three hide drafts in production.
+- `src/content/` holds the Markdown for the `principles`, `writing`, `products`, and `lab` collections. All four hide drafts in production.
+- The principles:
+  - A principle is one statement and the reason behind it. They share one page, `/principles/`, grouped and in order.
+  - Each principle's id is its anchor, for example `/principles/#less-is-more`. Keep an id once it is published, because writing links to it.
+  - The homepage lists the featured principles under the bio, at most four.
+  - An article or a Lab experiment names its principles in `principles:`. The build fails when a name has no principle. A draft principle stays off published pages.
+  - The principle text is the owner's voice. Publish a principle only after the owner approves its words.
 - The Lab:
   - A Lab experiment is one prompt and its results. One result makes a single piece, and two or more make a group, one result for each model.
   - Its routes are `/lab/`, `/lab/<experiment>/`, and `/lab/<experiment>/<result>/`.

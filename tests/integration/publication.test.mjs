@@ -46,7 +46,7 @@ function assertHomepagePublication(pageHtml, sourceInventory) {
     const rowTags = [...sectionHtml.matchAll(/<a class="entry-row[^"]*"[^>]*>/g)].map(([rowTag]) => rowTag);
     assert.ok(rowTags.length <= homeSectionSize, `${expectedSection.section} must show at most ${homeSectionSize} rows`);
     assert.deepEqual(rowTags.map((rowTag) => rowTag.match(/href="([^"]+)"/)[1]), expectedSection.rows.map((entry) => entry.href),
-      `${expectedSection.section} must show its newest entries, newest first`);
+      expectedSection.section === "principles" ? "principles must show the featured principles in page order" : `${expectedSection.section} must show its newest entries, newest first`);
     for (const [rowIndex, entry] of expectedSection.rows.entries()) {
       assert.ok(rowTags[rowIndex].includes(`data-morph-key="${expectedSection.section}/${entry.id}"`), `${entry.id} row must carry its transition key`);
     }
@@ -60,7 +60,7 @@ function assertHomepagePublication(pageHtml, sourceInventory) {
       assert.ok(!sectionHtml.includes(`href="${olderEntry.href}"`), `${olderEntry.id} is older than the newest ${homeSectionSize} and must stay off the homepage`);
     }
   }
-  for (const homeSection of [{ section: "products", allHref: "/products/" }, { section: "writing", allHref: "/writing/" }]) {
+  for (const homeSection of [{ section: "principles", allHref: "/principles/" }, { section: "products", allHref: "/products/" }, { section: "writing", allHref: "/writing/" }]) {
     if (!expectedSections.some((expectedSection) => expectedSection.section === homeSection.section)) {
       assert.ok(!pageHtml.includes(`href="${homeSection.allHref}"`), `${homeSection.section} must not link to an absent index`);
     }
@@ -75,13 +75,51 @@ function assertDetailFrame(pageHtml, { kind, parentHref, parentLabel, label }) {
   assert.doesNotMatch(pageHtml, /name="robots" content="noindex|class="detail__draft"|class="entry-row__draft"/, `${label} must carry no draft marks`);
 }
 
+// The links in the principle rows of an article or an experiment page.
+function principleRowAddresses(pageHtml, headingId) {
+  return linkAddresses(pageHtml.match(new RegExp(`<section class="detail__section" aria-labelledby="${headingId}">([\\s\\S]*?)</section>`))?.[1] ?? "");
+}
+
+// The published principles that a piece names, in page order. A draft principle stays off a published page.
+function expectedPrincipleAddresses(piece, sourceInventory) {
+  return (publishedContent(sourceInventory).principles ?? []).filter((principle) => piece.data.principles.includes(principle.id)).map((principle) => principle.href);
+}
+
+// Check the principles page: the published principles in page order under their groups, each with its statement,
+// its star link, and the published articles and experiments that name it.
+function assertPrinciplesPublication(buildDirectory, sourceInventory) {
+  const { principles, writing = [], lab = [] } = publishedContent(sourceInventory);
+  const pageHtml = readFileSync(join(buildDirectory, "principles", "index.html"), "utf8");
+  assertDetailFrame(pageHtml, { kind: "principles", parentHref: "/", parentLabel: "Home", label: "Principles page" });
+  assert.doesNotMatch(pageHtml, /class="principle__draft"/, "the principles page must carry no draft marks");
+  assert.deepEqual([...pageHtml.matchAll(/<div class="principle" id="([^"]+)">/g)].map(([, principleId]) => principleId), principles.map((principle) => principle.id),
+    "the principles page must list the published principles in page order");
+  assert.deepEqual([...pageHtml.matchAll(/<h2 class="principle-group__label" id="principle-group-([^"]+)">/g)].map(([, groupId]) => groupId), [...new Set(principles.map((principle) => principle.data.group))],
+    "the principles page must show each group that holds a published principle, in page order");
+  const newestUpdate = new Date(Math.max(...principles.map((principle) => principle.data.updated.getTime())));
+  assert.ok(pageHtml.includes(`<time datetime="${newestUpdate.toISOString().slice(0, 10)}">`), "the principles page must show the day of its newest published change");
+  // Each principle runs from its start tag to the start of the next one.
+  const principleBlocks = pageHtml.split(/(?=<div class="principle" id=")/).slice(1);
+  for (const [principleIndex, principle] of principles.entries()) {
+    const principleHtml = principleBlocks[principleIndex];
+    assert.ok(principleHtml.includes(`<span class="principle__text">${escapeHtml(principle.data.title)}</span>`), `${principle.id} must show its statement`);
+    assert.ok(principleHtml.includes(`<a class="principle__star" href="#${principle.id}" aria-label="Link to this principle: ${escapeAttribute(principle.data.title)}">`), `${principle.id} star must link to the principle`);
+    const reasonText = principleHtml.match(/<div class="principle__reason prose">([\s\S]*?)<\/div>/)?.[1].replace(/<[^>]+>/g, "").trim() ?? "";
+    assert.ok(reasonText.length > 0, `${principle.id} must show its reason`);
+    const explorations = [...writing, ...lab].filter((piece) => piece.data.principles.includes(principle.id)).map((piece) => piece.href);
+    assert.deepEqual(linkAddresses(principleHtml.match(/<p class="principle__explored">([\s\S]*?)<\/p>/)?.[1] ?? ""), explorations,
+      `${principle.id} must list the published articles, then the published experiments, that name it`);
+  }
+}
+
 function assertPublishedPages(buildDirectory, sourceInventory) {
   const readBuiltPage = (...segments) => readFileSync(join(buildDirectory, ...segments), "utf8");
   const publishedEntries = publishedContent(sourceInventory);
   assertHomepagePublication(readBuiltPage("index.html"), sourceInventory);
+  if (publishedEntries.principles?.length) assertPrinciplesPublication(buildDirectory, sourceInventory);
   for (const [section, entries] of Object.entries(publishedEntries)) {
-    // The Lab pages have their own frame and checks in assertLabPublication.
-    if (!entries.length || section === "lab") continue;
+    // The Lab pages have their own frame and checks in assertLabPublication. The principles share one page.
+    if (!entries.length || section === "lab" || section === "principles") continue;
     const sectionIndexHtml = readBuiltPage(section, "index.html");
     assertDetailFrame(sectionIndexHtml, { kind: section, parentHref: "/", parentLabel: "Home", label: `${section} index` });
     assert.deepEqual(linkAddresses(sectionIndexHtml.match(/<div class="detail__body">([\s\S]*)<\/div>/)[1]), entries.map((entry) => entry.href),
@@ -114,6 +152,8 @@ function assertPublishedPages(buildDirectory, sourceInventory) {
         const moreWritingHtml = pageHtml.match(/<nav class="detail__section" aria-labelledby="more-writing">([\s\S]*?)<\/nav>/)?.[1] ?? "";
         assert.deepEqual(linkAddresses(moreWritingHtml), [entries[entryIndex - 1]?.href, entries[entryIndex + 1]?.href].filter(Boolean),
           `${entry.id} must link its newer and older neighbours`);
+        assert.deepEqual(principleRowAddresses(pageHtml, "article-principles"), expectedPrincipleAddresses(entry, sourceInventory),
+          `${entry.id} must list the published principles it names, in page order`);
       } else {
         assert.ok(pageHtml.includes(`<p class="detail__meta">${escapeHtml(entry.data.status)}</p>`), `${entry.id} must show its status or Product`);
         const outboundLink = pageHtml.match(/<a class="product__link"[^>]*target="_blank"[^>]*>/)?.[0];
@@ -232,6 +272,8 @@ function assertLabPublication(buildDirectory, sourceInventory) {
       assert.ok(tileHtml.includes(`${mediaAddress}/clips/${result.slug}.av1.mp4`) && tileHtml.indexOf(".av1.mp4") < tileHtml.indexOf(".h264.mp4"), `${result.slug} clip must list AV1 before H.264`);
     }
     if (data.note) assert.ok(experimentHtml.includes(`<p class="results__note">${escapeHtml(data.note)} Select a result to run it live.</p>`), `${id} must show its note`);
+    assert.deepEqual(principleRowAddresses(experimentHtml, "experiment-principles"), expectedPrincipleAddresses(experiment, sourceInventory),
+      `${id} must list the published principles it names, in page order`);
 
     // The scene page of each result.
     for (const [resultIndex, result] of data.results.entries()) {

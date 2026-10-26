@@ -1,8 +1,8 @@
 ---
 // The frame of every page: the head, the skip link, the main area, and the
-// analytics beacon. The main area is the one reading column, or the full-bleed
-// stage of a live Lab scene. The html element names the page kind and the
-// transition keys of the page.
+// analytics beacon. The main area is the one reading column, the wider
+// homepage, or the full-bleed stage of a live Lab scene. The html element
+// names the page kind and the transition keys of the page.
 import "../styles/tokens.css";
 import "../styles/base.css";
 import CloudflareAnalytics from "../components/site/CloudflareAnalytics.astro";
@@ -19,8 +19,8 @@ interface Props {
   morphKey?: string;
   /** The Lab result a live scene shows. Its clip on the experiment page grows into the stage. */
   stageKey?: string;
-  /** "column" for reading pages, "stage" for a live Lab scene. */
-  frame?: "column" | "stage";
+  /** "column" for reading pages, "wide" for the homepage, "stage" for a live Lab scene. */
+  frame?: "column" | "wide" | "stage";
 }
 
 const {
@@ -43,7 +43,7 @@ const {
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
-    <main id="main-content" class={frame === "stage" ? "stage-page" : "page"} tabindex="-1">
+    <main id="main-content" class:list={[frame === "stage" ? "stage-page" : "page", frame === "wide" && "page--wide"]} tabindex="-1">
       <slot />
     </main>
     <CloudflareAnalytics />

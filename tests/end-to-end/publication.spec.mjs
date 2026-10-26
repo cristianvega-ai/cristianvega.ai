@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-import { homeSections, permissionsPolicy, publishedContent } from "../shared/node-helpers.mjs";
+import { contentRoutes, homeSections, permissionsPolicy, publishedContent } from "../shared/node-helpers.mjs";
 import { contentSecurityPolicyViolations, pageProblems, publicationTest as test, readingStar, recordContentSecurityPolicyViolations, settle, tabTo, useReducedMotion, VIEWPORTS as viewports } from "../shared/browser-fixtures.mjs";
 
 function expectProductionHeaders(headers) {
@@ -34,9 +34,9 @@ test.describe("Mixed published content in the production runtime", () => {
       await settle(page);
       const publishedInventory = publishedContent(publication.inventory);
 
-      // The homepage lists the published entries of each section, products first, and no draft.
+      // The homepage lists the published entries of each section, principles first, and no draft.
       const expectedSections = homeSections(publication.inventory);
-      expect(expectedSections.map((homeSection) => homeSection.section), "Both sections must be published in this fixture").toEqual(["products", "writing"]);
+      expect(expectedSections.map((homeSection) => homeSection.section), "Every section of this fixture must be published").toEqual(["principles", "products", "writing"]);
       await expect(page.locator("section.home-section")).toHaveCount(expectedSections.length);
       for (const expectedSection of expectedSections) {
         const sectionRows = page.locator(`section.home-section[aria-labelledby='${expectedSection.headingId}'] a.entry-row`);
@@ -105,13 +105,19 @@ test.describe("Mixed published content in the production runtime", () => {
   }
 
   test("Production routes and sitemap exclude explicit and default drafts", async ({ request, publication }) => {
-    const publishedInventory = publishedContent(publication.inventory);
-    const expectedPaths = ["/", "/writing/", "/products/", ...Object.values(publishedInventory).flat().map((entry) => entry.href)].sort();
+    const expectedPaths = ["/", ...contentRoutes(publication.inventory)].sort();
+    expect(expectedPaths, "The fixture must publish the principles, writing, and products indexes").toEqual(expect.arrayContaining(["/principles/", "/writing/", "/products/"]));
     const sitemapResponse = await request.get(`${publication.origin}/sitemap-0.xml`);
     expect(sitemapResponse.status()).toBe(200);
     const publishedPaths = [...(await sitemapResponse.text()).matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, sitemapAddress]) => new URL(sitemapAddress).pathname).sort();
     expect(publishedPaths).toEqual(expectedPaths);
-    for (const entries of Object.values(publication.inventory)) {
+    // A principle has no page of its own, so a draft principle must stay off the principles page.
+    const principlesHtml = await (await request.get(`${publication.origin}/principles/`)).text();
+    for (const draft of publication.inventory.principles.filter((entry) => entry.data.draft)) {
+      expect(principlesHtml, `${draft.id}: a draft principle must stay off the principles page`).not.toContain(`id="${draft.id}"`);
+    }
+    for (const [section, entries] of Object.entries(publication.inventory)) {
+      if (section === "principles") continue;
       for (const draft of entries.filter((entry) => entry.data.draft)) {
         const response = await request.get(publication.origin + draft.href);
         expect(response.status(), draft.href).toBe(404);

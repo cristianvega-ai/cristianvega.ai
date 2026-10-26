@@ -5,6 +5,8 @@ date: "2026-06-02"
 topic: "Lorem"
 draft: true
 series: "Lorem ipsum, part 1"
+principles:
+  - use-code-where-code-does-the-job
 ---
 
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.

@@ -1,0 +1,45 @@
+---
+import DetailLayout from "../../layouts/DetailLayout.astro";
+import Principle from "../../components/principles/Principle.astro";
+import { experimentAddress } from "../../shared/lab/media-paths";
+import { getExperiments } from "../../shared/content/lab";
+import { groupPrinciples } from "../../shared/content/principle-groups";
+import { getPrinciples, principlesUpdated } from "../../shared/content/principles";
+import { articleAddress, getArticles } from "../../shared/content/writing";
+import "../../styles/prose.css";
+
+// Build /principles/ only when a principle is visible. Production has no
+// published principle yet, so the route must not exist. Dev shows drafts.
+export async function getStaticPaths() {
+  return (await getPrinciples()).length > 0 ? [{ params: { index: undefined } }] : [];
+}
+
+const principles = await getPrinciples();
+const groups = groupPrinciples(principles);
+const updated = principlesUpdated(principles);
+const hasDrafts = principles.some((principle) => principle.data.draft);
+
+// Each principle lists the visible articles and experiments that name it,
+// articles first, each kind newest first.
+const pieces = [
+  ...(await getArticles()).map((article) => ({ title: article.data.title, href: articleAddress(article), names: article.data.principles })),
+  ...(await getExperiments()).map((experiment) => ({ title: experiment.data.title, href: experimentAddress(experiment.id), names: experiment.data.principles })),
+];
+const explorationsOf = (principleId: string) =>
+  pieces.filter((piece) => piece.names.some((name) => name.id === principleId)).map(({ title, href }) => ({ title, href }));
+
+const description = "The ideas I keep coming back to. They shape what I build, how I work with models, and what I write.";
+---
+
+<DetailLayout title="Principles" {description} lede={description} active="principles" backHref="/" backLabel="Home" noindex={hasDrafts} landmark="article">
+  <Fragment slot="meta">
+    <span>Updated <time datetime={updated.iso}>{updated.label}</time></span>
+  </Fragment>
+
+  {groups.map((group) => (
+    <section class="principle-group" aria-labelledby={`principle-group-${group.id}`}>
+      <h2 class="principle-group__label" id={`principle-group-${group.id}`}>{group.label}</h2>
+      {group.principles.map((principle) => <Principle {principle} explorations={explorationsOf(principle.id)} />)}
+    </section>
+  ))}
+</DetailLayout>

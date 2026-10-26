@@ -15,11 +15,15 @@ import { load, dump } from "js-yaml";
 export const root = fileURLToPath(new URL("../..", import.meta.url));
 export const dist = join(root, "dist");
 
+// The principle groups, in page order.
+const principleGroupOrder = ["building", "working-with-models"];
+
 // Read Markdown independently from the application content helpers.
 export function readContentInventory(projectRoot = root) {
   const inventory = {};
-  // The Lab entries are included only when the project holds a Lab collection. The publication fixtures hold none.
-  const collections = ["writing", "products", ...(existsSync(join(projectRoot, "src", "content", "lab")) ? ["lab"] : [])];
+  // The Lab entries are included only when the project holds a Lab collection. The publication fixtures hold none unless a test asks for one.
+  const optionalCollections = ["principles", "lab"].filter((name) => existsSync(join(projectRoot, "src", "content", name)));
+  const collections = ["writing", "products", ...optionalCollections];
   for (const [section, collection] of collections.map((name) => [name, name])) {
     const contentDirectory = join(projectRoot, "src", "content", collection);
     inventory[section] = readdirSync(contentDirectory).filter((contentFilename) => contentFilename.endsWith(".md")).map((contentFilename) => {
@@ -28,14 +32,28 @@ export function readContentInventory(projectRoot = root) {
       assert.ok(frontmatterMatch, `${contentFilename} must have YAML frontmatter`);
       const frontmatterData = load(frontmatterMatch[1]);
       frontmatterData.draft ??= true;
+      const id = contentFilename.slice(0, -3);
+      if (section === "principles") {
+        // A principle has no page of its own. Its address is its place on the principles page.
+        frontmatterData.featured ??= false;
+        frontmatterData.updated = new Date(frontmatterData.updated);
+        return { id, data: frontmatterData, body: markdownSource.slice(frontmatterMatch[0].length), href: `/principles/#${id}` };
+      }
       frontmatterData.date = new Date(frontmatterData.date);
+      frontmatterData.principles ??= [];
       if (section === "products") frontmatterData.status ??= "Product";
-      return { id: contentFilename.slice(0, -3), data: frontmatterData, body: markdownSource.slice(frontmatterMatch[0].length), href: `/${section}/${contentFilename.slice(0, -3)}/` };
+      return { id, data: frontmatterData, body: markdownSource.slice(frontmatterMatch[0].length), href: `/${section}/${id}/` };
     });
   }
-  // Every collection lists the newest entry first and breaks date ties by id.
-  for (const entries of Object.values(inventory)) {
-    entries.sort((firstEntry, secondEntry) => secondEntry.data.date - firstEntry.data.date || firstEntry.id.localeCompare(secondEntry.id));
+  // Every dated collection lists the newest entry first and breaks date ties by id.
+  // The principles follow page order: by group, then by order, then by id.
+  for (const [section, entries] of Object.entries(inventory)) {
+    if (section === "principles") {
+      entries.sort((firstEntry, secondEntry) => principleGroupOrder.indexOf(firstEntry.data.group) - principleGroupOrder.indexOf(secondEntry.data.group)
+        || firstEntry.data.order - secondEntry.data.order || firstEntry.id.localeCompare(secondEntry.id));
+    } else {
+      entries.sort((firstEntry, secondEntry) => secondEntry.data.date - firstEntry.data.date || firstEntry.id.localeCompare(secondEntry.id));
+    }
   }
   return inventory;
 }
@@ -56,6 +74,7 @@ export const homeSectionSize = 4;
 
 // The homepage sections, in page order.
 const homeSectionDefinitions = [
+  { section: "principles", label: "Principles", headingId: "principles-label", allHref: "/principles/", allLabel: "All principles" },
   { section: "products", label: "Products", headingId: "products-label", allHref: "/products/", allLabel: "All products" },
   { section: "lab", label: "Lab", headingId: "lab-label", allHref: "/lab/", allLabel: "All experiments" },
   { section: "writing", label: "Writing", headingId: "writing-label", allHref: "/writing/", allLabel: "All writing" },
@@ -64,14 +83,17 @@ const homeSectionDefinitions = [
 /**
  * Return the homepage sections that must render, in page order.
  * Each section holds the newest entries, at most four, and the entries come from the visible content.
+ * The principles section holds the featured principles in page order, or the first ones when none is featured.
  * A section with no visible entry is absent. Pass `includeDrafts` for the development server.
  */
 export function homeSections(inventory = readContentInventory(), { includeDrafts = false } = {}) {
   return homeSectionDefinitions
-    .map((definition) => ({
-      ...definition,
-      rows: (inventory[definition.section] ?? []).filter((entry) => includeDrafts || !entry.data.draft).slice(0, homeSectionSize),
-    }))
+    .map((definition) => {
+      const visibleEntries = (inventory[definition.section] ?? []).filter((entry) => includeDrafts || !entry.data.draft);
+      const featuredEntries = visibleEntries.filter((entry) => entry.data.featured);
+      const candidates = definition.section === "principles" && featuredEntries.length > 0 ? featuredEntries : visibleEntries;
+      return { ...definition, rows: candidates.slice(0, homeSectionSize) };
+    })
     .filter((homeSection) => homeSection.rows.length > 0);
 }
 
@@ -99,9 +121,13 @@ export function sitemapPaths(buildDirectory = dist) {
 }
 
 // A Lab experiment also builds one live viewer route for each of its results.
+// The principles share one page, so a principle adds no route of its own.
 export function contentRoutes(inventory) {
-  return Object.entries(publishedContent(inventory)).flatMap(([section, entries]) =>
-    entries.length ? [`/${section}/`, ...entries.flatMap((entry) => [entry.href, ...(section === "lab" ? entry.data.results.map((result) => `${entry.href}${result.slug}/`) : [])])] : []).sort();
+  return Object.entries(publishedContent(inventory)).flatMap(([section, entries]) => {
+    if (!entries.length) return [];
+    if (section === "principles") return ["/principles/"];
+    return [`/${section}/`, ...entries.flatMap((entry) => [entry.href, ...(section === "lab" ? entry.data.results.map((result) => `${entry.href}${result.slug}/`) : [])])];
+  }).sort();
 }
 
 export function escapeHtml(inputValue) {
@@ -112,10 +138,18 @@ export function escapeAttribute(inputValue) {
   return String(inputValue).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
+// The writing fixtures name principles. A published page must list only the published ones.
 const publicationEntries = {
+  principles: [
+    { id: "zulu-principle", title: "Zulu principle", group: "building", order: 1, updated: "2026-09-20", featured: true, draft: false },
+    { id: "unreleased-principle", title: "Unreleased principle", group: "building", order: 0, updated: "2026-09-30", featured: true, draft: true },
+    { id: "alpha-principle", title: "Alpha's \"quoted\" & principle", group: "building", order: 1, updated: "2026-09-21", draft: false },
+    { id: "model-principle", title: "Model principle", group: "working-with-models", order: 1, updated: "2026-09-22", featured: true, draft: false },
+    { id: "default-draft", title: "Default draft principle", group: "working-with-models", order: 0, updated: "2026-10-01" },
+  ],
   writing: [
-    { id: "zulu-tied", title: "Zulu tied writing", date: "2026-09-28", draft: false },
-    { id: "explicit-draft", title: "Unreleased writing", date: "2026-09-30", draft: true },
+    { id: "zulu-tied", title: "Zulu tied writing", date: "2026-09-28", draft: false, principles: ["alpha-principle", "unreleased-principle"] },
+    { id: "explicit-draft", title: "Unreleased writing", date: "2026-09-30", draft: true, principles: ["zulu-principle"] },
     { id: "alpha-tied", title: "Alpha tied writing", date: "2026-09-28", draft: false },
     { id: "default-draft", title: "Default draft writing", date: "2026-10-01" },
     { id: "newer-writing", title: "Newer's \"quoted\" & writing", date: "2026-09-29", draft: false, series: "Publication fixtures" },
@@ -131,6 +165,7 @@ const publicationEntries = {
 
 // The crowded fixture adds published entries, so each homepage section has more than four rows to cut.
 const crowdedEntries = {
+  principles: [1, 2, 3].map((number) => ({ id: `extra-principle-${number}`, title: `Extra principle ${number}`, group: "working-with-models", order: 1 + number, updated: "2026-08-01", featured: true, draft: false })),
   writing: [1, 2, 3].map((number) => ({ id: `extra-writing-${number}`, title: `Extra writing ${number}`, date: `2026-08-0${number}`, draft: false })),
   products: [1, 2, 3].map((number) => ({ id: `extra-product-${number}`, title: `Extra product ${number}`, date: `2026-08-0${number}`, draft: false })),
 };
@@ -198,9 +233,10 @@ export async function createContentBuild(fixtureKind, { lab } = {}) {
         for (const entry of entries) {
           const { id: entryIdentifier, ...frontmatterData } = entry;
           if (fixtureKind === "all-draft" && "draft" in frontmatterData) frontmatterData.draft = true;
-          frontmatterData.description = `Description for ${frontmatterData.title}.`;
+          if (collection !== "principles") frontmatterData.description = `Description for ${frontmatterData.title}.`;
           if (collection === "writing") frontmatterData.topic = "Systems";
-          const fixtureBody = `## Fixture content\n\nBody for ${entryIdentifier}.\n\n` + (collection === "writing"
+          // A principle is a statement and a short reason, so its body holds no heading.
+          const fixtureBody = collection === "principles" ? `Reason for ${entryIdentifier}.\n` : `## Fixture content\n\nBody for ${entryIdentifier}.\n\n` + (collection === "writing"
             ? "```js\nconst signal = 1;\n```\n\n<div class=\"figure__panel\" role=\"img\" aria-label=\"Fixture signal path\">Signal path</div>\n"
             : "");
           await writeFile(join(contentDirectory, `${entryIdentifier}.md`), `---\n${dump(frontmatterData)}---\n\n${fixtureBody}`);
@@ -215,6 +251,8 @@ export async function createContentBuild(fixtureKind, { lab } = {}) {
         assert.ok(frontmatterMatch, "the repository Lab experiment must have YAML frontmatter");
         const frontmatterData = load(frontmatterMatch[1]);
         frontmatterData.draft = lab.state === "draft";
+        // The fixture holds its own principles, so the experiment names one published and one draft principle.
+        frontmatterData.principles = ["model-principle", "unreleased-principle"];
         if (lab.resultIndexes) {
           frontmatterData.results = lab.resultIndexes.map((resultIndex) => {
             const result = frontmatterData.results[resultIndex];
