@@ -14,6 +14,9 @@
 // - A page with a key writes it on `pageswap`. The next page reads it once on
 //   `pagereveal`. A list page then names the matching row, and an experiment
 //   page names the matching clip, so the heading or the stage shrinks back.
+// - A clicked principle row grows into its statement on the principles page.
+//   A statement that is on screen when the visitor leaves shrinks back into
+//   the row it came from, on the homepage, an article or an experiment.
 // - The arrows on a live scene store their direction, so the next scene
 //   slides in from that side.
 // - A page that opens through a transition skips its own entrance.
@@ -21,6 +24,7 @@
   const root = document.documentElement;
   const titles = ".entry-row__title, .lab-card__title";
   const stageMedia = "[data-stage-media]";
+  const statements = ".principle__text";
   const listPages = ["home", "writing", "products", "lab"];
 
   // A return from a live scene scrolls to that scene's result, so the
@@ -55,6 +59,22 @@
     for (const heading of document.querySelectorAll("[data-morph-title]")) heading.style.viewTransitionName = "none";
   };
 
+  const restoreHeading = () => {
+    for (const heading of document.querySelectorAll("[data-morph-title]")) heading.style.viewTransitionName = "";
+  };
+
+  const isOnScreen = (element) => {
+    const box = element.getBoundingClientRect();
+    return box.bottom > 0 && box.top < innerHeight;
+  };
+
+  // The statement of the principle that the address points to, such as
+  // /principles/#less-is-more.
+  const targetStatement = () => {
+    if (root.dataset.page !== "principles" || location.hash.length < 2) return null;
+    return document.getElementById(location.hash.slice(1))?.querySelector(statements) ?? null;
+  };
+
   document.addEventListener("click", (event) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     if (!(event.target instanceof Element)) return;
@@ -77,6 +97,16 @@
   addEventListener("pageswap", () => {
     if (root.dataset.morphKey) store("morph-key", root.dataset.morphKey);
     if (root.dataset.stageKey) store("stage-key", root.dataset.stageKey);
+    if (root.dataset.page !== "principles") return;
+    // A page restored from the back-forward cache can keep the names of an
+    // earlier visit, so they clear first.
+    clearNames(statements);
+    restoreHeading();
+    const statement = targetStatement();
+    if (!statement || !isOnScreen(statement)) return;
+    releaseHeading();
+    statement.style.viewTransitionName = "title";
+    store("morph-key", `principles/${statement.closest(".principle").id}`);
   });
 
   addEventListener("pagereveal", (event) => {
@@ -103,11 +133,29 @@
       media.style.viewTransitionName = "stage";
     }
 
-    if (!listPages.includes(root.dataset.page ?? "")) return;
+    // A clicked principle row grows into its statement, not into the page
+    // heading. The page scrolls to the statement first, so it grows in view.
+    const statement = targetStatement();
+    if (statement) {
+      if (!isOnScreen(statement)) statement.closest(".principle").scrollIntoView({ block: "start", behavior: "instant" });
+      releaseHeading();
+      statement.style.viewTransitionName = "title";
+      return;
+    }
+
+    // An article and an experiment list their principles, so a statement can
+    // also shrink back into one of their rows.
+    const principleKey = morphKey?.startsWith("principles/") ?? false;
+    if (!listPages.includes(root.dataset.page ?? "") && !principleKey) return;
     clearNames(titles);
     const link = morphKey ? document.querySelector(`a[data-morph-key="${CSS.escape(morphKey)}"]`) : null;
     const title = link?.querySelector(titles);
-    if (!title) return;
+    if (!title || (principleKey && !isOnScreen(title))) {
+      // A statement with no row on screen fades out, and the heading of the
+      // new page does not take its place.
+      if (principleKey) releaseHeading();
+      return;
+    }
     releaseHeading();
     title.style.viewTransitionName = "title";
   });
