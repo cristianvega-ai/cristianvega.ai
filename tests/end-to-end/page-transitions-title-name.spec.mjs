@@ -19,7 +19,7 @@ test.beforeEach(async ({ page }) => {
   await useReducedMotion(page);
 });
 
-for (const [sectionName, rowIndex] of [["Products", 0], ["Writing", 0], ["Writing", 2]]) {
+for (const [sectionName, rowIndex] of [["Principles", 0], ["Products", 0], ["Writing", 0], ["Writing", 2]]) {
   test(`A click on ${sectionName} row ${rowIndex + 1} names only that row title on the home page`, async ({ page }) => {
     await page.goto(draftOrigin + "/");
     await settle(page);
@@ -69,4 +69,24 @@ test("A modified click leaves the names unchanged", async ({ page }) => {
   await blockNavigation(page);
   await page.locator("a.entry-row").first().click({ modifiers: ["Shift"] });
   expect(await readTitleHolders(page), "Home: a click with a modifier key opens a new window and must name nothing").toEqual([]);
+});
+
+// A principle row grows into its statement on the principles page, and the statement shrinks back into the row on the way home.
+// The transition runs only with motion allowed.
+test("A principle row hands the name to its statement, and the statement hands it back to the row on the way home", async ({ page }) => {
+  await useReducedMotion(page, "no-preference");
+  await page.goto(draftOrigin + "/");
+  await settle(page);
+  const row = page.locator("section.home-section[aria-labelledby='principles-label'] a.entry-row").first();
+  const rowTitle = await row.locator(".entry-row__title").innerText();
+  const principleId = new URL(await row.getAttribute("href"), draftOrigin).hash.slice(1);
+  await row.click();
+  await page.waitForURL(`**/principles/#${principleId}`);
+  await expect.poll(() => readTitleHolders(page), { message: "Principles: the statement must hold the name, and the page heading must let it go" })
+    .toEqual([{ className: "principle__text", text: rowTitle }]);
+
+  await page.locator("[data-reading-star] .reading-star__link").click();
+  await page.waitForURL(draftOrigin + "/");
+  await expect.poll(() => readTitleHolders(page), { message: "Home: the row of the principle must take the name back" })
+    .toEqual([{ className: "entry-row__title", text: rowTitle }]);
 });

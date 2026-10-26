@@ -65,7 +65,8 @@ test("home and missing pages include the skip link, the focus target, metadata, 
     const pageHtml = readDistFile(...pathSegments);
     assertPageBasics(pageHtml);
     assert.match(pageHtml, /<body>\s*<a class="skip-link" href="#main-content">/, "the skip link must come first in the body");
-    assert.match(pageHtml, /<main id="main-content" class="page" tabindex="-1">/, "the skip link target must accept programmatic focus");
+    // The homepage column is wider, so it adds one class.
+    assert.match(pageHtml, /<main id="main-content" class="page(?: page--wide)?" tabindex="-1">/, "the skip link target must accept programmatic focus");
     assert.match(
       pageHtml,
       /property="og:image"[^>]*content="https:\/\/cristianvega\.ai\/images\/cristian-vega-social-preview\.jpg"/i,
