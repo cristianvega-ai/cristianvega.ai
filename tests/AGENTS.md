@@ -107,7 +107,7 @@ The deployment integration suite starts Wrangler on `dist/`.
 
 | File | Owns |
 | --- | --- |
-| `tests/end-to-end/home-layout.spec.mjs` | The identity, bio, profiles, and the Products, Lab, and Writing sections in order, with at most four rows each, at 1440, 900, and 390 pixels. |
+| `tests/end-to-end/home-layout.spec.mjs` | The identity, bio, profiles, and the Products, Lab, and Writing sections in order, with at most four rows each, at 1440, 900, and 390 pixels. The three sections share one row from 860 pixels up. |
 | `tests/end-to-end/home-row-preview.spec.mjs` | The Lab row preview that shows for a fine pointer with allowed motion and stays away for reduced motion, touch, and other rows. |
 | `tests/end-to-end/home-keyboard.spec.mjs` | The skip link, the tab order through the profiles, rows, and index links, and their focus rings. |
 | `tests/end-to-end/home-navigation.spec.mjs` | Sections and index links for published content only, row and index navigation, and profile links. |

@@ -87,7 +87,7 @@ npm run import:lab-experiment -- <experiment> <experiment folder>   # copies a L
 - Use [the deploy skill](.claude/skills/deploy/SKILL.md) for deployment, live verification, rollback, or approved account and domain setup.
 - Use the [Linear website reference](https://linear.app/martinez-vega-inc/document/cristianvegaai-website-reference-90867b83f0f9) for authoring and image derivatives.
 - `src/pages/` holds the routes only. Each route loads content and picks a layout.
-- `src/layouts/BaseLayout.astro` is the page frame: the head, the skip link, the one reading column, and the analytics beacon. `DetailLayout.astro` adds the reading star and the title block to every page under the homepage. `ArticleLayout.astro` and `ProductLayout.astro` build on it, and their `[slug].astro` routes only load content.
+- `src/layouts/BaseLayout.astro` is the page frame: the head, the skip link, the reading column, and the analytics beacon. The homepage asks for the wider frame, so Products, Lab, and Writing can sit side by side. `DetailLayout.astro` adds the reading star and the title block to every page under the homepage. `ArticleLayout.astro` and `ProductLayout.astro` build on it, and their `[slug].astro` routes only load content.
 - `src/components/` holds the parts, one folder for each feature:
   - `site/`: `SiteHead` and `CloudflareAnalytics`.
   - `identity/`: the homepage identity, the profile links, and `LyraMark`.
