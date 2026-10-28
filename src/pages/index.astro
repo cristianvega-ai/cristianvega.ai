@@ -12,13 +12,13 @@ import "../styles/home.css";
 
 // Each section shows its newest entries and links to its own page. A section
 // with nothing visible does not render, so the page never points at a route
-// the build does not emit.
+// the build does not emit. The sections share one row on a wide screen.
 const products = selectLatestEntries(await getProducts()).map(productRow);
 const experiments = selectLatestEntries(await getExperiments()).map(experimentRow);
 const articles = selectLatestEntries(await getArticles()).map((article) => articleRow(article));
 ---
 
-<BaseLayout active="home">
+<BaseLayout active="home" frame="wide">
   <Identity />
 
   <p class="bio enter" data-step="2">
@@ -30,8 +30,12 @@ const articles = selectLatestEntries(await getArticles()).map((article) => artic
 
   <ProfileLinks step={3} />
 
-  {products.length > 0 && <HomeSection label="Products" id="products-label" rows={products} allHref="/products/" allLabel="All products" step={4} />}
-  {experiments.length > 0 && <HomeSection label="Lab" id="lab-label" rows={experiments} allHref="/lab/" allLabel="All experiments" step={5} />}
+  {products.length + experiments.length + articles.length > 0 && (
+    <div class="home-grid">
+      {products.length > 0 && <HomeSection label="Products" id="products-label" rows={products} allHref="/products/" allLabel="All products" step={4} />}
+      {experiments.length > 0 && <HomeSection label="Lab" id="lab-label" rows={experiments} allHref="/lab/" allLabel="All experiments" step={5} />}
+      {articles.length > 0 && <HomeSection label="Writing" id="writing-label" rows={articles} allHref="/writing/" allLabel="All writing" step={6} />}
+    </div>
+  )}
   {experiments.length > 0 && <RowPreview />}
-  {articles.length > 0 && <HomeSection label="Writing" id="writing-label" rows={articles} allHref="/writing/" allLabel="All writing" step={6} />}
 </BaseLayout>

@@ -84,6 +84,11 @@ a {
   padding: 112px var(--gutter) 128px;
 }
 
+/* The homepage is wider, so three sections can sit side by side. */
+.page--wide {
+  max-width: calc(var(--wide) + 2 * var(--gutter));
+}
+
 /* The skip link focuses the column, so the browser draws no ring around it. */
 .page:focus {
   outline: none;
